@@ -1,0 +1,1930 @@
+/**
+ * API Client
+ * Centralized API client for all modules (user, restaurant, delivery, admin)
+ * 
+ * Usage:
+ * import api from '@/lib/api'
+ * 
+ * // GET request
+ * const response = await api.get('/user/profile')
+ * 
+ * // POST request
+ * const response = await api.post('/auth/login', { email, password })
+ * 
+ * // PUT request
+ * const response = await api.put('/user/profile', { name, email })
+ * 
+ * // DELETE request
+ * const response = await api.delete('/user/addresses/:id')
+ */
+
+import apiClient from './axios.js';
+import { API_ENDPOINTS } from './config.js';
+
+// Export the configured axios instance
+export default apiClient;
+
+// Export API endpoints for convenience
+export { API_ENDPOINTS };
+
+// Export helper functions for common operations
+export const api = {
+  // GET request
+  get: (url, config = {}) => {
+    return apiClient.get(url, config);
+  },
+
+  // POST request
+  post: (url, data = {}, config = {}) => {
+    return apiClient.post(url, data, config);
+  },
+
+  // PUT request
+  put: (url, data = {}, config = {}) => {
+    return apiClient.put(url, data, config);
+  },
+
+  // PATCH request
+  patch: (url, data = {}, config = {}) => {
+    return apiClient.patch(url, data, config);
+  },
+
+  // DELETE request
+  delete: (url, config = {}) => {
+    return apiClient.delete(url, config);
+  },
+};
+
+// Export auth helper functions
+export const authAPI = {
+  // Send OTP (supports both phone and email)
+  sendOTP: (phone = null, purpose = 'login', email = null) => {
+    const payload = { purpose };
+    if (phone) payload.phone = phone;
+    if (email) payload.email = email;
+    return apiClient.post(API_ENDPOINTS.AUTH.SEND_OTP, payload);
+  },
+
+  // Verify OTP (supports both phone and email)
+  // 'password' is used only for email/password registrations (e.g. admin signup)
+  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, role = 'user', password = null) => {
+    const payload = {
+      otp,
+      purpose,
+      role,
+    };
+    if (phone != null) payload.phone = phone;
+    if (email != null) payload.email = email;
+    if (name != null) payload.name = name;
+    if (password != null) payload.password = password; // don't send null, Joi expects string
+    return apiClient.post(API_ENDPOINTS.AUTH.VERIFY_OTP, payload);
+  },
+
+  // Register with email/password
+  register: (name, email, password, phone = null, role = 'user') => {
+    return apiClient.post(API_ENDPOINTS.AUTH.REGISTER, {
+      name,
+      email,
+      password,
+      phone,
+      role,
+    });
+  },
+
+  // Login with email/password
+  login: (email, password, role = null) => {
+    const payload = { email, password };
+    if (role) payload.role = role;
+    return apiClient.post(API_ENDPOINTS.AUTH.LOGIN, payload);
+  },
+
+  // Login/Register via Firebase Google ID token
+  firebaseGoogleLogin: (idToken, role = 'restaurant') => {
+    return apiClient.post(API_ENDPOINTS.AUTH.FIREBASE_GOOGLE_LOGIN, { idToken, role });
+  },
+
+  // Refresh token
+  refreshToken: () => {
+    return apiClient.post(API_ENDPOINTS.AUTH.REFRESH_TOKEN);
+  },
+
+  // Logout
+  logout: () => {
+    return apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
+  },
+
+  // Get current user
+  getCurrentUser: () => {
+    return apiClient.get(API_ENDPOINTS.AUTH.ME);
+  },
+};
+
+// Export user API helper functions
+export const userAPI = {
+  // Get user profile
+  getProfile: () => {
+    return apiClient.get(API_ENDPOINTS.USER.PROFILE);
+  },
+
+  // Update user profile
+  updateProfile: (data) => {
+    return apiClient.put(API_ENDPOINTS.USER.PROFILE, data);
+  },
+
+  // Upload profile image
+  uploadProfileImage: (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return apiClient.post('/user/profile/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Get user addresses
+  getAddresses: () => {
+    return apiClient.get(API_ENDPOINTS.USER.ADDRESSES);
+  },
+
+  // Add address
+  addAddress: (address) => {
+    return apiClient.post(API_ENDPOINTS.USER.ADDRESSES, address);
+  },
+
+  // Update address
+  updateAddress: (addressId, address) => {
+    return apiClient.put(`${API_ENDPOINTS.USER.ADDRESSES}/${addressId}`, address);
+  },
+
+  // Delete address
+  deleteAddress: (addressId) => {
+    return apiClient.delete(`${API_ENDPOINTS.USER.ADDRESSES}/${addressId}`);
+  },
+
+  // Get user preferences
+  getPreferences: () => {
+    return apiClient.get(API_ENDPOINTS.USER.PREFERENCES);
+  },
+
+  // Update preferences
+  updatePreferences: (preferences) => {
+    return apiClient.put(API_ENDPOINTS.USER.PREFERENCES, preferences);
+  },
+
+  // Create donation order
+  createDonationOrder: (data) => {
+    return apiClient.post(API_ENDPOINTS.USER.DONATION_CREATE, data);
+  },
+
+  // Verify donation
+  verifyDonation: (data) => {
+    return apiClient.post(API_ENDPOINTS.USER.DONATION_VERIFY, data);
+  },
+
+  // Get wallet
+  getWallet: () => {
+    return apiClient.get(API_ENDPOINTS.USER.WALLET);
+  },
+
+  // Get wallet transactions
+  getWalletTransactions: (params = {}) => {
+    return apiClient.get(`${API_ENDPOINTS.USER.WALLET}/transactions`, { params });
+  },
+
+  // Create Razorpay order for wallet top-up
+  createWalletTopupOrder: (amount) => {
+    return apiClient.post(`${API_ENDPOINTS.USER.WALLET}/create-topup-order`, { amount });
+  },
+
+  // Verify payment and add money to wallet
+  verifyWalletTopupPayment: (data) => {
+    return apiClient.post(`${API_ENDPOINTS.USER.WALLET}/verify-topup-payment`, data);
+  },
+
+  // Add money to wallet (direct - internal use)
+  addMoneyToWallet: (data) => {
+    return apiClient.post(`${API_ENDPOINTS.USER.WALLET}/add-money`, data);
+  },
+
+  // Get user orders
+  getOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.USER.ORDERS, { params });
+  },
+
+  // Get user location
+  getLocation: () => {
+    return apiClient.get(API_ENDPOINTS.USER.LOCATION);
+  },
+
+  // Update user location
+  updateLocation: (locationData) => {
+    return apiClient.put(API_ENDPOINTS.USER.LOCATION, locationData);
+  },
+};
+
+// Export public settings API helper functions
+export const publicAPI = {
+  getBusinessSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS_PUBLIC);
+  },
+};
+
+// Export location API helper functions
+export const locationAPI = {
+  // Reverse geocode coordinates to address
+  reverseGeocode: (lat, lng) => {
+    return apiClient.get(API_ENDPOINTS.LOCATION.REVERSE_GEOCODE, {
+      params: { lat, lng }
+    });
+  },
+  // Get nearby locations
+  getNearbyLocations: (lat, lng, radius = 500, query = '') => {
+    return apiClient.get(API_ENDPOINTS.LOCATION.NEARBY, {
+      params: { lat, lng, radius, query }
+    });
+  },
+};
+
+// Export zone API helper functions
+export const zoneAPI = {
+  // Detect user's zone based on location
+  detectZone: (lat, lng) => {
+    return apiClient.get(API_ENDPOINTS.ZONE.DETECT, {
+      params: { lat, lng }
+    });
+  },
+};
+
+// Export restaurant API helper functions
+export const restaurantAPI = {
+  // Restaurant Authentication
+  sendOTP: (phone = null, purpose = 'login', email = null) => {
+    const payload = { purpose };
+    if (phone) payload.phone = phone;
+    if (email) payload.email = email;
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.SEND_OTP, payload);
+  },
+
+  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, businessModel = null, password = null) => {
+    const payload = {
+      otp,
+      purpose,
+    };
+    if (phone != null) payload.phone = phone;
+    if (email != null) payload.email = email;
+    if (name != null) payload.name = name;
+    if (businessModel != null) payload.businessModel = businessModel;
+    if (password != null) payload.password = password;
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.VERIFY_OTP, payload);
+  },
+
+  register: (name, email, password, phone = null, ownerName = null, ownerEmail = null, ownerPhone = null) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.REGISTER, {
+      name,
+      email,
+      password,
+      phone,
+      ownerName,
+      ownerEmail,
+      ownerPhone,
+    });
+  },
+
+  login: (email, password) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.LOGIN, { email, password });
+  },
+
+  firebaseGoogleLogin: (idToken) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.FIREBASE_GOOGLE_LOGIN, { idToken });
+  },
+
+  refreshToken: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.REFRESH_TOKEN);
+  },
+
+  logout: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.LOGOUT);
+  },
+
+  getCurrentRestaurant: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.AUTH.ME);
+  },
+
+  reverify: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.REVERIFY);
+  },
+
+  resetPassword: (email, otp, newPassword) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.RESET_PASSWORD, {
+      email,
+      otp,
+      newPassword,
+    });
+  },
+
+  // Get restaurant profile
+  getProfile: (config = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.PROFILE, config);
+  },
+
+  // Update restaurant profile
+  updateProfile: (data) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.PROFILE, data);
+  },
+
+  // Delete restaurant account
+  deleteAccount: () => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.PROFILE);
+  },
+
+  // Update delivery status (isAcceptingOrders)
+  updateDeliveryStatus: (isAcceptingOrders) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.DELIVERY_STATUS, { isAcceptingOrders });
+  },
+
+  // Upload profile image
+  uploadProfileImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.PROFILE}/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Upload menu image
+  uploadMenuImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.PROFILE}/menu-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Staff Management
+  addStaff: (data) => {
+    // If data is FormData, set appropriate headers
+    const config = data instanceof FormData
+      ? {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+      : {};
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.STAFF, data, config);
+  },
+  getStaff: (role) => {
+    const url = role ? `${API_ENDPOINTS.RESTAURANT.STAFF}?role=${role}` : API_ENDPOINTS.RESTAURANT.STAFF;
+    return apiClient.get(url);
+  },
+  getStaffById: (id) => {
+    return apiClient.get(`${API_ENDPOINTS.RESTAURANT.STAFF}/${id}`);
+  },
+  updateStaff: (id, data) => {
+    return apiClient.put(`${API_ENDPOINTS.RESTAURANT.STAFF}/${id}`, data);
+  },
+  deleteStaff: (id) => {
+    return apiClient.delete(`${API_ENDPOINTS.RESTAURANT.STAFF}/${id}`);
+  },
+
+  // Menu operations
+  getMenu: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.MENU);
+  },
+  updateMenu: (menuData) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.MENU, menuData);
+  },
+  addSection: (name) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section`, { name });
+  },
+  addItemToSection: (sectionId, item) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section/item`, { sectionId, item });
+  },
+  addSubsectionToSection: (sectionId, name) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section/subsection`, { sectionId, name });
+  },
+  addItemToSubsection: (sectionId, subsectionId, item) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/subsection/item`, { sectionId, subsectionId, item });
+  },
+  getMenuByRestaurantId: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.MENU_BY_RESTAURANT_ID.replace(':id', restaurantId));
+  },
+
+  // Get orders
+  getOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.ORDERS, { params });
+  },
+
+  // Get order by ID
+  getOrderById: (id) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.ORDER_BY_ID.replace(':id', id));
+  },
+
+  // Accept order
+  acceptOrder: (id, preparationTime = null) => {
+    return apiClient.patch(API_ENDPOINTS.RESTAURANT.ORDER_ACCEPT.replace(':id', id), {
+      preparationTime
+    });
+  },
+
+  // Reject order
+  rejectOrder: (id, reason = '') => {
+    return apiClient.patch(API_ENDPOINTS.RESTAURANT.ORDER_REJECT.replace(':id', id), {
+      reason
+    });
+  },
+
+  // Mark order as preparing
+  markOrderPreparing: (id, options = {}) => {
+    const url = API_ENDPOINTS.RESTAURANT.ORDER_PREPARING.replace(':id', id);
+    // Add resend query parameter if provided
+    if (options.resend) {
+      return apiClient.patch(`${url}?resend=true`);
+    }
+    return apiClient.patch(url);
+  },
+
+  // Mark order as ready
+  markOrderReady: (id) => {
+    return apiClient.patch(API_ENDPOINTS.RESTAURANT.ORDER_READY.replace(':id', id));
+  },
+
+  // Resend / reassign delivery notification
+  resendDeliveryNotification: (id, options = {}) => {
+    const qs = options.reassign ? '?reassign=true' : '';
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.ORDER_RESEND_DELIVERY_NOTIFICATION.replace(':id', id)}${qs}`);
+  },
+
+  // Get wallet
+  getWallet: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.WALLET);
+  },
+  getWalletTransactions: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.WALLET_TRANSACTIONS, { params });
+  },
+  getWalletStats: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.WALLET_STATS, { params });
+  },
+  // Withdrawal
+  createWithdrawalRequest: (amount) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.WITHDRAWAL_REQUEST, { amount });
+  },
+  getWithdrawalRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.WITHDRAWAL_REQUESTS, { params });
+  },
+  updatePayoutDetails: (data) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.PAYOUT_DETAILS, data);
+  },
+
+  // Get analytics
+  getAnalytics: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.ANALYTICS, { params });
+  },
+
+  // Get all restaurants (for user module)
+  getRestaurants: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.LIST, { params });
+  },
+
+  // Get restaurants with dishes under ₹250
+  getRestaurantsUnder250: (zoneId) => {
+    const params = zoneId ? { zoneId } : {};
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.UNDER_250, { params });
+  },
+
+  // Get restaurant by ID or slug
+  getRestaurantById: (id) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.BY_ID.replace(':id', id));
+  },
+  // Get coupons for item (public - for user cart)
+  getCouponsByItemIdPublic: (restaurantId, itemId) => {
+    return apiClient.get(
+      API_ENDPOINTS.RESTAURANT.COUPONS_BY_ITEM_ID_PUBLIC
+        .replace(':restaurantId', restaurantId)
+        .replace(':itemId', itemId)
+    );
+  },
+  // Get public offers (for user offers page)
+  getPublicOffers: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.OFFERS_PUBLIC);
+  },
+
+  // Get restaurant by owner (for restaurant module)
+  getRestaurantByOwner: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.BY_OWNER);
+  },
+
+  // Menu operations (for restaurant module)
+  getMenu: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.MENU);
+  },
+  updateMenu: (menuData) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.MENU, menuData);
+  },
+  addSection: (name) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section`, { name });
+  },
+  addItemToSection: (sectionId, item) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section/item`, { sectionId, item });
+  },
+  addSubsectionToSection: (sectionId, name) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/section/subsection`, { sectionId, name });
+  },
+  addItemToSubsection: (sectionId, subsectionId, item) => {
+    return apiClient.post(`${API_ENDPOINTS.RESTAURANT.MENU}/subsection/item`, { sectionId, subsectionId, item });
+  },
+
+  // Add-on operations
+  addAddon: (addonData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.ADDON, addonData);
+  },
+  getAddons: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.ADDONS);
+  },
+  updateAddon: (id, addonData) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.ADDON_BY_ID.replace(':id', id), addonData);
+  },
+  deleteAddon: (id) => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.ADDON_BY_ID.replace(':id', id));
+  },
+  getAddonsByRestaurantId: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.ADDONS_BY_RESTAURANT_ID.replace(':id', restaurantId));
+  },
+
+  getMenuByRestaurantId: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.MENU_BY_RESTAURANT_ID.replace(':id', restaurantId));
+  },
+
+  // Menu item scheduling operations
+  scheduleItemAvailability: (scheduleData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.MENU_ITEM_SCHEDULE, scheduleData);
+  },
+  cancelScheduledAvailability: (scheduleId) => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.MENU_ITEM_SCHEDULE_BY_ID.replace(':scheduleId', scheduleId));
+  },
+  getItemSchedule: (sectionId, itemId) => {
+    return apiClient.get(
+      API_ENDPOINTS.RESTAURANT.MENU_ITEM_SCHEDULE_BY_ITEM
+        .replace(':sectionId', sectionId)
+        .replace(':itemId', itemId)
+    );
+  },
+
+  // Category operations (for restaurant module)
+  getCategories: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.CATEGORIES);
+  },
+  getAllCategories: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.CATEGORIES_ALL);
+  },
+  createCategory: (categoryData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.CATEGORIES, categoryData);
+  },
+  updateCategory: (id, categoryData) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.CATEGORY_BY_ID.replace(':id', id), categoryData);
+  },
+  deleteCategory: (id) => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.CATEGORY_BY_ID.replace(':id', id));
+  },
+  reorderCategories: (categories) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.CATEGORIES_REORDER, { categories });
+  },
+
+  // Inventory operations (for restaurant module)
+  getInventory: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.INVENTORY);
+  },
+  updateInventory: (inventoryData) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.INVENTORY, inventoryData);
+  },
+  getInventoryByRestaurantId: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.INVENTORY_BY_RESTAURANT_ID.replace(':id', restaurantId));
+  },
+
+  // Offer operations (for restaurant module)
+  createOffer: (offerData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.OFFERS, offerData);
+  },
+  getOffers: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.OFFERS, { params });
+  },
+  getOfferById: (id) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.OFFER_BY_ID.replace(':id', id));
+  },
+  updateOfferStatus: (id, status) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.OFFER_STATUS.replace(':id', id), { status });
+  },
+  deleteOffer: (id) => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.OFFER_BY_ID.replace(':id', id));
+  },
+  getCouponsByItemId: (itemId) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.COUPONS_BY_ITEM_ID.replace(':itemId', itemId));
+  },
+
+  // Finance operations (for restaurant module)
+  getFinance: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.FINANCE, { params });
+  },
+
+  // Complaint operations
+  getComplaints: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.COMPLAINTS, { params });
+  },
+  getComplaintById: (id) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.COMPLAINT_BY_ID.replace(':id', id));
+  },
+  respondToComplaint: (id, response) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.COMPLAINT_RESPOND.replace(':id', id), { response });
+  },
+
+  // Subscription operations
+  createSubscriptionOrder: (planId) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.CREATE_ORDER, { planId });
+  },
+  verifyPayment: (paymentData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.VERIFY_PAYMENT, paymentData);
+  },
+  getSubscriptionStatus: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.STATUS, {
+      params: { _t: Date.now() }
+    });
+  },
+  getSubscriptionPlans: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.PLANS);
+  },
+  cancelSubscription: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.CANCEL);
+  },
+
+  // Notifications
+  getNotifications: () => {
+    return apiClient.get('/restaurant/notifications');
+  },
+  markAllNotificationsRead: () => {
+    return apiClient.put('/restaurant/notifications/mark-all-read');
+  },
+  markNotificationRead: (id) => {
+    return apiClient.put(`/restaurant/notifications/${id}/mark-read`);
+  },
+  deleteNotification: (id) => {
+    return apiClient.delete(`/restaurant/notifications/${id}`);
+  },
+
+  // Dining Tables
+  getDiningTables: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.DINING_TABLES);
+  },
+  addDiningTable: (data) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_TABLES, data);
+  },
+  deleteDiningTable: (id) => {
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.DINING_TABLE_BY_ID.replace(':id', id));
+  },
+  updateDiningSettings: (data, config = {}) => {
+    return apiClient.put(API_ENDPOINTS.RESTAURANT.DINING_SETTINGS, data, config);
+  },
+  getDiningActivationStatus: () => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.STATUS);
+  },
+  requestDiningEnable: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.REQUEST);
+  },
+  enableDiningWithoutPayment: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.ENABLE_FREE);
+  },
+  createDiningActivationOrder: () => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.CREATE_ORDER);
+  },
+  verifyDiningActivationPayment: (paymentData) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.VERIFY_PAYMENT, paymentData);
+  }
+};
+
+// Export delivery API helper functions
+export const deliveryAPI = {
+  // Delivery Authentication
+  sendOTP: (phone, purpose = 'login') => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.SEND_OTP, { phone, purpose });
+  },
+  verifyOTP: (phone, otp, purpose = 'login', name = null) => {
+    const payload = { phone, otp, purpose };
+    // Only include name if it's provided and is a string
+    if (name && typeof name === 'string' && name.trim()) {
+      payload.name = name.trim();
+    }
+    return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.VERIFY_OTP, payload);
+  },
+  refreshToken: () => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.REFRESH_TOKEN);
+  },
+  logout: () => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.LOGOUT);
+  },
+  getCurrentDelivery: () => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.AUTH.ME);
+  },
+
+  // Dashboard
+  getDashboard: () => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.DASHBOARD);
+  },
+
+  // Wallet
+  getWallet: () => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET);
+  },
+  getWalletBalance: () => {
+    // Backward compatibility - use getWallet instead
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET);
+  },
+  getWalletTransactions: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET_TRANSACTIONS, { params });
+  },
+  getWithdrawalRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET_WITHDRAWAL_REQUESTS, { params });
+  },
+  getWalletStats: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET_STATS, { params });
+  },
+  createWithdrawalRequest: (data, config = {}) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_WITHDRAW, data, config);
+  },
+  addEarning: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_EARNINGS, data);
+  },
+  collectPayment: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_COLLECT_PAYMENT, data);
+  },
+  claimJoiningBonus: () => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.CLAIM_JOINING_BONUS);
+  },
+  createDepositOrder: (amount) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_CREATE_ORDER, { amount });
+  },
+  verifyDepositPayment: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_VERIFY, data);
+  },
+  getBankDepositDetails: () => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_BANK_DETAILS);
+  },
+  submitBankDeposit: (data, config = {}) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_BANK_SUBMIT, data, config);
+  },
+  getOrderStats: (period = 'all') => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ORDER_STATS, { params: { period } });
+  },
+
+  // Get emergency help numbers
+  getEmergencyHelp: () => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.EMERGENCY_HELP);
+  },
+
+  // Support Tickets
+  getSupportTickets: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.SUPPORT_TICKETS, { params });
+  },
+
+  getSupportTicketById: (id) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.SUPPORT_TICKET_BY_ID.replace(':id', id));
+  },
+
+  createSupportTicket: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.SUPPORT_TICKETS, data);
+  },
+
+  // Get delivery profile
+  getProfile: () => {
+    // Pass a cache-busting parameter to bypass the 30-second GET cache in axios.js
+    return apiClient.get(API_ENDPOINTS.DELIVERY.PROFILE, {
+      params: { _t: Date.now() }
+    });
+  },
+
+  // Update delivery profile
+  updateProfile: (data) => {
+    return apiClient.put(API_ENDPOINTS.DELIVERY.PROFILE, data);
+  },
+
+  // Get orders
+  getOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ORDERS, { params });
+  },
+  getOrderDetails: (orderId) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ORDER_BY_ID.replace(':orderId', orderId));
+  },
+  acceptOrder: (orderId, currentLocation = {}) => {
+    const payload = {};
+    if (currentLocation.lat !== undefined && currentLocation.lat !== null) {
+      payload.currentLat = currentLocation.lat;
+    }
+    if (currentLocation.lng !== undefined && currentLocation.lng !== null) {
+      payload.currentLng = currentLocation.lng;
+    }
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_ACCEPT.replace(':orderId', orderId), payload);
+  },
+  confirmReachedPickup: (orderId) => {
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_REACHED_PICKUP.replace(':orderId', orderId));
+  },
+  confirmOrderId: (orderId, confirmedOrderId, currentLocation = {}, additionalData = {}) => {
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_CONFIRM_ID.replace(':orderId', orderId), {
+      confirmedOrderId,
+      currentLat: currentLocation.lat,
+      currentLng: currentLocation.lng,
+      ...additionalData
+    });
+  },
+  confirmReachedDrop: (orderId) => {
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_REACHED_DROP.replace(':orderId', orderId));
+  },
+  completeDelivery: (orderId, rating = null, review = '') => {
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_COMPLETE_DELIVERY.replace(':orderId', orderId), {
+      rating,
+      review
+    });
+  },
+  generateOrderQr: (orderId) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.ORDER_GENERATE_QR.replace(':orderId', orderId));
+  },
+
+  // Get trip history
+  getTripHistory: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.TRIP_HISTORY, { params });
+  },
+
+  // Get earnings
+  getEarnings: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.EARNINGS, { params });
+  },
+
+  // Get active earning addon offers
+  getActiveEarningAddons: () => {
+    const endpoint = API_ENDPOINTS.DELIVERY.EARNINGS_ACTIVE_OFFERS;
+    return apiClient.get(endpoint);
+  },
+
+  // Update location
+  updateLocation: (latitude, longitude, isOnline = null, metadata = {}) => {
+    const payload = {
+      latitude,
+      longitude,
+    };
+    if (typeof isOnline === 'boolean') {
+      payload.isOnline = isOnline;
+    }
+    if (metadata && typeof metadata === 'object') {
+      if (metadata.heading !== undefined && metadata.heading !== null) {
+        payload.heading = metadata.heading;
+      }
+      if (metadata.speed !== undefined && metadata.speed !== null) {
+        payload.speed = metadata.speed;
+      }
+      if (metadata.accuracy !== undefined && metadata.accuracy !== null) {
+        payload.accuracy = metadata.accuracy;
+      }
+      if (metadata.orderId !== undefined && metadata.orderId !== null) {
+        payload.orderId = metadata.orderId;
+      }
+    }
+    return apiClient.post(API_ENDPOINTS.DELIVERY.LOCATION, payload);
+  },
+
+  // Update online status
+  updateOnlineStatus: (isOnline) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.LOCATION, {
+      isOnline,
+    });
+  },
+
+  // Signup
+  submitSignupDetails: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.SIGNUP.DETAILS, data);
+  },
+  submitSignupDocuments: (data) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.SIGNUP.DOCUMENTS, data);
+  },
+  cancelSignup: () => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.SIGNUP.CANCEL_SIGNUP);
+  },
+
+  // Reverify (resubmit for approval)
+  reverify: () => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.REVERIFY);
+  },
+
+  // Get zones within radius (for delivery boy to see nearby zones)
+  getZonesInRadius: (latitude, longitude, radius = 70) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ZONES_IN_RADIUS, {
+      params: { latitude, longitude, radius }
+    });
+  },
+};
+
+// Export admin API helper functions
+export const adminAPI = {
+  // Admin Auth
+  signup: (name, email, password, phone = null) => {
+    const payload = { name, email, password };
+    if (phone) payload.phone = phone;
+    return apiClient.post(API_ENDPOINTS.ADMIN.AUTH.SIGNUP, payload);
+  },
+
+  signupWithOTP: (name, email, password, otp, phone = null) => {
+    const payload = { name, email, password, otp };
+    if (phone) payload.phone = phone;
+    return apiClient.post(API_ENDPOINTS.ADMIN.AUTH.SIGNUP_OTP, payload);
+  },
+
+  login: (email, password) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.AUTH.LOGIN, { email, password });
+  },
+
+  logout: () => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.AUTH.LOGOUT);
+  },
+
+  getCurrentAdmin: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.AUTH.ME);
+  },
+
+  // Get admin profile
+  getAdminProfile: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.PROFILE);
+  },
+
+  // Update admin profile
+  updateAdminProfile: (profileData) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.PROFILE, profileData);
+  },
+
+  // Change admin password
+  changePassword: (currentPassword, newPassword) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.CHANGE_PASSWORD, {
+      currentPassword,
+      newPassword
+    });
+  },
+
+  // Get dashboard stats
+  getDashboardStats: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DASHBOARD_STATS);
+  },
+
+  // Get users
+  getUsers: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.USERS, { params });
+  },
+
+  // Get user by ID
+  getUserById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.USER_BY_ID.replace(':id', id));
+  },
+
+  // Update user status
+  updateUserStatus: (id, isActive) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.USER_STATUS.replace(':id', id), { isActive });
+  },
+
+  // Get restaurants
+  getRestaurants: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANTS, { params });
+  },
+
+  // Create restaurant
+  createRestaurant: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANTS, data);
+  },
+
+  // Get restaurant by ID
+  getRestaurantById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_BY_ID.replace(':id', id));
+  },
+
+  // Get restaurant analytics
+  getRestaurantAnalytics: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_ANALYTICS.replace(':restaurantId', restaurantId));
+  },
+
+  // Update restaurant status
+  updateRestaurantStatus: (id, isActive) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_STATUS.replace(':id', id), { isActive });
+  },
+
+  // Get restaurant join requests
+  getRestaurantJoinRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_REQUESTS, { params });
+  },
+
+  // Approve restaurant
+  approveRestaurant: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_APPROVE.replace(':id', id));
+  },
+
+  // Reject restaurant
+  rejectRestaurant: (id, reason) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_REJECT.replace(':id', id), { reason });
+  },
+
+  // Restaurant Subscription Management
+  getSubscriptionRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANTS_SUBSCRIPTIONS, { params });
+  },
+  updateSubscriptionStatus: (restaurantId, data) => {
+    return apiClient.put(
+      API_ENDPOINTS.ADMIN.RESTAURANTS_SUBSCRIPTION_UPDATE.replace(':restaurantId', restaurantId),
+      data
+    );
+  },
+
+  // Subscription Plan Management
+  getSubscriptionPlans: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLANS, { params });
+  },
+  getActiveSubscriptionPlans: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLANS_ACTIVE);
+  },
+  createSubscriptionPlan: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLANS, data);
+  },
+  updateSubscriptionPlan: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLAN_BY_ID.replace(':id', id), data);
+  },
+  deleteSubscriptionPlan: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLAN_BY_ID.replace(':id', id));
+  },
+  toggleSubscriptionPlanStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.SUBSCRIPTION_PLAN_STATUS.replace(':id', id));
+  },
+
+  // Delete restaurant
+  deleteRestaurant: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.RESTAURANT_DELETE.replace(':id', id));
+  },
+
+  // Get all offers (with restaurant and dish details)
+  getAllOffers: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.OFFERS, { params });
+  },
+
+  // Restaurant Commission Management
+  getRestaurantCommissions: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION, { params });
+  },
+
+  getApprovedRestaurants: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_APPROVED_RESTAURANTS, { params });
+  },
+
+  getRestaurantCommissionById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  getCommissionByRestaurantId: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_BY_RESTAURANT_ID.replace(':restaurantId', restaurantId));
+  },
+
+  createRestaurantCommission: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION, data);
+  },
+
+  updateRestaurantCommission: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_BY_ID.replace(':id', id), data);
+  },
+
+  deleteRestaurantCommission: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  toggleRestaurantCommissionStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_STATUS.replace(':id', id));
+  },
+
+  calculateRestaurantCommission: (restaurantId, orderAmount) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_CALCULATE, {
+      restaurantId,
+      orderAmount
+    });
+  },
+
+  upgradeRestaurantToSubscription: (restaurantId) => {
+    return apiClient.patch(`/admin/restaurant-commission/upgrade/${restaurantId}`);
+  },
+
+  // Restaurant Complaint Management
+  getRestaurantComplaints: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINTS, { params });
+  },
+  getRestaurantComplaintById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINT_BY_ID.replace(':id', id));
+  },
+  updateRestaurantComplaintStatus: (id, status, adminResponse, internalNotes) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINT_STATUS.replace(':id', id), {
+      status,
+      adminResponse,
+      internalNotes
+    });
+  },
+  updateRestaurantComplaintNotes: (id, internalNotes) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINT_NOTES.replace(':id', id), {
+      internalNotes
+    });
+  },
+
+  // Restaurant Menu Management (Admin)
+  getRestaurantMenu: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_MENU.replace(':id', restaurantId));
+  },
+  updateRestaurantMenu: (restaurantId, menuData) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_MENU.replace(':id', restaurantId), menuData);
+  },
+
+  // Get delivery partners
+  getDelivery: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY, { params });
+  },
+
+  // Get delivery partner join requests
+  getDeliveryPartnerJoinRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_PARTNERS_REQUESTS, { params });
+  },
+
+  // Get delivery partner by ID
+  getDeliveryPartnerById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_BY_ID.replace(':id', id));
+  },
+
+  // Approve delivery partner
+  approveDeliveryPartner: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_APPROVE.replace(':id', id));
+  },
+
+  // Reject delivery partner
+  rejectDeliveryPartner: (id, reason) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_REJECT.replace(':id', id), { reason });
+  },
+
+  // Reverify delivery partner
+  reverifyDeliveryPartner: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_REVERIFY.replace(':id', id));
+  },
+
+  // Get all delivery partners
+  getDeliveryEarnings: (params = {}) => {
+    return apiClient.get('/admin/delivery-partners/earnings', { params });
+  },
+  getDeliveryBankDeposits: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BANK_DEPOSITS, { params });
+  },
+  approveDeliveryBankDeposit: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BANK_DEPOSIT_APPROVE.replace(':id', id));
+  },
+  rejectDeliveryBankDeposit: (id, reason = '') => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BANK_DEPOSIT_REJECT.replace(':id', id), { reason });
+  },
+
+  getDeliveryPartners: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_PARTNERS, { params });
+  },
+
+  // Update delivery partner status
+  updateDeliveryPartnerStatus: (id, status, isActive = null) => {
+    const payload = {};
+    if (status) payload.status = status;
+    if (isActive !== null) payload.isActive = isActive;
+    return apiClient.patch(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_STATUS.replace(':id', id), payload);
+  },
+
+  // Delete delivery partner
+  deleteDeliveryPartner: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_DELETE.replace(':id', id));
+  },
+
+  // Add bonus to delivery partner
+  addDeliveryPartnerBonus: (deliveryPartnerId, amount, reference = '') => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_BONUS, {
+      deliveryPartnerId,
+      amount: parseFloat(amount),
+      reference
+    });
+  },
+
+  // Get bonus transactions
+  getDeliveryPartnerBonusTransactions: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_BONUS_TRANSACTIONS, { params });
+  },
+
+  // Get orders
+  getOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS, { params });
+  },
+
+  // Get orders searching for deliveryman
+  getSearchingDeliverymanOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS_SEARCHING_DELIVERYMAN, { params });
+  },
+
+  // Get ongoing orders
+  getOngoingOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS_ONGOING, { params });
+  },
+
+  // Get transaction report
+  getTransactionReport: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS_TRANSACTION_REPORT, { params });
+  },
+
+  // Get restaurant report
+  getRestaurantReport: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS_RESTAURANT_REPORT, { params });
+  },
+
+  // Get refund requests
+  getRefundRequests: (params = {}) => {
+    return apiClient.get('/api/admin/refund-requests', { params });
+  },
+
+  // Process refund (supports both old and new endpoints)
+  processRefund: (orderId, data = {}) => {
+    // Backend accepts either MongoDB ObjectId (24 chars) or orderId string
+    // Note: Don't include /api prefix - apiClient baseURL already includes it
+    if (!orderId) {
+      return Promise.reject(new Error('Order ID is required'));
+    }
+    // Use the working endpoint: /admin/refund-requests/:orderId/process
+    // apiClient baseURL is already /api, so this becomes /api/admin/refund-requests/:orderId/process
+    return apiClient.post(`/admin/refund-requests/${encodeURIComponent(orderId)}/process`, data);
+  },
+  // Get customer wallet report
+  getCustomerWalletReport: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.CUSTOMER_WALLET_REPORT, { params });
+  },
+
+  // Withdrawal Request Management
+  getWithdrawalRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.WITHDRAWAL_REQUESTS, { params });
+  },
+  approveWithdrawalRequest: (id, data = {}) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.WITHDRAWAL_APPROVE.replace(':id', id), data);
+  },
+  rejectWithdrawalRequest: (id, rejectionReason = '') => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.WITHDRAWAL_REJECT.replace(':id', id), { rejectionReason });
+  },
+
+  // Business Settings Management
+  getBusinessSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS);
+  },
+
+  getPublicBusinessSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS + '/public');
+  },
+
+  updateBusinessSettings: (data, files = {}) => {
+    const formData = new FormData();
+
+    // Add text fields
+    Object.keys(data).forEach(key => {
+      if (key !== 'logo' && key !== 'favicon') {
+        if (Array.isArray(data[key])) {
+          data[key].forEach(val => formData.append(key, val));
+        } else {
+          formData.append(key, data[key]);
+        }
+      }
+    });
+
+    // Add files
+    if (files.logo) {
+      formData.append('logo', files.logo);
+    }
+    if (files.favicon) {
+      formData.append('favicon', files.favicon);
+    }
+
+    return apiClient.put(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Get analytics
+  getAnalytics: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ANALYTICS, { params });
+  },
+
+  // Category Management
+  getCategories: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.CATEGORIES, { params });
+  },
+
+  // Get public categories (for user frontend)
+  getPublicCategories: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.CATEGORIES_PUBLIC);
+  },
+
+  getCategoryById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.CATEGORY_BY_ID.replace(':id', id));
+  },
+
+  createCategory: (data) => {
+    // Axios will automatically handle FormData headers (including boundary)
+    // No need to manually set Content-Type for FormData
+    return apiClient.post(API_ENDPOINTS.ADMIN.CATEGORIES, data);
+  },
+
+  updateCategory: (id, data) => {
+    // Axios will automatically handle FormData headers (including boundary)
+    // No need to manually set Content-Type for FormData
+    return apiClient.put(API_ENDPOINTS.ADMIN.CATEGORY_BY_ID.replace(':id', id), data);
+  },
+
+  deleteCategory: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.CATEGORY_BY_ID.replace(':id', id));
+  },
+
+  toggleCategoryStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.CATEGORY_STATUS.replace(':id', id));
+  },
+
+  updateCategoryPriority: (id, priority) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.CATEGORY_PRIORITY.replace(':id', id), { priority });
+  },
+
+  // Fee Settings Management (Delivery & Platform Fee)
+  getFeeSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FEE_SETTINGS);
+  },
+
+  getPublicFeeSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FEE_SETTINGS_PUBLIC);
+  },
+
+  getFeeSettingsHistory: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FEE_SETTINGS_HISTORY, { params });
+  },
+
+  createOrUpdateFeeSettings: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.FEE_SETTINGS, data);
+  },
+
+  updateFeeSettings: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.FEE_SETTINGS_BY_ID.replace(':id', id), data);
+  },
+
+  // Zone Management
+  getZones: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ZONES, { params });
+  },
+
+  getZoneById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ZONE_BY_ID.replace(':id', id));
+  },
+
+  createZone: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.ZONES, data);
+  },
+
+  updateZone: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.ZONE_BY_ID.replace(':id', id), data);
+  },
+
+  deleteZone: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.ZONE_BY_ID.replace(':id', id));
+  },
+
+  toggleZoneStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.ZONE_STATUS.replace(':id', id));
+  },
+
+  // Earning Addon Management
+  createEarningAddon: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.EARNING_ADDON, data);
+  },
+
+  getEarningAddons: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.EARNING_ADDON, { params });
+  },
+
+  getEarningAddonById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.EARNING_ADDON_BY_ID.replace(':id', id));
+  },
+
+  updateEarningAddon: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.EARNING_ADDON_BY_ID.replace(':id', id), data);
+  },
+
+  deleteEarningAddon: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.EARNING_ADDON_BY_ID.replace(':id', id));
+  },
+
+  toggleEarningAddonStatus: (id, status) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.EARNING_ADDON_STATUS.replace(':id', id), { status });
+  },
+
+  checkEarningAddonCompletions: (deliveryPartnerId, debug = false) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.EARNING_ADDON_CHECK_COMPLETIONS, { deliveryPartnerId, debug });
+  },
+
+  // Earning Addon History Management
+  getEarningAddonHistory: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.EARNING_ADDON_HISTORY, { params });
+  },
+
+  getEarningAddonHistoryById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.EARNING_ADDON_HISTORY_BY_ID.replace(':id', id));
+  },
+
+  creditEarningToWallet: (id, notes = '') => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.EARNING_ADDON_HISTORY_CREDIT.replace(':id', id), { notes });
+  },
+
+  cancelEarningAddonHistory: (id, reason = '') => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.EARNING_ADDON_HISTORY_CANCEL.replace(':id', id), { reason });
+  },
+
+  getEarningAddonHistoryStatistics: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.EARNING_ADDON_HISTORY_STATISTICS, { params });
+  },
+
+  // Environment Variables Management
+  getEnvVariables: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ENV_VARIABLES);
+  },
+
+  saveEnvVariables: (envData) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.ENV_VARIABLES, envData);
+  },
+
+  // Public Environment Variables (for frontend use)
+  getPublicEnvVariables: () => {
+    return apiClient.get('/env/public');
+  },
+
+  // Delivery Boy Commission Management
+  getCommissionRules: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION, { params });
+  },
+
+  getCommissionRuleById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  createCommissionRule: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION, data);
+  },
+
+  updateCommissionRule: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id), data);
+  },
+
+  deleteCommissionRule: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  toggleCommissionRuleStatus: (id, status) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_STATUS.replace(':id', id), { status });
+  },
+
+  calculateCommission: (distance) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_CALCULATE, { distance });
+  },
+
+  // Delivery Partner global cash limit
+  getDeliveryCashLimit: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_CASH_LIMIT);
+  },
+
+  updateDeliveryCashLimit: (data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.DELIVERY_CASH_LIMIT, typeof data === 'object' ? data : { deliveryCashLimit: data });
+  },
+
+  // Deliveryman Reviews
+  getDeliverymanReviews: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_PARTNER_REVIEWS, { params });
+  },
+
+  getCashLimitSettlements: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.CASH_LIMIT_SETTLEMENT, { params });
+  },
+
+  getDeliveryWithdrawalRequests: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_WITHDRAWAL_REQUESTS, { params });
+  },
+  approveDeliveryWithdrawal: (id, data = {}) => {
+    const sid = id != null ? String(id) : '';
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_WITHDRAWAL_APPROVE.replace(':id', sid), data);
+  },
+  rejectDeliveryWithdrawal: (id, rejectionReason = '') => {
+    const sid = id != null ? String(id) : '';
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_WITHDRAWAL_REJECT.replace(':id', sid), { rejectionReason });
+  },
+
+  getDeliveryBoyWallets: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BOY_WALLET, { params });
+  },
+  addDeliveryBoyWalletAdjustment: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BOY_WALLET_ADJUSTMENT, data);
+  },
+
+  // Delivery Emergency Help Management
+  getEmergencyHelp: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_EMERGENCY_HELP);
+  },
+
+  createOrUpdateEmergencyHelp: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_EMERGENCY_HELP, data);
+  },
+
+  toggleEmergencyHelpStatus: () => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.DELIVERY_EMERGENCY_HELP_STATUS);
+  },
+
+  // Delivery Support Tickets Management
+  getDeliverySupportTickets: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_SUPPORT_TICKETS, { params });
+  },
+
+  getDeliverySupportTicketById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_SUPPORT_TICKET_BY_ID.replace(':id', id));
+  },
+
+  updateDeliverySupportTicket: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.DELIVERY_SUPPORT_TICKET_BY_ID.replace(':id', id), data);
+  },
+
+  getDeliverySupportTicketStats: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_SUPPORT_TICKETS_STATS);
+  },
+
+  // Food Approval
+  getPendingFoodApprovals: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FOOD_APPROVALS, { params });
+  },
+
+  approveFoodItem: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.FOOD_APPROVAL_APPROVE.replace(':id', id));
+  },
+
+  rejectFoodItem: (id, reason) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.FOOD_APPROVAL_REJECT.replace(':id', id), { reason });
+  },
+
+  // Feedback Experience Management
+  createFeedbackExperience: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE, data);
+  },
+
+  getFeedbackExperiences: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE, { params });
+  },
+
+  getFeedbackExperienceById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE_BY_ID.replace(':id', id));
+  },
+
+  deleteFeedbackExperience: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE_BY_ID.replace(':id', id));
+  },
+
+  // Donation Management
+  getDonations: (params = {}) => {
+    return apiClient.get('/admin/donations', { params });
+  },
+  getTips: (params = {}) => {
+    return apiClient.get('/admin/tips', { params });
+  },
+};
+
+// Campaign / Advertisement APIs
+export const campaignAPI = {
+  // Restaurant side
+  getRestaurantAdvertisements: (params = {}) => {
+    return apiClient.get('/campaign/restaurant/advertisements', { params });
+  },
+
+  getAdvertisementPricing: () => {
+    return apiClient.get('/campaign/restaurant/advertisements/pricing');
+  },
+
+  getRestaurantCurrentBannerAdvertisement: () => {
+    return apiClient.get('/campaign/restaurant/advertisements/current-banner');
+  },
+
+  getRestaurantAdvertisementBookedDates: (params = {}) => {
+    return apiClient.get('/campaign/restaurant/advertisements/booked-dates', { params });
+  },
+
+  getRestaurantAdvertisementById: (id) => {
+    return apiClient.get(`/campaign/restaurant/advertisements/${id}`);
+  },
+
+  createRestaurantAdvertisement: (data) => {
+    return apiClient.post('/campaign/restaurant/advertisements', data);
+  },
+
+  createRestaurantBannerAdvertisement: (data) => {
+    return apiClient.post('/campaign/restaurant/advertisements/banner', data);
+  },
+
+  updateRestaurantAdvertisement: (id, data) => {
+    return apiClient.put(`/campaign/restaurant/advertisements/${id}`, data);
+  },
+
+  updateRestaurantAdvertisementStatus: (id, action, pauseNote = '') => {
+    return apiClient.patch(`/campaign/restaurant/advertisements/${id}/status`, { action, pauseNote });
+  },
+
+  duplicateRestaurantAdvertisement: (id) => {
+    return apiClient.post(`/campaign/restaurant/advertisements/${id}/duplicate`);
+  },
+
+  deleteRestaurantAdvertisement: (id) => {
+    return apiClient.delete(`/campaign/restaurant/advertisements/${id}`);
+  },
+
+  createAdvertisementPaymentOrder: (id) => {
+    return apiClient.post(`/campaign/restaurant/advertisements/${id}/payment-order`);
+  },
+
+  verifyAdvertisementPayment: (id, data) => {
+    return apiClient.post(`/campaign/restaurant/advertisements/${id}/verify-payment`, data);
+  },
+
+  // Admin side
+  getAdminAdvertisements: (params = {}) => {
+    return apiClient.get('/campaign/admin/advertisements', { params });
+  },
+
+  getAdminAdvertisementPricing: () => {
+    return apiClient.get('/campaign/admin/advertisements/pricing');
+  },
+
+  updateAdminAdvertisementPricing: (pricePerDay) => {
+    return apiClient.patch('/campaign/admin/advertisements/pricing', { pricePerDay });
+  },
+
+  getAdminAdvertisementById: (id) => {
+    return apiClient.get(`/campaign/admin/advertisements/${id}`);
+  },
+
+  approveAdvertisement: (id, data = {}) => {
+    return apiClient.patch(`/campaign/admin/advertisements/${id}/approve`, data);
+  },
+
+  rejectAdvertisement: (id, data = {}) => {
+    return apiClient.patch(`/campaign/admin/advertisements/${id}/reject`, data);
+  },
+
+  setAdvertisementPriority: (id, priority) => {
+    return apiClient.patch(`/campaign/admin/advertisements/${id}/priority`, { priority });
+  },
+
+  setAdvertisementStatusByAdmin: (id, status, adminNote = '') => {
+    return apiClient.patch(`/campaign/admin/advertisements/${id}/status`, { status, adminNote });
+  },
+
+  deleteAdvertisementByAdmin: (id) => {
+    return apiClient.delete(`/campaign/admin/advertisements/${id}`);
+  },
+
+  // Public side
+  getActiveAdvertisementsPublic: () => {
+    return apiClient.get('/advertisements/active');
+  },
+};
+
+// User Advertisement APIs
+export const userAdvertisementAPI = {
+  // User side
+  getUserAdvertisementPricing: () => {
+    return apiClient.get('/user-advertisements/me/advertisements/pricing');
+  },
+
+  getMyAdvertisements: (params = {}) => {
+    return apiClient.get('/user-advertisements/me/advertisements', { params });
+  },
+
+  getMyAdvertisementBookedDates: (params = {}) => {
+    return apiClient.get('/user-advertisements/me/advertisements/booked-dates', { params });
+  },
+
+  getMyAdvertisementById: (id) => {
+    return apiClient.get(`/user-advertisements/me/advertisements/${id}`);
+  },
+
+  createMyAdvertisement: (data) => {
+    return apiClient.post('/user-advertisements/me/advertisements', data);
+  },
+
+  cancelMyAdvertisement: (id) => {
+    return apiClient.delete(`/user-advertisements/me/advertisements/${id}/cancel`);
+  },
+
+  createMyAdvertisementPaymentOrder: (id) => {
+    return apiClient.post(`/user-advertisements/me/advertisements/${id}/payment-order`);
+  },
+
+  verifyMyAdvertisementPayment: (id, data) => {
+    return apiClient.post(`/user-advertisements/me/advertisements/${id}/verify-payment`, data);
+  },
+
+  getPublicActiveUserAdvertisements: () => {
+    return apiClient.get('/user-advertisements/public/active');
+  },
+
+  // Admin side
+  getAdminUserAdvertisementPricing: () => {
+    return apiClient.get('/user-advertisements/admin/advertisements/pricing');
+  },
+
+  updateAdminUserAdvertisementPricing: (pricePerDay) => {
+    return apiClient.patch('/user-advertisements/admin/advertisements/pricing', { pricePerDay });
+  },
+
+  getAdminUserAdvertisements: (params = {}) => {
+    return apiClient.get('/user-advertisements/admin/advertisements', { params });
+  },
+
+  getAdminUserAdvertisementById: (id) => {
+    return apiClient.get(`/user-advertisements/admin/advertisements/${id}`);
+  },
+
+  approveAdminUserAdvertisement: (id, data = {}) => {
+    return apiClient.patch(`/user-advertisements/admin/advertisements/${id}/approve`, data);
+  },
+
+  rejectAdminUserAdvertisement: (id, data = {}) => {
+    return apiClient.patch(`/user-advertisements/admin/advertisements/${id}/reject`, data);
+  },
+
+  setAdminUserAdvertisementPosition: (id, position) => {
+    return apiClient.patch(`/user-advertisements/admin/advertisements/${id}/position`, { position });
+  },
+
+  setAdminUserAdvertisementStatus: (id, status, adminNote = '') => {
+    return apiClient.patch(`/user-advertisements/admin/advertisements/${id}/status`, { status, adminNote });
+  },
+
+  deleteAdminUserAdvertisement: (id) => {
+    return apiClient.delete(`/user-advertisements/admin/advertisements/${id}`);
+  },
+};
+
+// Upload / media helper functions
+export const uploadAPI = {
+  /**
+   * Upload a single image/video file to Cloudinary via backend
+   * @param {File} file - Browser File object
+   * @param {Object} options - Optional { folder }
+   */
+  uploadMedia: (file, options = {}) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options.folder) {
+      formData.append('folder', options.folder);
+    }
+
+    return apiClient.post(API_ENDPOINTS.UPLOAD.MEDIA, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000, // 120 seconds timeout for large uploads
+    });
+  },
+};
+
+// Export order API helper functions
+export const orderAPI = {
+  // Calculate order pricing
+  calculateOrder: (orderData) => {
+    return apiClient.post(API_ENDPOINTS.ORDER.CALCULATE, orderData);
+  },
+
+  // Create order and get Razorpay order
+  createOrder: (orderData) => {
+    return apiClient.post(API_ENDPOINTS.ORDER.CREATE, orderData);
+  },
+
+  // Verify payment
+  verifyPayment: (paymentData) => {
+    return apiClient.post(API_ENDPOINTS.ORDER.VERIFY_PAYMENT, paymentData);
+  },
+
+  // Get user orders
+  getOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ORDER.LIST, { params });
+  },
+
+  // Complaint operations
+  submitComplaint: (data) => {
+    return apiClient.post(API_ENDPOINTS.USER.COMPLAINTS, data);
+  },
+  getUserComplaints: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.USER.COMPLAINTS, { params });
+  },
+  getComplaintDetails: (id) => {
+    return apiClient.get(API_ENDPOINTS.USER.COMPLAINT_BY_ID.replace(':id', id));
+  },
+
+  // Get order details
+  getOrderDetails: (orderId) => {
+    return apiClient.get(API_ENDPOINTS.ORDER.DETAILS.replace(':id', orderId));
+  },
+
+  // Cancel order
+  cancelOrder: (orderId, reason) => {
+    return apiClient.patch(API_ENDPOINTS.ORDER.CANCEL.replace(':id', orderId), { reason });
+  },
+  // Create/refresh Razorpay order for pending payment
+  createPaymentOrder: (orderId) => {
+    return apiClient.post(API_ENDPOINTS.ORDER.CREATE_PAYMENT.replace(':id', orderId));
+  },
+
+};
+
+// Export dining API helper functions
+export const diningAPI = {
+  // Get dining restaurants (with optional filters)
+  getRestaurants: (params = {}, config = {}) => {
+    return apiClient.get(API_ENDPOINTS.DINING.RESTAURANTS, { ...config, params });
+  },
+
+  // Get restaurant by slug
+  getRestaurantBySlug: (slug) => {
+    return apiClient.get(API_ENDPOINTS.DINING.RESTAURANT_BY_SLUG.replace(':slug', slug));
+  },
+
+  // Get dining categories
+  getCategories: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.CATEGORIES);
+  },
+
+  // Get limelight features
+  getLimelight: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.LIMELIGHT);
+  },
+
+  // Get bank offers
+  getBankOffers: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.BANK_OFFERS);
+  },
+
+  // Get must tries
+  getMustTries: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.MUST_TRIES);
+  },
+
+  // Get offer banners (used as limelight in Dining.jsx)
+  getOfferBanners: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.OFFER_BANNERS);
+  },
+
+  // Get dining stories
+  getStories: () => {
+    return apiClient.get(API_ENDPOINTS.DINING.STORIES);
+  },
+
+  // Dining Booking operations
+  getAvailableTables: (restaurantId, params) => {
+    return apiClient.get(`/dining/restaurants/${restaurantId}/tables`, { params });
+  },
+  getPlatformFee: (restaurantId) => {
+    return apiClient.get(`/dining/restaurants/${restaurantId}/platform-fee`);
+  },
+  initiateBookingPayment: (restaurantId, data) => {
+    return apiClient.post(`/dining/restaurants/${restaurantId}/bookings/initiate-payment`, data);
+  },
+  verifyAndCreateBooking: (restaurantId, data) => {
+    return apiClient.post(`/dining/restaurants/${restaurantId}/bookings/verify-and-create`, data);
+  },
+  createBooking: (restaurantId, data) => {
+    return apiClient.post(`/dining/restaurants/${restaurantId}/bookings`, data);
+  },
+  updateBookingStatus: (bookingId, status) => {
+    return apiClient.patch(`/dining/bookings/${bookingId}/status`, { status });
+  },
+  getMyBookings: () => {
+    return apiClient.get(`/dining/bookings/user`);
+  },
+  getRestaurantBookings: (restaurantId) => {
+    return apiClient.get(`/dining/restaurants/${restaurantId}/bookings`);
+  },
+};
+
+// Export hero banner API helper functions
+export const heroBannerAPI = {
+  // Get Top 10 restaurants (public)
+  getTop10Restaurants: () => {
+    return apiClient.get(API_ENDPOINTS.HERO_BANNER.TOP_10_PUBLIC);
+  },
+
+  // Get Gourmet restaurants (public)
+  getGourmetRestaurants: () => {
+    return apiClient.get(API_ENDPOINTS.HERO_BANNER.GOURMET_PUBLIC);
+  },
+};
+

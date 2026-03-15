@@ -1,0 +1,2641 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
+import { successResponse, errorResponse } from '../utils/response.js';
+import Delivery from '../models/Delivery.js';
+import Order from '../models/Order.js';
+import Payment from '../models/Payment.js';
+import Restaurant from '../models/Restaurant.js';
+import DeliveryWallet from '../models/DeliveryWallet.js';
+import DeliveryBoyCommission from '../models/DeliveryBoyCommission.js';
+import RestaurantWallet from '../models/RestaurantWallet.js';
+import RestaurantCommission from '../models/RestaurantCommission.js';
+import AdminCommission from '../models/AdminCommission.js';
+import { calculateRoute } from '../services/routeCalculationService.js';
+import { calculateOrderSettlement } from '../services/orderSettlementService.js';
+import { calculateDistance, normalizeCoordinates } from '../services/orderCalculationService.js';
+import { createQrCode } from '../services/razorpayService.js';
+import {
+  upsertActiveOrderRealtime,
+  updateActiveOrderRiderLocationRealtime,
+  completeActiveOrderRealtime,
+  updateDeliveryPresenceRealtime
+} from
+  '../services/firebaseRealtimeService.js';
+import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
+import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
+import mongoose from 'mongoose';
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.simple()
+    })]
+
+});
+
+const toFiniteNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const extractLatLngFromCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+    return null;
+  }
+
+  const lng = toFiniteNumber(coordinates[0]);
+  const lat = toFiniteNumber(coordinates[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return { lat, lng };
+};
+
+const normalizeRoutePointsForRealtime = (coordinates = []) => {
+  if (!Array.isArray(coordinates)) return [];
+
+  return coordinates.
+    map((point) => {
+      if (!Array.isArray(point) || point.length < 2) return null;
+      const lat = toFiniteNumber(point[0]);
+      const lng = toFiniteNumber(point[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return { lat, lng };
+    }).
+    filter(Boolean);
+};
+
+const isCashPaymentMethod = (method) => {
+  const normalized = (method || '').toString().toLowerCase().trim();
+  return (
+    normalized === 'cash' ||
+    normalized === 'cod' ||
+    normalized === 'cash_on_delivery' ||
+    normalized === 'cash on delivery'
+  );
+};
+
+/**
+ * Get Delivery Partner Orders
+ * GET /api/delivery/orders
+ * Query params: status, page, limit
+ */
+export const getOrders = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { status, page = 1, limit = 20, includeDelivered } = req.query;
+
+    // Build query
+    const query = { deliveryPartnerId: delivery._id };
+
+    if (status) {
+      query.status = status;
+    } else {
+      // By default, exclude delivered and cancelled orders unless explicitly requested
+      if (includeDelivered !== 'true' && includeDelivered !== true) {
+        query.status = { $nin: ['delivered', 'cancelled'] };
+        // Also exclude orders with completed delivery phase
+        query.$or = [
+          { 'deliveryState.currentPhase': { $ne: 'completed' } },
+          { 'deliveryState.currentPhase': { $exists: false } }];
+
+      }
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Fetch orders
+    const orders = await Order.find(query).
+      sort({ createdAt: -1 }).
+      skip(skip).
+      limit(parseInt(limit)).
+      populate('restaurantId', 'name slug profileImage address location phone ownerPhone').
+      populate('userId', 'name phone').
+      lean();
+
+    // Get total count
+    const total = await Order.countDocuments(query);
+
+    return successResponse(res, 200, 'Orders retrieved successfully', {
+      orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    logger.error(`Error fetching delivery orders: ${error.message}`);
+    return errorResponse(res, 500, 'Failed to fetch orders');
+  }
+});
+
+/**
+ * Get Single Order Details
+ * GET /api/delivery/orders/:orderId
+ */
+export const getOrderDetails = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+
+    // Build query to find order by either _id or orderId field
+    // Allow access if order is assigned to this delivery partner OR if they were notified about it
+    let query = {};
+
+    // Check if orderId is a valid MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      query._id = orderId;
+    } else {
+      // If not a valid ObjectId, search by orderId field
+      query.orderId = orderId;
+    }
+
+    // First, try to find order (without deliveryPartnerId filter)
+    let order = await Order.findOne(query).
+      populate('restaurantId', 'name slug profileImage address phone ownerPhone location').
+      populate('userId', 'name phone email').
+      lean();
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order is assigned to this delivery partner OR if they were notified
+    const orderDeliveryPartnerId = order.deliveryPartnerId?.toString();
+    const currentDeliveryId = delivery._id.toString();
+
+    // Helper function to normalize ID for comparison (handles ObjectId, string, etc.)
+    const normalizeId = (id) => {
+      if (!id) return null;
+      if (typeof id === 'string') return id;
+      if (id.toString) return id.toString();
+      return String(id);
+    };
+
+    // Valid statuses for order acceptance (unassigned orders in these statuses can be viewed by any delivery boy)
+    const validAcceptanceStatuses = ['preparing', 'ready'];
+
+    // If order is assigned to this delivery partner, allow access
+    if (orderDeliveryPartnerId === currentDeliveryId) {
+
+
+    } else if (!orderDeliveryPartnerId) {
+      // Order not assigned yet - allow access if:
+      // 1. Order is in a valid status for acceptance (preparing/ready), OR
+      // 2. This delivery boy was notified about it
+
+      const isInValidStatus = validAcceptanceStatuses.includes(order.status);
+
+      // Check if this delivery boy was notified
+      const assignmentInfo = order.assignmentInfo || {};
+      const priorityIds = assignmentInfo.priorityDeliveryPartnerIds || [];
+      const expandedIds = assignmentInfo.expandedDeliveryPartnerIds || [];
+
+      // Normalize all IDs to strings for comparison
+      const normalizedCurrentId = normalizeId(currentDeliveryId);
+      const normalizedPriorityIds = priorityIds.map(normalizeId).filter(Boolean);
+      const normalizedExpandedIds = expandedIds.map(normalizeId).filter(Boolean);
+
+      const wasNotified = normalizedPriorityIds.includes(normalizedCurrentId) ||
+        normalizedExpandedIds.includes(normalizedCurrentId);
+
+
+
+
+
+
+
+
+
+
+      // Allow access if order is in valid status OR delivery boy was notified
+      if (isInValidStatus || wasNotified) {
+
+
+      } else {
+        console.warn(`⚠️ Delivery partner ${currentDeliveryId} cannot access order ${order.orderId} - Status: ${order.status}, Notified: ${wasNotified}`);
+        return errorResponse(res, 403, 'Order not found or not available for you');
+      }
+    } else {
+      // Order is assigned to another delivery partner
+      console.warn(`⚠️ Order ${order.orderId} is assigned to ${orderDeliveryPartnerId}, but current delivery partner is ${currentDeliveryId}`);
+      return errorResponse(res, 403, 'Order not found or not available for you');
+    }
+
+    // Resolve payment method for delivery boy (COD vs Online)
+    let paymentMethod = order.payment?.method || 'razorpay';
+    if (paymentMethod !== 'cash') {
+      try {
+        const paymentRecord = await Payment.findOne({ orderId: order._id }).select('method').lean();
+        if (paymentRecord?.method === 'cash') paymentMethod = 'cash';
+      } catch (e) {/* ignore */ }
+    }
+    const orderWithPayment = { ...order, paymentMethod };
+
+    return successResponse(res, 200, 'Order details retrieved successfully', {
+      order: orderWithPayment
+    });
+  } catch (error) {
+    logger.error(`Error fetching order details: ${error.message}`, { error: error.stack });
+    return errorResponse(res, 500, 'Failed to fetch order details');
+  }
+});
+
+/**
+ * Generate Razorpay QR for COD order
+ * POST /api/delivery/orders/:orderId/generate-qr
+ */
+export const generateOrderQr = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+
+    logger.info('📌 Generate QR request received', {
+      orderId,
+      deliveryId: delivery?._id?.toString()
+    });
+
+    if (!delivery || !delivery._id) {
+      return errorResponse(res, 401, 'Delivery partner authentication required');
+    }
+
+    if (!orderId) {
+      return errorResponse(res, 400, 'Order ID is required');
+    }
+
+    // Find order assigned to this delivery partner
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findOne({ _id: orderId, deliveryPartnerId: delivery._id });
+    } else {
+      order = await Order.findOne({ orderId: orderId, deliveryPartnerId: delivery._id });
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found or not assigned to you');
+    }
+
+    logger.info('✅ Order found for QR generation', {
+      orderMongoId: order._id?.toString(),
+      orderNumber: order.orderId,
+      paymentMethod: order.payment?.method,
+      paymentStatus: order.paymentStatus,
+      total: order.pricing?.total ?? order.total
+    });
+
+    // Allow QR only for COD orders
+    if (!isCashPaymentMethod(order.payment?.method)) {
+      return errorResponse(res, 400, 'QR payment is only available for COD orders');
+    }
+
+    // If already paid, do not generate a new QR
+    if (order.paymentStatus === 'paid' || order.payment?.status === 'completed') {
+      return errorResponse(res, 400, 'Payment already completed for this order');
+    }
+
+    // Reuse existing pending QR if present
+    if (order.qrCodeId && order.qrCodeUrl && order.paymentStatus === 'pending') {
+      return successResponse(res, 200, 'QR code already generated', {
+        qrCodeId: order.qrCodeId,
+        qrCodeUrl: order.qrCodeUrl,
+        qr_id: order.qrCodeId,
+        qr_image_url: order.qrCodeUrl,
+        paymentStatus: order.paymentStatus
+      });
+    }
+
+    const totalAmount = Number(order.pricing?.total ?? order.total ?? 0);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      return errorResponse(res, 400, 'Invalid order amount for QR payment');
+    }
+
+    logger.info('🧾 QR payment amount', {
+      orderNumber: order.orderId,
+      amountRupees: totalAmount,
+      amountPaise: Math.round(totalAmount * 100)
+    });
+
+    const qrPayload = {
+      type: 'upi_qr',
+      usage: 'single_use',
+      fixed_amount: true,
+      payment_amount: Math.round(totalAmount * 100),
+      name: `Order ${order.orderId || order._id}`,
+      description: `Payment for Order ${order.orderId || order._id}`,
+      notes: {
+        orderId: order.orderId || '',
+        orderMongoId: order._id?.toString() || '',
+        deliveryPartnerId: delivery._id?.toString() || ''
+      }
+    };
+
+    const qr = await createQrCode(qrPayload);
+    logger.info('✅ Razorpay QR response', {
+      orderNumber: order.orderId,
+      qrId: qr?.id,
+      status: qr?.status,
+      responseKeys: Object.keys(qr || {})
+    });
+    const qrCodeUrl =
+      qr.image_url ||
+      qr.qr_image_url ||
+      qr.qr_url ||
+      qr.short_url ||
+      '';
+
+    if (!qrCodeUrl) {
+      return errorResponse(res, 500, 'Failed to generate QR image');
+    }
+
+    order.qrCodeId = qr.id;
+    order.qrCodeUrl = qrCodeUrl;
+    order.paymentStatus = 'pending';
+    await order.save();
+
+    return successResponse(res, 200, 'QR code generated successfully', {
+      qrCodeId: order.qrCodeId,
+      qrCodeUrl: order.qrCodeUrl,
+      qr_id: order.qrCodeId,
+      qr_image_url: order.qrCodeUrl,
+      paymentStatus: order.paymentStatus
+    });
+  } catch (error) {
+    const message =
+      error?.error?.description ||
+      error?.error?.reason ||
+      error?.message ||
+      'Failed to generate QR code';
+    logger.error('Error generating QR code:', {
+      message,
+      error: error?.error || error?.description || error
+    });
+    return errorResponse(res, 500, message);
+  }
+});
+
+/**
+ * Accept Order (Delivery Boy accepts the assigned order)
+ * PATCH /api/delivery/orders/:orderId/accept
+ */
+export const acceptOrder = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+
+    // Delivery boy's current location (frontend sends either { currentLat, currentLng } or { lat, lng })
+    const { currentLat, currentLng, lat, lng } = req.body;
+    const deliveryLatFromClient = currentLat ?? lat;
+    const deliveryLngFromClient = currentLng ?? lng;
+
+    // Validate orderId
+    if (!orderId || typeof orderId !== 'string' && typeof orderId !== 'object') {
+      console.error(`❌ Invalid orderId provided: ${orderId}`);
+      return errorResponse(res, 400, 'Invalid order ID');
+    }
+
+
+
+
+    // Find order - try _id only when payload is a valid ObjectId, otherwise search by orderId string.
+    // This prevents Mongoose CastError when mobile sends short alphanumeric order codes (e.g., "GP1234").
+    const orderLookup = mongoose.Types.ObjectId.isValid(orderId) && typeof orderId === 'string' && orderId.length === 24 ?
+      {
+        $or: [
+          { _id: orderId },
+          { orderId: orderId }]
+      } :
+      { orderId: orderId };
+
+    // First check if order exists (without deliveryPartnerId filter)
+    let order = await Order.findOne(orderLookup).
+      populate('restaurantId', 'name location address phone ownerPhone').
+      populate('userId', 'name phone').
+      lean();
+
+    if (!order) {
+      console.error(`❌ Order ${orderId} not found in database`);
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order is assigned to this delivery partner
+    const orderDeliveryPartnerId = order.deliveryPartnerId?.toString();
+    const currentDeliveryId = delivery._id.toString();
+
+    // If order is not assigned, check if this delivery boy was notified (priority-based system)
+    // Also allow acceptance if order is in valid status (preparing/ready) - more permissive
+    if (!orderDeliveryPartnerId) {
+
+
+      // Check if this delivery boy was in the priority or expanded notification list
+      const assignmentInfo = order.assignmentInfo || {};
+      const priorityIds = assignmentInfo.priorityDeliveryPartnerIds || [];
+      const expandedIds = assignmentInfo.expandedDeliveryPartnerIds || [];
+
+      // Helper function to normalize ID for comparison
+      const normalizeId = (id) => {
+        if (!id) return null;
+        if (typeof id === 'string') return id;
+        if (id.toString) return id.toString();
+        return String(id);
+      };
+
+      // Normalize all IDs to strings for comparison
+      const normalizedCurrentId = normalizeId(currentDeliveryId);
+      const normalizedPriorityIds = priorityIds.map(normalizeId).filter(Boolean);
+      const normalizedExpandedIds = expandedIds.map(normalizeId).filter(Boolean);
+
+
+
+
+
+
+
+
+
+      const wasNotified = normalizedPriorityIds.includes(normalizedCurrentId) ||
+        normalizedExpandedIds.includes(normalizedCurrentId);
+
+      // Also allow if order is in valid status (preparing/ready) - more permissive for unassigned orders
+      const isValidStatus = order.status === 'preparing' || order.status === 'ready';
+
+      if (!wasNotified && !isValidStatus) {
+        console.error(`❌ Order ${order.orderId} is not assigned, delivery partner ${currentDeliveryId} was not notified, and order status is ${order.status}`);
+        console.error(`❌ Full order details:`, {
+          orderId: order.orderId,
+          orderStatus: order.status,
+          deliveryPartnerId: order.deliveryPartnerId,
+          assignmentInfo: JSON.stringify(order.assignmentInfo),
+          priorityIds: normalizedPriorityIds,
+          expandedIds: normalizedExpandedIds,
+          currentDeliveryId: normalizedCurrentId
+        });
+        return errorResponse(res, 403, 'This order is not available for you. It may have been assigned to another delivery partner or you were not notified about it.');
+      }
+
+      // Allow acceptance if delivery boy was notified OR order is in valid status
+
+
+
+
+
+
+      // Proceed with assignment (first come first serve)
+
+      // Reload order as document (not lean) to update it
+      let orderDoc;
+      try {
+        orderDoc = await Order.findOne(orderLookup);
+
+        if (!orderDoc) {
+          console.error(`❌ Order document not found for ID: ${orderId}`);
+          return errorResponse(res, 404, 'Order not found');
+        }
+      } catch (findError) {
+        console.error(`❌ Error finding order document: ${findError.message}`);
+        console.error(`❌ Error stack: ${findError.stack}`);
+        return errorResponse(res, 500, 'Error finding order. Please try again.');
+      }
+
+      // Check again if order was assigned in the meantime (race condition)
+      if (orderDoc.deliveryPartnerId) {
+        const assignedId = orderDoc.deliveryPartnerId.toString();
+        if (assignedId !== currentDeliveryId) {
+          console.error(`❌ Order ${order.orderId} was just assigned to another delivery partner ${assignedId}`);
+          return errorResponse(res, 403, 'Order was just assigned to another delivery partner. Please try another order.');
+        }
+      }
+
+      // Assign order to this delivery partner
+      try {
+        // Normalize deliveryState.currentPhase to a valid enum before saving
+        const validPhases = ['assigned', 'en_route_to_pickup', 'at_pickup', 'en_route_to_delivery', 'at_delivery', 'completed'];
+        if (!validPhases.includes(orderDoc.deliveryState?.currentPhase)) {
+          orderDoc.deliveryState = {
+            ...(orderDoc.deliveryState || {}),
+            currentPhase: 'assigned'
+          };
+        }
+
+        orderDoc.deliveryPartnerId = delivery._id;
+        orderDoc.assignmentInfo = {
+          ...(orderDoc.assignmentInfo || {}),
+          deliveryPartnerId: currentDeliveryId,
+          assignedAt: new Date(),
+          assignedBy: 'delivery_accept',
+          acceptedFromNotification: true
+        };
+        await orderDoc.save();
+
+      } catch (saveError) {
+        console.error(`❌ Error saving order assignment: ${saveError.message}`);
+        console.error(`❌ Error stack: ${saveError.stack}`);
+        // Log validation errors if present
+        if (saveError.errors) {
+          console.error(`❌ Validation errors:`, JSON.stringify(saveError.errors, null, 2));
+        }
+        if (saveError.name === 'ValidationError') {
+          const validationMessages = Object.values(saveError.errors || {}).map((err) => err.message).join(', ');
+          return errorResponse(res, 400, `Validation error: ${validationMessages || saveError.message}`);
+        }
+        return errorResponse(res, 500, 'Failed to assign order. Please try again.');
+      }
+
+      // Reload order with populated data (use orderDoc._id to ensure we get the updated order)
+      const updatedOrderId = orderDoc._id || orderId;
+      try {
+        order = await Order.findOne(orderLookup).
+          populate('restaurantId', 'name location address phone ownerPhone').
+          populate('userId', 'name phone').
+          lean();
+
+        if (!order) {
+          console.error(`❌ Order not found after assignment: ${updatedOrderId}`);
+          return errorResponse(res, 500, 'Order not found after assignment. Please try again.');
+        }
+      } catch (reloadError) {
+        console.error(`❌ Error reloading order after assignment: ${reloadError.message}`);
+        console.error(`❌ Error stack: ${reloadError.stack}`);
+        return errorResponse(res, 500, 'Error reloading order. Please try again.');
+      }
+
+      // Update orderDeliveryPartnerId after assignment
+      const updatedOrderDeliveryPartnerId = order.deliveryPartnerId?.toString();
+      if (updatedOrderDeliveryPartnerId !== currentDeliveryId) {
+        console.error(`❌ Order assignment failed - order still not assigned to ${currentDeliveryId}, got ${updatedOrderDeliveryPartnerId}`);
+        return errorResponse(res, 500, 'Failed to assign order. Please try again.');
+      }
+    } else if (orderDeliveryPartnerId !== currentDeliveryId) {
+      console.error(`❌ Order ${order.orderId} is assigned to ${orderDeliveryPartnerId}, but current delivery partner is ${currentDeliveryId}`);
+      return errorResponse(res, 403, 'Order is assigned to another delivery partner');
+    } else {
+
+    }
+
+
+
+
+
+
+
+
+
+
+    // Strict cash limit check for COD orders
+    let orderPaymentMethod = order.payment?.method || 'razorpay';
+    let isCashOrderForLimit = isCashPaymentMethod(orderPaymentMethod);
+    if (!isCashOrderForLimit) {
+      try {
+        const paymentRecord = await Payment.findOne({ orderId: order._id })
+          .select('method paymentMethod')
+          .lean();
+        const resolvedMethod = paymentRecord?.method || paymentRecord?.paymentMethod;
+        if (isCashPaymentMethod(resolvedMethod)) {
+          orderPaymentMethod = resolvedMethod;
+          isCashOrderForLimit = true;
+        }
+      } catch (e) {/* ignore */}
+    }
+
+    if (isCashOrderForLimit) {
+      try {
+        const BusinessSettings = (await import('../models/BusinessSettings.js')).default;
+        const settings = await BusinessSettings.getSettings();
+        const cashLimit = settings.deliveryCashLimit || 750;
+
+        const wallet = await DeliveryWallet.findOne({ deliveryId: delivery._id });
+        const cashInHand = Number(wallet?.cashInHand) || 0;
+        const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
+
+        if ((cashInHand + codAmount) > cashLimit) {
+          return errorResponse(
+            res,
+            400,
+            `Cash limit exceeded (₹${cashLimit}). Please deposit collected cash before accepting more COD orders.`
+          );
+        }
+      } catch (limitError) {
+        console.error('Error checking cash limit:', limitError);
+        return errorResponse(res, 500, 'Failed to validate cash limit. Please try again.');
+      }
+    }
+
+    // Check if order is in valid state to accept
+    const validStatuses = ['preparing', 'ready'];
+    if (!validStatuses.includes(order.status)) {
+      console.warn(`⚠️ Order ${order.orderId} cannot be accepted. Current status: ${order.status}, Valid statuses: ${validStatuses.join(', ')}`);
+      return errorResponse(res, 400, `Order cannot be accepted. Current status: ${order.status}. Order must be in 'preparing' or 'ready' status.`);
+    }
+
+    // Get restaurant location
+    let restaurantLat, restaurantLng;
+    try {
+      if (order.restaurantId && order.restaurantId.location && order.restaurantId.location.coordinates) {
+        [restaurantLng, restaurantLat] = order.restaurantId.location.coordinates;
+
+      } else {
+        // Try to fetch restaurant from database
+
+        const restaurantId = order.restaurantId?._id || order.restaurantId;
+
+
+        // Use a more robust lookup to handle both ObjectId and custom String ID
+        const restaurant = mongoose.Types.ObjectId.isValid(restaurantId) ?
+          await Restaurant.findById(restaurantId) :
+          await Restaurant.findOne({ restaurantId: restaurantId });
+
+        if (restaurant && restaurant.location && restaurant.location.coordinates) {
+          [restaurantLng, restaurantLat] = restaurant.location.coordinates;
+
+          // Store for subsequent calculations
+          order.restaurantId = restaurant;
+        } else {
+          console.error(`❌ Restaurant location not found for restaurant ID: ${restaurantId}`);
+          return errorResponse(res, 400, 'Restaurant location not found');
+        }
+      }
+
+      // Validate coordinates
+      if (!restaurantLat || !restaurantLng || isNaN(restaurantLat) || isNaN(restaurantLng)) {
+        console.error(`❌ Invalid restaurant coordinates: lat=${restaurantLat}, lng=${restaurantLng}`);
+        return errorResponse(res, 400, 'Invalid restaurant location coordinates');
+      }
+    } catch (locationError) {
+      console.error(`❌ Error getting restaurant location: ${locationError.message}`);
+      console.error(`❌ Location error stack: ${locationError.stack}`);
+      return errorResponse(res, 500, 'Error getting restaurant location. Please try again.');
+    }
+
+    // Get delivery boy's current location (prefer location sent by client)
+    let deliveryLat = deliveryLatFromClient;
+    let deliveryLng = deliveryLngFromClient;
+
+    if (!deliveryLat || !deliveryLng) {
+
+      // Try to get from delivery partner's current location
+      try {
+        const deliveryPartner = await Delivery.findById(delivery._id).
+          select('availability.currentLocation').
+          lean();
+
+        if (deliveryPartner?.availability?.currentLocation?.coordinates) {
+          [deliveryLng, deliveryLat] = deliveryPartner.availability.currentLocation.coordinates;
+
+        } else {
+          console.error(`❌ Delivery partner location not found in profile`);
+          return errorResponse(res, 400, 'Delivery partner location not found. Please enable location services.');
+        }
+      } catch (deliveryLocationError) {
+        console.error(`❌ Error fetching delivery partner location: ${deliveryLocationError.message}`);
+        return errorResponse(res, 500, 'Error getting delivery partner location. Please try again.');
+      }
+    }
+
+    // Validate coordinates before calculating route
+    // If coordinates are missing/invalid, fall back to restaurant coords so acceptance never blocks
+    const coordsValid = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng);
+    if (!coordsValid(deliveryLat, deliveryLng)) {
+      console.warn('⚠️ Delivery coordinates invalid/missing, falling back to restaurant coords for routing', {
+        deliveryLat,
+        deliveryLng,
+        restaurantLat,
+        restaurantLng
+      });
+      deliveryLat = restaurantLat;
+      deliveryLng = restaurantLng;
+    }
+    if (!coordsValid(restaurantLat, restaurantLng)) {
+      console.error('❌ Restaurant coordinates invalid; using (0,0) placeholder to avoid blocking accept', {
+        restaurantLat,
+        restaurantLng
+      });
+      restaurantLat = 0;
+      restaurantLng = 0;
+    }
+
+
+
+    // Calculate route from delivery boy to restaurant
+
+    let routeData;
+    const haversineDistance = (lat1, lng1, lat2, lng2) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    try {
+
+
+
+
+      routeData = await calculateRoute(deliveryLat, deliveryLng, restaurantLat, restaurantLng);
+
+
+
+
+
+
+
+
+
+      // Validate route data - ensure all required fields are present and valid
+      if (!routeData ||
+        !routeData.coordinates ||
+        !Array.isArray(routeData.coordinates) ||
+        routeData.coordinates.length === 0 ||
+        typeof routeData.distance !== 'number' ||
+        isNaN(routeData.distance) ||
+        typeof routeData.duration !== 'number' ||
+        isNaN(routeData.duration)) {
+        console.warn('⚠️ Route calculation returned invalid data, using fallback');
+        // Fallback to straight line
+        const distance = haversineDistance(deliveryLat, deliveryLng, restaurantLat, restaurantLng);
+        routeData = {
+          coordinates: [[deliveryLat, deliveryLng], [restaurantLat, restaurantLng]],
+          distance: distance,
+          duration: distance / 30 * 60, // Assume 30 km/h average speed
+          method: 'haversine_fallback'
+        };
+
+      } else {
+
+      }
+    } catch (routeError) {
+      console.error('❌ Error calculating route:', routeError);
+      console.error('❌ Route error stack:', routeError.stack);
+      // Fallback to straight line
+      const distance = haversineDistance(deliveryLat, deliveryLng, restaurantLat, restaurantLng);
+      routeData = {
+        coordinates: [[deliveryLat, deliveryLng], [restaurantLat, restaurantLng]],
+        distance: distance,
+        duration: distance / 30 * 60,
+        method: 'haversine_fallback'
+      };
+
+    }
+
+    // Final validation - ensure routeData is usable; if not, downgrade to minimal stub
+    if (!routeData ||
+      !routeData.coordinates ||
+      !Array.isArray(routeData.coordinates) ||
+      routeData.coordinates.length === 0 ||
+      typeof routeData.distance !== 'number' ||
+      isNaN(routeData.distance) ||
+      typeof routeData.duration !== 'number' ||
+      isNaN(routeData.duration)) {
+      console.warn('⚠️ Route data invalid after fallbacks; using minimal stub');
+      routeData = {
+        coordinates: [[deliveryLat, deliveryLng], [restaurantLat, restaurantLng]],
+        distance: 0,
+        duration: 0,
+        method: 'stub'
+      };
+    }
+
+
+
+    // Update order status and tracking
+
+    // Use order._id (MongoDB ObjectId) - ensure it exists
+    if (!order._id) {
+      console.error(`❌ Order ${order.orderId} does not have _id field`);
+      return errorResponse(res, 500, 'Order data is invalid');
+    }
+
+    const orderMongoId = order._id;
+
+
+    // Prepare route data for storage - ensure coordinates are valid
+    const routeToPickup = {
+      coordinates: routeData.coordinates,
+      distance: Number(routeData.distance),
+      duration: Number(routeData.duration),
+      calculatedAt: new Date(),
+      method: routeData.method || 'unknown'
+    };
+
+
+
+
+
+
+
+
+    // Validate route coordinates before saving (soft)
+    if (!Array.isArray(routeToPickup.coordinates) || routeToPickup.coordinates.length === 0) {
+      console.warn('⚠️ Invalid route coordinates; saving without routeToPickup');
+      routeToPickup.coordinates = [];
+    }
+
+    // Preserve order-time pricing distance when available; fallback to on-the-fly calculation.
+    const deliveryDistanceForSave =
+      typeof order.assignmentInfo?.distance === 'number' && !Number.isNaN(order.assignmentInfo.distance) ?
+        order.assignmentInfo.distance :
+        calculateDistance(order.restaurantId, order.address) || 0;
+
+    let updatedOrder;
+    try {
+
+      updatedOrder = await Order.findByIdAndUpdate(
+        orderMongoId,
+        {
+          $set: {
+            'deliveryState.status': 'accepted',
+            'deliveryState.acceptedAt': new Date(),
+            'deliveryState.currentPhase': 'en_route_to_pickup',
+            'deliveryState.routeToPickup': routeToPickup,
+            'assignmentInfo.distance': deliveryDistanceForSave // Save distance for settlement calc
+          }
+        },
+        { new: true }
+      ).
+        populate('restaurantId', 'name location address phone ownerPhone').
+        populate('userId', 'name phone').
+        lean();
+
+      if (!updatedOrder) {
+        console.error(`❌ Order ${orderMongoId} not found after update attempt`);
+        return errorResponse(res, 404, 'Order not found');
+      }
+
+    } catch (updateError) {
+      console.error('❌ Error updating order:', updateError);
+      console.error('❌ Update error message:', updateError.message);
+      console.error('❌ Update error name:', updateError.name);
+      console.error('❌ Update error stack:', updateError.stack);
+      if (updateError.errors) {
+        console.error('❌ Update validation errors:', updateError.errors);
+      }
+      return errorResponse(res, 500, `Failed to update order: ${updateError.message || 'Unknown error'}`);
+    }
+
+
+
+
+    // Use canonical order distance for earnings preview when available.
+    const deliveryDistance =
+      typeof updatedOrder.assignmentInfo?.distance === 'number' && !Number.isNaN(updatedOrder.assignmentInfo.distance) ?
+        updatedOrder.assignmentInfo.distance :
+        calculateDistance(updatedOrder.restaurantId, updatedOrder.address) || 0;
+
+    // Calculate estimated earnings based on delivery distance
+    let estimatedEarnings = null;
+    try {
+      const DeliveryBoyCommission = (await import('../models/DeliveryBoyCommission.js')).default;
+      const commissionResult = await DeliveryBoyCommission.calculateCommission(deliveryDistance);
+
+      // Validate commission result
+      if (!commissionResult ||
+        !commissionResult.breakdown ||
+        typeof commissionResult.commission !== 'number' ||
+        isNaN(commissionResult.commission)) {
+        throw new Error('Invalid commission result structure');
+      }
+
+      const breakdown = commissionResult.breakdown || {};
+      const rule = commissionResult.rule || { minDistance: 4 };
+
+      const tip = Number(order.pricing?.tip) || 0;
+      const userDeliveryFee = Number(order.pricing?.deliveryFee) || 0;
+      const ruleTotal = Number(commissionResult.commission) || 0;
+      // Keep earnings preview aligned with order-time charged delivery fee.
+      const payoutBaseAndDistance = userDeliveryFee > 0 ? userDeliveryFee : ruleTotal;
+      const basePayout = Math.min(Number(breakdown.basePayout || 10), payoutBaseAndDistance);
+      const adjustedDistanceCommission = Math.max(0, payoutBaseAndDistance - basePayout);
+
+      estimatedEarnings = {
+        basePayout: Math.round(basePayout * 100) / 100,
+        distance: Math.round(deliveryDistance * 100) / 100,
+        commissionPerKm: Math.round((breakdown.commissionPerKm || 5) * 100) / 100,
+        distanceCommission: Math.round(adjustedDistanceCommission * 100) / 100,
+        tip: tip,
+        totalEarning: Math.round((payoutBaseAndDistance + tip) * 100) / 100,
+        breakdown: {
+          basePayout: basePayout,
+          distance: deliveryDistance,
+          commissionPerKm: breakdown.commissionPerKm || 5,
+          distanceCommission: adjustedDistanceCommission,
+          minDistance: rule.minDistance || 4,
+          deliveryFeeAtOrderTime: Math.round(userDeliveryFee * 100) / 100,
+          tip: tip
+        }
+      };
+
+
+    } catch (earningsError) {
+      console.error('❌ Error calculating estimated earnings:', earningsError);
+      console.error('❌ Earnings error stack:', earningsError.stack);
+      // Fallback to default
+      const tip = Number(order.pricing?.tip) || 0;
+      const userDeliveryFee = Number(order.pricing?.deliveryFee) || 0;
+      const defaultBasePay = 22; // As per system commission rules standard
+      const payoutBaseAndDistance = userDeliveryFee > 0 ?
+        userDeliveryFee :
+        defaultBasePay + (deliveryDistance > 4 ? Math.round((deliveryDistance - 4) * 5 * 100) / 100 : 0);
+      const basePayout = Math.min(defaultBasePay, payoutBaseAndDistance);
+      estimatedEarnings = {
+        basePayout: basePayout,
+        distance: Math.round(deliveryDistance * 100) / 100,
+        commissionPerKm: 5,
+        distanceCommission: Math.max(0, payoutBaseAndDistance - basePayout),
+        tip: tip,
+        totalEarning: payoutBaseAndDistance + tip,
+        breakdown: {
+          basePayout: basePayout,
+          distance: deliveryDistance,
+          commissionPerKm: 5,
+          distanceCommission: Math.max(0, payoutBaseAndDistance - basePayout),
+          minDistance: 4,
+          deliveryFeeAtOrderTime: Math.round(userDeliveryFee * 100) / 100,
+          tip: tip
+        }
+      };
+    }
+
+    // Resolve payment method for delivery boy (COD vs Online) - use Payment collection if order.payment is wrong
+    let paymentMethod = updatedOrder.payment?.method || 'razorpay';
+    if (paymentMethod !== 'cash') {
+      try {
+        const paymentRecord = await Payment.findOne({ orderId: updatedOrder._id }).select('method').lean();
+        if (paymentRecord?.method === 'cash') paymentMethod = 'cash';
+      } catch (e) {/* ignore */ }
+    }
+    const orderWithPayment = { ...updatedOrder, paymentMethod };
+
+    // Best-effort Firebase realtime sync for active order and rider state.
+    try {
+      const deliveryId = delivery._id?.toString?.() || delivery._id;
+      const restaurantCoords = extractLatLngFromCoordinates(updatedOrder?.restaurantId?.location?.coordinates);
+      const customerCoords = extractLatLngFromCoordinates(updatedOrder?.address?.location?.coordinates);
+      const routePoints = normalizeRoutePointsForRealtime(routeData?.coordinates);
+      const customerAddress = updatedOrder?.address?.formattedAddress ||
+        [updatedOrder?.address?.street, updatedOrder?.address?.city, updatedOrder?.address?.state].
+          filter(Boolean).
+          join(', ');
+
+      await updateDeliveryPresenceRealtime({
+        deliveryId,
+        isOnline: true,
+        latitude: toFiniteNumber(deliveryLat),
+        longitude: toFiniteNumber(deliveryLng),
+        name: delivery?.name,
+        phone: delivery?.phone,
+        zoneId: delivery?.zoneId?.toString?.() || delivery?.zoneId,
+        isActive: delivery?.isActive !== false,
+        transportType: delivery?.vehicle?.type || 'bike'
+      });
+
+      await upsertActiveOrderRealtime({
+        orderId: updatedOrder.orderId || updatedOrder._id?.toString?.(),
+        orderMongoId: updatedOrder._id?.toString?.() || updatedOrder._id,
+        deliveryId,
+        restaurantId: updatedOrder?.restaurantId?._id?.toString?.() ||
+          updatedOrder?.restaurantId?._id ||
+          updatedOrder?.restaurantId?.toString?.() ||
+          updatedOrder?.restaurantId,
+        status: 'accepted',
+        phase: 'en_route_to_pickup',
+        routePoints,
+        totalDistanceKm: toFiniteNumber(routeData?.distance),
+        durationMin: toFiniteNumber(routeData?.duration),
+        restaurant: restaurantCoords ?
+          {
+            ...restaurantCoords,
+            name: updatedOrder?.restaurantId?.name,
+            address: updatedOrder?.restaurantId?.address
+          } :
+          null,
+        customer: customerCoords ?
+          {
+            ...customerCoords,
+            address: customerAddress
+          } :
+          null,
+        deliveryFee: toFiniteNumber(updatedOrder?.pricing?.deliveryFee),
+        riderLat: toFiniteNumber(deliveryLat),
+        riderLng: toFiniteNumber(deliveryLng),
+        createdAtMs: updatedOrder?.createdAt ? new Date(updatedOrder.createdAt).getTime() : null
+      });
+
+      await updateActiveOrderRiderLocationRealtime({
+        deliveryId,
+        latitude: toFiniteNumber(deliveryLat),
+        longitude: toFiniteNumber(deliveryLng)
+      });
+    } catch (firebaseSyncError) {
+      logger.warn(`Firebase sync skipped for accepted order ${updatedOrder?.orderId || updatedOrder?._id}: ${firebaseSyncError.message}`);
+    }
+
+    // Recalculate settlement to update earnings based on assigned partner and distance
+    calculateOrderSettlement(updatedOrder._id).catch((err) => {
+      console.error('❌ Error recalculating settlement after order acceptance:', err);
+    });
+
+    return successResponse(res, 200, 'Order accepted successfully', {
+      order: orderWithPayment,
+      route: {
+        coordinates: routeData.coordinates,
+        distance: routeData.distance,
+        duration: routeData.duration,
+        method: routeData.method
+      },
+      estimatedEarnings: estimatedEarnings,
+      deliveryDistance: deliveryDistance
+    });
+  } catch (error) {
+    logger.error(`Error accepting order: ${error.message}`);
+    console.error('❌ Error accepting order - Full error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      orderId: req.params?.orderId,
+      deliveryId: req.delivery?._id
+    });
+    return errorResponse(res, 500, error.message || 'Failed to accept order');
+  }
+});
+
+/**
+ * Confirm Reached Pickup
+ * PATCH /api/delivery/orders/:orderId/reached-pickup
+ */
+export const confirmReachedPickup = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+    const deliveryId = delivery._id;
+
+
+
+    // Find order by _id or orderId field
+    let order = null;
+
+    // Check if orderId is a valid MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findOne({
+        _id: orderId,
+        deliveryPartnerId: deliveryId
+      });
+    } else {
+      // If not a valid ObjectId, search by orderId field
+      order = await Order.findOne({
+        orderId: orderId,
+        deliveryPartnerId: deliveryId
+      });
+    }
+
+    if (!order) {
+      console.warn(`⚠️ Order not found - orderId: ${orderId}, deliveryId: ${deliveryId}`);
+      return errorResponse(res, 404, 'Order not found or not assigned to you');
+    }
+
+
+
+    // Initialize deliveryState if it doesn't exist
+    if (!order.deliveryState) {
+      order.deliveryState = {
+        status: 'accepted',
+        currentPhase: 'en_route_to_pickup'
+      };
+    }
+
+    // Ensure currentPhase exists
+    if (!order.deliveryState.currentPhase) {
+      order.deliveryState.currentPhase = 'en_route_to_pickup';
+    }
+
+    // Check if order is already past pickup phase (order ID confirmed or out for delivery)
+    // If so, return success with current state (idempotent)
+    const isPastPickupPhase = order.deliveryState.currentPhase === 'en_route_to_delivery' ||
+      order.deliveryState.currentPhase === 'picked_up' ||
+      order.deliveryState.status === 'order_confirmed' ||
+      order.status === 'out_for_delivery';
+
+    if (isPastPickupPhase) {
+
+      return successResponse(res, 200, 'Order is already past pickup phase', {
+        order,
+        message: 'Order is already out for delivery'
+      });
+    }
+
+    // Check if order is in valid state
+    // Allow reached pickup if:
+    // - currentPhase is 'en_route_to_pickup' OR
+    // - currentPhase is 'at_pickup' (already at pickup - idempotent, allow re-confirmation)
+    // - status is 'accepted' OR  
+    // - currentPhase is 'accepted' (alternative phase name)
+    // - order status is 'preparing' or 'ready' (restaurant preparing/ready)
+    const isValidState = order.deliveryState.currentPhase === 'en_route_to_pickup' ||
+      order.deliveryState.currentPhase === 'at_pickup' || // Already at pickup - idempotent
+      order.deliveryState.status === 'accepted' ||
+      order.deliveryState.status === 'reached_pickup' || // Already reached - idempotent
+      order.deliveryState.currentPhase === 'accepted' ||
+      order.status === 'preparing' || // Order is preparing, can reach pickup
+      order.status === 'ready'; // Order is ready, can reach pickup
+
+    // If already at pickup, just return success (idempotent operation)
+    if (order.deliveryState.currentPhase === 'at_pickup' || order.deliveryState.status === 'reached_pickup') {
+
+      return successResponse(res, 200, 'Reached pickup already confirmed', {
+        order,
+        message: 'Order was already marked as reached pickup'
+      });
+    }
+
+    if (!isValidState) {
+      return errorResponse(res, 400, `Order is not in valid state for reached pickup. Current phase: ${order.deliveryState?.currentPhase || 'unknown'}, Status: ${order.deliveryState?.status || 'unknown'}, Order status: ${order.status || 'unknown'}`);
+    }
+
+    // Update order state
+    order.deliveryState.status = 'reached_pickup';
+    order.deliveryState.currentPhase = 'at_pickup';
+    order.deliveryState.reachedPickupAt = new Date();
+    await order.save();
+
+
+
+    // After 10 seconds, trigger order ID confirmation request
+    // Use order._id (MongoDB ObjectId) instead of orderId string
+    const orderMongoId = order._id;
+    setTimeout(async () => {
+      try {
+        const freshOrder = await Order.findById(orderMongoId);
+        if (freshOrder && freshOrder.deliveryState?.currentPhase === 'at_pickup') {
+          // Emit socket event to request order ID confirmation
+          let getIO;
+          try {
+            const serverModule = await import('../server.js');
+            getIO = serverModule.getIO;
+          } catch (importError) {
+            console.error('Error importing server module:', importError);
+            return;
+          }
+
+          if (getIO) {
+            const io = getIO();
+            if (io) {
+              const deliveryNamespace = io.of('/delivery');
+              const deliveryId = delivery._id.toString();
+              deliveryNamespace.to(`delivery:${deliveryId}`).emit('request_order_id_confirmation', {
+                orderId: freshOrder.orderId,
+                orderMongoId: freshOrder._id.toString()
+              });
+
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error sending order ID confirmation request:', error);
+      }
+    }, 10000); // 10 seconds delay
+
+    return successResponse(res, 200, 'Reached pickup confirmed', {
+      order,
+      message: 'Order ID confirmation will be requested in 10 seconds'
+    });
+  } catch (error) {
+    logger.error(`Error confirming reached pickup: ${error.message}`);
+    return errorResponse(res, 500, 'Failed to confirm reached pickup');
+  }
+});
+
+/**
+ * Confirm Order ID
+ * PATCH /api/delivery/orders/:orderId/confirm-order-id
+ */
+export const confirmOrderId = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+    const { confirmedOrderId, billImageUrl } = req.body; // Order ID confirmed by delivery boy, bill image URL
+    const { currentLat, currentLng } = req.body; // Current location for route calculation
+
+    // Find order by _id or orderId - try multiple methods for better compatibility
+    let order = null;
+    const deliveryId = delivery._id;
+
+    // Method 1: Try as MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findOne({
+        $and: [
+          { _id: orderId },
+          { deliveryPartnerId: deliveryId }]
+
+      }).
+        populate('userId', 'name phone').
+        populate('restaurantId', 'name location address phone ownerPhone').
+        lean();
+    }
+
+    // Method 2: Try by orderId field
+    if (!order) {
+      order = await Order.findOne({
+        $and: [
+          { orderId: orderId },
+          { deliveryPartnerId: deliveryId }]
+
+      }).
+        populate('userId', 'name phone').
+        populate('restaurantId', 'name location address phone ownerPhone').
+        lean();
+    }
+
+    // Method 3: Try with string comparison for deliveryPartnerId
+    if (!order) {
+      order = await Order.findOne({
+        $and: [
+          {
+            $or: [
+              { _id: orderId },
+              { orderId: orderId }]
+
+          },
+          {
+            deliveryPartnerId: deliveryId.toString()
+          }]
+
+      }).
+        populate('userId', 'name phone').
+        populate('restaurantId', 'name location address phone ownerPhone').
+        lean();
+    }
+
+    if (!order) {
+      console.error(`❌ Order ${orderId} not found or not assigned to delivery ${deliveryId}`);
+      return errorResponse(res, 404, 'Order not found or not assigned to you');
+    }
+
+    // Verify order ID matches
+    if (confirmedOrderId && confirmedOrderId !== order.orderId) {
+      return errorResponse(res, 400, 'Order ID does not match');
+    }
+
+    // Check if order is in valid state
+    // Initialize deliveryState if it doesn't exist
+    if (!order.deliveryState) {
+      // If deliveryState doesn't exist, initialize it but still allow confirmation
+      // This can happen if reached pickup was confirmed but deliveryState wasn't saved properly
+      order.deliveryState = {
+        status: 'reached_pickup',
+        currentPhase: 'at_pickup'
+      };
+    }
+
+    // Ensure currentPhase exists
+    if (!order.deliveryState.currentPhase) {
+      order.deliveryState.currentPhase = 'at_pickup';
+    }
+
+    // Check if order ID is already confirmed (idempotent check)
+    const isAlreadyConfirmed = order.deliveryState?.status === 'order_confirmed' ||
+      order.deliveryState?.currentPhase === 'en_route_to_delivery' ||
+      order.deliveryState?.currentPhase === 'picked_up' ||
+      order.status === 'out_for_delivery' ||
+      order.deliveryState?.orderIdConfirmedAt;
+
+    if (isAlreadyConfirmed) {
+      // Order ID is already confirmed - return success with current order data (idempotent)
+
+
+      // Get customer location for route calculation if not already calculated
+      const [customerLng, customerLat] = order.address.location.coordinates;
+
+      // Get delivery boy's current location
+      let deliveryLat = currentLat;
+      let deliveryLng = currentLng;
+
+      if (!deliveryLat || !deliveryLng) {
+        const deliveryPartner = await Delivery.findById(delivery._id).
+          select('availability.currentLocation').
+          lean();
+
+        if (deliveryPartner?.availability?.currentLocation?.coordinates) {
+          [deliveryLng, deliveryLat] = deliveryPartner.availability.currentLocation.coordinates;
+        } else if (order.restaurantId) {
+          let restaurant = null;
+          if (mongoose.Types.ObjectId.isValid(order.restaurantId)) {
+            restaurant = await Restaurant.findById(order.restaurantId).
+              select('location').
+              lean();
+          } else {
+            restaurant = await Restaurant.findOne({ restaurantId: order.restaurantId }).
+              select('location').
+              lean();
+          }
+          if (restaurant?.location?.coordinates) {
+            [deliveryLng, deliveryLat] = restaurant.location.coordinates;
+          }
+        }
+      }
+
+      // Return existing route if available, otherwise calculate new route
+      let routeData = null;
+      if (order.deliveryState?.routeToDelivery?.coordinates?.length > 0) {
+        // Use existing route
+        routeData = {
+          coordinates: order.deliveryState.routeToDelivery.coordinates,
+          distance: order.deliveryState.routeToDelivery.distance,
+          duration: order.deliveryState.routeToDelivery.duration,
+          method: order.deliveryState.routeToDelivery.method || 'dijkstra'
+        };
+      } else if (deliveryLat && deliveryLng && customerLat && customerLng) {
+        // Calculate new route if not available
+        routeData = await calculateRoute(deliveryLat, deliveryLng, customerLat, customerLng, {
+          useDijkstra: true
+        });
+      }
+
+      return successResponse(res, 200, 'Order ID already confirmed', {
+        order: order,
+        route: routeData
+      });
+    }
+
+    // Check if order is in valid state for order ID confirmation
+    // Allow confirmation if:
+    // - currentPhase is 'at_pickup' (after Reached Pickup) OR
+    // - status is 'reached_pickup' OR
+    // - order status is 'preparing' or 'ready' (restaurant preparing/ready) OR
+    // - currentPhase is 'en_route_to_pickup' or status is 'accepted' (Reached Pickup not yet persisted / edge case)
+    const isValidState = order.deliveryState.currentPhase === 'at_pickup' ||
+      order.deliveryState.status === 'reached_pickup' ||
+      order.status === 'preparing' ||
+      order.status === 'ready' ||
+      order.deliveryState.currentPhase === 'en_route_to_pickup' ||
+      order.deliveryState.status === 'accepted';
+
+    if (!isValidState) {
+      return errorResponse(res, 400, `Order is not at pickup. Current phase: ${order.deliveryState?.currentPhase || 'unknown'}, Status: ${order.deliveryState?.status || 'unknown'}, Order status: ${order.status || 'unknown'}`);
+    }
+
+    // Get customer location
+    if (!order.address?.location?.coordinates || order.address.location.coordinates.length < 2) {
+      return errorResponse(res, 400, 'Customer location not found');
+    }
+
+    const [customerLng, customerLat] = order.address.location.coordinates;
+
+    // Get delivery boy's current location (should be at restaurant)
+    let deliveryLat = currentLat;
+    let deliveryLng = currentLng;
+
+    if (!deliveryLat || !deliveryLng) {
+      // Try to get from delivery partner's current location
+      const deliveryPartner = await Delivery.findById(delivery._id).
+        select('availability.currentLocation').
+        lean();
+
+      if (deliveryPartner?.availability?.currentLocation?.coordinates) {
+        [deliveryLng, deliveryLat] = deliveryPartner.availability.currentLocation.coordinates;
+      } else {
+        // Use restaurant location as fallback
+        // order.restaurantId might be a string or ObjectId
+        let restaurant = null;
+        if (mongoose.Types.ObjectId.isValid(order.restaurantId)) {
+          restaurant = await Restaurant.findById(order.restaurantId).
+            select('location').
+            lean();
+        } else {
+          // Try to find by restaurantId field if it's a string
+          restaurant = await Restaurant.findOne({ restaurantId: order.restaurantId }).
+            select('location').
+            lean();
+        }
+        if (restaurant?.location?.coordinates) {
+          [deliveryLng, deliveryLat] = restaurant.location.coordinates;
+        } else {
+          return errorResponse(res, 400, 'Location not found for route calculation');
+        }
+      }
+    }
+
+    // Calculate route from restaurant to customer using Dijkstra algorithm
+    const routeData = await calculateRoute(deliveryLat, deliveryLng, customerLat, customerLng, {
+      useDijkstra: true
+    });
+
+    // Update order state - use order._id (MongoDB _id) not orderId string
+    // Since we found the order, order._id should exist (from .lean() it's a plain object with _id)
+    const orderMongoId = order._id;
+    if (!orderMongoId) {
+      return errorResponse(res, 500, 'Order ID not found in order object');
+    }
+    const validatedRoadDistance =
+      typeof routeData.distance === 'number' &&
+        Number.isFinite(routeData.distance) &&
+        routeData.distance > 0 &&
+        routeData.distance <= 50 ?
+        routeData.distance :
+        typeof order.assignmentInfo?.distance === 'number' ? order.assignmentInfo.distance : 0;
+
+    // Keep canonical order-time distance stable for payout calculations.
+    // If already present, do not overwrite it with recalculated route distance.
+    const canonicalAssignmentDistance =
+      typeof order.assignmentInfo?.distance === 'number' &&
+        Number.isFinite(order.assignmentInfo.distance) &&
+        order.assignmentInfo.distance >= 0 &&
+        order.assignmentInfo.distance <= 50 ?
+        order.assignmentInfo.distance :
+        null;
+
+    const updateData = {
+      'deliveryState.status': 'order_confirmed',
+      'deliveryState.currentPhase': 'en_route_to_delivery',
+      'deliveryState.orderIdConfirmedAt': new Date(),
+      'deliveryState.routeToDelivery': {
+        coordinates: routeData.coordinates,
+        distance: routeData.distance,
+        duration: routeData.duration,
+        calculatedAt: new Date(),
+        method: routeData.method
+      },
+      'assignmentInfo.distance': canonicalAssignmentDistance ?? validatedRoadDistance,
+      status: 'out_for_delivery',
+      'tracking.outForDelivery': {
+        status: true,
+        timestamp: new Date()
+      }
+    };
+
+    // Add bill image URL if provided (with validation)
+    if (billImageUrl) {
+      // Validate URL format
+      try {
+        const url = new URL(billImageUrl);
+        // Ensure it's a valid HTTP/HTTPS URL
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return errorResponse(res, 400, 'Bill image URL must be HTTP or HTTPS');
+        }
+        // Optional: Validate it's from Cloudinary (security check)
+        if (!url.hostname.includes('cloudinary.com') && !url.hostname.includes('res.cloudinary.com')) {
+          console.warn(`⚠️ Bill image URL is not from Cloudinary: ${url.hostname}`);
+          // Don't reject, but log warning for monitoring
+        }
+        updateData.billImageUrl = billImageUrl;
+
+      } catch (urlError) {
+        console.error(`❌ Invalid bill image URL format: ${billImageUrl}`, urlError);
+        return errorResponse(res, 400, 'Invalid bill image URL format');
+      }
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderMongoId,
+      { $set: updateData },
+      { new: true }
+    ).
+      populate('userId', 'name phone').
+      populate('restaurantId', 'name location address').
+      lean();
+
+
+
+
+    // Calculate updated estimated earnings using canonical order distance when available.
+    let estimatedEarnings = null;
+    try {
+      const earningDistance =
+        typeof updatedOrder.assignmentInfo?.distance === 'number' && !Number.isNaN(updatedOrder.assignmentInfo.distance) ?
+          updatedOrder.assignmentInfo.distance :
+          routeData.distance;
+      const commissionResult = await DeliveryBoyCommission.calculateCommission(earningDistance);
+      const tip = Number(updatedOrder.pricing?.tip) || 0;
+      const userDeliveryFee = Number(updatedOrder.pricing?.deliveryFee) || 0;
+      const payoutBaseAndDistance = userDeliveryFee > 0 ?
+        userDeliveryFee :
+        Number(commissionResult.commission) || 0;
+      const basePayout = Math.min(
+        Number(commissionResult.breakdown?.basePayout || 0),
+        payoutBaseAndDistance
+      );
+      estimatedEarnings = {
+        ...commissionResult.breakdown,
+        basePayout: Math.round(basePayout * 100) / 100,
+        distanceCommission: Math.round(Math.max(0, payoutBaseAndDistance - basePayout) * 100) / 100,
+        tip: tip,
+        totalEarning: Math.round((payoutBaseAndDistance + tip) * 100) / 100,
+        deliveryFeeAtOrderTime: Math.round(userDeliveryFee * 100) / 100
+      };
+    } catch (e) {
+      console.warn('⚠️ Could not calculate updated earnings for confirmOrderId:', e.message);
+    }
+
+    // Best-effort Firebase realtime sync when rider starts trip to customer.
+    try {
+      const deliveryId = delivery._id?.toString?.() || delivery._id;
+      const restaurantCoords = extractLatLngFromCoordinates(updatedOrder?.restaurantId?.location?.coordinates);
+      const customerCoords = extractLatLngFromCoordinates(updatedOrder?.address?.location?.coordinates);
+      const routePoints = normalizeRoutePointsForRealtime(routeData?.coordinates);
+      const customerAddress = updatedOrder?.address?.formattedAddress ||
+        [updatedOrder?.address?.street, updatedOrder?.address?.city, updatedOrder?.address?.state].
+          filter(Boolean).
+          join(', ');
+
+      await updateDeliveryPresenceRealtime({
+        deliveryId,
+        isOnline: true,
+        latitude: toFiniteNumber(deliveryLat),
+        longitude: toFiniteNumber(deliveryLng),
+        name: delivery?.name,
+        phone: delivery?.phone,
+        zoneId: delivery?.zoneId?.toString?.() || delivery?.zoneId,
+        isActive: delivery?.isActive !== false,
+        transportType: delivery?.vehicle?.type || 'bike'
+      });
+
+      await upsertActiveOrderRealtime({
+        orderId: updatedOrder.orderId || updatedOrder._id?.toString?.(),
+        orderMongoId: updatedOrder._id?.toString?.() || updatedOrder._id,
+        deliveryId,
+        restaurantId: updatedOrder?.restaurantId?._id?.toString?.() ||
+          updatedOrder?.restaurantId?._id ||
+          updatedOrder?.restaurantId?.toString?.() ||
+          updatedOrder?.restaurantId,
+        status: 'out_for_delivery',
+        phase: 'en_route_to_delivery',
+        routePoints,
+        totalDistanceKm: toFiniteNumber(routeData?.distance),
+        durationMin: toFiniteNumber(routeData?.duration),
+        restaurant: restaurantCoords ?
+          {
+            ...restaurantCoords,
+            name: updatedOrder?.restaurantId?.name,
+            address: updatedOrder?.restaurantId?.address
+          } :
+          null,
+        customer: customerCoords ?
+          {
+            ...customerCoords,
+            address: customerAddress
+          } :
+          null,
+        deliveryFee: toFiniteNumber(updatedOrder?.pricing?.deliveryFee),
+        riderLat: toFiniteNumber(deliveryLat),
+        riderLng: toFiniteNumber(deliveryLng),
+        createdAtMs: updatedOrder?.createdAt ? new Date(updatedOrder.createdAt).getTime() : null
+      });
+
+      await updateActiveOrderRiderLocationRealtime({
+        deliveryId,
+        latitude: toFiniteNumber(deliveryLat),
+        longitude: toFiniteNumber(deliveryLng)
+      });
+    } catch (firebaseSyncError) {
+      logger.warn(`Firebase sync skipped for confirmOrderId ${updatedOrder?.orderId || updatedOrder?._id}: ${firebaseSyncError.message}`);
+    }
+
+    // Send response first, then handle socket notification asynchronously
+    const responseData = {
+      order: updatedOrder,
+      route: {
+        coordinates: routeData.coordinates,
+        distance: routeData.distance,
+        duration: routeData.duration,
+        method: routeData.method
+      },
+      estimatedEarnings: estimatedEarnings
+    };
+
+    const response = successResponse(res, 200, 'Order ID confirmed', responseData);
+
+    // Notifications for pickup
+    notifyUserOrderUpdate(updatedOrder._id, 'picked_up').catch(err => {
+      logger.error('Error notifying user about pickup:', err);
+    });
+
+    return response;
+  } catch (error) {
+    logger.error(`Error confirming order ID: ${error.message}`);
+    console.error('Error stack:', error.stack);
+    return errorResponse(res, 500, 'Failed to confirm order ID');
+  }
+});
+
+/**
+ * Confirm Reached Drop (Delivery Boy reached customer location)
+ * PATCH /api/delivery/orders/:orderId/reached-drop
+ */
+export const confirmReachedDrop = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+
+    if (!delivery || !delivery._id) {
+      return errorResponse(res, 401, 'Delivery partner authentication required');
+    }
+
+    if (!orderId) {
+      return errorResponse(res, 400, 'Order ID is required');
+    }
+
+    // Find order by _id or orderId, and ensure it's assigned to this delivery partner
+    // Try multiple comparison methods for deliveryPartnerId (ObjectId vs string)
+    const deliveryId = delivery._id;
+
+
+
+    // Try finding order with different deliveryPartnerId comparison methods
+    // First try without lean() to get Mongoose document (needed for proper ObjectId comparison)
+    let order = await Order.findOne({
+      $and: [
+        {
+          $or: [
+            { _id: orderId },
+            { orderId: orderId }]
+
+        },
+        {
+          deliveryPartnerId: deliveryId // Try as ObjectId first (most common)
+        }]
+
+    });
+
+    // If not found, try with string comparison
+    if (!order) {
+
+      order = await Order.findOne({
+        $and: [
+          {
+            $or: [
+              { _id: orderId },
+              { orderId: orderId }]
+
+          },
+          {
+            deliveryPartnerId: deliveryId.toString() // Try as string
+          }]
+
+      });
+    }
+
+    if (!order) {
+      console.error(`❌ Order ${orderId} not found or not assigned to delivery ${deliveryId}`);
+      return errorResponse(res, 404, 'Order not found or not assigned to you');
+    }
+
+
+
+    // Initialize deliveryState if it doesn't exist
+    if (!order.deliveryState) {
+      order.deliveryState = {
+        status: 'pending',
+        currentPhase: 'assigned'
+      };
+    }
+
+    // Ensure deliveryState.currentPhase exists
+    if (!order.deliveryState.currentPhase) {
+      order.deliveryState.currentPhase = 'assigned';
+    }
+
+    // Check if order is in valid state
+    // Allow reached drop if order is out_for_delivery OR if currentPhase is en_route_to_delivery OR status is order_confirmed
+    const isValidState = order.status === 'out_for_delivery' ||
+      order.deliveryState?.currentPhase === 'en_route_to_delivery' ||
+      order.deliveryState?.status === 'order_confirmed' ||
+      order.deliveryState?.currentPhase === 'at_delivery'; // Allow if already at delivery (idempotent)
+
+    if (!isValidState) {
+      return errorResponse(res, 400, `Order is not in valid state for reached drop. Current status: ${order.status}, Phase: ${order.deliveryState?.currentPhase || 'unknown'}`);
+    }
+
+    // Update order state - only if not already at delivery (idempotent)
+    let finalOrder = null;
+
+    if (order.deliveryState.currentPhase !== 'at_delivery') {
+      try {
+        // Update the order document directly since we have it
+        order.deliveryState.status = 'en_route_to_delivery';
+        order.deliveryState.currentPhase = 'at_delivery';
+        order.deliveryState.reachedDropAt = new Date();
+
+        // Save the order
+        await order.save();
+
+        // Populate and get the updated order for response
+        const updatedOrder = await Order.findById(order._id).
+          populate('restaurantId', 'name location address phone ownerPhone').
+          populate('userId', 'name phone').
+          lean(); // Use lean() for better performance
+
+        if (!updatedOrder) {
+          console.error(`❌ Failed to fetch updated order ${order._id}`);
+          return errorResponse(res, 500, 'Failed to update order state');
+        }
+
+        finalOrder = updatedOrder;
+      } catch (updateError) {
+        console.error(`❌ Error updating order ${order._id}:`, updateError);
+        console.error('Update error stack:', updateError.stack);
+        console.error('Update error details:', {
+          message: updateError.message,
+          name: updateError.name,
+          orderId: order._id,
+          orderStatus: order.status,
+          deliveryPhase: order.deliveryState?.currentPhase
+        });
+        throw updateError; // Re-throw to be caught by outer catch
+      }
+    } else {
+      // If already at delivery, populate the order for response
+      try {
+        const populatedOrder = await Order.findById(order._id).
+          populate('restaurantId', 'name location address phone ownerPhone').
+          populate('userId', 'name phone').
+          lean(); // Use lean() for better performance
+
+        if (!populatedOrder) {
+          console.error(`❌ Failed to fetch order ${order._id} details`);
+          return errorResponse(res, 500, 'Failed to fetch order details');
+        }
+
+        finalOrder = populatedOrder;
+      } catch (fetchError) {
+        console.error(`❌ Error fetching order ${order._id}:`, fetchError);
+        console.error('Fetch error stack:', fetchError.stack);
+        throw fetchError; // Re-throw to be caught by outer catch
+      }
+    }
+
+    if (!finalOrder) {
+      return errorResponse(res, 500, 'Failed to process order');
+    }
+
+    const orderIdForLog = finalOrder.orderId || finalOrder._id?.toString() || orderId;
+
+
+    try {
+      const deliveryIdStr = delivery._id?.toString?.() || delivery._id;
+      const routePoints = normalizeRoutePointsForRealtime(finalOrder?.deliveryState?.routeToDelivery?.coordinates);
+
+      await upsertActiveOrderRealtime({
+        orderId: finalOrder.orderId || finalOrder._id?.toString?.(),
+        orderMongoId: finalOrder._id?.toString?.() || finalOrder._id,
+        deliveryId: deliveryIdStr,
+        restaurantId: finalOrder?.restaurantId?._id?.toString?.() ||
+          finalOrder?.restaurantId?._id ||
+          finalOrder?.restaurantId?.toString?.() ||
+          finalOrder?.restaurantId,
+        status: 'out_for_delivery',
+        phase: 'at_delivery',
+        routePoints,
+        totalDistanceKm: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.distance),
+        durationMin: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.duration),
+        deliveryFee: toFiniteNumber(finalOrder?.pricing?.deliveryFee)
+      });
+    } catch (firebaseSyncError) {
+      logger.warn(`Firebase sync skipped for reached-drop ${orderIdForLog}: ${firebaseSyncError.message}`);
+    }
+
+    // Notify customer that rider reached drop location
+    notifyUserOrderUpdate(finalOrder._id, 'at_delivery').catch(err => {
+      logger.error('Error notifying user about reaching drop:', err);
+    });
+
+    return successResponse(res, 200, 'Reached drop confirmed', {
+      order: finalOrder,
+      message: 'Reached drop location confirmed'
+    });
+  } catch (error) {
+    logger.error(`Error confirming reached drop: ${error.message}`);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      orderId: req.params?.orderId,
+      deliveryId: req.delivery?._id
+    });
+    return errorResponse(res, 500, `Failed to confirm reached drop: ${error.message}`);
+  }
+});
+
+/**
+ * Confirm Delivery Complete
+ * PATCH /api/delivery/orders/:orderId/complete-delivery
+ */
+export const completeDelivery = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+    const { rating, review } = req.body; // Optional rating and review from delivery boy
+
+    if (!delivery || !delivery._id) {
+      return errorResponse(res, 401, 'Delivery partner authentication required');
+    }
+
+    if (!orderId) {
+      return errorResponse(res, 400, 'Order ID is required');
+    }
+
+    // Find order - try both by _id and orderId, and ensure it's assigned to this delivery partner
+    const deliveryId = delivery._id;
+    let order = null;
+
+    // Check if orderId is a valid MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findOne({
+        _id: orderId,
+        deliveryPartnerId: deliveryId
+      }).
+        populate('restaurantId', 'name location address phone ownerPhone').
+        populate('userId', 'name phone').
+        lean();
+    } else {
+      // If not a valid ObjectId, search by orderId field
+      order = await Order.findOne({
+        orderId: orderId,
+        deliveryPartnerId: deliveryId
+      }).
+        populate('restaurantId', 'name location address phone ownerPhone').
+        populate('userId', 'name phone').
+        lean();
+    }
+
+    // If still not found, try with string comparison for deliveryPartnerId
+    if (!order) {
+      order = await Order.findOne({
+        $and: [
+          {
+            $or: [
+              { _id: orderId },
+              { orderId: orderId }]
+
+          },
+          {
+            deliveryPartnerId: deliveryId.toString()
+          }]
+
+      }).
+        populate('restaurantId', 'name location address phone ownerPhone').
+        populate('userId', 'name phone').
+        lean();
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found or not assigned to you');
+    }
+
+    // Check if order is already delivered/completed (idempotent - allow if already completed)
+    const isAlreadyDelivered = order.status === 'delivered' ||
+      order.deliveryState?.currentPhase === 'completed' ||
+      order.deliveryState?.status === 'delivered';
+
+    if (isAlreadyDelivered) {
+      // Return success with existing order data (idempotent operation)
+      // Still calculate earnings and ensure wallet update if missing
+      let earnings = null;
+      try {
+        const orderMongoId = order._id;
+        const orderIdForLog = order.orderId || orderId;
+
+        // Release escrow safely (idempotent)
+        try {
+          const { releaseEscrow } = await import('../services/escrowWalletService.js');
+          await releaseEscrow(orderMongoId);
+        } catch (escrowError) {
+          console.error(`⚠️ Error releasing escrow for already delivered order ${orderIdForLog}:`, escrowError?.message);
+        }
+
+        // Find or create wallet for delivery boy
+        let wallet = await DeliveryWallet.findOrCreateByDeliveryId(delivery._id);
+        const orderIdForTransaction = orderMongoId?.toString ? orderMongoId.toString() : orderMongoId;
+        const existingTransaction = wallet?.transactions?.find(
+          (t) => t.orderId && t.orderId.toString() === orderIdForTransaction && t.type === 'payment'
+        );
+        let paymentTxId = existingTransaction?._id || null;
+
+        if (existingTransaction) {
+          earnings = {
+            amount: existingTransaction.amount,
+            transactionId: existingTransaction._id?.toString() || existingTransaction.id
+          };
+        } else {
+          // Calculate earnings even if order is already delivered (for consistency)
+          let deliveryDistance = 0;
+          if (order.assignmentInfo?.distance) {
+            deliveryDistance = order.assignmentInfo.distance;
+          } else if (order.deliveryState?.routeToDelivery?.distance) {
+            deliveryDistance = order.deliveryState.routeToDelivery.distance;
+          }
+
+          let totalEarning = 0;
+          let commissionBreakdown = null;
+          try {
+            const settlement = await calculateOrderSettlement(orderMongoId);
+            if (settlement?.deliveryPartnerEarning) {
+              totalEarning = settlement.deliveryPartnerEarning.totalEarning || 0;
+              if (typeof settlement.deliveryPartnerEarning.distance === 'number') {
+                deliveryDistance = settlement.deliveryPartnerEarning.distance;
+              }
+              const tipAmount = Number(order.pricing?.tip) || 0;
+              totalEarning = (settlement.deliveryPartnerEarning.totalEarning || 0) - tipAmount;
+              commissionBreakdown = {
+                basePayout: settlement.deliveryPartnerEarning.basePayout || totalEarning,
+                distance: settlement.deliveryPartnerEarning.distance || deliveryDistance,
+                commissionPerKm: settlement.deliveryPartnerEarning.commissionPerKm || 0,
+                distanceCommission: settlement.deliveryPartnerEarning.distanceCommission || 0,
+                total: totalEarning
+              };
+            }
+          } catch (commissionError) {
+            console.error('⚠️ Error fetching earnings from settlement (already delivered):', commissionError.message);
+          }
+
+          if (!totalEarning || totalEarning <= 0) {
+            if (deliveryDistance > 0) {
+              const commissionResult = await DeliveryBoyCommission.calculateCommission(deliveryDistance);
+              totalEarning = Number(commissionResult.commission) || 0;
+              commissionBreakdown = commissionResult.breakdown;
+            }
+          }
+
+          const tipAmount = Number(order.pricing?.tip) || 0;
+          const walletTransaction = wallet.addTransaction({
+            amount: totalEarning,
+            type: 'payment',
+            status: 'Completed',
+            description: `Delivery earnings for Order #${orderIdForLog} (Distance: ${deliveryDistance.toFixed(2)} km)`,
+            orderId: orderMongoId || order._id,
+            paymentCollected: false,
+            metadata: {
+              baseEarning: totalEarning,
+              distance: deliveryDistance,
+              orderNumber: orderIdForLog
+            }
+          });
+
+          if (tipAmount > 0) {
+            wallet.addTransaction({
+              amount: tipAmount,
+              type: 'tip',
+              status: 'Completed',
+              description: `Customer tip for Order #${orderIdForLog}`,
+              orderId: orderMongoId || order._id,
+              paymentCollected: false,
+              metadata: {
+                tipAmount: tipAmount,
+                orderNumber: orderIdForLog
+              }
+            });
+          }
+
+          await wallet.save();
+          paymentTxId = walletTransaction?._id;
+
+          earnings = {
+            amount: totalEarning + tipAmount,
+            breakdown: commissionBreakdown,
+            transactionId: walletTransaction?._id?.toString() || walletTransaction?.id
+          };
+        }
+
+        const paymentMethod = (order.payment?.method || '').toString().toLowerCase();
+        let isCashOrder = isCashPaymentMethod(paymentMethod);
+        if (!isCashOrder) {
+          try {
+            const paymentRecord = await Payment.findOne({ orderId: orderMongoId })
+              .select('method paymentMethod')
+              .lean();
+            const resolvedMethod = paymentRecord?.method || paymentRecord?.paymentMethod;
+            if (isCashPaymentMethod(resolvedMethod)) isCashOrder = true;
+          } catch (e) {/* ignore */}
+        }
+        const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
+        if (isCashOrder && codAmount > 0 && paymentTxId) {
+          try {
+            await DeliveryWallet.updateOne(
+              {
+                deliveryId: delivery._id,
+                'transactions._id': paymentTxId,
+                'transactions.paymentCollected': { $ne: true }
+              },
+              {
+                $set: { 'transactions.$.paymentCollected': true },
+                $inc: { cashInHand: codAmount }
+              }
+            );
+          } catch (codErr) {
+            console.error('❌ Failed to add COD to cashInHand (already delivered):', codErr.message);
+          }
+        }
+      } catch (earningsError) {
+        console.error('⚠️ Error calculating earnings for already delivered order:', earningsError.message);
+      }
+
+      return successResponse(res, 200, 'Order already delivered', {
+        order: order,
+        earnings: earnings,
+        message: 'Order was already marked as delivered'
+      });
+    }
+
+    // Check if order is in valid state for completion
+    // Allow completion if order is out_for_delivery OR at_delivery phase
+    const isValidState = order.status === 'out_for_delivery' ||
+      order.deliveryState?.currentPhase === 'at_delivery' ||
+      order.deliveryState?.currentPhase === 'en_route_to_delivery';
+
+    if (!isValidState) {
+      return errorResponse(res, 400, `Order cannot be completed. Current status: ${order.status}, Phase: ${order.deliveryState?.currentPhase || 'unknown'}`);
+    }
+
+    // Ensure we have order._id - from .lean() it's a plain object with _id
+    const orderMongoId = order._id;
+    if (!orderMongoId) {
+      return errorResponse(res, 500, 'Order ID not found in order object');
+    }
+
+    // Prepare update object
+    const updateData = {
+      status: 'delivered',
+      'tracking.delivered': {
+        status: true,
+        timestamp: new Date()
+      },
+      deliveredAt: new Date(),
+      'deliveryState.status': 'delivered',
+      'deliveryState.currentPhase': 'completed'
+    };
+
+    // Add review and rating if provided
+    if (rating && rating >= 1 && rating <= 5) {
+      updateData['review.rating'] = rating;
+      updateData['review.submittedAt'] = new Date();
+      if (order.userId) {
+        updateData['review.reviewedBy'] = order.userId;
+      }
+    }
+
+    if (review && review.trim()) {
+      updateData['review.comment'] = review.trim();
+      if (!updateData['review.submittedAt']) {
+        updateData['review.submittedAt'] = new Date();
+      }
+      if (order.userId && !updateData['review.reviewedBy']) {
+        updateData['review.reviewedBy'] = order.userId;
+      }
+    }
+
+    // Update order to delivered
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderMongoId,
+      {
+        $set: updateData
+      },
+      { new: true, runValidators: true }
+    ).
+      populate('restaurantId', 'name location address phone ownerPhone').
+      populate('userId', 'name phone').
+      lean();
+
+    if (!updatedOrder) {
+      return errorResponse(res, 500, 'Failed to update order status');
+    }
+
+    // Notifications for delivery completion
+    try {
+      // Notify user
+      notifyUserOrderUpdate(updatedOrder._id, 'delivered').catch(e => logger.error('User delivery notify error:', e));
+
+      // Notify restaurant
+      const restaurantId = updatedOrder.restaurantId?._id?.toString() || updatedOrder.restaurantId?.toString() || updatedOrder.restaurantId;
+      if (restaurantId) {
+        notifyRestaurantFCM(
+          restaurantId,
+          '🎉 Order Delivered',
+          `Order #${updatedOrder.orderId} has been successfully delivered to the customer.`,
+          {
+            orderId: updatedOrder.orderId,
+            orderMongoId: updatedOrder._id.toString(),
+            type: 'ORDER_DELIVERED'
+          }
+        ).catch(e => logger.error('Restaurant delivery notify error:', e));
+      }
+    } catch (notifError) {
+      logger.error('Error sending delivery completion notifications:', notifError);
+    }
+
+    const orderIdForLog = updatedOrder.orderId || order.orderId || orderMongoId?.toString() || orderId;
+
+
+    try {
+      await completeActiveOrderRealtime({
+        orderId: updatedOrder.orderId || orderIdForLog,
+        deliveryId: delivery._id?.toString?.() || delivery._id,
+        finalStatus: 'delivered'
+      });
+    } catch (firebaseSyncError) {
+      logger.warn(`Firebase sync skipped while completing order ${orderIdForLog}: ${firebaseSyncError.message}`);
+    }
+
+    // Mark COD payment as collected (admin Payment Status → Collected)
+    if (order.payment?.method === 'cash' || order.payment?.method === 'cod') {
+      try {
+        // Update the status on the Payment record
+        await Payment.updateOne(
+          { orderId: orderMongoId },
+          { $set: { status: 'completed', completedAt: new Date() } }
+        );
+
+        // ALSO update the status on the Order document itself for UI consistency
+        await Order.updateOne(
+          { _id: orderMongoId },
+          { $set: { 'payment.status': 'completed' } }
+        );
+
+      } catch (paymentUpdateError) {
+        console.warn('⚠️ Could not update COD payment status:', paymentUpdateError.message);
+      }
+    }
+
+    // Release escrow and distribute funds (this handles all wallet credits)
+    try {
+      const { releaseEscrow } = await import('../services/escrowWalletService.js');
+      await releaseEscrow(orderMongoId);
+
+    } catch (escrowError) {
+      console.error(`❌ Error releasing escrow for order ${orderIdForLog}:`, escrowError);
+      // Continue with legacy wallet update as fallback
+    }
+
+    // Calculate delivery earnings based on admin's commission rules
+    // Get delivery distance (in km) from order
+    let deliveryDistance = 0;
+    let settlement = null;
+
+    // Priority 1: Use canonical order-time assignment distance for payout consistency.
+    if (order.assignmentInfo?.distance &&
+      Number.isFinite(order.assignmentInfo.distance) &&
+      order.assignmentInfo.distance >= 0 &&
+      order.assignmentInfo.distance <= 50) {
+      deliveryDistance = order.assignmentInfo.distance;
+    }
+    // Priority 2: Use measured road route distance when canonical distance is missing.
+    else if (order.deliveryState?.routeToDelivery?.distance &&
+      Number.isFinite(order.deliveryState.routeToDelivery.distance) &&
+      order.deliveryState.routeToDelivery.distance > 0 &&
+      order.deliveryState.routeToDelivery.distance <= 50) {
+      deliveryDistance = order.deliveryState.routeToDelivery.distance;
+    }
+    // Priority 3: Calculate distance from restaurant to customer if coordinates available
+    else if (order.restaurantId?.location?.coordinates && order.address?.location?.coordinates) {
+      const [restaurantLng, restaurantLat] = order.restaurantId.location.coordinates;
+      const [customerLng, customerLat] = order.address.location.coordinates;
+
+      // Sanity check: If coordinates are [0,0], use distance 0 to avoid massive payouts
+      if (restaurantLng === 0 && restaurantLat === 0 || customerLng === 0 && customerLat === 0) {
+        console.warn(`⚠️ Invalid coordinates [0,0] detected for order ${orderIdForLog}. Using 0 distance fallback.`);
+        deliveryDistance = 0;
+      } else {
+        // Calculate distance using Haversine formula
+        const R = 6371; // Earth radius in km
+        const dLat = (customerLat - restaurantLat) * Math.PI / 180;
+        const dLng = (customerLng - restaurantLng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(restaurantLat * Math.PI / 180) * Math.cos(customerLat * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        deliveryDistance = R * c;
+      }
+    }
+
+    // Safety Cap: If distance is unreasonably high (e.g. > 50km), cap it or use fallback
+    // This prevents massive payouts if something goes wrong with GPS or route service
+    if (deliveryDistance > 50) {
+      console.warn(`⚠️ Extremely high distance detected: ${deliveryDistance.toFixed(2)} km. Capping to 0 for safety (requires manual review).`);
+      deliveryDistance = 0; // Better to pay base fee only then thousands by mistake
+    }
+
+
+
+    // Calculate earnings using OrderSettlement (this is the single source of truth)
+    let totalEarning = 0;
+    let commissionBreakdown = null;
+
+    try {
+      // Re-calculate settlement to ensure delivery partner info and latest distance are factored in
+
+      const { calculateOrderSettlement } = await import('../services/orderSettlementService.js');
+      settlement = await calculateOrderSettlement(orderMongoId);
+
+      if (settlement && settlement.deliveryPartnerEarning) {
+        totalEarning = settlement.deliveryPartnerEarning.totalEarning || 0;
+        if (typeof settlement.deliveryPartnerEarning.distance === 'number') {
+          deliveryDistance = settlement.deliveryPartnerEarning.distance;
+        }
+
+        // Construct breakdown for UI from settlement data
+        // Note: settlement.deliveryPartnerEarning.totalEarning already includes tips
+        const tipAmount = Number(order.pricing?.tip) || 0;
+        // Important: totalEarning from settlement includes tips.
+        // We subtract it here because the subsequent code adds tips as a separate transaction.
+        totalEarning = (settlement.deliveryPartnerEarning.totalEarning || 0) - tipAmount;
+
+        commissionBreakdown = {
+          basePayout: settlement.deliveryPartnerEarning.basePayout || totalEarning,
+          distance: settlement.deliveryPartnerEarning.distance || deliveryDistance,
+          commissionPerKm: settlement.deliveryPartnerEarning.commissionPerKm || 0,
+          distanceCommission: settlement.deliveryPartnerEarning.distanceCommission || 0,
+          total: totalEarning
+        };
+
+
+      } else {
+        throw new Error('Settlement calculation failed');
+      }
+    } catch (commissionError) {
+      console.error('⚠️ Error fetching earnings from settlement:', commissionError.message);
+      // Fallback: Use rule calculation if settlement fails
+      try {
+        const commissionResult = await DeliveryBoyCommission.calculateCommission(deliveryDistance);
+        const rulePay = Number(commissionResult.commission) || 0;
+        const userFee = Number(order.pricing?.deliveryFee) || 0;
+        totalEarning = userFee > 0 ? userFee : rulePay;
+        const basePayout = Math.min(
+          Number(commissionResult.breakdown.basePayout || 0),
+          totalEarning
+        );
+        const adjustedDistanceCommission = Math.max(0, totalEarning - basePayout);
+
+        commissionBreakdown = {
+          ...commissionResult.breakdown,
+          basePayout: basePayout,
+          distanceCommission: adjustedDistanceCommission,
+          total: totalEarning
+        };
+        console.warn(`⚠️ Using fallback breakdown: ₹${totalEarning.toFixed(2)}`);
+      } catch (fallbackError) {
+        const userFee = Number(order.pricing?.deliveryFee) || 0;
+        const defaultBasePay = 22;
+        totalEarning = userFee > 0 ? userFee : defaultBasePay;
+        console.warn(`⚠️ Using absolute fallback payout: ₹${totalEarning.toFixed(2)}`);
+      }
+    }
+
+    // Add earning to delivery boy's wallet
+    let walletTransaction = null;
+    try {
+      // Find or create wallet for delivery boy
+      let wallet = await DeliveryWallet.findOrCreateByDeliveryId(delivery._id);
+
+      // Check if transaction already exists for this order
+      const orderIdForTransaction = orderMongoId?.toString ? orderMongoId.toString() : orderMongoId;
+      const existingTransaction = wallet.transactions?.find(
+        (t) => t.orderId && t.orderId.toString() === orderIdForTransaction && t.type === 'payment'
+      );
+      let paymentTxId = existingTransaction?._id || null;
+
+      if (existingTransaction) {
+        console.warn(`⚠️ Earning already added for order ${orderIdForLog}, skipping wallet update`);
+        const existingAmount = Number(existingTransaction.amount) || 0;
+        if (existingAmount > 0) {
+          totalEarning = existingAmount; // Ensure response shows total including tip if already credited
+        }
+        walletTransaction = existingTransaction;
+      } else {
+        // Add payment transaction (base earning)
+        const tipAmount = Number(order.pricing?.tip) || 0;
+
+        walletTransaction = wallet.addTransaction({
+          amount: totalEarning,
+          type: 'payment',
+          status: 'Completed',
+          description: `Delivery earnings for Order #${orderIdForLog} (Distance: ${deliveryDistance.toFixed(2)} km)`,
+          orderId: orderMongoId || order._id,
+          paymentCollected: false,
+          metadata: {
+            baseEarning: totalEarning,
+            distance: deliveryDistance,
+            orderNumber: orderIdForLog
+          }
+        });
+
+        // Add separate transaction for tip if present
+        // Tips are auto-approved and immediately added to earnings
+        if (tipAmount > 0) {
+          wallet.addTransaction({
+            amount: tipAmount,
+            type: 'tip',
+            status: 'Completed', // Auto-approve tips so they show in earnings immediately
+            description: `Customer tip for Order #${orderIdForLog}`,
+            orderId: orderMongoId || order._id,
+            paymentCollected: false,
+            metadata: {
+              tipAmount: tipAmount,
+              orderNumber: orderIdForLog
+            }
+          });
+
+        }
+
+        await wallet.save();
+        paymentTxId = walletTransaction?._id;
+
+        // Include tip in the total earning returned to UI
+        const finalTotalEarning = totalEarning + tipAmount;
+        totalEarning = finalTotalEarning; // Update for responseData below
+
+      }
+
+      // COD: mark payment collected + add cash collected (order total) to cashInHand
+      const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
+      const paymentMethod = (order.payment?.method || '').toString().toLowerCase();
+      let isCashOrder = isCashPaymentMethod(paymentMethod);
+      if (!isCashOrder) {
+        try {
+          const paymentRecord = await Payment.findOne({ orderId: orderMongoId })
+            .select('method paymentMethod')
+            .lean();
+          const resolvedMethod = paymentRecord?.method || paymentRecord?.paymentMethod;
+          if (isCashPaymentMethod(resolvedMethod)) isCashOrder = true;
+        } catch (e) {/* ignore */}
+      }
+      if (isCashOrder && codAmount > 0 && paymentTxId) {
+        try {
+          const updateResult = await DeliveryWallet.updateOne(
+            {
+              deliveryId: delivery._id,
+              'transactions._id': paymentTxId,
+              'transactions.paymentCollected': { $ne: true }
+            },
+            {
+              $set: { 'transactions.$.paymentCollected': true },
+              $inc: { cashInHand: codAmount }
+            }
+          );
+          if (updateResult.modifiedCount === 0) {
+            console.warn(`⚠️ Wallet update for cashInHand had no effect (deliveryId: ${delivery._id})`);
+          }
+        } catch (codErr) {
+          console.error(`❌ Failed to add COD to cashInHand:`, codErr.message);
+        }
+      }
+
+      const cashCollectedThisOrder = isCashOrder ? codAmount : 0;
+      logger.info(`💰 Earning added to wallet for delivery: ${delivery._id}`, {
+        deliveryId: delivery.deliveryId || delivery._id.toString(),
+        orderId: orderIdForLog,
+        amount: totalEarning,
+        cashCollected: cashCollectedThisOrder,
+        distance: deliveryDistance,
+        transactionId: walletTransaction?._id || walletTransaction?.id,
+        walletBalance: wallet.totalBalance,
+        cashInHand: wallet.cashInHand
+      });
+    } catch (walletError) {
+      logger.error('❌ Error adding earning to wallet:', walletError);
+      console.error('❌ Error processing delivery wallet:', walletError);
+      // Don't fail the delivery completion if wallet update fails
+      // But log it for investigation
+    }
+
+    // Check and award earning addon bonuses if delivery boy qualifies
+    let earningAddonBonus = null;
+    try {
+      const { checkAndAwardEarningAddon } = await import('../services/earningAddonService.js');
+      earningAddonBonus = await checkAndAwardEarningAddon(
+        delivery._id,
+        orderMongoId || order._id,
+        updatedOrder.deliveredAt || new Date()
+      );
+
+      if (earningAddonBonus) {
+
+        logger.info(`Earning addon bonus awarded to delivery ${delivery._id}`, {
+          offerId: earningAddonBonus.offerId,
+          amount: earningAddonBonus.amount,
+          ordersCompleted: earningAddonBonus.ordersCompleted
+        });
+      }
+    } catch (earningAddonError) {
+      logger.error('❌ Error checking earning addon bonuses:', earningAddonError);
+      console.error('❌ Error processing earning addon bonus:', earningAddonError);
+      // Don't fail the delivery completion if bonus check fails
+    }
+
+    // Calculate restaurant commission and update restaurant wallet
+    let restaurantWalletTransaction = null;
+    let adminCommissionRecord = null;
+    try {
+      // Use canonical food amount (subtotal - discount) for restaurant commission.
+      // This keeps payout aligned with order-time settlement math.
+      const orderTotal = Math.max(
+        0,
+        Number(order.pricing?.subtotal || 0) - Number(order.pricing?.discount || 0)
+      );
+
+      // Find restaurant by restaurantId (can be string or ObjectId)
+      let restaurant = null;
+      if (mongoose.Types.ObjectId.isValid(order.restaurantId)) {
+        restaurant = await Restaurant.findById(order.restaurantId);
+      } else {
+        restaurant = await Restaurant.findOne({ restaurantId: order.restaurantId });
+      }
+
+      if (!restaurant) {
+        console.warn(`⚠️ Restaurant not found for order ${orderIdForLog}, skipping commission calculation`);
+      } else {
+        // Commission priority:
+        // 1) Settlement snapshot (single source of truth)
+        // 2) Order-time commission snapshot
+        // 3) Live commission rule fallback (legacy safety)
+        let commissionAmount = 0;
+        let restaurantEarning = orderTotal;
+        let commissionPercentage = 0;
+
+        if (settlement?.restaurantEarning) {
+          commissionAmount = Number(settlement.restaurantEarning.commission || 0);
+          restaurantEarning = Number(
+            settlement.restaurantEarning.netEarning ?? (orderTotal - commissionAmount)
+          );
+          commissionPercentage = Number(settlement.restaurantEarning.commissionPercentage || 0);
+        } else if (order.pricing?.commission && order.pricing.commission.amount !== undefined) {
+          commissionAmount = Number(order.pricing.commission.amount) || 0;
+          restaurantEarning = Math.max(0, orderTotal - commissionAmount);
+          commissionPercentage = order.pricing.commission.type === 'percentage' ?
+            Number(order.pricing.commission.rate || 0) :
+            0;
+        } else {
+          const commissionResult = await RestaurantCommission.calculateCommissionForOrder(
+            restaurant._id,
+            orderTotal,
+            order.items || []
+          );
+          commissionAmount = Number(commissionResult.commission || 0);
+          restaurantEarning = Math.max(0, orderTotal - commissionAmount);
+          commissionPercentage = Number(commissionResult.value || 0);
+        }
+
+
+
+
+
+
+
+
+        // Update restaurant wallet
+        if (restaurant._id) {
+          const restaurantWallet = await RestaurantWallet.findOrCreateByRestaurantId(restaurant._id);
+
+          // Check if transaction already exists for this order
+          const existingRestaurantTransaction = restaurantWallet.transactions?.find(
+            (t) => t.orderId && t.orderId.toString() === orderIdForTransaction && t.type === 'payment'
+          );
+
+          if (existingRestaurantTransaction) {
+            console.warn(`⚠️ Restaurant earning already added for order ${orderIdForLog}, skipping wallet update`);
+          } else {
+            // Add payment transaction to restaurant wallet
+            restaurantWalletTransaction = restaurantWallet.addTransaction({
+              amount: restaurantEarning,
+              type: 'payment',
+              status: 'Completed',
+              description: `Order #${orderIdForLog} - Amount: ₹${orderTotal.toFixed(2)}, Commission: ₹${commissionAmount.toFixed(2)}`,
+              orderId: orderMongoId || order._id
+            });
+
+            await restaurantWallet.save();
+
+            logger.info(`💰 Earning added to restaurant wallet: ${restaurant._id}`, {
+              restaurantId: restaurant.restaurantId || restaurant._id.toString(),
+              orderId: orderIdForLog,
+              orderTotal: orderTotal,
+              commissionAmount: commissionAmount,
+              restaurantEarning: restaurantEarning,
+              walletBalance: restaurantWallet.totalBalance
+            });
+
+
+
+          }
+        }
+
+        // Track admin commission earned
+        try {
+          // Check if commission record already exists
+          const existingCommission = await AdminCommission.findOne({ orderId: orderMongoId || order._id });
+
+          if (!existingCommission) {
+            adminCommissionRecord = await AdminCommission.create({
+              orderId: orderMongoId || order._id,
+              orderAmount: orderTotal,
+              commissionAmount: commissionAmount,
+              commissionPercentage,
+              restaurantId: restaurant._id,
+              restaurantName: restaurant.name || order.restaurantName,
+              restaurantEarning: restaurantEarning,
+              status: 'completed',
+              orderDate: order.createdAt || new Date()
+            });
+
+            logger.info(`💰 Admin commission recorded: ${commissionAmount}`, {
+              orderId: orderIdForLog,
+              commissionAmount: commissionAmount,
+              orderTotal: orderTotal
+            });
+
+
+          } else {
+            console.warn(`⚠️ Admin commission already recorded for order ${orderIdForLog}`);
+          }
+        } catch (adminCommissionError) {
+          logger.error('❌ Error recording admin commission:', adminCommissionError);
+          console.error('❌ Error recording admin commission:', adminCommissionError);
+          // Don't fail the delivery completion if commission tracking fails
+        }
+      }
+    } catch (restaurantWalletError) {
+      logger.error('❌ Error processing restaurant wallet:', restaurantWalletError);
+      console.error('❌ Error processing restaurant wallet:', restaurantWalletError);
+      // Don't fail the delivery completion if restaurant wallet update fails
+      // But log it for investigation
+    }
+
+    // Send response first, then handle notifications asynchronously
+    // This prevents timeouts if notifications take too long
+    const responseData = {
+      order: updatedOrder,
+      earnings: {
+        amount: totalEarning,
+        currency: 'INR',
+        distance: deliveryDistance,
+        breakdown: commissionBreakdown ? {
+          ...commissionBreakdown,
+          tip: Number(order.pricing?.tip) || 0
+        } : {
+          basePayout: 0,
+          distance: deliveryDistance,
+          commissionPerKm: 0,
+          distanceCommission: 0,
+          tip: Number(order.pricing?.tip) || 0
+        }
+      },
+      wallet: walletTransaction ? {
+        transactionId: walletTransaction._id,
+        balance: walletTransaction.amount
+      } : null,
+      earningAddonBonus: earningAddonBonus ? {
+        offerId: earningAddonBonus.offerId,
+        offerTitle: earningAddonBonus.offerTitle,
+        amount: earningAddonBonus.amount,
+        ordersCompleted: earningAddonBonus.ordersCompleted,
+        ordersRequired: earningAddonBonus.ordersRequired
+      } : null,
+      message: 'Delivery completed successfully'
+    };
+
+    // Send response immediately
+    const response = successResponse(res, 200, 'Delivery completed successfully', responseData);
+
+    // Handle notifications asynchronously (don't block response)
+    const orderIdForNotification = orderMongoId?.toString ? orderMongoId.toString() : orderMongoId;
+    Promise.all([
+      // Notify restaurant about delivery completion
+      (async () => {
+        try {
+          const { notifyRestaurantOrderUpdate } = await import('../services/restaurantNotificationService.js');
+          await notifyRestaurantOrderUpdate(orderIdForNotification, 'delivered');
+        } catch (notifError) {
+          console.error('Error sending restaurant notification:', notifError);
+        }
+      })(),
+      // Notify user about delivery completion
+      (async () => {
+        try {
+          const { notifyUserOrderUpdate } = await import('../services/userNotificationService.js');
+          if (notifyUserOrderUpdate) {
+            await notifyUserOrderUpdate(orderIdForNotification, 'delivered');
+          }
+        } catch (notifError) {
+          console.error('Error sending user notification:', notifError);
+        }
+      })()]
+    ).catch((error) => {
+      console.error('Error in notification promises:', error);
+    });
+
+    return response;
+  } catch (error) {
+    logger.error(`Error completing delivery: ${error.message}`);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      orderId: req.params?.orderId,
+      deliveryId: req.delivery?._id
+    });
+    return errorResponse(res, 500, `Failed to complete delivery: ${error.message}`);
+  }
+});

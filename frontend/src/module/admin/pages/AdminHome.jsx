@@ -1,0 +1,643 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue } from
+"@/components/ui/select";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis } from
+"recharts";
+import { Activity, ArrowUpRight, ShoppingBag, CreditCard, Truck, Receipt, DollarSign, Store, UserCheck, Package, UserCircle, Clock, CheckCircle, Plus, Gift } from "lucide-react";
+
+import { adminAPI } from "@/lib/api";
+
+export default function AdminHome() {
+  const navigate = useNavigate();
+  const [selectedZone, setSelectedZone] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState("overall");
+  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+
+  // Fetch dashboard stats on mount
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        setIsLoading(true);
+        const response = await adminAPI.getDashboardStats();
+        if (response.data?.success && response.data?.data) {
+          setDashboardData(response.data.data);
+
+
+
+
+
+
+        } else {
+          console.error('❌ Invalid response format:', response.data);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching dashboard stats:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardStats();
+  }, []);
+
+  // Update loading state when filters change
+  useEffect(() => {
+    if (dashboardData) {
+      setIsLoading(true);
+      const timer = setTimeout(() => setIsLoading(false), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedZone, selectedPeriod]);
+
+  // Get order stats from real data
+  const getOrderStats = () => {
+    if (!dashboardData?.orders?.byStatus) {
+      return [
+      { label: "Delivered", value: 0, color: "#0ea5e9" },
+      { label: "Cancelled", value: 0, color: "#ef4444" },
+      { label: "Refunded", value: 0, color: "#f59e0b" },
+      { label: "Pending", value: 0, color: "#10b981" }];
+
+    }
+
+    const byStatus = dashboardData.orders.byStatus;
+    return [
+    { label: "Delivered", value: byStatus.delivered || 0, color: "#0ea5e9" },
+    { label: "Cancelled", value: byStatus.cancelled || 0, color: "#ef4444" },
+    { label: "Refunded", value: 0, color: "#f59e0b" }, // Refunded not tracked separately
+    { label: "Pending", value: byStatus.pending || 0, color: "#10b981" }];
+
+  };
+
+  // Get monthly data from real data
+  const getMonthlyData = () => {
+    if (!dashboardData?.monthlyData || dashboardData.monthlyData.length === 0) {
+      // Return empty data structure if no data
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return monthNames.map((month) => ({ month, commission: 0, revenue: 0, orders: 0 }));
+    }
+
+    // Use real monthly data from backend
+    return dashboardData.monthlyData.map((item) => ({
+      month: item.month,
+      commission: item.commission || 0,
+      revenue: item.revenue || 0,
+      orders: item.orders || 0
+    }));
+  };
+
+  const orderStats = getOrderStats();
+  const monthlyData = getMonthlyData();
+
+  // Map metric titles to navigation targets (only where routes are known)
+  const cardLinks = {
+    "Gross revenue": "/admin/transaction-report?metric=gross",
+    "Commission earned": "/admin/restaurants/commission",
+    "Orders processed": "/admin/orders/all",
+    "Platform fee": "/admin/transaction-report?metric=platform_fee",
+    "Delivery fee": "/admin/delivery-partners/earnings",
+    "GST": "/admin/transaction-report?metric=gst",
+    "Tips collected": "/admin/donation-management",
+    "Total Donations": "/admin/donation-management",
+    "Subscription Revenue": "/admin/subscription-management",
+    "Restaurant Ad Revenue": "/admin/advertisement",
+    "User Ad Revenue": "/admin/user-advertisements?tab=list",
+    "Total Ad Revenue": "/admin/advertisement",
+    "Total revenue": "/admin/transaction-report?metric=admin_earning",
+    "Total restaurants": "/admin/restaurants",
+    "Restaurant request pending": "/admin/restaurants/joining-request",
+    "Total delivery boy": "/admin/delivery-partners",
+    "Delivery boy request pending": "/admin/delivery-partners/join-request",
+    "Total foods": "/admin/foods",
+    "Total addons": "/admin/addons",
+    "Total customers": "/admin/customers",
+    "Pending orders": "/admin/orders/pending",
+    "Completed orders": "/admin/orders/delivered"
+  };
+  const getCardClick = (title) => cardLinks[title] ? () => navigate(cardLinks[title]) : undefined;
+
+  // Calculate totals from real data
+  // Gross Revenue = Total Order Revenue (GMV)
+  const revenueTotal = (dashboardData?.revenue?.total || 0);
+  const commissionTotal = dashboardData?.commission?.total || 0;
+  const ordersTotal = dashboardData?.orders?.total || 0;
+  const platformFeeTotal = dashboardData?.platformFee?.total || 0;
+  const deliveryFeeTotal = dashboardData?.deliveryFee?.total || 0;
+  const deliveryMarginTotal = dashboardData?.deliveryMargin?.total ?? 0;
+  const gstTotal = dashboardData?.gst?.total || 0;
+  const tipsTotal = dashboardData?.tips?.total || 0;
+  const donationsTotal = dashboardData?.donations?.total || 0;
+  const subscriptionTotal = dashboardData?.subscription?.total || 0;
+  const advertisementRevenueData = dashboardData?.advertisementRevenue || {};
+  const restaurantAdvertisementTotal =
+  dashboardData?.restaurantAdvertisementRevenue?.total ??
+  advertisementRevenueData?.restaurantTotal ??
+  0;
+  const userAdvertisementTotal =
+  dashboardData?.userAdvertisementRevenue?.total ??
+  advertisementRevenueData?.userTotal ??
+  0;
+  const advertisementTotal =
+  Number(advertisementRevenueData?.total ??
+  (restaurantAdvertisementTotal + userAdvertisementTotal)) || 0;
+  // Total revenue (net) = Commission + Platform Fee + Delivery Margin + GST + Subscription + Advertisement + Donation
+  const totalAdminEarnings = commissionTotal + platformFeeTotal + deliveryMarginTotal + gstTotal + subscriptionTotal + advertisementTotal + donationsTotal;
+
+  // Additional stats
+  const totalRestaurants = dashboardData?.restaurants?.total || 0;
+  const pendingRestaurantRequests = dashboardData?.restaurants?.pendingRequests || 0;
+  const totalDeliveryBoys = dashboardData?.deliveryBoys?.total || 0;
+  const pendingDeliveryBoyRequests = dashboardData?.deliveryBoys?.pendingRequests || 0;
+  const totalFoods = dashboardData?.foods?.total || 0;
+  const totalAddons = dashboardData?.addons?.total || 0;
+  const totalCustomers = dashboardData?.customers?.total || 0;
+  const pendingOrders = dashboardData?.orderStats?.pending || 0;
+  const completedOrders = dashboardData?.orderStats?.completed || 0;
+
+  const pieData = orderStats.map((item) => ({
+    name: item.label,
+    value: item.value,
+    fill: item.color
+  }));
+
+  const activityFeed = [];
+
+  return (
+    <div className="px-4 pb-10 lg:px-6 pt-4">
+      <div className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-[0_30px_120px_-60px_rgba(0,0,0,0.28)]">
+        {isLoading &&
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+            <div className="flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm text-neutral-700 ring-1 ring-neutral-200">
+              <span className="h-3 w-3 animate-ping rounded-full bg-neutral-800/70" />
+              Updating metrics...
+            </div>
+          </div>
+        }
+
+        <div className="flex flex-col gap-4 border-b border-neutral-200 bg-linear-to-br from-white via-neutral-50 to-neutral-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Admin Overview</p>
+              <h1 className="text-2xl font-semibold text-neutral-900">Operations Command</h1>
+            </div>
+
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Select value={selectedZone} onValueChange={setSelectedZone}>
+              <SelectTrigger className="min-w-[160px] border-neutral-300 bg-white text-neutral-900">
+                <SelectValue placeholder="All zones" />
+              </SelectTrigger>
+              <SelectContent className="border-neutral-200 bg-white text-neutral-900">
+                <SelectItem value="all">All zones</SelectItem>
+                <SelectItem value="zone1">Zone 1</SelectItem>
+                <SelectItem value="zone2">Zone 2</SelectItem>
+                <SelectItem value="zone3">Zone 3</SelectItem>
+                <SelectItem value="zone4">Zone 4</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="min-w-[140px] border-neutral-300 bg-white text-neutral-900">
+                <SelectValue placeholder="Overall" />
+              </SelectTrigger>
+              <SelectContent className="border-neutral-200 bg-white text-neutral-900">
+                <SelectItem value="overall">Overall</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This week</SelectItem>
+                <SelectItem value="month">This month</SelectItem>
+                <SelectItem value="year">This year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-6 px-6 py-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              title="Gross revenue"
+              value={`\u20B9${revenueTotal.toLocaleString("en-IN")}`}
+              helper="Orders GMV"
+              icon={<ShoppingBag className="h-5 w-5 text-emerald-600" />}
+              accent="bg-emerald-200/40"
+              onClick={getCardClick("Gross revenue")}
+            />
+            <MetricCard
+              title="Commission earned"
+              value={`\u20B9${commissionTotal.toLocaleString("en-IN")}`}
+              helper="Restaurant commission"
+              icon={<ArrowUpRight className="h-5 w-5 text-indigo-600" />}
+              accent="bg-indigo-200/40"
+              onClick={getCardClick("Commission earned")}
+            />
+            <MetricCard
+              title="Orders processed"
+              value={ordersTotal.toLocaleString("en-IN")}
+              helper="Fulfilled & billed"
+              icon={<Activity className="h-5 w-5 text-amber-600" />}
+              accent="bg-amber-200/40"
+              onClick={getCardClick("Orders processed")}
+            />
+            <MetricCard
+              title="Platform fee"
+              value={`\u20B9${platformFeeTotal.toLocaleString("en-IN")}`}
+              helper="Total platform fees"
+              icon={<CreditCard className="h-5 w-5 text-purple-600" />}
+              accent="bg-purple-200/40"
+              onClick={getCardClick("Platform fee")}
+            />
+            <MetricCard
+              title="Delivery fee"
+              value={`\u20B9${deliveryFeeTotal.toLocaleString("en-IN")}`}
+              helper="Collected delivery fees"
+              icon={<Truck className="h-5 w-5 text-blue-600" />}
+              accent="bg-blue-200/40"
+              onClick={getCardClick("Delivery fee")}
+            />
+            <MetricCard
+              title="GST"
+              value={`\u20B9${gstTotal.toLocaleString("en-IN")}`}
+              helper="Total GST collected"
+              icon={<Receipt className="h-5 w-5 text-orange-600" />}
+              accent="bg-orange-200/40"
+              onClick={getCardClick("GST")}
+            />
+            <MetricCard
+              title="Tips collected"
+              value={`\u20B9${tipsTotal.toLocaleString("en-IN")}`}
+              helper="Total tips for delivery partners"
+              icon={<Plus className="h-5 w-5 text-orange-500" />}
+              accent="bg-orange-100/30"
+              onClick={getCardClick("Tips collected")}
+            />
+            <MetricCard
+              title="Total Donations"
+              value={`\u20B9${donationsTotal.toLocaleString("en-IN")}`}
+              helper="Total donations collected"
+              icon={<Gift className="h-5 w-5 text-pink-500" />}
+              accent="bg-pink-100/30"
+              onClick={getCardClick("Total Donations")}
+            />
+            <MetricCard
+              title="Subscription Revenue"
+              value={`\u20B9${subscriptionTotal.toLocaleString("en-IN")}`}
+              helper="Total subscription fees"
+              icon={<Receipt className="h-5 w-5 text-teal-600" />}
+              accent="bg-teal-100/30"
+              onClick={getCardClick("Subscription Revenue")}
+            />
+            <MetricCard
+              title="Restaurant Ad Revenue"
+              value={`\u20B9${restaurantAdvertisementTotal.toLocaleString("en-IN")}`}
+              helper="Paid restaurant banners"
+              icon={<Store className="h-5 w-5 text-violet-600" />}
+              accent="bg-violet-100/30"
+              onClick={getCardClick("Restaurant Ad Revenue")}
+            />
+            <MetricCard
+              title="User Ad Revenue"
+              value={`\u20B9${userAdvertisementTotal.toLocaleString("en-IN")}`}
+              helper="Paid user advertisements"
+              icon={<UserCircle className="h-5 w-5 text-fuchsia-600" />}
+              accent="bg-fuchsia-100/30"
+              onClick={getCardClick("User Ad Revenue")}
+            />
+            <MetricCard
+              title="Total Ad Revenue"
+              value={`\u20B9${advertisementTotal.toLocaleString("en-IN")}`}
+              helper="Restaurant + user advertisements"
+              icon={<Activity className="h-5 w-5 text-violet-600" />}
+              accent="bg-violet-100/30"
+              onClick={getCardClick("Total Ad Revenue")}
+            />
+            <MetricCard
+              title="Total revenue"
+              value={`\u20B9${totalAdminEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              helper={`Com ${commissionTotal.toFixed(0)} + Plat ${platformFeeTotal.toFixed(0)} + Del ${deliveryFeeTotal.toFixed(0)} + GST ${gstTotal.toFixed(0)} + Sub ${subscriptionTotal.toFixed(0)} + Ad(Rest ${restaurantAdvertisementTotal.toFixed(0)} + User ${userAdvertisementTotal.toFixed(0)}) + Don ${donationsTotal.toFixed(0)}`}
+              icon={<DollarSign className="h-5 w-5 text-green-600" />}
+              accent="bg-green-200/40"
+              onClick={getCardClick("Total revenue")}
+            />
+            <MetricCard
+              title="Total restaurants"
+              value={totalRestaurants.toLocaleString("en-IN")}
+              helper="All registered restaurants"
+              icon={<Store className="h-5 w-5 text-blue-600" />}
+              accent="bg-blue-200/40"
+              onClick={getCardClick("Total restaurants")}
+            />
+            <MetricCard
+              title="Restaurant request pending"
+              value={pendingRestaurantRequests.toLocaleString("en-IN")}
+              helper="Awaiting approval"
+              icon={<UserCheck className="h-5 w-5 text-orange-600" />}
+              accent="bg-orange-200/40"
+              onClick={getCardClick("Restaurant request pending")}
+            />
+            <MetricCard
+              title="Total delivery boy"
+              value={totalDeliveryBoys.toLocaleString("en-IN")}
+              helper="All delivery partners"
+              icon={<Truck className="h-5 w-5 text-indigo-600" />}
+              accent="bg-indigo-200/40"
+              onClick={getCardClick("Total delivery boy")}
+            />
+            <MetricCard
+              title="Delivery boy request pending"
+              value={pendingDeliveryBoyRequests.toLocaleString("en-IN")}
+              helper="Awaiting verification"
+              icon={<Clock className="h-5 w-5 text-yellow-600" />}
+              accent="bg-yellow-200/40"
+              onClick={getCardClick("Delivery boy request pending")}
+            />
+            <MetricCard
+              title="Total foods"
+              value={totalFoods.toLocaleString("en-IN")}
+              helper="Active menu items"
+              icon={<Package className="h-5 w-5 text-purple-600" />}
+              accent="bg-purple-200/40"
+              onClick={getCardClick("Total foods")}
+            />
+            <MetricCard
+              title="Total addons"
+              value={totalAddons.toLocaleString("en-IN")}
+              helper="Active addon items"
+              icon={<Plus className="h-5 w-5 text-pink-600" />}
+              accent="bg-pink-200/40"
+              onClick={getCardClick("Total addons")}
+            />
+            <MetricCard
+              title="Total customers"
+              value={totalCustomers.toLocaleString("en-IN")}
+              helper="Registered users"
+              icon={<UserCircle className="h-5 w-5 text-cyan-600" />}
+              accent="bg-cyan-200/40"
+              onClick={getCardClick("Total customers")}
+            />
+            <MetricCard
+              title="Pending orders"
+              value={pendingOrders.toLocaleString("en-IN")}
+              helper="Orders awaiting processing"
+              icon={<Clock className="h-5 w-5 text-red-600" />}
+              accent="bg-red-200/40"
+              onClick={getCardClick("Pending orders")}
+            />
+            <MetricCard
+              title="Completed orders"
+              value={completedOrders.toLocaleString("en-IN")}
+              helper="Successfully delivered"
+              icon={<CheckCircle className="h-5 w-5 text-emerald-600" />}
+              accent="bg-emerald-200/40"
+              onClick={getCardClick("Completed orders")}
+            />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2 border-neutral-200 bg-white">
+              <CardHeader className="flex flex-col gap-2 border-b border-neutral-200 pb-4">
+                <CardTitle className="text-lg text-neutral-900">Revenue trajectory</CardTitle>
+                <p className="text-sm text-neutral-500">
+                  Commission and gross revenue with monthly order volume
+                </p>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData}>
+                      <defs>
+                        <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="comFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="month" stroke="#6b7280" />
+                      <YAxis stroke="#6b7280" />
+                      <Tooltip
+                        contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12 }}
+                        labelStyle={{ color: "#111827" }}
+                        itemStyle={{ color: "#111827" }} />
+                      
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#0ea5e9"
+                        fillOpacity={1}
+                        fill="url(#revFill)"
+                        name="Gross revenue" />
+                      
+                      <Area
+                        type="monotone"
+                        dataKey="commission"
+                        stroke="#a855f7"
+                        fillOpacity={1}
+                        fill="url(#comFill)"
+                        name="Commission" />
+                      
+                      <Bar
+                        dataKey="orders"
+                        fill="#ef4444"
+                        radius={[6, 6, 0, 0]}
+                        name="Orders"
+                        barSize={10} />
+                      
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-neutral-200 bg-white">
+              <CardHeader className="flex items-center justify-between border-b border-neutral-200 pb-4">
+                <div>
+                  <CardTitle className="text-lg text-neutral-900">Order mix</CardTitle>
+                  <p className="text-sm text-neutral-500">Distribution by state</p>
+                </div>
+                <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700">
+                  {orderStats.reduce((s, o) => s + o.value, 0)} orders
+                </span>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={4}>
+                        
+                        {pieData.map((entry, index) =>
+                        <Cell key={index} fill={entry.fill} stroke="none" />
+                        )}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12 }}
+                        labelStyle={{ color: "#111827" }}
+                        itemStyle={{ color: "#111827" }} />
+                      
+                      <Legend
+                        formatter={(value) => <span style={{ color: "#111827", fontSize: 12 }}>{value}</span>} />
+                      
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {orderStats.map((item) =>
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-3 py-2">
+                    
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
+                        <p className="text-sm text-neutral-800">{item.label}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-neutral-900">{item.value}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="border-neutral-200 bg-white">
+              <CardHeader className="flex items-center justify-between border-b border-neutral-200 pb-4">
+                <CardTitle className="text-lg text-neutral-900">Momentum snapshot</CardTitle>
+                <span className="text-xs text-neutral-500">No data available</span>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyData.slice(-6)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="month" stroke="#6b7280" />
+                      <YAxis stroke="#6b7280" />
+                      <Tooltip
+                        contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12 }}
+                        labelStyle={{ color: "#111827" }}
+                        itemStyle={{ color: "#111827" }} />
+                      
+                      <Legend />
+                      <Bar dataKey="orders" fill="#0ea5e9" radius={[8, 8, 0, 0]} name="Orders" />
+                      <Bar dataKey="commission" fill="#a855f7" radius={[8, 8, 0, 0]} name="Commission" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-neutral-200 bg-white">
+              <CardHeader className="border-b border-neutral-200 pb-4">
+                <CardTitle className="text-lg text-neutral-900">Live signals</CardTitle>
+                <p className="text-sm text-neutral-500">Ops notes and service health</p>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4">
+                {activityFeed.map((item, idx) =>
+                <div
+                  key={idx}
+                  className="flex items-start justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
+                  
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
+                      <p className="text-xs text-neutral-600">{item.detail}</p>
+                    </div>
+                    <span className="text-xs text-neutral-500">{item.time}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-neutral-200 bg-white">
+              <CardHeader className="border-b border-neutral-200 pb-4">
+                <CardTitle className="text-lg text-neutral-900">Order states</CardTitle>
+                <p className="text-sm text-neutral-500">Quick glance by status</p>
+              </CardHeader>
+              <CardContent className="grid gap-3 pt-4">
+                {orderStats.map((item) =>
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
+                  
+                    <div className="flex items-center gap-3">
+                      <span
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-neutral-900"
+                      style={{ background: `${item.color}1A`, color: item.color }}>
+                      
+                        {item.label.slice(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <p className="text-sm text-neutral-900">{item.label}</p>
+                        <p className="text-xs text-neutral-500">Tracked in {selectedPeriod}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold text-neutral-900">{item.value}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>);
+
+}
+
+function MetricCard({ title, value, helper, icon, accent, onClick }) {
+  const isClickable = typeof onClick === "function";
+  return (
+    <Card
+      className={`overflow-hidden border-neutral-200 bg-white p-0 ${isClickable ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      onClick={onClick}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (!isClickable) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <CardContent className="relative flex flex-col gap-2 px-4 pb-4 pt-4">
+        <div className={`absolute inset-0 ${accent} `} />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">{title}</p>
+            <p className="text-2xl font-semibold text-neutral-900">{value}</p>
+            <p className="text-xs text-neutral-500">{helper}</p>
+          </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-100 ring-1 ring-neutral-200">
+            {icon}
+          </div>
+        </div>
+      </CardContent>
+    </Card>);
+
+}
+

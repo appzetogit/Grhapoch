@@ -1,0 +1,693 @@
+import axios from 'axios';
+import { toast } from 'sonner';
+import { API_BASE_URL } from './config.js';
+import { getRoleFromToken, clearModuleAuth } from '../utils/auth.js';
+
+// Network error tracking to prevent spam
+const networkErrorState = {
+  lastErrorTime: 0,
+  lastToastTime: 0,
+  errorCount: 0,
+  toastShown: false,
+  COOLDOWN_PERIOD: 30000, // 30 seconds cooldown for console errors
+  TOAST_COOLDOWN_PERIOD: 60000 // 60 seconds cooldown for toast notifications
+};
+
+// Validate API base URL on import
+if (import.meta.env.DEV) {
+  const backendUrl = API_BASE_URL.replace('/api', '');
+  const frontendUrl = window.location.origin;
+
+  if (API_BASE_URL.includes('5173') || backendUrl.includes('5173')) {
+    console.error('❌ CRITICAL: API_BASE_URL is pointing to FRONTEND port (5173) instead of BACKEND port (5000)');
+    console.error('💡 Current API_BASE_URL:', API_BASE_URL);
+    console.error('💡 Frontend URL:', frontendUrl);
+    console.error('💡 Backend should be at: http://localhost:5000');
+    console.error('💡 Fix: Check .env file - VITE_API_BASE_URL should be http://localhost:5000/api');
+  } else {
+
+
+
+  }
+}
+
+/**
+ * GET request deduplication + response caching
+ * - In-flight: same API called in parallel -> share one network request
+ * - Cache: same API called within TTL -> return cached response, no network call
+ */
+const inFlightMap = new Map();
+const responseCache = new Map();
+const CACHE_TTL_MS = 30000; // 30 seconds - avoid duplicate calls from StrictMode, multiple components
+
+function getDedupKey(config) {
+  if ((config.method || 'get').toLowerCase() !== 'get') return null;
+  const url = config.url || '';
+  const params = config.params;
+  const paramsStr = params && typeof params === 'object' ?
+    '?' + new URLSearchParams(params).toString() :
+    typeof params === 'string' ? '?' + params : '';
+  // Include auth header in key so user-specific data (me, addresses) stays per-user
+  const auth = config.headers?.Authorization || config.headers?.authorization || '';
+  return url + paramsStr + '|' + (auth ? auth.slice(0, 20) : 'anon');
+}
+
+function getCachedResponse(key) {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    responseCache.delete(key);
+    return null;
+  }
+  return entry.response;
+}
+
+function setCachedResponse(key, response) {
+  if (response && response.status >= 200 && response.status < 300) {
+    responseCache.set(key, { response, timestamp: Date.now() });
+  }
+}
+
+/**
+ * Create axios instance with default configuration
+ */
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000, // 30 seconds
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  withCredentials: true // Include cookies for refresh token
+});
+
+// Apply GET request deduplication + response caching
+// axios.defaults.adapter is the xhr adapter in browser
+const defaultAdapter = axios.defaults?.adapter;
+if (typeof defaultAdapter === 'function') {
+  apiClient.defaults.adapter = async (config) => {
+    const key = getDedupKey(config);
+    if (!key) return defaultAdapter(config);
+
+    // 1. Check cache - return cached response if valid
+    const cached = getCachedResponse(key);
+    if (cached) return Promise.resolve(cached);
+
+    // 2. Check in-flight - share same request if already in progress
+    const inFlight = inFlightMap.get(key);
+    if (inFlight) return inFlight;
+
+    // 3. Make request, cache response, track in-flight
+    const promise = defaultAdapter(config).
+      then((response) => {
+        setCachedResponse(key, response);
+        return response;
+      }).
+      finally(() => {
+        inFlightMap.delete(key);
+      });
+    inFlightMap.set(key, promise);
+    return promise;
+  };
+}
+
+/**
+ * Get the appropriate module token based on the current route
+ * @returns {string|null} - Access token for the current module or null
+ */
+function getTokenForCurrentRoute() {
+  const path = window.location.pathname;
+
+  if (path.startsWith('/admin')) {
+    return localStorage.getItem('admin_accessToken');
+  } else if (path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !path.startsWith('/restaurant/list') && !path.startsWith('/restaurant/under-250')) {
+    // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
+    // Exclude public routes like /restaurant/list and /restaurant/under-250
+    return localStorage.getItem('restaurant_accessToken');
+  } else if (path.startsWith('/delivery')) {
+    return localStorage.getItem('delivery_accessToken');
+  } else if (path.startsWith('/user') || path === '/' || !path.startsWith('/admin') && !(path.startsWith('/restaurant') && !path.startsWith('/restaurants')) && !path.startsWith('/delivery')) {
+    // User module includes /restaurants/* paths
+    return localStorage.getItem('user_accessToken');
+  }
+
+  // Fallback to legacy token for backward compatibility
+  return localStorage.getItem('accessToken');
+}
+
+/**
+ * Request Interceptor
+ * Adds authentication token to requests based on current route
+ */
+apiClient.interceptors.request.use(
+  (config) => {
+    // Get access token for the current module based on route
+    let accessToken = getTokenForCurrentRoute();
+
+    // Fallback to legacy token if module-specific token not found
+    if (!accessToken || accessToken.trim() === '') {
+      accessToken = localStorage.getItem('accessToken');
+    }
+
+    // Ensure headers object exists
+    if (!config.headers) {
+      config.headers = {};
+    }
+
+    // Debug logging for FormData requests
+
+
+
+
+
+
+
+
+
+
+    // Determine if this is an authenticated route
+    const path = window.location.pathname;
+    const requestUrl = config.url || '';
+    const normalizedRequestUrl = (() => {
+      if (!requestUrl) return '';
+      if (requestUrl.startsWith('http://') || requestUrl.startsWith('https://')) {
+        try {
+          return new URL(requestUrl).pathname || '';
+        } catch {
+          return requestUrl;
+        }
+      }
+      return requestUrl;
+    })();
+
+    // Check if this is a public restaurant route (should not require authentication)
+    const isPublicRestaurantRoute = normalizedRequestUrl.includes('/restaurant/list') ||
+      normalizedRequestUrl.includes('/restaurant/under-250') ||
+      normalizedRequestUrl.startsWith('/restaurant/') &&
+      !normalizedRequestUrl.includes('/restaurant/orders') &&
+      !normalizedRequestUrl.includes('/restaurant/auth') &&
+      !normalizedRequestUrl.includes('/restaurant/menu') &&
+      !normalizedRequestUrl.includes('/restaurant/profile') &&
+      !normalizedRequestUrl.includes('/restaurant/staff') &&
+      !normalizedRequestUrl.includes('/restaurant/offers') &&
+      !normalizedRequestUrl.includes('/restaurant/inventory') &&
+      !normalizedRequestUrl.includes('/restaurant/categories') &&
+      !normalizedRequestUrl.includes('/restaurant/onboarding') &&
+      !normalizedRequestUrl.includes('/restaurant/delivery-status') &&
+      !normalizedRequestUrl.includes('/restaurant/payout-details') &&
+      !normalizedRequestUrl.includes('/restaurant/dining-settings') &&
+      !normalizedRequestUrl.includes('/restaurant/finance') &&
+      !normalizedRequestUrl.includes('/restaurant/wallet') &&
+      !normalizedRequestUrl.includes('/restaurant/analytics') &&
+      !normalizedRequestUrl.includes('/restaurant/complaints') &&
+      !normalizedRequestUrl.includes('/restaurant/dining-tables') &&
+      !normalizedRequestUrl.includes('/restaurant/dining-activation') && (
+        normalizedRequestUrl.match(/\/restaurant\/[^/]+$/) ||
+        normalizedRequestUrl.match(/\/restaurant\/[^/]+\/menu/) ||
+        normalizedRequestUrl.match(/\/restaurant\/[^/]+\/addons/) ||
+        normalizedRequestUrl.match(/\/restaurant\/[^/]+\/inventory/) ||
+        normalizedRequestUrl.match(/\/restaurant\/[^/]+\/offers/));
+
+    const isPublicDeliveryRoute = normalizedRequestUrl.includes('/delivery/sign-in') ||
+      normalizedRequestUrl.includes('/delivery/signup') ||
+      normalizedRequestUrl.includes('/delivery/otp') ||
+      normalizedRequestUrl.includes('/delivery/auth/send-otp') ||
+      normalizedRequestUrl.includes('/delivery/auth/verify-otp') ||
+      normalizedRequestUrl.includes('/delivery/auth/refresh-token');
+
+    // Check if the current API REQUEST URL requires authentication
+    // We check normalizedRequestUrl (the API endpoint) rather than path (the browser URL)
+    const isApiDeliveryRoute = normalizedRequestUrl.startsWith('/delivery') || normalizedRequestUrl.includes('/api/delivery');
+
+    const isAuthenticatedRoute = (path.startsWith('/admin') ||
+      path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !isPublicRestaurantRoute ||
+      isApiDeliveryRoute && !isPublicDeliveryRoute) && !isPublicRestaurantRoute;
+
+    // For authenticated routes, ALWAYS ensure Authorization header is set if we have a token
+    // This ensures FormData requests and other requests always have the token
+    if (isAuthenticatedRoute) {
+      // If no Authorization header or invalid format, set it
+      if (!config.headers.Authorization ||
+        typeof config.headers.Authorization === 'string' && !config.headers.Authorization.startsWith('Bearer ')) {
+        if (accessToken && accessToken.trim() !== '' && accessToken !== 'null' && accessToken !== 'undefined') {
+          config.headers.Authorization = `Bearer ${accessToken.trim()}`;
+
+
+
+        } else {
+          // Log warning in development if token is missing for authenticated routes
+          if (import.meta.env.DEV) {
+            console.warn(`[API Interceptor] No access token found for authenticated route: ${path}. Request may fail with 401.`);
+            console.warn(`[API Interceptor] Available tokens:`, {
+              admin: localStorage.getItem('admin_accessToken') ? 'exists' : 'missing',
+              restaurant: localStorage.getItem('restaurant_accessToken') ? 'exists' : 'missing',
+              delivery: localStorage.getItem('delivery_accessToken') ? 'exists' : 'missing',
+              user: localStorage.getItem('user_accessToken') ? 'exists' : 'missing',
+              legacy: localStorage.getItem('accessToken') ? 'exists' : 'missing'
+            });
+          }
+        }
+      } else {
+
+
+
+
+      }
+    } else {
+      // For non-authenticated routes (including public restaurant routes), don't add token
+      // Public routes like /restaurant/list should work without authentication
+      if (isPublicRestaurantRoute) {
+        // Remove any existing Authorization header for public routes
+        delete config.headers.Authorization;
+      } else if (!config.headers.Authorization && accessToken && accessToken.trim() !== '' && accessToken !== 'null' && accessToken !== 'undefined') {
+        // For other non-authenticated routes, add token if available (for optional auth)
+        config.headers.Authorization = `Bearer ${accessToken.trim()}`;
+      }
+    }
+
+    // If data is FormData, remove Content-Type header to let axios set it with boundary
+    // BUT: Make sure Authorization header is preserved
+    if (config.data instanceof FormData) {
+      // Preserve Authorization header before removing Content-Type
+      const authHeader = config.headers.Authorization;
+      // Remove Content-Type to let axios set it with proper boundary
+      delete config.headers['Content-Type'];
+      // Always restore Authorization header if it was set (critical for authentication)
+      if (authHeader) {
+        config.headers.Authorization = authHeader;
+
+
+
+      } else if (accessToken && accessToken.trim() !== '' && accessToken !== 'null' && accessToken !== 'undefined') {
+        // If no auth header but we have a token, add it
+        config.headers.Authorization = `Bearer ${accessToken.trim()}`;
+
+
+
+      }
+    }
+
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+/**
+ * Response Interceptor
+ * Handles token refresh and error responses
+ */
+apiClient.interceptors.response.use(
+  (response) => {
+    // Reset network error state on successful response (backend is back online)
+    if (networkErrorState.errorCount > 0) {
+      networkErrorState.errorCount = 0;
+      networkErrorState.lastErrorTime = 0;
+      networkErrorState.toastShown = false;
+
+
+
+    }
+
+    // If response contains new access token, store it for the current module
+    if (response.data?.accessToken) {
+      const currentPath = window.location.pathname;
+      let tokenKey = 'accessToken'; // fallback
+      let expectedRole = 'user';
+
+      if (currentPath.startsWith('/admin')) {
+        tokenKey = 'admin_accessToken';
+        expectedRole = 'admin';
+      } else if (currentPath.startsWith('/restaurant') && !currentPath.startsWith('/restaurants')) {
+        // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
+        tokenKey = 'restaurant_accessToken';
+        expectedRole = 'restaurant';
+      } else if (currentPath.startsWith('/delivery')) {
+        tokenKey = 'delivery_accessToken';
+        expectedRole = 'delivery';
+      } else if (currentPath.startsWith('/user') || currentPath === '/' || currentPath.startsWith('/restaurants')) {
+        // User module includes /restaurants/* paths
+        tokenKey = 'user_accessToken';
+        expectedRole = 'user';
+      }
+
+      const token = response.data.accessToken;
+      const role = getRoleFromToken(token);
+
+      // Only store the token if the role matches the current module
+      if (!role || role !== expectedRole) {
+        clearModuleAuth(tokenKey.replace('_accessToken', ''));
+      } else {
+        localStorage.setItem(tokenKey, token);
+      }
+    }
+    return response;
+  },
+  async (error) => {
+    // If request was canceled, don't show error/toast
+    if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.message === 'canceled' || error.name === 'CanceledError') {
+      return Promise.reject(error);
+    }
+
+    const originalRequest = error.config;
+
+    // If error is 401 and we haven't tried to refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Determine which module's refresh endpoint to use based on current route
+        const currentPath = window.location.pathname;
+        let refreshEndpoint = '/auth/refresh-token'; // default to user auth
+
+        if (currentPath.startsWith('/admin')) {
+          refreshEndpoint = '/admin/auth/refresh-token';
+        } else if (currentPath.startsWith('/restaurant') && !currentPath.startsWith('/restaurants')) {
+          // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
+          refreshEndpoint = '/restaurant/auth/refresh-token';
+        } else if (currentPath.startsWith('/delivery')) {
+          refreshEndpoint = '/delivery/auth/refresh-token';
+        }
+
+        // Try to refresh the token
+        // The refresh token is sent via httpOnly cookie automatically
+        const response = await axios.post(
+          `${API_BASE_URL}${refreshEndpoint}`,
+          {},
+          {
+            withCredentials: true
+          }
+        );
+
+        const { accessToken } = response.data.data || response.data;
+
+        if (accessToken) {
+          // Determine which module's token to update based on current route
+          const currentPath = window.location.pathname;
+          let tokenKey = 'accessToken'; // fallback
+          let expectedRole = 'user';
+
+          if (currentPath.startsWith('/admin')) {
+            tokenKey = 'admin_accessToken';
+            expectedRole = 'admin';
+          } else if (currentPath.startsWith('/restaurant') && !currentPath.startsWith('/restaurants')) {
+            // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
+            tokenKey = 'restaurant_accessToken';
+            expectedRole = 'restaurant';
+          } else if (currentPath.startsWith('/delivery')) {
+            tokenKey = 'delivery_accessToken';
+            expectedRole = 'delivery';
+          } else if (currentPath.startsWith('/user') || currentPath === '/' || currentPath.startsWith('/restaurants')) {
+            // User module includes /restaurants/* paths
+            tokenKey = 'user_accessToken';
+            expectedRole = 'user';
+          }
+
+          const role = getRoleFromToken(accessToken);
+
+          // Only store token if role matches expected module; otherwise treat as invalid for this module
+          if (!role || role !== expectedRole) {
+            clearModuleAuth(tokenKey.replace('_accessToken', ''));
+            throw new Error('Role mismatch on refreshed token');
+          }
+
+          // Store new access token for the current module
+          localStorage.setItem(tokenKey, accessToken);
+
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return apiClient(originalRequest);
+        }
+      } catch (refreshError) {
+        // Show error toast in development mode for refresh errors
+        if (import.meta.env.DEV) {
+          const refreshErrorMessage =
+            refreshError.response?.data?.message ||
+            refreshError.response?.data?.error ||
+            refreshError.message ||
+            'Token refresh failed';
+
+          toast.error(refreshErrorMessage, {
+            duration: 3000,
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              border: '1px solid #b91c1c',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.3), 0 8px 10px -6px rgba(239, 68, 68, 0.2)'
+            },
+            className: 'error-toast'
+          });
+        }
+
+        // Refresh failed, clear module-specific token and redirect to login
+        // BUT: Don't auto-redirect on certain pages - let them handle errors gracefully
+        const currentPath = window.location.pathname;
+        const isOnboardingPage = currentPath.includes('/onboarding');
+        const isLandingPageManagement = currentPath.includes('/hero-banner-management') || currentPath.includes('/landing-page');
+
+        // For landing page management, don't auto-logout on 401 - let component handle it
+        // Only auto-logout for other pages after token refresh fails
+        if (!isOnboardingPage && !isLandingPageManagement) {
+          if (currentPath.startsWith('/admin')) {
+            localStorage.removeItem('admin_accessToken');
+            localStorage.removeItem('admin_authenticated');
+            localStorage.removeItem('admin_user');
+            window.location.href = '/admin/login';
+          } else if (currentPath.startsWith('/restaurant') && !currentPath.startsWith('/restaurants')) {
+            // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
+            localStorage.removeItem('restaurant_accessToken');
+            localStorage.removeItem('restaurant_authenticated');
+            localStorage.removeItem('restaurant_user');
+            window.location.href = '/restaurant/login';
+          } else if (currentPath.startsWith('/delivery')) {
+            localStorage.removeItem('delivery_accessToken');
+            localStorage.removeItem('delivery_authenticated');
+            localStorage.removeItem('delivery_user');
+            window.location.href = '/delivery/sign-in';
+          } else {
+            // User module includes /restaurants/* paths
+            localStorage.removeItem('user_accessToken');
+            localStorage.removeItem('user_authenticated');
+            localStorage.removeItem('user');
+            window.location.href = '/user/auth/sign-in';
+          }
+        }
+
+        // For onboarding page, reject the promise so component can handle it
+        return Promise.reject(refreshError);
+
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle network errors specifically (backend not running)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      if (import.meta.env.DEV) {
+        const now = Date.now();
+        const timeSinceLastError = now - networkErrorState.lastErrorTime;
+        const timeSinceLastToast = now - networkErrorState.lastToastTime;
+
+        // Only log console errors if cooldown period has passed
+        if (timeSinceLastError >= networkErrorState.COOLDOWN_PERIOD) {
+          networkErrorState.errorCount++;
+          networkErrorState.lastErrorTime = now;
+
+          // Log error details (only once per cooldown period)
+          if (networkErrorState.errorCount === 1) {
+
+            // Network error logging removed - errors handled via toast notifications
+          } else {// For subsequent errors, show a brief message
+            console.warn(`⚠️ Network Error (${networkErrorState.errorCount}x) - Backend still not connected`);
+          }
+        }
+
+        // Only show toast if cooldown period has passed
+        if (timeSinceLastToast >= networkErrorState.TOAST_COOLDOWN_PERIOD) {
+          networkErrorState.lastToastTime = now;
+          networkErrorState.toastShown = true;
+
+          // Show helpful error message (only once per minute)
+          toast.error(`Backend not connected! Start server: cd appzetofood/backend && npm run dev`, {
+            duration: 3000,
+            id: 'network-error-toast', // Use ID to prevent duplicate toasts
+            style: {
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: '#ffffff',
+              border: '1px solid #b45309',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.3), 0 8px 10px -6px rgba(245, 158, 11, 0.2)'
+            },
+            className: 'network-error-toast'
+          });
+        }
+      }
+      return Promise.reject(error);
+    }
+
+    // Handle timeout errors (ECONNABORTED)
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      // Timeout errors are usually due to slow backend or network issues
+      // Don't spam console with timeout errors, but handle them gracefully
+      if (import.meta.env.DEV) {
+        const now = Date.now();
+        const timeSinceLastError = now - networkErrorState.lastErrorTime;
+        const timeSinceLastToast = now - networkErrorState.lastToastTime;
+
+        // Only log console errors if cooldown period has passed
+        if (timeSinceLastError >= networkErrorState.COOLDOWN_PERIOD) {
+          networkErrorState.errorCount++;
+          networkErrorState.lastErrorTime = now;
+        }
+
+        // Only show toast if cooldown period has passed
+        if (timeSinceLastToast >= networkErrorState.TOAST_COOLDOWN_PERIOD) {
+          networkErrorState.lastToastTime = now;
+
+          // Show helpful error message (only once per minute)
+          toast.error(`Request timeout - Backend may be slow or not responding. Check server status.`, {
+            duration: 3000,
+            id: 'timeout-error-toast', // Use ID to prevent duplicate toasts
+            style: {
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: '#ffffff',
+              border: '1px solid #b45309',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.3), 0 8px 10px -6px rgba(245, 158, 11, 0.2)'
+            },
+            className: 'timeout-error-toast'
+          });
+        }
+      }
+      return Promise.reject(error);
+    }
+
+    // Handle 404 errors (route not found)
+    if (error.response?.status === 404) {
+      if (import.meta.env.DEV) {
+        const url = error.config?.url || 'unknown';
+        const fullUrl = error.config?.baseURL ? `${error.config.baseURL}${url}` : url;
+        // 404 error logging removed - errors handled via toast notifications
+
+        // Show toast for auth routes (important)
+        if (url.includes('/auth/') || url.includes('/send-otp') || url.includes('/verify-otp')) {
+          toast.error('Auth API endpoint not found. Make sure backend is running on port 5000.', {
+            duration: 3000,
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              border: '1px solid #b91c1c',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500'
+            }
+          });
+        }
+        // Show toast for restaurant routes (but not for getRestaurantById which can legitimately return 404)
+        else if (url.includes('/restaurant/')) {
+          // Only show error for critical restaurant endpoints like /restaurant/list
+          // Individual restaurant lookups (like /restaurant/:id) can legitimately return 404 if restaurant doesn't exist
+          // So we silently handle those 404s
+          const isIndividualRestaurantLookup = /\/restaurant\/[a-f0-9]{24}$/i.test(url) ||
+            url.match(/\/restaurant\/[^/]+$/) && !url.includes('/restaurant/list');
+
+          if (!isIndividualRestaurantLookup && url.includes('/restaurant/list')) {
+            toast.error('Restaurant API endpoint not found. Check backend routes.', {
+              duration: 3000,
+              style: {
+                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: '#ffffff',
+                border: '1px solid #b91c1c',
+                borderRadius: '12px',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }
+            });
+          }
+          // Silently handle 404 for individual restaurant lookups (getRestaurantById)
+          // These are expected to fail if restaurant doesn't exist in DB
+        }
+      }
+      return Promise.reject(error);
+    }
+
+    // Show error toast in development mode only
+    const skipErrorToast = !!error?.config?.skipErrorToast;
+    if (import.meta.env.DEV && !skipErrorToast) {
+      // Extract error messages from various possible locations
+      const errorData = error.response?.data;
+
+      // Handle array of error messages (common in validation errors)
+      let errorMessages = [];
+
+      if (Array.isArray(errorData?.message)) {
+        errorMessages = errorData.message;
+      } else if (Array.isArray(errorData?.errors)) {
+        errorMessages = errorData.errors.map((err) => err.message || err);
+      } else if (errorData?.message) {
+        errorMessages = [errorData.message];
+      } else if (errorData?.error) {
+        errorMessages = [errorData.error];
+      } else if (errorData?.data?.message) {
+        errorMessages = Array.isArray(errorData.data.message) ?
+          errorData.data.message :
+          [errorData.data.message];
+      } else if (error.message) {
+        errorMessages = [error.message];
+      } else {
+        errorMessages = ['An error occurred'];
+      }
+
+      // Show beautiful error toast for each error message
+      errorMessages.forEach((errorMessage, index) => {
+        // Skip toast for known non-critical states that might trigger during polling
+        // Specifically skip "Restaurant account is inactive" message as it's handled by main UI
+        const lowerMsg = errorMessage.toLowerCase();
+        if (
+          lowerMsg.includes('account matches no record') ||
+          lowerMsg.includes('inactive') ||
+          lowerMsg.includes('wait for admin approval') ||
+          lowerMsg.includes('account is inactive') ||
+          lowerMsg.includes('verification pending')
+        ) {
+          return;
+        }
+
+        // Add slight delay for multiple toasts to appear sequentially
+        setTimeout(() => {
+          toast.error(errorMessage, {
+            duration: 3000,
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              border: '1px solid #b91c1c',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.3), 0 8px 10px -6px rgba(239, 68, 68, 0.2)'
+            },
+            className: 'error-toast'
+          });
+        }, index * 100); // Stagger multiple toasts by 100ms
+      });
+    }
+
+    // Handle other errors
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;

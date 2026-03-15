@@ -1,0 +1,619 @@
+import { useEffect, useMemo, useState } from "react"
+import { motion as Motion } from "framer-motion"
+import { useNavigate } from "react-router-dom"
+import { ArrowLeft, Plus, Upload, IndianRupee, CalendarDays, ChevronRight } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import AnimatedPage from "../../components/AnimatedPage"
+import { userAdvertisementAPI } from "@/lib/api"
+import { optimizeBannerForUpload } from "@/lib/utils/bannerUpload"
+
+const ITEMS_PER_PAGE = 6
+
+const formatDate = (value) => {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "-"
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+const formatStatus = (status) => {
+  const text = String(status || "pending").replaceAll("_", " ")
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+const statusBadgeClass = (status) => {
+  const value = String(status || "pending").toLowerCase()
+  if (value === "active" || value === "running") return "bg-emerald-100 text-emerald-700"
+  if (value === "scheduled") return "bg-indigo-100 text-indigo-700"
+  if (value === "payment_pending" || value === "approved") return "bg-amber-100 text-amber-700"
+  if (value === "rejected") return "bg-red-100 text-red-700"
+  if (value === "expired") return "bg-slate-300 text-slate-700"
+  return "bg-slate-200 text-slate-700"
+}
+
+const toDateInputValue = (date) => {
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+const getTomorrowInputDate = () => {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + 1)
+  return toDateInputValue(date)
+}
+
+const parseInputDate = (value) => {
+  if (!value) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [year, month, day] = String(value).split("-").map(Number)
+    if (!year || !month || !day) return null
+    return new Date(year, month - 1, day, 0, 0, 0, 0)
+  }
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const normalizeWebsiteUrl = (value) => {
+  const raw = String(value || "").trim()
+  if (!raw) return ""
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const parsed = new URL(withProtocol)
+    if (!["http:", "https:"].includes(parsed.protocol)) return ""
+    if (!parsed.hostname) return ""
+    return parsed.toString()
+  } catch {
+    return ""
+  }
+}
+
+const getRangeDays = (startDate, endDate) => {
+  const start = parseInputDate(startDate)
+  const end = parseInputDate(endDate)
+  if (!start || !end || end < start) return 0
+  const ms = end.getTime() - start.getTime()
+  return Math.floor(ms / (24 * 60 * 60 * 1000)) + 1
+}
+
+const doDateRangesOverlap = (startA, endA, startB, endB) => {
+  const aStart = parseInputDate(startA)
+  const aEnd = parseInputDate(endA)
+  const bStart = parseInputDate(startB)
+  const bEnd = parseInputDate(endB)
+  if (!aStart || !aEnd || !bStart || !bEnd) return false
+  return aStart <= bEnd && bStart <= aEnd
+}
+
+const buildFilterCountsFromAdvertisements = (advertisements) => {
+  const base = { all: advertisements.length, pending: 0, active: 0, rejected: 0, expired: 0 }
+  advertisements.forEach((ad) => {
+    const status = String(ad.status || "pending").toLowerCase()
+    const effectiveStatus = String(ad.effectiveStatus || ad.status || "pending").toLowerCase()
+    if (["pending", "payment_pending"].includes(status)) base.pending += 1
+    if (["active", "running", "approved", "paused", "scheduled"].includes(effectiveStatus)) base.active += 1
+    if (status === "rejected") base.rejected += 1
+    if (effectiveStatus === "expired") base.expired += 1
+  })
+  return base
+}
+
+const normalizeSubmitError = (message) => {
+  const text = String(message || "").toLowerCase()
+  if (text.includes("overlap")) return "Dates overlap. Choose different dates."
+  if (text.includes("2mb") || text.includes("file size")) return "Banner file size must be 2MB or less."
+  if (text.includes("dimensions")) return "Banner dimensions too small. Minimum 1200x500 required."
+  if (text.includes("aspect ratio") || text.includes("2.4:1")) {
+    return "Banner aspect ratio must be around 2.4:1 (for example 1200x500)."
+  }
+  if (text.includes("only image") || text.includes("image banner")) return "Only JPG/PNG image banner is allowed."
+  return message || "Failed to submit advertisement request"
+}
+
+const isBannerRelatedError = (message) => {
+  const text = String(message || "").toLowerCase()
+  return (
+    text.includes("banner") ||
+    text.includes("image") ||
+    text.includes("aspect ratio") ||
+    text.includes("dimensions") ||
+    text.includes("2mb") ||
+    text.includes("file size")
+  )
+}
+
+export default function MyAdvertisements() {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
+  const [loadingBookedDates, setLoadingBookedDates] = useState(false)
+  const [pricePerDay, setPricePerDay] = useState(150)
+  const [bookedRanges, setBookedRanges] = useState([])
+  const [ads, setAds] = useState([])
+  const [filterCounts, setFilterCounts] = useState({ all: 0, pending: 0, active: 0, rejected: 0, expired: 0 })
+  const [errorMessage, setErrorMessage] = useState("")
+  const [activeFilter, setActiveFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const [title, setTitle] = useState("")
+  const [websiteUrl, setWebsiteUrl] = useState("")
+  const [startDate, setStartDate] = useState(() => getTomorrowInputDate())
+  const [endDate, setEndDate] = useState(() => getTomorrowInputDate())
+  const [bannerFile, setBannerFile] = useState(null)
+  const [bannerPreview, setBannerPreview] = useState("")
+  const [bannerOptimizationMessage, setBannerOptimizationMessage] = useState("")
+  const [isOptimizingBanner, setIsOptimizingBanner] = useState(false)
+
+  const selectedDays = useMemo(
+    () => getRangeDays(startDate, endDate),
+    [startDate, endDate]
+  )
+
+  const totalAmount = useMemo(() => {
+    if (!Number.isFinite(selectedDays) || selectedDays <= 0) return 0
+    return Number((selectedDays * pricePerDay).toFixed(2))
+  }, [selectedDays, pricePerDay])
+  const bannerErrorMessage = useMemo(
+    () => (isBannerRelatedError(errorMessage) ? errorMessage : ""),
+    [errorMessage]
+  )
+
+  const overlappingBookedRanges = useMemo(() => {
+    return bookedRanges.filter((range) =>
+      doDateRangesOverlap(startDate, endDate, range?.startDate, range?.endDate)
+    )
+  }, [bookedRanges, startDate, endDate])
+
+  const loadData = async () => {
+    setLoading(true)
+    setLoadingBookedDates(true)
+    try {
+      const tomorrow = getTomorrowInputDate()
+      const rangeEndDate = parseInputDate(tomorrow) || new Date()
+      rangeEndDate.setDate(rangeEndDate.getDate() + 365)
+      const [pricingResponse, adsResponse, bookedDatesResponse] = await Promise.all([
+        userAdvertisementAPI.getUserAdvertisementPricing(),
+        userAdvertisementAPI.getMyAdvertisements({ status: "all" }),
+        userAdvertisementAPI.getMyAdvertisementBookedDates({
+          startDate: tomorrow,
+          endDate: toDateInputValue(rangeEndDate),
+        }),
+      ])
+
+      const price = Number(pricingResponse?.data?.data?.pricePerDay || 150)
+      const list = adsResponse?.data?.data?.advertisements || []
+      const backendFilterCounts = adsResponse?.data?.data?.filterCounts
+
+      setPricePerDay(Number.isFinite(price) && price > 0 ? price : 150)
+      setBookedRanges(bookedDatesResponse?.data?.data?.bookedRanges || [])
+      setAds(list)
+      setFilterCounts(backendFilterCounts || buildFilterCountsFromAdvertisements(list))
+      setErrorMessage("")
+    } catch (error) {
+      setBookedRanges([])
+      setAds([])
+      setFilterCounts({ all: 0, pending: 0, active: 0, rejected: 0, expired: 0 })
+      setErrorMessage(error?.response?.data?.message || "Failed to load advertisements")
+    } finally {
+      setLoading(false)
+      setLoadingBookedDates(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview)
+    }
+  }, [bannerPreview])
+
+  const filteredAds = useMemo(() => {
+    if (activeFilter === "all") return ads
+    if (activeFilter === "pending") {
+      return ads.filter((ad) => ["pending", "payment_pending"].includes(String(ad.status || "").toLowerCase()))
+    }
+    if (activeFilter === "active") {
+      return ads.filter((ad) =>
+        ["active", "running", "approved", "paused", "scheduled"].includes(
+          String(ad.effectiveStatus || ad.status || "").toLowerCase()
+        )
+      )
+    }
+    if (activeFilter === "rejected") {
+      return ads.filter((ad) => String(ad.status || "").toLowerCase() === "rejected")
+    }
+    if (activeFilter === "expired") {
+      return ads.filter((ad) => String(ad.effectiveStatus || ad.status || "").toLowerCase() === "expired")
+    }
+    return ads
+  }, [ads, activeFilter])
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredAds.length / ITEMS_PER_PAGE)),
+    [filteredAds.length]
+  )
+
+  const paginatedAds = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredAds.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredAds, currentPage])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeFilter])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
+
+  const resetForm = () => {
+    setTitle("")
+    setWebsiteUrl("")
+    const tomorrow = getTomorrowInputDate()
+    setStartDate(tomorrow)
+    setEndDate(tomorrow)
+    setBannerFile(null)
+    if (bannerPreview) URL.revokeObjectURL(bannerPreview)
+    setBannerPreview("")
+    setBannerOptimizationMessage("")
+  }
+
+  const handleBannerChange = async (event) => {
+    const file = event.target.files?.[0]
+    const inputElement = event.target
+    if (!file) return
+
+    setIsOptimizingBanner(true)
+    setErrorMessage("")
+    setBannerOptimizationMessage("")
+    try {
+      const optimized = await optimizeBannerForUpload(file)
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview)
+      setBannerFile(optimized.file)
+      setBannerPreview(optimized.previewUrl)
+      setBannerOptimizationMessage(optimized.summary)
+    } catch (error) {
+      setErrorMessage(error?.message || "Failed to process banner image")
+      if (inputElement) inputElement.value = ""
+    } finally {
+      setIsOptimizingBanner(false)
+    }
+  }
+
+  const handleCreate = async () => {
+    const parsedStartDate = parseInputDate(startDate)
+    const parsedEndDate = parseInputDate(endDate)
+    const tomorrow = parseInputDate(getTomorrowInputDate())
+    const rangeDays = getRangeDays(startDate, endDate)
+    const normalizedWebsiteUrl = normalizeWebsiteUrl(websiteUrl)
+
+    if (!bannerFile) {
+      setErrorMessage("Banner image is required")
+      return
+    }
+    if (isOptimizingBanner) {
+      setErrorMessage("Please wait, banner optimization is in progress")
+      return
+    }
+    if (!title.trim()) {
+      setErrorMessage("Title is required")
+      return
+    }
+    if (!normalizedWebsiteUrl) {
+      setErrorMessage("Valid website URL is required")
+      return
+    }
+    if (!parsedStartDate || !parsedEndDate) {
+      setErrorMessage("Valid start date and end date are required")
+      return
+    }
+    if (parsedEndDate < parsedStartDate) {
+      setErrorMessage("End date cannot be before start date")
+      return
+    }
+    if (tomorrow && parsedStartDate < tomorrow) {
+      setErrorMessage("Start date must be tomorrow or later")
+      return
+    }
+    if (!Number.isFinite(rangeDays) || rangeDays < 1 || rangeDays > 365) {
+      setErrorMessage("Date range must be between 1 and 365 days")
+      return
+    }
+    if (overlappingBookedRanges.length > 0) {
+      setErrorMessage("Selected dates overlap with booked dates. Please choose different dates")
+      return
+    }
+
+    setCreating(true)
+    try {
+      const payload = new FormData()
+      payload.append("banner", bannerFile)
+      payload.append("title", title.trim())
+      payload.append("websiteUrl", normalizedWebsiteUrl)
+      payload.append("startDate", startDate)
+      payload.append("endDate", endDate)
+      await userAdvertisementAPI.createMyAdvertisement(payload)
+      resetForm()
+      setFormOpen(false)
+      await loadData()
+    } catch (error) {
+      setErrorMessage(normalizeSubmitError(error?.response?.data?.message))
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const filters = [
+    { id: "all", label: "All", count: filterCounts.all },
+    { id: "pending", label: "Pending", count: filterCounts.pending },
+    { id: "active", label: "Active", count: filterCounts.active },
+    { id: "rejected", label: "Rejected", count: filterCounts.rejected },
+    { id: "expired", label: "Expired", count: filterCounts.expired },
+  ]
+
+  return (
+    <AnimatedPage className="min-h-screen bg-slate-50 overflow-x-hidden pb-6">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h1 className="text-lg font-bold text-gray-900 flex-1">My Advertisements</h1>
+        <button
+          onClick={() => setFormOpen((prev) => !prev)}
+          className="px-3 py-1.5 rounded-lg bg-black text-white text-sm font-medium flex items-center gap-1"
+        >
+          <Plus className="w-4 h-4" />
+          New
+        </button>
+      </div>
+
+      <div className="px-4 py-4 space-y-3">
+        {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+
+        {formOpen && (
+          <Card className="bg-white border border-gray-100">
+            <CardContent className="p-4 space-y-3">
+              <h2 className="text-base font-semibold text-gray-900">Create Advertisement Request</h2>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
+                <input
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <div className="relative">
+                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    min={getTomorrowInputDate()}
+                    onChange={(e) => {
+                      const nextStartDate = e.target.value
+                      setStartDate(nextStartDate)
+                      if (getRangeDays(nextStartDate, endDate) <= 0) {
+                        setEndDate(nextStartDate)
+                      }
+                    }}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                <div className="relative">
+                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || getTomorrowInputDate()}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Banner Image</label>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Accepted: JPG/PNG | Auto-optimized to 1200x500 (2.4:1) | Max size: 2MB
+                </p>
+                <label className="border-2 border-dashed border-gray-300 rounded-lg p-3 block cursor-pointer hover:border-gray-500">
+                  <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+                  {bannerPreview ? (
+                    <div className="w-full rounded-md overflow-hidden border border-gray-200 bg-gray-50 aspect-[12/5]">
+                      <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <Upload className="h-6 w-6 text-gray-500 mx-auto mb-1" />
+                      <p className="text-xs text-gray-600">
+                        {isOptimizingBanner ? "Optimizing banner..." : "Click to upload banner"}
+                      </p>
+                    </div>
+                  )}
+                </label>
+                {bannerOptimizationMessage && <p className="text-xs text-emerald-700 mt-2">{bannerOptimizationMessage}</p>}
+                {bannerErrorMessage && <p className="text-xs text-red-600 mt-2">{bannerErrorMessage}</p>}
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-semibold text-amber-900">Booked Dates (Cannot Select)</p>
+                {loadingBookedDates ? (
+                  <p className="text-xs text-amber-800 mt-1">Loading booked dates...</p>
+                ) : bookedRanges.length === 0 ? (
+                  <p className="text-xs text-amber-800 mt-1">No booked ranges found for selected window.</p>
+                ) : (
+                  <div className="mt-1 space-y-1 max-h-24 overflow-auto">
+                    {bookedRanges.slice(0, 8).map((range, index) => (
+                      <p key={`${range?.source || "ad"}-${range?.id || index}`} className="text-xs text-amber-800">
+                        {formatDate(range?.startDate)} - {formatDate(range?.endDate)}
+                      </p>
+                    ))}
+                    {bookedRanges.length > 8 && (
+                      <p className="text-xs text-amber-800">+ {bookedRanges.length - 8} more ranges</p>
+                    )}
+                  </div>
+                )}
+                {overlappingBookedRanges.length > 0 && (
+                  <p className="text-xs text-red-600 mt-2">
+                    Selected range overlaps with booked dates. Please change start/end date.
+                  </p>
+                )}
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs text-gray-600">Price Per Day: INR {pricePerDay.toFixed(2)}</p>
+                <p className="text-xs text-gray-600">Selected Days: {selectedDays}</p>
+                <div className="mt-1 flex items-center gap-1 text-gray-900">
+                  <IndianRupee className="h-4 w-4" />
+                  <p className="text-sm font-semibold">Total: INR {totalAmount.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleCreate} disabled={creating || isOptimizingBanner} className="bg-black hover:bg-gray-800 text-white">
+                  {isOptimizingBanner ? "Optimizing Banner..." : creating ? "Submitting..." : "Submit Request"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    resetForm()
+                    setFormOpen(false)
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4">
+          {filters.map((filter, index) => (
+            <Motion.button
+              key={filter.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, delay: index * 0.03 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveFilter(filter.id)}
+              className={`relative z-10 flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeFilter === filter.id ? "text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {activeFilter === filter.id && (
+                <Motion.div
+                  layoutId="userActiveFilter"
+                  className="absolute inset-0 bg-black rounded-full z-0"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 font-bold">
+                {filter.label} {filter.count > 0 ? filter.count : ""}
+              </span>
+            </Motion.button>
+          ))}
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-gray-500 text-center py-10">Loading advertisements...</p>
+        ) : filteredAds.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-sm">No advertisements found</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {paginatedAds.map((ad, index) => (
+              <Motion.div
+                key={ad.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.03 }}
+              >
+                <Card
+                  className="bg-white shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/user/profile/advertisements/${ad.id}`)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="text-base font-bold text-gray-900">Ads ID #{ad.adId || ad.id}</h3>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeClass(ad.effectiveStatus || ad.status)}`}>
+                            {formatStatus(ad.effectiveStatus || ad.status)}
+                          </span>
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${String(ad.paymentStatus || "").toLowerCase() === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                          >
+                            {formatStatus(ad.paymentStatus)}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-gray-700 mb-2">Banner Promotion</p>
+
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <p>Ads Placed: {formatDate(ad.createdAt)}</p>
+                          <p>Duration: {formatDate(ad.startDate)} - {formatDate(ad.endDate)}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/user/profile/advertisements/${ad.id}`)
+                        }}
+                        className="p-2 bg-black hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        <ChevronRight className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Motion.div>
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredAds.length > 0 && (
+          <div className="pt-1 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </AnimatedPage>
+  )
+}

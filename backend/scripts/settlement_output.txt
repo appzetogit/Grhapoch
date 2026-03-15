@@ -1,0 +1,36 @@
+(node:19388) [MONGOOSE] Warning: Duplicate schema index on {"restaurant":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:19388) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+Connected to MongoDB
+Running calculateOrderSettlement for order: new ObjectId('699d734f5e5194bb20679b04')
+❌ Error in calculateOrderSettlement for order 699d734f5e5194bb20679b04: Error: OrderSettlement validation failed: adminEarning.deliveryMargin: Path `adminEarning.deliveryMargin` (-0.31) is less than minimum allowed value (0).
+    at ValidationError.inspect (C:\Users\manmo\Downloads\grap poch\backend\node_modules\mongoose\lib\error\validation.js:52:26)
+    at formatValue (node:internal/util/inspect:828:19)
+    at inspect (node:internal/util/inspect:371:10)
+    at formatWithOptionsInternal (node:internal/util/inspect:2367:40)
+    at formatWithOptions (node:internal/util/inspect:2229:10)
+    at console.value (node:internal/console/constructor:350:14)
+    at console.warn (node:internal/console/constructor:383:61)
+    at calculateOrderSettlement (file:///C:/Users/manmo/Downloads/grap%20poch/backend/modules/order/services/orderSettlementService.js:239:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async run (file:///C:/Users/manmo/Downloads/grap%20poch/backend/scripts/test_settlement_calc.js:22:28) {
+  errors: {
+    'adminEarning.deliveryMargin': ValidatorError: Path `adminEarning.deliveryMargin` (-0.31) is less than minimum allowed value (0).
+        at validate (C:\Users\manmo\Downloads\grap poch\backend\node_modules\mongoose\lib\schemaType.js:1443:13)
+        at SchemaType.doValidate (C:\Users\manmo\Downloads\grap poch\backend\node_modules\mongoose\lib\schemaType.js:1427:7)
+        at C:\Users\manmo\Downloads\grap poch\backend\node_modules\mongoose\lib\document.js:3124:18
+        at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+      properties: [Object],
+      kind: 'min',
+      path: 'adminEarning.deliveryMargin',
+      value: -0.31,
+      reason: undefined,
+      [Symbol(mongoose#validatorError)]: true
+    }
+  },
+  _message: 'OrderSettlement validation failed'
+}
+Error: OrderSettlement validation failed: adminEarning.deliveryMargin: Path `adminEarning.deliveryMargin` (-0.31) is less than minimum allowed value (0).
+    at calculateOrderSettlement (file:///C:/Users/manmo/Downloads/grap%20poch/backend/modules/order/services/orderSettlementService.js:240:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async run (file:///C:/Users/manmo/Downloads/grap%20poch/backend/scripts/test_settlement_calc.js:22:28)

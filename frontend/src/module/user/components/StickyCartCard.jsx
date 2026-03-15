@@ -1,0 +1,135 @@
+import { Link } from "react-router-dom"
+import { X, ChevronRight } from "lucide-react"
+import { useCart } from "../context/CartContext"
+import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { createPortal } from "react-dom"
+
+export default function StickyCartCard() {
+  const { cart, getCartCount } = useCart()
+  const [isVisible, setIsVisible] = useState(true)
+  const [mounted, setMounted] = useState(false)
+  const [bottomPosition, setBottomPosition] = useState("bottom-[70px]") // Fixed above bottom navigation
+  const cartCount = getCartCount()
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  // Set fixed position above bottom navigation (no scroll-based movement)
+  useEffect(() => {
+    // Set initial position based on screen size
+    const setInitialPosition = () => {
+      if (window.innerWidth >= 768) {
+        setBottomPosition("bottom-6") // Desktop: fixed position
+      } else {
+        setBottomPosition("bottom-[70px]") // Mobile: above bottom nav (fixed, doesn't move with scroll)
+      }
+    }
+
+    setInitialPosition()
+
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setBottomPosition("bottom-6") // Desktop: always fixed
+      } else {
+        setBottomPosition("bottom-[70px]") // Mobile: above bottom nav (fixed)
+      }
+    }
+
+    window.addEventListener("resize", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [])
+
+  // Get restaurant info from first cart item or use default
+  const restaurantName = cart[0]?.restaurant || "Restaurant"
+  const restaurantImage = cart[0]?.image || "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=200&h=200&fit=crop"
+
+  // Create restaurant slug from restaurant name
+  const restaurantSlug = restaurantName.toLowerCase().replace(/\s+/g, "-")
+
+  // Calculate total price
+  const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity * 83), 0)
+
+  // Animation variants for the popout effect
+  const cardVariants = {
+    initial: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      rotate: 0,
+    },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      rotate: 0,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 25,
+        mass: 0.8,
+      },
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.8,
+      y: 100,
+      rotate: -5,
+      transition: {
+        duration: 0.4,
+        ease: [0.4, 0, 0.2, 1],
+      },
+    },
+  }
+
+  // Don't render if cart is empty
+  if (cartCount === 0 || !mounted) return null
+
+  return createPortal(
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          className={`fixed ${bottomPosition} md:bottom-6 left-0 right-0 md:left-1/2 md:-translate-x-1/2 z-50 px-4 md:px-0 pb-4 md:pb-0 pointer-events-none`}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={cardVariants}
+        >
+          <div className="max-w-7xl md:max-w-none mx-auto md:mx-0 pointer-events-auto">
+            <div className="bg-white dark:bg-[#0a0a0a] dark:text-white rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden md:max-w-sm md:w-[320px]">
+              <div className="flex items-center gap-2 p-2.5 md:p-3">
+                {/* View Cart Button */}
+                <Link
+                  to="/user/cart"
+                  className="flex-1 bg-green-600 dark:bg-green-700 hover:bg-green-700 text-white px-3 py-2 md:px-4 md:py-2.5 rounded-lg font-semibold transition-colors"
+                >
+                  <div className="text-center">
+                    <div className="text-[11px] md:text-xs opacity-90">View Cart</div>
+                    <div className="text-[11px] md:text-xs font-bold">{cartCount} {cartCount === 1 ? 'item' : 'items'}</div>
+                  </div>
+                </Link>
+                {/* Close Button */}
+                <motion.button
+                  onClick={() => setIsVisible(false)}
+                  className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
+                  <X className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-500 dark:text-gray-400" />
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
+  )
+}
+

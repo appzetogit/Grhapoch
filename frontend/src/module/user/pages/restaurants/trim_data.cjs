@@ -1,0 +1,14 @@
+const fs = require('fs');
+const path = 'e:\\appzetofood\\appzetofood\\frontend\\src\\module\\user\\pages\\restaurants\\RestaurantDetails.jsx';
+const content = fs.readFileSync(path, 'utf8');
+const lines = content.split(/\r?\n/);
+
+
+// We want lines 1-41 (indices 0-40)
+// And lines 2952-end (indices 2951-end)
+
+
+
+const newLines = [...lines.slice(0, 41), ...lines.slice(2951)];
+const newContent = newLines.join('\n');
+fs.writeFileSync(path, newContent);

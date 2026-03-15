@@ -26,8 +26,10 @@ import {
   Pause,
   IndianRupee,
   Loader2,
-  Camera } from
-"lucide-react";
+  Camera,
+  AlertTriangle
+} from
+  "lucide-react";
 import BottomPopup from "../components/BottomPopup";
 import FeedNavbar from "../components/FeedNavbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,8 +39,9 @@ import { useProgressStore } from "../store/progressStore";
 import { formatTimeDisplay, calculateTotalHours } from "../utils/gigUtils";
 import {
   fetchDeliveryWallet,
-  calculatePeriodEarnings } from
-"../utils/deliveryWalletState";
+  calculatePeriodEarnings
+} from
+  "../utils/deliveryWalletState";
 import { formatCurrency } from "../../restaurant/utils/currency";
 import { getAllDeliveryOrders } from "../utils/deliveryOrderStatus";
 import { getUnreadDeliveryNotificationCount } from "../utils/deliveryNotifications";
@@ -53,8 +56,9 @@ import {
   trimPolylineBehindRider,
   calculateBearing,
   animateMarker,
-  calculateDistance } from
-"../utils/liveTrackingPolyline";
+  calculateDistance
+} from
+  "../utils/liveTrackingPolyline";
 import referralBonusBg from "../../../assets/referralbonuscardbg.png";
 // import dropLocationBanner from "../../../assets/droplocationbanner.png" // File not found - commented out
 import alertSound from "../../../assets/audio/alert.mp3";
@@ -65,75 +69,75 @@ import bikeLogo from "../../../assets/bikelogo.png";
 
 // Mock restaurants data
 const mockRestaurants = [
-{
-  id: 1,
-  name: "Hotel Pankaj",
-  address: "Opposite Midway, Behror Locality, Behror",
-  lat: 28.2849,
-  lng: 76.1209,
-  distance: "3.56 km",
-  timeAway: "4 mins",
-  orders: 2,
-  estimatedEarnings: 76.62, // Consistent payment amount
-  pickupDistance: "3.56 km",
-  dropDistance: "12.2 km",
-  payment: "COD",
-  amount: 76.62, // Payment amount (consistent with estimatedEarnings)
-  items: 2,
-  phone: "+911234567890",
-  orderId: "ORD1234567890",
-  customerName: "Rajesh Kumar",
-  customerAddress: "401, 4th Floor, Pushparatna Solitare Building, Janjeerwala Square, New Palasia, Indore",
-  customerPhone: "+919876543210",
-  tripTime: "38 mins",
-  tripDistance: "8.8 kms"
-},
-{
-  id: 2,
-  name: "Haldi",
-  address: "B 2, Narnor-Alwar Rd, Indus Valley, Behror",
-  lat: 28.2780,
-  lng: 76.1150,
-  distance: "4.2 km",
-  timeAway: "4 mins",
-  orders: 1,
-  estimatedEarnings: 76.62,
-  pickupDistance: "4.2 km",
-  dropDistance: "8.5 km",
-  payment: "COD",
-  amount: 76.62,
-  items: 3,
-  phone: "+911234567891",
-  orderId: "ORD1234567891",
-  customerName: "Priya Sharma",
-  customerAddress: "Flat 302, Green Valley Apartments, MG Road, Indore",
-  customerPhone: "+919876543211",
-  tripTime: "35 mins",
-  tripDistance: "7.5 kms"
-},
-{
-  id: 3,
-  name: "Pandit Ji Samose Wale",
-  address: "Near Govt. Senior Secondary School, Behror Locality, Behror",
-  lat: 28.2870,
-  lng: 76.1250,
-  distance: "5.04 km",
-  timeAway: "6 mins",
-  orders: 1,
-  estimatedEarnings: 76.62,
-  pickupDistance: "5.04 km",
-  dropDistance: "7.8 km",
-  payment: "COD",
-  amount: 76.62,
-  items: 1,
-  phone: "+911234567892",
-  orderId: "ORD1234567892",
-  customerName: "Amit Patel",
-  customerAddress: "House No. 45, Sector 5, Vijay Nagar, Indore",
-  customerPhone: "+919876543212",
-  tripTime: "32 mins",
-  tripDistance: "6.9 kms"
-}];
+  {
+    id: 1,
+    name: "Hotel Pankaj",
+    address: "Opposite Midway, Behror Locality, Behror",
+    lat: 28.2849,
+    lng: 76.1209,
+    distance: "3.56 km",
+    timeAway: "4 mins",
+    orders: 2,
+    estimatedEarnings: 76.62, // Consistent payment amount
+    pickupDistance: "3.56 km",
+    dropDistance: "12.2 km",
+    payment: "COD",
+    amount: 76.62, // Payment amount (consistent with estimatedEarnings)
+    items: 2,
+    phone: "+911234567890",
+    orderId: "ORD1234567890",
+    customerName: "Rajesh Kumar",
+    customerAddress: "401, 4th Floor, Pushparatna Solitare Building, Janjeerwala Square, New Palasia, Indore",
+    customerPhone: "+919876543210",
+    tripTime: "38 mins",
+    tripDistance: "8.8 kms"
+  },
+  {
+    id: 2,
+    name: "Haldi",
+    address: "B 2, Narnor-Alwar Rd, Indus Valley, Behror",
+    lat: 28.2780,
+    lng: 76.1150,
+    distance: "4.2 km",
+    timeAway: "4 mins",
+    orders: 1,
+    estimatedEarnings: 76.62,
+    pickupDistance: "4.2 km",
+    dropDistance: "8.5 km",
+    payment: "COD",
+    amount: 76.62,
+    items: 3,
+    phone: "+911234567891",
+    orderId: "ORD1234567891",
+    customerName: "Priya Sharma",
+    customerAddress: "Flat 302, Green Valley Apartments, MG Road, Indore",
+    customerPhone: "+919876543211",
+    tripTime: "35 mins",
+    tripDistance: "7.5 kms"
+  },
+  {
+    id: 3,
+    name: "Pandit Ji Samose Wale",
+    address: "Near Govt. Senior Secondary School, Behror Locality, Behror",
+    lat: 28.2870,
+    lng: 76.1250,
+    distance: "5.04 km",
+    timeAway: "6 mins",
+    orders: 1,
+    estimatedEarnings: 76.62,
+    pickupDistance: "5.04 km",
+    dropDistance: "7.8 km",
+    payment: "COD",
+    amount: 76.62,
+    items: 1,
+    phone: "+911234567892",
+    orderId: "ORD1234567892",
+    customerName: "Amit Patel",
+    customerAddress: "House No. 45, Sector 5, Vijay Nagar, Indore",
+    customerPhone: "+919876543212",
+    tripTime: "32 mins",
+    tripDistance: "6.9 kms"
+  }];
 
 
 // ============================================
@@ -153,8 +157,8 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -319,7 +323,8 @@ export default function DeliveryHome() {
         } catch (styleError) {
 
           // If getComputedStyle fails, continue with preventDefault check
-        }}
+        }
+      }
     }
 
     // For React synthetic events, check the native event's cancelable property
@@ -347,7 +352,7 @@ export default function DeliveryHome() {
         }
         // Suppress console errors temporarily while calling preventDefault
         const originalError = console.error;
-        console.error = () => {}; // Temporarily suppress console.error
+        console.error = () => { }; // Temporarily suppress console.error
         try {
           e.preventDefault();
         } finally {
@@ -369,6 +374,7 @@ export default function DeliveryHome() {
     transactions: [],
     joiningBonusClaimed: false
   });
+  const [walletLoaded, setWalletLoaded] = useState(false);
   const [showCashLimitPopup, setShowCashLimitPopup] = useState(false);
   const [cashLimitPopupData, setCashLimitPopupData] = useState(null);
   const cashLimitBlockedOrderIdsRef = useRef(new Set());
@@ -799,7 +805,7 @@ export default function DeliveryHome() {
           }
           return prev;
         });
-      } catch {}
+      } catch { }
     }, 1000); // Check every second
 
     return () => {
@@ -811,24 +817,24 @@ export default function DeliveryHome() {
 
   const getCurrentTrackingOrderId = useCallback(() => {
     const orderIdCandidate =
-    selectedRestaurant?.orderId ||
-    selectedRestaurant?.id ||
-    activeOrder?.orderId ||
-    activeOrder?.restaurantInfo?.orderId ||
-    activeOrder?.restaurantInfo?.id ||
-    newOrder?.orderId ||
-    newOrder?.orderMongoId;
+      selectedRestaurant?.orderId ||
+      selectedRestaurant?.id ||
+      activeOrder?.orderId ||
+      activeOrder?.restaurantInfo?.orderId ||
+      activeOrder?.restaurantInfo?.id ||
+      newOrder?.orderId ||
+      newOrder?.orderMongoId;
 
     if (!orderIdCandidate) return null;
     return String(orderIdCandidate);
   }, [
-  selectedRestaurant?.orderId,
-  selectedRestaurant?.id,
-  activeOrder?.orderId,
-  activeOrder?.restaurantInfo?.orderId,
-  activeOrder?.restaurantInfo?.id,
-  newOrder?.orderId,
-  newOrder?.orderMongoId]
+    selectedRestaurant?.orderId,
+    selectedRestaurant?.id,
+    activeOrder?.orderId,
+    activeOrder?.restaurantInfo?.orderId,
+    activeOrder?.restaurantInfo?.id,
+    newOrder?.orderId,
+    newOrder?.orderMongoId]
   );
 
   const shouldPushBackendLocation = useCallback((lat, lng, now = Date.now()) => {
@@ -876,19 +882,19 @@ export default function DeliveryHome() {
     if (trackingOrderId) payloadMetadata.orderId = String(trackingOrderId);
 
     return deliveryAPI.updateLocation(latitude, longitude, true, payloadMetadata).
-    then(() => {
-      lastBackendLocationPushRef.current = {
-        timestamp: now,
-        location: [latitude, longitude]
-      };
-      return true;
-    }).
-    catch((error) => {
-      if (error.code !== 'ERR_NETWORK' && error.message !== 'Network Error') {
-        console.error('❌ Error sending location to backend:', error);
-      }
-      return false;
-    });
+      then(() => {
+        lastBackendLocationPushRef.current = {
+          timestamp: now,
+          location: [latitude, longitude]
+        };
+        return true;
+      }).
+      catch((error) => {
+        if (error.code !== 'ERR_NETWORK' && error.message !== 'Network Error') {
+          console.error('❌ Error sending location to backend:', error);
+        }
+        return false;
+      });
   }, [getCurrentTrackingOrderId, shouldPushBackendLocation]);
 
   // Calculate today's stats
@@ -898,7 +904,7 @@ export default function DeliveryHome() {
 
   // Get today's gig (prioritize active, then booked)
   const todayGig = bookedGigs.find((gig) => gig.date === todayDateKey && gig.status === 'active') ||
-  bookedGigs.find((gig) => gig.date === todayDateKey && gig.status === 'booked');
+    bookedGigs.find((gig) => gig.date === todayDateKey && gig.status === 'booked');
 
   // Calculate login hours based on when gig started
   const calculateLoginHours = () => {
@@ -940,8 +946,8 @@ export default function DeliveryHome() {
   // Calculate today's earnings (prefer store, then calculated; default to 0 so UI is not empty)
   const calculatedEarnings = calculatePeriodEarnings(walletState, 'today') || 0;
   const todayEarnings = hasStoreDataForToday && todayData ?
-  todayData.earnings ?? calculatedEarnings :
-  calculatedEarnings;
+    todayData.earnings ?? calculatedEarnings :
+    calculatedEarnings;
 
   // Calculate today's trips (prefer store, then calculated; default to 0)
   const allOrders = getAllDeliveryOrders();
@@ -955,8 +961,8 @@ export default function DeliveryHome() {
     return orderDate.getTime() === today.getTime();
   }).length;
   const todayTrips = hasStoreDataForToday && todayData ?
-  todayData.trips ?? calculatedTrips :
-  calculatedTrips;
+    todayData.trips ?? calculatedTrips :
+    calculatedTrips;
 
   // Calculate today's gigs count
   const todayGigsCount = bookedGigs.filter((gig) => gig.date === todayDateKey).length;
@@ -964,18 +970,18 @@ export default function DeliveryHome() {
   // Calculate weekly earnings from wallet transactions (payment + earning_addon bonus)
   // Include both payment and earning_addon transactions in weekly earnings
   const weeklyEarnings = walletState?.transactions?.
-  filter((t) => {
-    // Include both payment and earning_addon transactions
-    if (t.type !== 'payment' && t.type !== 'earning_addon' || t.status !== 'Completed') return false;
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
-    if (!transactionDate) return false;
-    return transactionDate >= startOfWeek && transactionDate <= now;
-  }).
-  reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+    filter((t) => {
+      // Include both payment and earning_addon transactions
+      if (t.type !== 'payment' && t.type !== 'earning_addon' || t.status !== 'Completed') return false;
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
+      if (!transactionDate) return false;
+      return transactionDate >= startOfWeek && transactionDate <= now;
+    }).
+    reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
 
   // Calculate weekly orders count from transactions
   const calculateWeeklyOrders = () => {
@@ -999,6 +1005,15 @@ export default function DeliveryHome() {
 
   const weeklyOrders = calculateWeeklyOrders();
 
+  const totalCashLimit = Number(walletState?.totalCashLimit ?? walletState?.cashLimit ?? 0);
+  const cashInHand = Number(walletState?.cashInHand) || 0;
+  const pendingCodReserve = Number(walletState?.pendingCodReserve) || 0;
+  const apiAvailableCashLimit = Number(walletState?.availableCashLimit);
+  const availableCashLimitValue = Number.isFinite(apiAvailableCashLimit) && apiAvailableCashLimit >= 0 ?
+    apiAvailableCashLimit :
+    Math.max(0, totalCashLimit - cashInHand - pendingCodReserve);
+  const showCashLimitBanner = totalCashLimit > 0 && availableCashLimitValue <= 0;
+
   // State for active earning addon
   const [activeEarningAddon, setActiveEarningAddon] = useState(null);
 
@@ -1013,10 +1028,10 @@ export default function DeliveryHome() {
 
           // Get the first valid active offer (prioritize isValid, then isUpcoming, then any active status)
           const activeOffer = offers.find((offer) => offer.isValid) ||
-          offers.find((offer) => offer.isUpcoming) ||
-          offers.find((offer) => offer.status === 'active') ||
-          offers[0] ||
-          null;
+            offers.find((offer) => offer.isUpcoming) ||
+            offers.find((offer) => offer.status === 'active') ||
+            offers[0] ||
+            null;
 
           setActiveEarningAddon(activeOffer);
         } else {
@@ -1085,29 +1100,29 @@ export default function DeliveryHome() {
     const endDate = activeEarningAddon.endDate ? new Date(activeEarningAddon.endDate) : null;
 
     return walletState.transactions.
-    filter((t) => {
-      // Only count earning_addon type transactions
-      if (t.type !== 'earning_addon' || t.status !== 'Completed') return false;
+      filter((t) => {
+        // Only count earning_addon type transactions
+        if (t.type !== 'earning_addon' || t.status !== 'Completed') return false;
 
-      // Filter by date range if offer has dates
-      if (startDate || endDate) {
-        const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
-        if (!transactionDate) return false;
+        // Filter by date range if offer has dates
+        if (startDate || endDate) {
+          const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
+          if (!transactionDate) return false;
 
-        if (startDate && transactionDate < startDate) return false;
-        if (endDate && transactionDate > endDate) return false;
-      }
+          if (startDate && transactionDate < startDate) return false;
+          if (endDate && transactionDate > endDate) return false;
+        }
 
-      // Check if transaction is related to current offer
-      if (t.metadata?.earningAddonId) {
-        return t.metadata.earningAddonId === activeEarningAddon._id?.toString() ||
-        t.metadata.earningAddonId === activeEarningAddon.id?.toString();
-      }
+        // Check if transaction is related to current offer
+        if (t.metadata?.earningAddonId) {
+          return t.metadata.earningAddonId === activeEarningAddon._id?.toString() ||
+            t.metadata.earningAddonId === activeEarningAddon.id?.toString();
+        }
 
-      // If no metadata, include all earning_addon transactions in date range
-      return true;
-    }).
-    reduce((sum, t) => sum + (t.amount || 0), 0);
+        // If no metadata, include all earning_addon transactions in date range
+        return true;
+      }).
+      reduce((sum, t) => sum + (t.amount || 0), 0);
   };
 
   // Earnings Guarantee - Use active earning addon if available, otherwise show 0
@@ -1119,11 +1134,11 @@ export default function DeliveryHome() {
   // Show bonus earnings from the offer, or total weekly earnings if no offer is active
   const earningsGuaranteeCurrentEarnings = activeEarningAddon ? calculateBonusEarnings() : weeklyEarnings;
   const ordersProgress = earningsGuaranteeOrdersTarget > 0 ?
-  Math.min(earningsGuaranteeCurrentOrders / earningsGuaranteeOrdersTarget, 1) :
-  0;
+    Math.min(earningsGuaranteeCurrentOrders / earningsGuaranteeOrdersTarget, 1) :
+    0;
   const earningsProgress = earningsGuaranteeTarget > 0 ?
-  Math.min(earningsGuaranteeCurrentEarnings / earningsGuaranteeTarget, 1) :
-  0;
+    Math.min(earningsGuaranteeCurrentEarnings / earningsGuaranteeTarget, 1) :
+    0;
 
   // Get week end date for valid till - use offer end date if available
   const getWeekEndDate = () => {
@@ -1147,11 +1162,11 @@ export default function DeliveryHome() {
 
   // Calculate total hours worked today (prefer store, then calculated; default to 0)
   const calculatedHours = bookedGigs.
-  filter((gig) => gig.date === todayDateKey).
-  reduce((total, gig) => total + (gig.totalHours || 0), 0);
+    filter((gig) => gig.date === todayDateKey).
+    reduce((total, gig) => total + (gig.totalHours || 0), 0);
   const todayHoursWorked = hasStoreDataForToday && todayData ?
-  todayData.timeOnOrders ?? calculatedHours :
-  calculatedHours;
+    todayData.timeOnOrders ?? calculatedHours :
+    calculatedHours;
 
   // Track last updated values to prevent infinite loops
   const lastUpdatedRef = useRef({ earnings: null, trips: null, hours: null });
@@ -1160,15 +1175,13 @@ export default function DeliveryHome() {
   useEffect(() => {
     // Only update if values have actually changed
     if (
-    calculatedEarnings !== undefined &&
-    calculatedTrips !== undefined &&
-    calculatedHours !== undefined && (
+      calculatedEarnings !== undefined &&
+      calculatedTrips !== undefined &&
+      calculatedHours !== undefined && (
 
-    lastUpdatedRef.current.earnings !== calculatedEarnings ||
-    lastUpdatedRef.current.trips !== calculatedTrips ||
-    lastUpdatedRef.current.hours !== calculatedHours))
-
-    {
+        lastUpdatedRef.current.earnings !== calculatedEarnings ||
+        lastUpdatedRef.current.trips !== calculatedTrips ||
+        lastUpdatedRef.current.hours !== calculatedHours)) {
       lastUpdatedRef.current = {
         earnings: calculatedEarnings,
         trips: calculatedTrips,
@@ -1334,8 +1347,8 @@ export default function DeliveryHome() {
 
         // Don't log autoplay policy errors as they're expected before user interaction
         if (!playError.message?.includes('user didn\'t interact') &&
-        !playError.name?.includes('NotAllowedError') &&
-        !playError.message?.includes('timeout')) {
+          !playError.name?.includes('NotAllowedError') &&
+          !playError.message?.includes('timeout')) {
           console.error('❌ Could not play alert sound:', playError);
         }
 
@@ -1351,7 +1364,7 @@ export default function DeliveryHome() {
         } catch (retryError) {
           // Don't log autoplay policy errors
           if (!retryError.message?.includes('user didn\'t interact') &&
-          !retryError.name?.includes('NotAllowedError')) {
+            !retryError.name?.includes('NotAllowedError')) {
             console.error('❌ Could not play alert sound after retry:', retryError);
           }
           return null;
@@ -1503,12 +1516,12 @@ export default function DeliveryHome() {
 
   // Reject reasons for order cancellation
   const rejectReasons = [
-  "Too far from current location",
-  "Vehicle issue",
-  "Personal emergency",
-  "Weather conditions",
-  "Already have too many orders",
-  "Other reason"];
+    "Too far from current location",
+    "Vehicle issue",
+    "Personal emergency",
+    "Weather conditions",
+    "Already have too many orders",
+    "Other reason"];
 
 
   // Handle reject order
@@ -1584,7 +1597,7 @@ export default function DeliveryHome() {
 
           // Validate saved coordinates
           if (typeof lat === 'number' && typeof lng === 'number' &&
-          lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             // Check if coordinates might be swapped (common issue)
             // If lat > 90 or lng > 180, they're definitely swapped
             // If lat is in lng range (68-98 for India) and lng is in lat range (8-38), they might be swapped
@@ -1634,9 +1647,9 @@ export default function DeliveryHome() {
 
           // Validate coordinates are valid numbers
           if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
-          isNaN(latitude) || isNaN(longitude) ||
-          latitude < -90 || latitude > 90 ||
-          longitude < -180 || longitude > 180) {
+            isNaN(latitude) || isNaN(longitude) ||
+            latitude < -90 || latitude > 90 ||
+            longitude < -180 || longitude > 180) {
             console.warn("⚠️ Invalid coordinates received:", { latitude, longitude });
             // Don't use default location - keep trying or use saved location
             // Retry after a delay
@@ -1647,8 +1660,8 @@ export default function DeliveryHome() {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     if (typeof lat === 'number' && typeof lng === 'number' &&
-                    !isNaN(lat) && !isNaN(lng) &&
-                    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                      !isNaN(lat) && !isNaN(lng) &&
+                      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                       setRiderLocation([lat, lng]);
                       lastLocationRef.current = [lat, lng];
                     }
@@ -1673,8 +1686,8 @@ export default function DeliveryHome() {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     if (typeof lat === 'number' && typeof lng === 'number' &&
-                    !isNaN(lat) && !isNaN(lng) &&
-                    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                      !isNaN(lat) && !isNaN(lng) &&
+                      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                       setRiderLocation([lat, lng]);
                       lastLocationRef.current = [lat, lng];
                     }
@@ -1722,8 +1735,8 @@ export default function DeliveryHome() {
           smoothedLocationRef.current = smoothedLocation;
 
           let heading = position.coords.heading !== null && position.coords.heading !== undefined ?
-          position.coords.heading :
-          null;
+            position.coords.heading :
+            null;
 
           // Initialize route history
           routeHistoryRef.current = [{
@@ -1763,8 +1776,8 @@ export default function DeliveryHome() {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     if (typeof lat === 'number' && typeof lng === 'number' &&
-                    !isNaN(lat) && !isNaN(lng) &&
-                    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                      !isNaN(lat) && !isNaN(lng) &&
+                      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                       const newLocation = [lat, lng];
                       setRiderLocation(newLocation);
                       lastLocationRef.current = newLocation;
@@ -1836,9 +1849,9 @@ export default function DeliveryHome() {
 
         // Basic validation
         if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
-        isNaN(latitude) || isNaN(longitude) ||
-        latitude < -90 || latitude > 90 ||
-        longitude < -180 || longitude > 180) {
+          isNaN(latitude) || isNaN(longitude) ||
+          latitude < -90 || latitude > 90 ||
+          longitude < -180 || longitude > 180) {
           console.warn("⚠️ Invalid coordinates received:", { latitude, longitude });
           return;
         }
@@ -1859,8 +1872,8 @@ export default function DeliveryHome() {
             const [lat, lng] = lastValidLocationRef.current;
             const rejectedHeading = Number.isFinite(Number(position.coords.heading)) ? Number(position.coords.heading) : 0;
             const rejectedSpeed = Number.isFinite(Number(position.coords.speed)) && Number(position.coords.speed) >= 0 ?
-            Number(position.coords.speed) :
-            0;
+              Number(position.coords.speed) :
+              0;
             pushLocationToBackend(lat, lng, {
               heading: rejectedHeading,
               speed: rejectedSpeed,
@@ -1908,8 +1921,8 @@ export default function DeliveryHome() {
 
               // Validate coordinates
               if (typeof lat === 'number' && typeof lng === 'number' &&
-              !isNaN(lat) && !isNaN(lng) &&
-              lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                !isNaN(lat) && !isNaN(lng) &&
+                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                 if (bikeMarkerRef.current) {
                   bikeMarkerRef.current.setPosition({ lat, lng });
                 } else {
@@ -1927,8 +1940,8 @@ export default function DeliveryHome() {
             const [lat, lng] = newLocation;
             const rawHeading = Number.isFinite(Number(position.coords.heading)) ? Number(position.coords.heading) : 0;
             const rawSpeed = Number.isFinite(Number(position.coords.speed)) && Number(position.coords.speed) >= 0 ?
-            Number(position.coords.speed) :
-            0;
+              Number(position.coords.speed) :
+              0;
             pushLocationToBackend(lat, lng, {
               heading: rawHeading,
               speed: rawSpeed,
@@ -1948,8 +1961,8 @@ export default function DeliveryHome() {
 
         // Calculate heading
         let heading = position.coords.heading !== null && position.coords.heading !== undefined ?
-        position.coords.heading :
-        null;
+          position.coords.heading :
+          null;
 
         if (heading === null && smoothedLocationRef.current) {
           const [prevLat, prevLng] = smoothedLocationRef.current;
@@ -2005,8 +2018,8 @@ export default function DeliveryHome() {
         // Send SMOOTHED location to backend with throttling + movement threshold.
         if (isOnlineRef.current && smoothedLocation) {
           const smoothedSpeed = Number.isFinite(Number(position.coords.speed)) && Number(position.coords.speed) >= 0 ?
-          Number(position.coords.speed) :
-          0;
+            Number(position.coords.speed) :
+            0;
 
           pushLocationToBackend(smoothedLat, smoothedLng, {
             heading,
@@ -2120,6 +2133,12 @@ export default function DeliveryHome() {
           newOrder?.paymentMethod ||
           newOrder?.payment?.method ||
           '';
+        if (!walletLoaded) {
+          toast.error('Wallet is loading. Please wait a moment.');
+          setNewOrderIsAnimatingToComplete(false);
+          setNewOrderAcceptButtonProgress(0);
+          return;
+        }
         const orderTotal =
           selectedRestaurant?.total ??
           selectedRestaurant?.pricing?.total ??
@@ -2224,35 +2243,35 @@ export default function DeliveryHome() {
               // Priority 4: Build from addressLine1 (with zone and pin code)
               else if (restaurantLocation?.addressLine1) {
                 const addressParts = [
-                restaurantLocation.addressLine1,
-                restaurantLocation.addressLine2,
-                restaurantLocation.area, // Zone
-                restaurantLocation.city,
-                restaurantLocation.state,
-                restaurantLocation.pincode || restaurantLocation.zipCode || restaurantLocation.postalCode].
-                filter(Boolean);
+                  restaurantLocation.addressLine1,
+                  restaurantLocation.addressLine2,
+                  restaurantLocation.area, // Zone
+                  restaurantLocation.city,
+                  restaurantLocation.state,
+                  restaurantLocation.pincode || restaurantLocation.zipCode || restaurantLocation.postalCode].
+                  filter(Boolean);
                 restaurantAddress = addressParts.join(', ');
               }
               // Priority 5: Build from street components (with zone and pin code)
               else if (restaurantLocation?.street) {
                 const addressParts = [
-                restaurantLocation.street,
-                restaurantLocation.area, // Zone
-                restaurantLocation.city,
-                restaurantLocation.state,
-                restaurantLocation.pincode || restaurantLocation.zipCode || restaurantLocation.postalCode].
-                filter(Boolean);
+                  restaurantLocation.street,
+                  restaurantLocation.area, // Zone
+                  restaurantLocation.city,
+                  restaurantLocation.state,
+                  restaurantLocation.pincode || restaurantLocation.zipCode || restaurantLocation.postalCode].
+                  filter(Boolean);
                 restaurantAddress = addressParts.join(', ');
               }
               // Priority 6: Check restaurantId directly for address fields
               else if (order.restaurantId?.street || order.restaurantId?.city) {
                 const addressParts = [
-                order.restaurantId.street,
-                order.restaurantId.area,
-                order.restaurantId.city,
-                order.restaurantId.state,
-                order.restaurantId.zipCode || order.restaurantId.pincode || order.restaurantId.postalCode].
-                filter(Boolean);
+                  order.restaurantId.street,
+                  order.restaurantId.area,
+                  order.restaurantId.city,
+                  order.restaurantId.state,
+                  order.restaurantId.zipCode || order.restaurantId.pincode || order.restaurantId.postalCode].
+                  filter(Boolean);
                 restaurantAddress = addressParts.join(', ');
               }
               // Priority 7: Check order.restaurantAddress (if exists)
@@ -2269,8 +2288,8 @@ export default function DeliveryHome() {
                 if (restaurantId) {
                   // Handle both string and object restaurantId
                   const restaurantIdString = typeof restaurantId === 'string' ?
-                  restaurantId :
-                  restaurantId._id || restaurantId.id || restaurantId.toString();
+                    restaurantId :
+                    restaurantId._id || restaurantId.id || restaurantId.toString();
 
                   if (restaurantIdString) {
                     try {
@@ -2288,22 +2307,22 @@ export default function DeliveryHome() {
                           restaurantAddress = restLocation.address;
                         } else if (restLocation?.addressLine1) {
                           const addressParts = [
-                          restLocation.addressLine1,
-                          restLocation.addressLine2,
-                          restLocation.area, // Zone
-                          restLocation.city,
-                          restLocation.state,
-                          restLocation.pincode || restLocation.zipCode || restLocation.postalCode].
-                          filter(Boolean);
+                            restLocation.addressLine1,
+                            restLocation.addressLine2,
+                            restLocation.area, // Zone
+                            restLocation.city,
+                            restLocation.state,
+                            restLocation.pincode || restLocation.zipCode || restLocation.postalCode].
+                            filter(Boolean);
                           restaurantAddress = addressParts.join(', ');
                         } else if (restLocation?.street) {
                           const addressParts = [
-                          restLocation.street,
-                          restLocation.area, // Zone
-                          restLocation.city,
-                          restLocation.state,
-                          restLocation.pincode || restLocation.zipCode || restLocation.postalCode].
-                          filter(Boolean);
+                            restLocation.street,
+                            restLocation.area, // Zone
+                            restLocation.city,
+                            restLocation.state,
+                            restLocation.pincode || restLocation.zipCode || restLocation.postalCode].
+                            filter(Boolean);
                           restaurantAddress = addressParts.join(', ');
                         }
                       }
@@ -2345,8 +2364,8 @@ export default function DeliveryHome() {
               // Extract earnings from backend response
               const backendEarnings = orderData.estimatedEarnings || response.data.data.estimatedEarnings;
               const earningsValue = backendEarnings ?
-              typeof backendEarnings === 'object' ? backendEarnings.totalEarning : backendEarnings :
-              selectedRestaurant?.estimatedEarnings || 0;
+                typeof backendEarnings === 'object' ? backendEarnings.totalEarning : backendEarnings :
+                selectedRestaurant?.estimatedEarnings || 0;
 
 
               restaurantInfo = {
@@ -2364,8 +2383,8 @@ export default function DeliveryHome() {
                 amount: earningsValue, // Also set amount for compatibility
                 customerName: order.userId?.name || selectedRestaurant?.customerName,
                 customerAddress: order.address?.formattedAddress || (
-                order.address?.street ? `${order.address.street}, ${order.address.city || ''}, ${order.address.state || ''}`.trim() : '') ||
-                selectedRestaurant?.customerAddress,
+                  order.address?.street ? `${order.address.street}, ${order.address.city || ''}, ${order.address.state || ''}`.trim() : '') ||
+                  selectedRestaurant?.customerAddress,
                 customerLat: order.address?.location?.coordinates?.[1],
                 customerLng: order.address?.location?.coordinates?.[0],
                 items: order.items || [],
@@ -2525,9 +2544,9 @@ export default function DeliveryHome() {
               const currentOrderStatus = selectedRestaurant?.orderStatus || selectedRestaurant?.status || '';
               const currentDeliveryPhase = selectedRestaurant?.deliveryPhase || selectedRestaurant?.deliveryState?.currentPhase || '';
               const isAlreadyPastPickup = currentOrderStatus === 'out_for_delivery' ||
-              currentDeliveryPhase === 'en_route_to_delivery' ||
-              currentDeliveryPhase === 'en_route_to_drop' ||
-              currentDeliveryPhase === 'picked_up';
+                currentDeliveryPhase === 'en_route_to_delivery' ||
+                currentDeliveryPhase === 'en_route_to_drop' ||
+                currentDeliveryPhase === 'picked_up';
 
               if (!isAlreadyPastPickup) {
                 setShowreachedPickupPopup(true);
@@ -2922,9 +2941,9 @@ export default function DeliveryHome() {
         const deliveryStateStatus = selectedRestaurant?.deliveryState?.status || '';
 
         const isDelivered = orderStatus === 'delivered' ||
-        deliveryPhase === 'completed' ||
-        deliveryPhase === 'delivered' ||
-        deliveryStateStatus === 'delivered';
+          deliveryPhase === 'completed' ||
+          deliveryPhase === 'delivered' ||
+          deliveryStateStatus === 'delivered';
 
         if (isDelivered) {
           console.warn('⚠️ Order is already delivered, skipping reached pickup confirmation');
@@ -2935,11 +2954,11 @@ export default function DeliveryHome() {
 
         // CRITICAL: Check if order is already past pickup phase (order ID confirmed or out for delivery)
         const isPastPickupPhase = orderStatus === 'out_for_delivery' ||
-        deliveryPhase === 'en_route_to_delivery' ||
-        deliveryPhase === 'picked_up' ||
-        deliveryStateStatus === 'order_confirmed' ||
-        deliveryStateStatus === 'reached_pickup' ||
-        deliveryPhase === 'at_pickup';
+          deliveryPhase === 'en_route_to_delivery' ||
+          deliveryPhase === 'picked_up' ||
+          deliveryStateStatus === 'order_confirmed' ||
+          deliveryStateStatus === 'reached_pickup' ||
+          deliveryPhase === 'at_pickup';
 
         if (isPastPickupPhase) {
           console.warn('⚠️ Order is already past pickup phase, skipping reached pickup confirmation:', {
@@ -3010,7 +3029,7 @@ export default function DeliveryHome() {
 
             // Show specific error message
             const errorMessage = error.response?.data?.message || (
-            error.response?.status === 404 ? 'Order not found. Please refresh and try again.' : 'Failed to confirm reached pickup. Please try again.');
+              error.response?.status === 404 ? 'Order not found. Please refresh and try again.' : 'Failed to confirm reached pickup. Please try again.');
             toast.error(errorMessage);
 
             // Ensure reached pickup popup is closed
@@ -3104,66 +3123,66 @@ export default function DeliveryHome() {
       // Show Order Delivered popup instantly after Reached Drop is confirmed
       setShowOrderDeliveredAnimation(true)
 
-      // API call in background (async, doesn't block popup)
-      ;(async () => {
-        // Get order ID - prioritize MongoDB _id over orderId string for API call
-        // Backend expects _id (MongoDB ObjectId) in the URL parameter
-        // Use _id (MongoDB ObjectId) if available, otherwise fallback to orderId string
-        const orderIdForApi = selectedRestaurant?.id ||
-        newOrder?.orderMongoId ||
-        newOrder?._id ||
-        selectedRestaurant?.orderId ||
-        newOrder?.orderId;
+        // API call in background (async, doesn't block popup)
+        ; (async () => {
+          // Get order ID - prioritize MongoDB _id over orderId string for API call
+          // Backend expects _id (MongoDB ObjectId) in the URL parameter
+          // Use _id (MongoDB ObjectId) if available, otherwise fallback to orderId string
+          const orderIdForApi = selectedRestaurant?.id ||
+            newOrder?.orderMongoId ||
+            newOrder?._id ||
+            selectedRestaurant?.orderId ||
+            newOrder?.orderId;
 
 
-        if (orderIdForApi) {
-          try {
-            // Call backend API to confirm reached drop (in background, don't block popup)
-            // Use MongoDB _id for API call to avoid ObjectId casting errors
-            const response = await deliveryAPI.confirmReachedDrop(orderIdForApi);
+          if (orderIdForApi) {
+            try {
+              // Call backend API to confirm reached drop (in background, don't block popup)
+              // Use MongoDB _id for API call to avoid ObjectId casting errors
+              const response = await deliveryAPI.confirmReachedDrop(orderIdForApi);
 
-            if (response.data?.success) {
-            } else {
-              console.error('❌ Failed to confirm reached drop:', response.data);
-              toast.error(response.data?.message || 'Failed to confirm reached drop. Please try again.');
-            }
-          } catch (error) {
-            const status = error.response?.status;
+              if (response.data?.success) {
+              } else {
+                console.error('❌ Failed to confirm reached drop:', response.data);
+                toast.error(response.data?.message || 'Failed to confirm reached drop. Please try again.');
+              }
+            } catch (error) {
+              const status = error.response?.status;
 
-            // Handle 500 errors gracefully (server-side issue, popup already shown)
-            if (status === 500) {
-              // For 500 errors, just log warning - popup is already shown, backend will sync later
-              console.warn('⚠️ Server error confirming reached drop (500), but popup is shown. Backend will sync status automatically.', {
+              // Handle 500 errors gracefully (server-side issue, popup already shown)
+              if (status === 500) {
+                // For 500 errors, just log warning - popup is already shown, backend will sync later
+                console.warn('⚠️ Server error confirming reached drop (500), but popup is shown. Backend will sync status automatically.', {
+                  orderIdForApi: orderIdForApi || 'unknown',
+                  message: error.response?.data?.message || error.message
+                });
+                // Don't show error toast or log as error - it's a server issue, not user action
+                return;
+              }
+
+              // For other errors, log and show error message
+              console.error('❌ Error confirming reached drop:', error);
+              console.error('❌ Error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: status,
                 orderIdForApi: orderIdForApi || 'unknown',
-                message: error.response?.data?.message || error.message
+                selectedRestaurant: selectedRestaurant,
+                newOrder: newOrder
               });
-              // Don't show error toast or log as error - it's a server issue, not user action
-              return;
+
+              // Show specific error message based on status code
+              let errorMessage = 'Failed to confirm reached drop. Please try again.';
+              if (status === 404) {
+                errorMessage = 'Order not found. Please refresh and try again.';
+              } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              }
+
+              toast.error(errorMessage);
             }
-
-            // For other errors, log and show error message
-            console.error('❌ Error confirming reached drop:', error);
-            console.error('❌ Error details:', {
-              message: error.message,
-              response: error.response?.data,
-              status: status,
-              orderIdForApi: orderIdForApi || 'unknown',
-              selectedRestaurant: selectedRestaurant,
-              newOrder: newOrder
-            });
-
-            // Show specific error message based on status code
-            let errorMessage = 'Failed to confirm reached drop. Please try again.';
-            if (status === 404) {
-              errorMessage = 'Order not found. Please refresh and try again.';
-            } else if (error.response?.data?.message) {
-              errorMessage = error.response.data.message;
-            }
-
-            toast.error(errorMessage);
           }
-        }
-      })();
+        })();
     } else {
       // Reset smoothly
       setReachedDropButtonProgress(0);
@@ -3403,9 +3422,9 @@ export default function DeliveryHome() {
         const deliveryStateStatus = selectedRestaurant?.deliveryState?.status || '';
 
         const isDelivered = orderStatus === 'delivered' ||
-        deliveryPhase === 'completed' ||
-        deliveryPhase === 'delivered' ||
-        deliveryStateStatus === 'delivered';
+          deliveryPhase === 'completed' ||
+          deliveryPhase === 'delivered' ||
+          deliveryStateStatus === 'delivered';
 
         if (isDelivered) {
           console.warn('⚠️ Order is already delivered, skipping order ID confirmation');
@@ -3416,10 +3435,10 @@ export default function DeliveryHome() {
 
         // CRITICAL: Check if order ID is already confirmed - don't call API again
         const isOrderIdAlreadyConfirmed = orderStatus === 'out_for_delivery' ||
-        deliveryPhase === 'en_route_to_delivery' ||
-        deliveryPhase === 'picked_up' ||
-        deliveryStateStatus === 'order_confirmed' ||
-        selectedRestaurant?.deliveryState?.orderIdConfirmedAt;
+          deliveryPhase === 'en_route_to_delivery' ||
+          deliveryPhase === 'picked_up' ||
+          deliveryStateStatus === 'order_confirmed' ||
+          selectedRestaurant?.deliveryState?.orderIdConfirmedAt;
 
         if (isOrderIdAlreadyConfirmed) {
           console.warn('⚠️ Order ID is already confirmed, skipping confirmation:', {
@@ -3506,8 +3525,8 @@ export default function DeliveryHome() {
                   ...selectedRestaurant,
                   customerName: order.userId?.name || selectedRestaurant.customerName,
                   customerAddress: order.address?.formattedAddress || (
-                  order.address?.street ? `${order.address.street}, ${order.address.city || ''}, ${order.address.state || ''}`.trim() : '') ||
-                  selectedRestaurant.customerAddress,
+                    order.address?.street ? `${order.address.street}, ${order.address.city || ''}, ${order.address.state || ''}`.trim() : '') ||
+                    selectedRestaurant.customerAddress,
                   customerLat,
                   customerLng,
                   // Update with more accurate road-based earnings if backend provided them
@@ -4112,9 +4131,11 @@ export default function DeliveryHome() {
       0
     );
     const cashInHand = Number(walletState?.cashInHand) || 0;
-    const available = Number.isFinite(walletState?.availableCashLimit) && walletState.availableCashLimit > 0 ?
-      Number(walletState.availableCashLimit) :
-      Math.max(0, cashLimit - cashInHand);
+    const apiAvailable = Number(walletState?.availableCashLimit);
+    const pendingReserve = Number(walletState?.pendingCodReserve) || 0;
+    const available = Number.isFinite(apiAvailable) && apiAvailable >= 0 ?
+      apiAvailable :
+      Math.max(0, cashLimit - cashInHand - pendingReserve);
 
     if (cashLimit <= 0 && available <= 0) {
       // If cash limit is not configured, don't block
@@ -4135,6 +4156,9 @@ export default function DeliveryHome() {
   // Show new order popup when order is received from Socket.IO
   useEffect(() => {
     if (newOrder) {
+      if (!walletLoaded) {
+        return;
+      }
       const orderId = newOrder.orderMongoId || newOrder.orderId;
 
       // Check if this order has already been accepted
@@ -4213,8 +4237,8 @@ export default function DeliveryHome() {
         const restaurantLng = newOrder.restaurantLocation?.longitude;
 
         if (currentLocation && currentLocation.length === 2 &&
-        restaurantLat && restaurantLng &&
-        !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
+          restaurantLat && restaurantLng &&
+          !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
           // Calculate distance in meters, then convert to km
           const distanceInMeters = calculateDistance(
             currentLocation[0],
@@ -4259,7 +4283,7 @@ export default function DeliveryHome() {
       setShowNewOrderPopup(true);
       setCountdownSeconds(300); // Reset countdown to 5 minutes
     }
-  }, [newOrder, calculateTimeAway, riderLocation, getCashLimitStatus, clearNewOrder]);
+  }, [newOrder, calculateTimeAway, riderLocation, getCashLimitStatus, clearNewOrder, walletLoaded]);
 
   // Recalculate distance when rider location becomes available
   useEffect(() => {
@@ -4276,8 +4300,8 @@ export default function DeliveryHome() {
     const restaurantLng = selectedRestaurant.lng;
 
     if (currentLocation && currentLocation.length === 2 &&
-    restaurantLat && restaurantLng &&
-    !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
+      restaurantLat && restaurantLng &&
+      !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
       // Calculate distance in meters, then convert to km
       const distanceInMeters = calculateDistance(
         currentLocation[0],
@@ -4302,8 +4326,8 @@ export default function DeliveryHome() {
   useEffect(() => {
     if (!selectedRestaurant?.orderId && !selectedRestaurant?.id) return;
     if (!selectedRestaurant?.address ||
-    selectedRestaurant.address === 'Restaurant address' ||
-    selectedRestaurant.address === 'Restaurant Address') {
+      selectedRestaurant.address === 'Restaurant address' ||
+      selectedRestaurant.address === 'Restaurant Address') {
       // Address is missing, fetch order details to get restaurant address
       const orderId = selectedRestaurant.orderId || selectedRestaurant.id;
 
@@ -4400,20 +4424,20 @@ export default function DeliveryHome() {
 
   // Help options - using paths from DeliveryRouter
   const helpOptions = [
-  {
-    id: "supportTickets",
-    title: "Support tickets",
-    subtitle: "Check status of tickets raised",
-    icon: "ticket",
-    path: "/delivery/help/tickets"
-  },
-  {
-    id: "idCard",
-    title: "Show ID card",
-    subtitle: "See your Appzeto ID card",
-    icon: "idCard",
-    path: "/delivery/help/id-card"
-  }];
+    {
+      id: "supportTickets",
+      title: "Support tickets",
+      subtitle: "Check status of tickets raised",
+      icon: "ticket",
+      path: "/delivery/help/tickets"
+    },
+    {
+      id: "idCard",
+      title: "Show ID card",
+      subtitle: "See your Appzeto ID card",
+      icon: "idCard",
+      path: "/delivery/help/id-card"
+    }];
 
 
   // Handle help option click - navigate to the correct route
@@ -4426,34 +4450,34 @@ export default function DeliveryHome() {
 
   // Emergency options with phone numbers
   const emergencyOptions = [
-  {
-    id: "ambulance",
-    title: "Call ambulance (10 mins)",
-    subtitle: "For medical emergencies",
-    phone: "108", // Indian emergency ambulance number
-    icon: "ambulance"
-  },
-  {
-    id: "accident",
-    title: "Call accident helpline",
-    subtitle: "Talk to our emergency team",
-    phone: "1073", // Indian accident helpline
-    icon: "siren"
-  },
-  {
-    id: "police",
-    title: "Call police",
-    subtitle: "Report a crime",
-    phone: "100", // Indian police emergency number
-    icon: "police"
-  },
-  {
-    id: "insurance",
-    title: "Insurance card",
-    subtitle: "View your insurance details",
-    phone: null, // No phone call for insurance
-    icon: "insurance"
-  }];
+    {
+      id: "ambulance",
+      title: "Call ambulance (10 mins)",
+      subtitle: "For medical emergencies",
+      phone: "108", // Indian emergency ambulance number
+      icon: "ambulance"
+    },
+    {
+      id: "accident",
+      title: "Call accident helpline",
+      subtitle: "Talk to our emergency team",
+      phone: "1073", // Indian accident helpline
+      icon: "siren"
+    },
+    {
+      id: "police",
+      title: "Call police",
+      subtitle: "Report a crime",
+      phone: "100", // Indian police emergency number
+      icon: "police"
+    },
+    {
+      id: "insurance",
+      title: "Insurance card",
+      subtitle: "View your insurance details",
+      phone: null, // No phone call for insurance
+      icon: "insurance"
+    }];
 
 
   // Handle emergency option click
@@ -4470,6 +4494,7 @@ export default function DeliveryHome() {
   // Fetch wallet data from API
   useEffect(() => {
     const fetchWalletData = async () => {
+      setWalletLoaded(false);
       // Skip wallet fetch if status is pending
       if (deliveryStatus === 'pending') {
         setWalletState({
@@ -4480,6 +4505,7 @@ export default function DeliveryHome() {
           transactions: [],
           joiningBonusClaimed: false
         });
+        setWalletLoaded(true);
         return;
       }
 
@@ -4500,6 +4526,8 @@ export default function DeliveryHome() {
           transactions: [],
           joiningBonusClaimed: false
         });
+      } finally {
+        setWalletLoaded(true);
       }
     };
 
@@ -4540,12 +4568,12 @@ export default function DeliveryHome() {
 
           // Skip if already accepted (has deliveryState with accepted status)
           if (order.deliveryState?.status === 'accepted' ||
-          order.deliveryState?.status === 'reached_pickup' ||
-          order.deliveryState?.status === 'order_confirmed' ||
-          deliveryPhase === 'en_route_to_pickup' ||
-          deliveryPhase === 'at_pickup' ||
-          deliveryPhase === 'en_route_to_delivery' ||
-          deliveryPhase === 'at_delivery') {
+            order.deliveryState?.status === 'reached_pickup' ||
+            order.deliveryState?.status === 'order_confirmed' ||
+            deliveryPhase === 'en_route_to_pickup' ||
+            deliveryPhase === 'at_pickup' ||
+            deliveryPhase === 'en_route_to_delivery' ||
+            deliveryPhase === 'at_delivery') {
             return false;
           }
 
@@ -4615,8 +4643,8 @@ export default function DeliveryHome() {
             const restaurantLng = firstOrder.restaurantId?.location?.coordinates?.[0];
 
             if (currentLocation && currentLocation.length === 2 &&
-            restaurantLat && restaurantLng &&
-            !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
+              restaurantLat && restaurantLng &&
+              !isNaN(restaurantLat) && !isNaN(restaurantLng)) {
               // Calculate distance in meters, then convert to km
               const distanceInMeters = calculateDistance(
                 currentLocation[0],
@@ -4645,15 +4673,15 @@ export default function DeliveryHome() {
             distance: pickupDistance,
             timeAway: pickupDistance !== 'Calculating...' ? calculateTimeAway(pickupDistance) : 'Calculating...',
             dropDistance: firstOrder.address?.location?.coordinates ?
-            'Calculating...' :
-            '0 km',
+              'Calculating...' :
+              '0 km',
             pickupDistance: pickupDistance,
             estimatedEarnings: firstOrder.pricing?.deliveryFee || 0,
             customerName: firstOrder.userId?.name || 'Customer',
             customerAddress: firstOrder.address?.formattedAddress || (
-            firstOrder.address?.street ?
-            `${firstOrder.address.street}, ${firstOrder.address.city || ''}, ${firstOrder.address.state || ''}`.trim() :
-            'Customer address'),
+              firstOrder.address?.street ?
+                `${firstOrder.address.street}, ${firstOrder.address.city || ''}, ${firstOrder.address.state || ''}`.trim() :
+                'Customer address'),
             customerLat: firstOrder.address?.location?.coordinates?.[1],
             customerLng: firstOrder.address?.location?.coordinates?.[0],
             items: firstOrder.items || [],
@@ -4730,10 +4758,10 @@ export default function DeliveryHome() {
           if (profile?.status && profile.status !== 'pending') {
             // Check if all required bank details fields are filled
             const isFilled = !!(
-            bankDetails?.accountHolderName?.trim() &&
-            bankDetails?.accountNumber?.trim() &&
-            bankDetails?.ifscCode?.trim() &&
-            bankDetails?.bankName?.trim());
+              bankDetails?.accountHolderName?.trim() &&
+              bankDetails?.accountNumber?.trim() &&
+              bankDetails?.ifscCode?.trim() &&
+              bankDetails?.bankName?.trim());
 
 
             setBankDetailsFilled(isFilled);
@@ -5026,7 +5054,7 @@ export default function DeliveryHome() {
                 const [lat, lng] = parsed;
                 // Validate coordinates
                 if (typeof lat === 'number' && typeof lng === 'number' &&
-                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                  lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                   initialCenter = { lat, lng };
                 }
               }
@@ -5046,8 +5074,8 @@ export default function DeliveryHome() {
         // Check if MapTypeId is available, use string fallback if not
         // Always use string 'roadmap' to avoid MapTypeId enum issues
         const mapTypeId = window.google?.maps?.MapTypeId?.ROADMAP !== undefined ?
-        window.google.maps.MapTypeId.ROADMAP :
-        'roadmap';
+          window.google.maps.MapTypeId.ROADMAP :
+          'roadmap';
 
 
         // Wrap map initialization in try-catch to handle any Google Maps internal errors
@@ -5382,7 +5410,7 @@ export default function DeliveryHome() {
 
             // Validate and check for coordinate swap
             if (typeof lat === 'number' && typeof lng === 'number' &&
-            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
               const mightBeSwapped = lat >= 68 && lat <= 98 && lng >= 8 && lng <= 38;
 
               if (mightBeSwapped) {
@@ -5640,10 +5668,10 @@ export default function DeliveryHome() {
       // IMPORTANT: Start polyline from bike's actual position, not from nearest point on route
       // This ensures the polyline always starts at the bike's current location
       const path = [
-      new window.google.maps.LatLng(riderPos.lat, riderPos.lng), // Start from bike position
-      ...trimmedPolyline.map((point) =>
-      new window.google.maps.LatLng(point.lat, point.lng)
-      )];
+        new window.google.maps.LatLng(riderPos.lat, riderPos.lng), // Start from bike position
+        ...trimmedPolyline.map((point) =>
+          new window.google.maps.LatLng(point.lat, point.lng)
+        )];
 
 
       // Update or create live tracking polyline with Zomato/Rapido style
@@ -5889,13 +5917,13 @@ export default function DeliveryHome() {
 
           // Add custom Destination Marker (Restaurant or Customer)
           const markerIcon = navigationMode === 'customer' ?
-          `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+            `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#10B981">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 4.17 4.42 9.92 6.24 12.11.4.48 1.08.48 1.52 0C14.58 18.92 19 13.17 19 9c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5 14.5 7.62 14.5 9 13.38 11.5 12 11.5z"/>
                   <circle cx="12" cy="9" r="3" fill="#FFFFFF"/>
                 </svg>
               `)}` :
-          `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+            `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#FF6B35">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 4.17 4.42 9.92 6.24 12.11.4.48 1.08.48 1.52 0C14.58 18.92 19 13.17 19 9c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5 14.5 7.62 14.5 9 13.38 11.5 12 11.5z"/>
                   <circle cx="12" cy="9" r="3" fill="#FFFFFF"/>
@@ -6002,9 +6030,9 @@ export default function DeliveryHome() {
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in meters
   }, []);
@@ -6377,16 +6405,16 @@ export default function DeliveryHome() {
 
     // If we have a directions response and rider location, but no polyline, create it
     if (currentDirectionsResponse &&
-    currentDirectionsResponse.routes &&
-    currentDirectionsResponse.routes.length > 0 &&
-    currentRiderLocation &&
-    currentRiderLocation.length === 2 &&
-    !liveTrackingPolylineRef.current) {
+      currentDirectionsResponse.routes &&
+      currentDirectionsResponse.routes.length > 0 &&
+      currentRiderLocation &&
+      currentRiderLocation.length === 2 &&
+      !liveTrackingPolylineRef.current) {
       updateLiveTrackingPolyline(currentDirectionsResponse, currentRiderLocation);
     } else if (currentDirectionsResponse &&
-    currentRiderLocation &&
-    liveTrackingPolylineRef.current &&
-    liveTrackingPolylineRef.current.getMap() === null) {
+      currentRiderLocation &&
+      liveTrackingPolylineRef.current &&
+      liveTrackingPolylineRef.current.getMap() === null) {
       // Polyline exists but not on map - reattach it
       liveTrackingPolylineRef.current.setMap(window.deliveryMapInstance);
       // Also reattach shadow polyline if it exists
@@ -6512,9 +6540,9 @@ export default function DeliveryHome() {
 
         // Check if order is delivered/completed - clear it from UI
         const isOrderDelivered = order.status === 'delivered' ||
-        order.status === 'completed' ||
-        order.deliveryState?.currentPhase === 'completed' ||
-        order.deliveryState?.status === 'delivered';
+          order.status === 'completed' ||
+          order.deliveryState?.currentPhase === 'completed' ||
+          order.deliveryState?.status === 'delivered';
 
         if (isOrderDelivered && !showPaymentPage && !showCustomerReviewPopup && !showOrderDeliveredAnimation) {
           clearOrderData();
@@ -6599,39 +6627,39 @@ export default function DeliveryHome() {
         restaurantAddress = restaurantLocation.address;
       } else if (restaurantLocation?.street) {
         const addressParts = [
-        restaurantLocation.street,
-        restaurantLocation.area,
-        restaurantLocation.city,
-        restaurantLocation.state,
-        restaurantLocation.zipCode || restaurantLocation.pincode || restaurantLocation.postalCode].
-        filter(Boolean);
+          restaurantLocation.street,
+          restaurantLocation.area,
+          restaurantLocation.city,
+          restaurantLocation.state,
+          restaurantLocation.zipCode || restaurantLocation.pincode || restaurantLocation.postalCode].
+          filter(Boolean);
         restaurantAddress = addressParts.join(', ');
       } else if (restaurantLocation?.addressLine1) {
         const addressParts = [
-        restaurantLocation.addressLine1,
-        restaurantLocation.addressLine2,
-        restaurantLocation.city,
-        restaurantLocation.state].
-        filter(Boolean);
+          restaurantLocation.addressLine1,
+          restaurantLocation.addressLine2,
+          restaurantLocation.city,
+          restaurantLocation.state].
+          filter(Boolean);
         restaurantAddress = addressParts.join(', ');
       } else if (order.restaurantId?.addressLine1) {
         const addressParts = [
-        order.restaurantId.addressLine1,
-        order.restaurantId.addressLine2,
-        order.restaurantId.area, // Zone
-        order.restaurantId.city,
-        order.restaurantId.state,
-        order.restaurantId.pincode || order.restaurantId.zipCode || order.restaurantId.postalCode].
-        filter(Boolean);
+          order.restaurantId.addressLine1,
+          order.restaurantId.addressLine2,
+          order.restaurantId.area, // Zone
+          order.restaurantId.city,
+          order.restaurantId.state,
+          order.restaurantId.pincode || order.restaurantId.zipCode || order.restaurantId.postalCode].
+          filter(Boolean);
         restaurantAddress = addressParts.join(', ');
       } else if (order.restaurantId?.street || order.restaurantId?.city) {
         const addressParts = [
-        order.restaurantId.street,
-        order.restaurantId.area, // Zone
-        order.restaurantId.city,
-        order.restaurantId.state,
-        order.restaurantId.pincode || order.restaurantId.zipCode || order.restaurantId.postalCode].
-        filter(Boolean);
+          order.restaurantId.street,
+          order.restaurantId.area, // Zone
+          order.restaurantId.city,
+          order.restaurantId.state,
+          order.restaurantId.pincode || order.restaurantId.zipCode || order.restaurantId.postalCode].
+          filter(Boolean);
         restaurantAddress = addressParts.join(', ');
       } else if (order.restaurantAddress) {
         restaurantAddress = order.restaurantAddress;
@@ -6664,9 +6692,9 @@ export default function DeliveryHome() {
     const orderStatus = currentRestaurantInfo?.orderStatus || currentRestaurantInfo?.status || '';
     const deliveryPhase = currentRestaurantInfo?.deliveryPhase || currentRestaurantInfo?.deliveryState?.currentPhase || '';
     const isDelivered = orderStatus === 'delivered' ||
-    deliveryPhase === 'completed' ||
-    deliveryPhase === 'delivered' ||
-    currentRestaurantInfo?.deliveryState?.status === 'delivered';
+      deliveryPhase === 'completed' ||
+      deliveryPhase === 'delivered' ||
+      currentRestaurantInfo?.deliveryState?.status === 'delivered';
 
     if (isDelivered) {
       clearOrderReady();
@@ -6695,8 +6723,8 @@ export default function DeliveryHome() {
     // Always fetch to ensure we have the latest address (even if one exists, it might be incomplete)
     // Only skip if we have a valid non-default address
     if (selectedRestaurant?.address &&
-    selectedRestaurant.address !== 'Restaurant Address' &&
-    selectedRestaurant.address.length > 20) {// Valid address should be longer than default
+      selectedRestaurant.address !== 'Restaurant Address' &&
+      selectedRestaurant.address.length > 20) {// Valid address should be longer than default
       return;
     }
 
@@ -6723,29 +6751,29 @@ export default function DeliveryHome() {
             restaurantAddress = restaurantLocation.address;
           } else if (restaurantLocation?.street) {
             const addressParts = [
-            restaurantLocation.street,
-            restaurantLocation.area,
-            restaurantLocation.city,
-            restaurantLocation.state,
-            restaurantLocation.zipCode || restaurantLocation.pincode || restaurantLocation.postalCode].
-            filter(Boolean);
+              restaurantLocation.street,
+              restaurantLocation.area,
+              restaurantLocation.city,
+              restaurantLocation.state,
+              restaurantLocation.zipCode || restaurantLocation.pincode || restaurantLocation.postalCode].
+              filter(Boolean);
             restaurantAddress = addressParts.join(', ');
           } else if (restaurantLocation?.addressLine1) {
             const addressParts = [
-            restaurantLocation.addressLine1,
-            restaurantLocation.addressLine2,
-            restaurantLocation.city,
-            restaurantLocation.state].
-            filter(Boolean);
+              restaurantLocation.addressLine1,
+              restaurantLocation.addressLine2,
+              restaurantLocation.city,
+              restaurantLocation.state].
+              filter(Boolean);
             restaurantAddress = addressParts.join(', ');
           } else if (order.restaurantId?.street || order.restaurantId?.city) {
             const addressParts = [
-            order.restaurantId.street,
-            order.restaurantId.area,
-            order.restaurantId.city,
-            order.restaurantId.state,
-            order.restaurantId.zipCode || order.restaurantId.pincode || order.restaurantId.postalCode].
-            filter(Boolean);
+              order.restaurantId.street,
+              order.restaurantId.area,
+              order.restaurantId.city,
+              order.restaurantId.state,
+              order.restaurantId.zipCode || order.restaurantId.pincode || order.restaurantId.postalCode].
+              filter(Boolean);
             restaurantAddress = addressParts.join(', ');
           } else if (order.restaurantAddress) {
             restaurantAddress = order.restaurantAddress;
@@ -6789,29 +6817,29 @@ export default function DeliveryHome() {
                     fetchedAddress = restLocation.address;
                   } else if (restLocation?.street) {
                     const addressParts = [
-                    restLocation.street,
-                    restLocation.area,
-                    restLocation.city,
-                    restLocation.state,
-                    restLocation.zipCode || restLocation.pincode || restLocation.postalCode].
-                    filter(Boolean);
+                      restLocation.street,
+                      restLocation.area,
+                      restLocation.city,
+                      restLocation.state,
+                      restLocation.zipCode || restLocation.pincode || restLocation.postalCode].
+                      filter(Boolean);
                     fetchedAddress = addressParts.join(', ');
                   } else if (restLocation?.addressLine1) {
                     const addressParts = [
-                    restLocation.addressLine1,
-                    restLocation.addressLine2,
-                    restLocation.city,
-                    restLocation.state].
-                    filter(Boolean);
+                      restLocation.addressLine1,
+                      restLocation.addressLine2,
+                      restLocation.city,
+                      restLocation.state].
+                      filter(Boolean);
                     fetchedAddress = addressParts.join(', ');
                   } else if (restaurant.street || restaurant.city) {
                     const addressParts = [
-                    restaurant.street,
-                    restaurant.area,
-                    restaurant.city,
-                    restaurant.state,
-                    restaurant.zipCode || restaurant.pincode || restaurant.postalCode].
-                    filter(Boolean);
+                      restaurant.street,
+                      restaurant.area,
+                      restaurant.city,
+                      restaurant.state,
+                      restaurant.zipCode || restaurant.pincode || restaurant.postalCode].
+                      filter(Boolean);
                     fetchedAddress = addressParts.join(', ');
                   }
 
@@ -6872,16 +6900,16 @@ export default function DeliveryHome() {
   useEffect(() => {
     // Don't show if popup is already showing, or if order hasn't been accepted yet
     if (showreachedPickupPopup ||
-    showNewOrderPopup ||
-    showOrderIdConfirmationPopup || // Don't show if order ID is already being confirmed
-    showReachedDropPopup || // Don't show if already reached drop
-    showOrderDeliveredAnimation || // Don't show if order is delivered
-    showCustomerReviewPopup || // Don't show if showing review popup
-    showPaymentPage || // Don't show if showing payment page
-    !selectedRestaurant?.lat ||
-    !selectedRestaurant?.lng ||
-    !riderLocation ||
-    riderLocation.length !== 2) {
+      showNewOrderPopup ||
+      showOrderIdConfirmationPopup || // Don't show if order ID is already being confirmed
+      showReachedDropPopup || // Don't show if already reached drop
+      showOrderDeliveredAnimation || // Don't show if order is delivered
+      showCustomerReviewPopup || // Don't show if showing review popup
+      showPaymentPage || // Don't show if showing payment page
+      !selectedRestaurant?.lat ||
+      !selectedRestaurant?.lng ||
+      !riderLocation ||
+      riderLocation.length !== 2) {
       return;
     }
 
@@ -6891,9 +6919,9 @@ export default function DeliveryHome() {
 
     // CRITICAL: Don't show if order is already delivered/completed
     const isDelivered = orderStatus === 'delivered' ||
-    deliveryPhase === 'completed' ||
-    deliveryPhase === 'delivered' ||
-    selectedRestaurant?.deliveryState?.status === 'delivered';
+      deliveryPhase === 'completed' ||
+      deliveryPhase === 'delivered' ||
+      selectedRestaurant?.deliveryState?.status === 'delivered';
 
     if (isDelivered) {
       // Hide popup if it's showing and order is delivered
@@ -6905,12 +6933,12 @@ export default function DeliveryHome() {
 
     // CRITICAL: Don't show if order ID is already confirmed (en_route_to_delivery or order_confirmed)
     const isOrderIdConfirmed = deliveryPhase === 'en_route_to_delivery' ||
-    deliveryPhase === 'picked_up' ||
-    deliveryPhase === 'en_route_to_drop' ||
-    orderStatus === 'out_for_delivery' ||
-    selectedRestaurant?.deliveryState?.status === 'order_confirmed' ||
-    selectedRestaurant?.deliveryState?.currentPhase === 'en_route_to_delivery' ||
-    selectedRestaurant?.deliveryState?.currentPhase === 'en_route_to_drop';
+      deliveryPhase === 'picked_up' ||
+      deliveryPhase === 'en_route_to_drop' ||
+      orderStatus === 'out_for_delivery' ||
+      selectedRestaurant?.deliveryState?.status === 'order_confirmed' ||
+      selectedRestaurant?.deliveryState?.currentPhase === 'en_route_to_delivery' ||
+      selectedRestaurant?.deliveryState?.currentPhase === 'en_route_to_drop';
 
     if (isOrderIdConfirmed) {
       // Order ID is already confirmed, don't show Reached Pickup popup
@@ -6922,9 +6950,9 @@ export default function DeliveryHome() {
 
     // Only show if order is accepted and on the way to pickup or at pickup
     const isInPickupPhase = deliveryPhase === 'en_route_to_pickup' ||
-    deliveryPhase === 'at_pickup' ||
-    orderStatus === 'ready' ||
-    orderStatus === 'preparing';
+      deliveryPhase === 'at_pickup' ||
+      orderStatus === 'ready' ||
+      orderStatus === 'preparing';
 
     if (!isInPickupPhase) {
       return;
@@ -6948,24 +6976,24 @@ export default function DeliveryHome() {
       }
     }
   }, [
-  riderLocation?.[0] ?? null,
-  riderLocation?.[1] ?? null,
-  selectedRestaurant?.lat ?? null,
-  selectedRestaurant?.lng ?? null,
-  selectedRestaurant?.deliveryPhase ?? selectedRestaurant?.deliveryState?.currentPhase ?? null,
-  selectedRestaurant?.orderStatus ?? selectedRestaurant?.status ?? null,
-  Boolean(showNewOrderPopup),
-  Boolean(showOrderIdConfirmationPopup),
-  Boolean(showreachedPickupPopup),
-  Boolean(showReachedDropPopup),
-  Boolean(showOrderDeliveredAnimation),
-  Boolean(showCustomerReviewPopup),
-  Boolean(showPaymentPage),
-  selectedRestaurant?.orderStatus,
-  selectedRestaurant?.status,
-  selectedRestaurant?.deliveryPhase,
-  selectedRestaurant?.deliveryState?.status,
-  calculateDistanceInMeters]
+    riderLocation?.[0] ?? null,
+    riderLocation?.[1] ?? null,
+    selectedRestaurant?.lat ?? null,
+    selectedRestaurant?.lng ?? null,
+    selectedRestaurant?.deliveryPhase ?? selectedRestaurant?.deliveryState?.currentPhase ?? null,
+    selectedRestaurant?.orderStatus ?? selectedRestaurant?.status ?? null,
+    Boolean(showNewOrderPopup),
+    Boolean(showOrderIdConfirmationPopup),
+    Boolean(showreachedPickupPopup),
+    Boolean(showReachedDropPopup),
+    Boolean(showOrderDeliveredAnimation),
+    Boolean(showCustomerReviewPopup),
+    Boolean(showPaymentPage),
+    selectedRestaurant?.orderStatus,
+    selectedRestaurant?.status,
+    selectedRestaurant?.deliveryPhase,
+    selectedRestaurant?.deliveryState?.status,
+    calculateDistanceInMeters]
   );
 
   // CRITICAL: Monitor order status and close all pickup/delivery popups when order is delivered
@@ -6976,12 +7004,12 @@ export default function DeliveryHome() {
     const deliveryStateStatus = selectedRestaurant?.deliveryState?.status || '';
 
     const isDelivered = orderStatus === 'delivered' ||
-    orderStatus === 'completed' ||
-    deliveryPhase === 'completed' ||
-    deliveryPhase === 'delivered' ||
-    deliveryStateStatus === 'delivered' ||
-    showPaymentPage ||
-    showOrderDeliveredAnimation;
+      orderStatus === 'completed' ||
+      deliveryPhase === 'completed' ||
+      deliveryPhase === 'delivered' ||
+      deliveryStateStatus === 'delivered' ||
+      showPaymentPage ||
+      showOrderDeliveredAnimation;
 
     if (isDelivered) {
       // Close all pickup/delivery related popups when order is delivered
@@ -7018,18 +7046,18 @@ export default function DeliveryHome() {
       }
     }
   }, [
-  selectedRestaurant?.orderStatus,
-  selectedRestaurant?.status,
-  selectedRestaurant?.deliveryPhase,
-  selectedRestaurant?.deliveryState?.currentPhase,
-  selectedRestaurant?.deliveryState?.status,
-  showPaymentPage,
-  showOrderDeliveredAnimation,
-  showCustomerReviewPopup,
-  showreachedPickupPopup,
-  showOrderIdConfirmationPopup,
-  showReachedDropPopup,
-  clearNewOrder]
+    selectedRestaurant?.orderStatus,
+    selectedRestaurant?.status,
+    selectedRestaurant?.deliveryPhase,
+    selectedRestaurant?.deliveryState?.currentPhase,
+    selectedRestaurant?.deliveryState?.status,
+    showPaymentPage,
+    showOrderDeliveredAnimation,
+    showCustomerReviewPopup,
+    showreachedPickupPopup,
+    showOrderIdConfirmationPopup,
+    showReachedDropPopup,
+    clearNewOrder]
   );
 
   // Monitor order status and switch route from restaurant to customer when order is picked up
@@ -7039,9 +7067,9 @@ export default function DeliveryHome() {
 
     // Check if order is picked up or out for delivery
     const isPickedUp = orderStatus === 'out_for_delivery' ||
-    orderStatus === 'picked_up' ||
-    deliveryPhase === 'en_route_to_delivery' ||
-    deliveryPhase === 'picked_up';
+      orderStatus === 'picked_up' ||
+      deliveryPhase === 'en_route_to_delivery' ||
+      deliveryPhase === 'picked_up';
 
     // Check if we have customer location
     const hasCustomerLocation = selectedRestaurant?.customerLat && selectedRestaurant?.customerLng;
@@ -7051,8 +7079,8 @@ export default function DeliveryHome() {
       // Check if we already have a route to customer (avoid recalculating unnecessarily)
       const currentDirections = directionsResponseRef.current;
       const needsCustomerRoute = !currentDirections ||
-      !currentDirections.routes ||
-      currentDirections.routes.length === 0;
+        !currentDirections.routes ||
+        currentDirections.routes.length === 0;
 
       if (needsCustomerRoute) {
 
@@ -7115,15 +7143,15 @@ export default function DeliveryHome() {
       }
     }
   }, [
-  selectedRestaurant?.orderStatus,
-  selectedRestaurant?.status,
-  selectedRestaurant?.deliveryPhase,
-  selectedRestaurant?.deliveryState?.currentPhase,
-  selectedRestaurant?.customerLat,
-  selectedRestaurant?.customerLng,
-  riderLocation,
-  calculateRouteWithDirectionsAPI,
-  updateLiveTrackingPolyline]
+    selectedRestaurant?.orderStatus,
+    selectedRestaurant?.status,
+    selectedRestaurant?.deliveryPhase,
+    selectedRestaurant?.deliveryState?.currentPhase,
+    selectedRestaurant?.customerLat,
+    selectedRestaurant?.customerLng,
+    riderLocation,
+    calculateRouteWithDirectionsAPI,
+    updateLiveTrackingPolyline]
   );
 
   // When out_for_delivery but customerLat/customerLng missing, fetch order details and set them
@@ -7136,25 +7164,25 @@ export default function DeliveryHome() {
     const deliveryPhase = selectedRestaurant?.deliveryPhase || selectedRestaurant?.deliveryState?.currentPhase || '';
     const isOutForDelivery = orderStatus === 'out_for_delivery' || deliveryPhase === 'en_route_to_delivery';
     const hasCustomerCoords = selectedRestaurant?.customerLat != null && selectedRestaurant?.customerLng != null &&
-    !(selectedRestaurant.customerLat === 0 && selectedRestaurant.customerLng === 0);
+      !(selectedRestaurant.customerLat === 0 && selectedRestaurant.customerLng === 0);
     const orderId = selectedRestaurant?.orderId || selectedRestaurant?.id;
 
     if (!isOutForDelivery || hasCustomerCoords || !orderId || fetchedOrderDetailsForDropRef.current === orderId) return;
 
     fetchedOrderDetailsForDropRef.current = orderId;
     deliveryAPI.getOrderDetails(orderId).
-    then((res) => {
-      const order = res.data?.data?.order || res.data?.order;
-      const coords = order?.address?.location?.coordinates;
-      const lat = coords?.[1];
-      const lng = coords?.[0];
-      if (lat != null && lng != null && !(lat === 0 && lng === 0) && selectedRestaurant) {
-        setSelectedRestaurant((prev) => prev ? { ...prev, customerLat: lat, customerLng: lng } : null);
-      }
-    }).
-    catch((err) => {
-      console.warn('⚠️ Reached Drop: getOrderDetails failed for customer coords:', err?.response?.data?.message || err.message);
-    });
+      then((res) => {
+        const order = res.data?.data?.order || res.data?.order;
+        const coords = order?.address?.location?.coordinates;
+        const lat = coords?.[1];
+        const lng = coords?.[0];
+        if (lat != null && lng != null && !(lat === 0 && lng === 0) && selectedRestaurant) {
+          setSelectedRestaurant((prev) => prev ? { ...prev, customerLat: lat, customerLng: lng } : null);
+        }
+      }).
+      catch((err) => {
+        console.warn('⚠️ Reached Drop: getOrderDetails failed for customer coords:', err?.response?.data?.message || err.message);
+      });
   }, [selectedRestaurant?.orderStatus, selectedRestaurant?.deliveryPhase, selectedRestaurant?.deliveryState?.currentPhase, selectedRestaurant?.customerLat, selectedRestaurant?.customerLng, selectedRestaurant?.orderId, selectedRestaurant?.id]);
 
   // Monitor delivery boy's location for "Reached Drop" detection
@@ -7174,25 +7202,25 @@ export default function DeliveryHome() {
     const orderStatus = selectedRestaurant?.orderStatus || selectedRestaurant?.status || newOrder?.status || '';
     const deliveryPhase = selectedRestaurant?.deliveryState?.currentPhase || selectedRestaurant?.deliveryPhase || '';
     const isDeliveredOrCompleted = orderStatus === 'delivered' ||
-    orderStatus === 'completed' ||
-    deliveryPhase === 'completed' ||
-    deliveryPhase === 'at_delivery';
+      orderStatus === 'completed' ||
+      deliveryPhase === 'completed' ||
+      deliveryPhase === 'at_delivery';
     // deliveryStateStatus is defined outside useEffect using useMemo (prevents dependency array size changes)
     // More lenient check: allow if order ID is confirmed or order is out for delivery
     const isOutForDelivery = !isDeliveredOrCompleted && (
-    orderStatus === 'out_for_delivery' ||
-    deliveryPhase === 'en_route_to_delivery' ||
-    deliveryPhase === 'picked_up' ||
-    deliveryPhase === 'at_delivery' ||
-    deliveryStateStatus === 'order_confirmed' ||
-    deliveryStateStatus === 'en_route_to_delivery' ||
-    orderStatus === 'ready');
+      orderStatus === 'out_for_delivery' ||
+      deliveryPhase === 'en_route_to_delivery' ||
+      deliveryPhase === 'picked_up' ||
+      deliveryPhase === 'at_delivery' ||
+      deliveryStateStatus === 'order_confirmed' ||
+      deliveryStateStatus === 'en_route_to_delivery' ||
+      orderStatus === 'ready');
 
     // Rider position: prefer riderLocation, fallback lastLocationRef
     const riderPos = riderLocation && riderLocation.length === 2 ? riderLocation : lastLocationRef.current && lastLocationRef.current.length === 2 ? lastLocationRef.current : null;
 
     const hasCustomerCoords = selectedRestaurant?.customerLat != null && selectedRestaurant?.customerLng != null &&
-    !(selectedRestaurant.customerLat === 0 && selectedRestaurant.customerLng === 0);
+      !(selectedRestaurant.customerLat === 0 && selectedRestaurant.customerLng === 0);
 
     if (!hasCustomerCoords) {
       // Don't spam; only log when we're otherwise ready to monitor
@@ -7225,9 +7253,9 @@ export default function DeliveryHome() {
     // CRITICAL: Must be in delivery phase (after Order ID confirmation)
     // Also allow if order ID confirmation was just completed (picked_up phase)
     const isInDeliveryPhase = isOutForDelivery ||
-    deliveryPhase === 'picked_up' ||
-    deliveryStateStatus === 'order_confirmed' ||
-    orderStatus === 'out_for_delivery';
+      deliveryPhase === 'picked_up' ||
+      deliveryStateStatus === 'order_confirmed' ||
+      orderStatus === 'out_for_delivery';
 
     if (!isInDeliveryPhase) {
       return;
@@ -7249,21 +7277,21 @@ export default function DeliveryHome() {
     // Live tracking polyline is already updated automatically via watchPosition callback
     // No need to recalculate route here - it's handled in handleOrderIdConfirmTouchEnd
   }, [
-  riderLocation?.[0] ?? null,
-  riderLocation?.[1] ?? null,
-  selectedRestaurant?.customerLat ?? null,
-  selectedRestaurant?.customerLng ?? null,
-  selectedRestaurant?.orderStatus ?? newOrder?.status ?? null,
-  selectedRestaurant?.deliveryPhase ?? selectedRestaurant?.deliveryState?.currentPhase ?? null,
-  deliveryStateStatus, // Use memoized value to ensure consistent dependency array size
-  Boolean(showNewOrderPopup),
-  Boolean(showOrderIdConfirmationPopup),
-  Boolean(showreachedPickupPopup),
-  Boolean(showReachedDropPopup),
-  Boolean(showOrderDeliveredAnimation),
-  Boolean(showCustomerReviewPopup),
-  Boolean(showPaymentPage),
-  calculateDistanceInMeters]
+    riderLocation?.[0] ?? null,
+    riderLocation?.[1] ?? null,
+    selectedRestaurant?.customerLat ?? null,
+    selectedRestaurant?.customerLng ?? null,
+    selectedRestaurant?.orderStatus ?? newOrder?.status ?? null,
+    selectedRestaurant?.deliveryPhase ?? selectedRestaurant?.deliveryState?.currentPhase ?? null,
+    deliveryStateStatus, // Use memoized value to ensure consistent dependency array size
+    Boolean(showNewOrderPopup),
+    Boolean(showOrderIdConfirmationPopup),
+    Boolean(showreachedPickupPopup),
+    Boolean(showReachedDropPopup),
+    Boolean(showOrderDeliveredAnimation),
+    Boolean(showCustomerReviewPopup),
+    Boolean(showPaymentPage),
+    calculateDistanceInMeters]
   );
 
   // Calculate heading from two coordinates (in degrees, 0-360)
@@ -7350,8 +7378,8 @@ export default function DeliveryHome() {
 
     // Validate coordinates before using them
     if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
-    isNaN(latitude) || isNaN(longitude) ||
-    latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      isNaN(latitude) || isNaN(longitude) ||
+      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       console.error('❌ Invalid coordinates for bike marker:', { latitude, longitude });
       return;
     }
@@ -7507,15 +7535,15 @@ export default function DeliveryHome() {
 
   // Carousel slides data - filter based on bank details status
   const carouselSlides = useMemo(() => [
-  ...(bankDetailsFilled ? [] : [{
-    id: 2,
-    title: "Submit bank details",
-    subtitle: "PAN & bank details required for payouts",
-    icon: "bank",
-    buttonText: "Submit",
-    bgColor: "bg-yellow-400"
-  }])],
-  [bankDetailsFilled]);
+    ...(bankDetailsFilled ? [] : [{
+      id: 2,
+      title: "Submit bank details",
+      subtitle: "PAN & bank details required for payouts",
+      icon: "bank",
+      buttonText: "Submit",
+      bgColor: "bg-yellow-400"
+    }])],
+    [bankDetailsFilled]);
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -7670,8 +7698,8 @@ export default function DeliveryHome() {
 
     // Check if touch is on scrollable content area
     const isOnScrollableContent = target.closest('[ref="homeSectionsScrollRef"]') ||
-    target.closest('.overflow-y-auto') ||
-    homeSectionsScrollRef.current && homeSectionsScrollRef.current.contains(target);
+      target.closest('.overflow-y-auto') ||
+      homeSectionsScrollRef.current && homeSectionsScrollRef.current.contains(target);
 
     // Check if we're scrolling vs dragging
     if (showHomeSections && homeSectionsScrollRef.current && isOnScrollableContent) {
@@ -8034,19 +8062,19 @@ export default function DeliveryHome() {
 
       {/* Carousel - Only show if there are slides */}
       {carouselSlides.length > 0 &&
-      <div
-        ref={carouselRef}
-        className="relative overflow-hidden bg-gray-700 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
-        onMouseDown={handleCarouselMouseDown}>
+        <div
+          ref={carouselRef}
+          className="relative overflow-hidden bg-gray-700 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+          onMouseDown={handleCarouselMouseDown}>
 
           <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${currentCarouselSlide * 100}%)` }}>
             {carouselSlides.map((slide) =>
-          <div key={slide.id} className="min-w-full">
+              <div key={slide.id} className="min-w-full">
                 <div className={`${slide.bgColor} px-4 py-3 flex items-center gap-3 min-h-[80px]`}>
                   {/* Icon */}
                   <div className="flex-shrink-0">
                     {slide.icon === "bag" ?
-                <div className="relative">
+                      <div className="relative">
                         {/* Delivery Bag Icon - Reduced size */}
                         <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center shadow-lg relative">
                           {/* Bag shape */}
@@ -8058,7 +8086,7 @@ export default function DeliveryHome() {
                         <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-black/30 rounded-full blur-sm"></div>
                       </div> :
 
-                <div className="relative w-10 h-10">
+                      <div className="relative w-10 h-10">
                         {/* Bank/Rupee Icon - Reduced size */}
                         <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center relative">
                           {/* Rupee symbol */}
@@ -8067,7 +8095,7 @@ export default function DeliveryHome() {
                           </svg>
                         </div>
                       </div>
-                }
+                    }
                   </div>
 
                   {/* Text Content */}
@@ -8082,34 +8110,34 @@ export default function DeliveryHome() {
 
                   {/* Button */}
                   <button
-                onClick={() => {
-                  if (slide.id === 2) {
-                    navigate("/delivery/profile/details");
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${slide.bgColor === "bg-gray-700" ?
-                "bg-gray-600 text-white hover:bg-gray-500" :
-                "bg-yellow-300 text-black hover:bg-yellow-200"}`
-                }>
+                    onClick={() => {
+                      if (slide.id === 2) {
+                        navigate("/delivery/profile/details");
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${slide.bgColor === "bg-gray-700" ?
+                      "bg-gray-600 text-white hover:bg-gray-500" :
+                      "bg-yellow-300 text-black hover:bg-yellow-200"}`
+                    }>
                     {slide.buttonText}
                   </button>
                 </div>
               </div>
-          )}
+            )}
           </div>
 
           {/* Carousel Indicators */}
           <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {carouselSlides.map((_, index) =>
-          <button
-            key={index}
-            onClick={() => setCurrentCarouselSlide(index)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${index === currentCarouselSlide ?
-            currentCarouselSlide === 0 ? "w-6 bg-white" : "w-6 bg-black" :
-            index === 0 ? "w-1.5 bg-white/50" : "w-1.5 bg-black/30"}`
-            } />
+              <button
+                key={index}
+                onClick={() => setCurrentCarouselSlide(index)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${index === currentCarouselSlide ?
+                  currentCarouselSlide === 0 ? "w-6 bg-white" : "w-6 bg-black" :
+                  index === 0 ? "w-1.5 bg-white/50" : "w-1.5 bg-black/30"}`
+                } />
 
-          )}
+            )}
           </div>
         </div>
       }
@@ -8117,232 +8145,232 @@ export default function DeliveryHome() {
 
       {/* Conditional Content Based on Swipe Bar Position */}
       {!showHomeSections ?
-      <>
+        <>
           {/* Map View - Shows map with Hotspot or Select drop mode */}
           <div className="relative flex-1 overflow-hidden pb-16 md:pb-0" style={{ minHeight: 0, pointerEvents: 'auto' }}>
             {/* Google Maps Container */}
             <div
-            ref={mapContainerRef}
-            className="w-full h-full"
-            style={{
-              height: '100%',
-              width: '100%',
-              backgroundColor: '#e5e7eb', // Light gray background while loading
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              pointerEvents: 'auto',
-              zIndex: 0
-            }} />
+              ref={mapContainerRef}
+              className="w-full h-full"
+              style={{
+                height: '100%',
+                width: '100%',
+                backgroundColor: '#e5e7eb', // Light gray background while loading
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: 'auto',
+                zIndex: 0
+              }} />
 
 
             {/* Loading indicator */}
             {mapLoading &&
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
                 <div className="flex flex-col items-center gap-2">
                   <div className="text-gray-600 font-medium">Loading map...</div>
                   <div className="text-xs text-gray-500">Please wait</div>
                 </div>
               </div>
-          }
+            }
 
             {/* Map Refresh Overlay - Professional Loading Indicator */}
             {isRefreshingLocation &&
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
 
                 {/* Loading indicator container */}
                 <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="relative">
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                  className="relative">
 
                   {/* Outer pulsing ring */}
                   <motion.div
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.6, 0.3, 0.6]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
-                  type: "tween",
-                  times: [0, 0.5, 1]
-                }}
-                className="absolute inset-0 w-20 h-20 bg-blue-500/20 rounded-full" />
+                    animate={{
+                      scale: [1, 1.3, 1],
+                      opacity: [0.6, 0.3, 0.6]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
+                      type: "tween",
+                      times: [0, 0.5, 1]
+                    }}
+                    className="absolute inset-0 w-20 h-20 bg-blue-500/20 rounded-full" />
 
 
                   {/* Middle ring */}
                   <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 0.2, 0.5]
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
-                  type: "tween",
-                  delay: 0.3,
-                  times: [0, 0.5, 1]
-                }}
-                className="absolute inset-0 w-16 h-16 bg-blue-500/30 rounded-full m-2" />
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 0.2, 0.5]
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
+                      type: "tween",
+                      delay: 0.3,
+                      times: [0, 0.5, 1]
+                    }}
+                    className="absolute inset-0 w-16 h-16 bg-blue-500/30 rounded-full m-2" />
 
 
                   {/* Inner spinner */}
                   <div className="relative w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
                     <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    ease: "linear",
-                    type: "tween"
-                  }}
-                  className="w-8 h-8 border-[3px] border-blue-600 border-t-transparent rounded-full" />
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        ease: "linear",
+                        type: "tween"
+                      }}
+                      className="w-8 h-8 border-[3px] border-blue-600 border-t-transparent rounded-full" />
 
                   </div>
                 </motion.div>
               </motion.div>
-          }
+            }
 
             {/* Floating Action Button - My Location */}
             <motion.button
-            onClick={() => {
-              if (navigator.geolocation) {
-                setIsRefreshingLocation(true);
-                navigator.geolocation.getCurrentPosition(
-                  (position) => {
-                    // Validate coordinates
-                    const latitude = position.coords.latitude;
-                    const longitude = position.coords.longitude;
+              onClick={() => {
+                if (navigator.geolocation) {
+                  setIsRefreshingLocation(true);
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      // Validate coordinates
+                      const latitude = position.coords.latitude;
+                      const longitude = position.coords.longitude;
 
-                    // Validate coordinates are valid numbers
-                    if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
-                    isNaN(latitude) || isNaN(longitude) ||
-                    latitude < -90 || latitude > 90 ||
-                    longitude < -180 || longitude > 180) {
-                      console.warn("⚠️ Invalid coordinates received:", { latitude, longitude });
-                      setIsRefreshingLocation(false);
-                      return;
-                    }
-
-                    const newLocation = [latitude, longitude]; // [lat, lng] format
-
-                    // Calculate heading from previous location
-                    let heading = null;
-                    if (lastLocationRef.current) {
-                      const [prevLat, prevLng] = lastLocationRef.current;
-                      heading = calculateHeading(prevLat, prevLng, latitude, longitude);
-                    }
-
-                    // Save location to localStorage (for refresh handling)
-                    localStorage.setItem('deliveryBoyLastLocation', JSON.stringify(newLocation));
-
-                    // Update route history
-                    if (lastLocationRef.current) {
-                      routeHistoryRef.current.push({
-                        lat: latitude,
-                        lng: longitude
-                      });
-                      if (routeHistoryRef.current.length > 1000) {
-                        routeHistoryRef.current.shift();
+                      // Validate coordinates are valid numbers
+                      if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
+                        isNaN(latitude) || isNaN(longitude) ||
+                        latitude < -90 || latitude > 90 ||
+                        longitude < -180 || longitude > 180) {
+                        console.warn("⚠️ Invalid coordinates received:", { latitude, longitude });
+                        setIsRefreshingLocation(false);
+                        return;
                       }
-                    } else {
-                      routeHistoryRef.current = [{
-                        lat: latitude,
-                        lng: longitude
-                      }];
-                    }
 
-                    // Update bike marker (only if online - blue dot नहीं, bike icon)
-                    if (window.deliveryMapInstance) {
-                      // Always show bike marker on map (both offline and online)
-                      // Center map automatically (Zomato style) unless user is panning
-                      createOrUpdateBikeMarker(latitude, longitude, heading, !isUserPanningRef.current);
-                      updateRoutePolyline();
-                    }
+                      const newLocation = [latitude, longitude]; // [lat, lng] format
 
-                    setRiderLocation(newLocation);
-                    lastLocationRef.current = newLocation;
+                      // Calculate heading from previous location
+                      let heading = null;
+                      if (lastLocationRef.current) {
+                        const [prevLat, prevLng] = lastLocationRef.current;
+                        heading = calculateHeading(prevLat, prevLng, latitude, longitude);
+                      }
+
+                      // Save location to localStorage (for refresh handling)
+                      localStorage.setItem('deliveryBoyLastLocation', JSON.stringify(newLocation));
+
+                      // Update route history
+                      if (lastLocationRef.current) {
+                        routeHistoryRef.current.push({
+                          lat: latitude,
+                          lng: longitude
+                        });
+                        if (routeHistoryRef.current.length > 1000) {
+                          routeHistoryRef.current.shift();
+                        }
+                      } else {
+                        routeHistoryRef.current = [{
+                          lat: latitude,
+                          lng: longitude
+                        }];
+                      }
+
+                      // Update bike marker (only if online - blue dot नहीं, bike icon)
+                      if (window.deliveryMapInstance) {
+                        // Always show bike marker on map (both offline and online)
+                        // Center map automatically (Zomato style) unless user is panning
+                        createOrUpdateBikeMarker(latitude, longitude, heading, !isUserPanningRef.current);
+                        updateRoutePolyline();
+                      }
+
+                      setRiderLocation(newLocation);
+                      lastLocationRef.current = newLocation;
 
 
-                    // Stop refreshing animation after a short delay
-                    setTimeout(() => {
+                      // Stop refreshing animation after a short delay
+                      setTimeout(() => {
+                        setIsRefreshingLocation(false);
+                      }, 800);
+                    },
+                    (error) => {
+                      console.error('Error getting location:', error);
                       setIsRefreshingLocation(false);
-                    }, 800);
-                  },
-                  (error) => {
-                    console.error('Error getting location:', error);
-                    setIsRefreshingLocation(false);
-                  },
-                  { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-              }
-            }}
-            className="absolute bottom-44 right-3 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors z-20 overflow-visible"
-            whileTap={{ scale: 0.92 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 25,
-              mass: 0.5
-            }}>
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                  );
+                }
+              }}
+              className="absolute bottom-44 right-3 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors z-20 overflow-visible"
+              whileTap={{ scale: 0.92 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 25,
+                mass: 0.5
+              }}>
 
               <div className="relative w-full h-full flex items-center justify-center">
                 {/* Ripple effect */}
                 {isRefreshingLocation &&
-              <motion.div
-                className="absolute inset-0 rounded-full bg-blue-500/20"
-                initial={{ scale: 0.9, opacity: 0.6 }}
-                animate={{
-                  scale: [0.9, 1.6, 1.8],
-                  opacity: [0.6, 0.3, 0]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: [0.25, 0.46, 0.45, 0.94], // Smooth ease-out
-                  times: [0, 0.5, 1]
-                }} />
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-blue-500/20"
+                    initial={{ scale: 0.9, opacity: 0.6 }}
+                    animate={{
+                      scale: [0.9, 1.6, 1.8],
+                      opacity: [0.6, 0.3, 0]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: [0.25, 0.46, 0.45, 0.94], // Smooth ease-out
+                      times: [0, 0.5, 1]
+                    }} />
 
-              }
+                }
 
                 {/* Icon with smooth animations */}
                 <motion.div
-                className="relative z-10"
-                animate={{
-                  rotate: isRefreshingLocation ? 360 : 0,
-                  scale: isRefreshingLocation ? [1, 1.1, 1] : 1
-                }}
-                transition={{
-                  rotate: {
-                    duration: 2,
-                    repeat: isRefreshingLocation ? Infinity : 0,
-                    ease: "linear", // Linear for smooth continuous rotation
-                    type: "tween"
-                  },
-                  scale: {
-                    duration: 1.5,
-                    repeat: isRefreshingLocation ? Infinity : 0,
-                    ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
-                    type: "tween",
-                    times: [0, 0.5, 1]
-                  }
-                }}>
+                  className="relative z-10"
+                  animate={{
+                    rotate: isRefreshingLocation ? 360 : 0,
+                    scale: isRefreshingLocation ? [1, 1.1, 1] : 1
+                  }}
+                  transition={{
+                    rotate: {
+                      duration: 2,
+                      repeat: isRefreshingLocation ? Infinity : 0,
+                      ease: "linear", // Linear for smooth continuous rotation
+                      type: "tween"
+                    },
+                    scale: {
+                      duration: 1.5,
+                      repeat: isRefreshingLocation ? Infinity : 0,
+                      ease: [0.4, 0, 0.6, 1], // Smooth ease-in-out
+                      type: "tween",
+                      times: [0, 0.5, 1]
+                    }
+                  }}>
 
                   <MapPin
-                  className={`w-6 h-6 transition-colors duration-500 ease-in-out ${isRefreshingLocation ? 'text-blue-600' : 'text-gray-700'}`
-                  } />
+                    className={`w-6 h-6 transition-colors duration-500 ease-in-out ${isRefreshingLocation ? 'text-blue-600' : 'text-gray-700'}`
+                    } />
 
                 </motion.div>
               </div>
@@ -8350,98 +8378,98 @@ export default function DeliveryHome() {
 
             {/* Floating Banner - Status Message */}
             {mapViewMode === "hotspot" && (deliveryStatus === "pending" || deliveryStatus === "blocked") &&
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-sm px-6 py-4 z-20 min-w-[96%] text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-sm px-6 py-4 z-20 min-w-[96%] text-center">
 
                 {deliveryStatus === "pending" ?
-            <>
+                  <>
                     <h3 className="text-lg font-bold text-gray-900 mb-1">Verification Done in 24 Hours</h3>
                     <p className="text-sm text-gray-600">Your account is under verification. You'll be notified once approved.</p>
                   </> :
-            deliveryStatus === "blocked" ?
-            <>
-                    <h3 className="text-lg font-bold text-red-600 mb-2">Denied Verification</h3>
-                    {rejectionReason &&
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-left">
-                        <p className="text-xs font-semibold text-red-800 mb-2">Reason for Rejection:</p>
-                        <div className="text-xs text-red-700 space-y-1">
-                          {rejectionReason.split('\n').filter((line) => line.trim()).length > 1 ?
-                  <ul className="space-y-1 list-disc list-inside">
-                              {rejectionReason.split('\n').map((point, index) =>
-                    point.trim() &&
-                    <li key={index}>{point.trim()}</li>
+                  deliveryStatus === "blocked" ?
+                    <>
+                      <h3 className="text-lg font-bold text-red-600 mb-2">Denied Verification</h3>
+                      {rejectionReason &&
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-left">
+                          <p className="text-xs font-semibold text-red-800 mb-2">Reason for Rejection:</p>
+                          <div className="text-xs text-red-700 space-y-1">
+                            {rejectionReason.split('\n').filter((line) => line.trim()).length > 1 ?
+                              <ul className="space-y-1 list-disc list-inside">
+                                {rejectionReason.split('\n').map((point, index) =>
+                                  point.trim() &&
+                                  <li key={index}>{point.trim()}</li>
 
-                    )}
-                            </ul> :
+                                )}
+                              </ul> :
 
-                  <p className="text-red-700">{rejectionReason}</p>
-                  }
+                              <p className="text-red-700">{rejectionReason}</p>
+                            }
+                          </div>
                         </div>
-                      </div>
-              }
-                    <p className="text-sm text-gray-700 mb-3">
-                      Please correct the above issues and click "Reverify" to resubmit your request for approval.
-                    </p>
-                    <button
-                onClick={handleReverify}
-                disabled={isReverifying}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
+                      }
+                      <p className="text-sm text-gray-700 mb-3">
+                        Please correct the above issues and click "Reverify" to resubmit your request for approval.
+                      </p>
+                      <button
+                        onClick={handleReverify}
+                        disabled={isReverifying}
+                        className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto">
 
-                      {isReverifying ?
-                <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Submitting...
-                        </> :
+                        {isReverifying ?
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </> :
 
-                "Reverify"
-                }
-                    </button>
-                  </> :
-            null}
+                          "Reverify"
+                        }
+                      </button>
+                    </> :
+                    null}
               </motion.div>
-          }
+            }
 
             {/* Bottom Swipeable Bar - Can be dragged up to show home sections */}
             {!showHomeSections &&
-          <motion.div
-            ref={swipeBarRef}
-            initial={{ y: "100%" }}
-            animate={{
-              y: isDraggingSwipeBar ?
-              `${-swipeBarPosition * (window.innerHeight * 0.8)}px` :
-              0
-            }}
-            transition={isDraggingSwipeBar ? { duration: 0 } : { type: "spring", damping: 30, stiffness: 300 }}
-            onTouchStart={handleSwipeBarTouchStart}
-            onTouchMove={handleSwipeBarTouchMove}
-            onTouchEnd={handleSwipeBarTouchEnd}
-            onMouseDown={handleSwipeBarMouseDown}
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20"
-            style={{
-              touchAction: 'pan-y',
-              pointerEvents: 'auto'
-            }}>
+              <motion.div
+                ref={swipeBarRef}
+                initial={{ y: "100%" }}
+                animate={{
+                  y: isDraggingSwipeBar ?
+                    `${-swipeBarPosition * (window.innerHeight * 0.8)}px` :
+                    0
+                }}
+                transition={isDraggingSwipeBar ? { duration: 0 } : { type: "spring", damping: 30, stiffness: 300 }}
+                onTouchStart={handleSwipeBarTouchStart}
+                onTouchMove={handleSwipeBarTouchMove}
+                onTouchEnd={handleSwipeBarTouchEnd}
+                onMouseDown={handleSwipeBarMouseDown}
+                className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20"
+                style={{
+                  touchAction: 'pan-y',
+                  pointerEvents: 'auto'
+                }}>
 
                 {/* Swipe Handle */}
                 <div
-              className="flex flex-col items-center pt-4 pb-2 cursor-grab active:cursor-grabbing"
-              style={{ touchAction: 'none' }}>
+                  className="flex flex-col items-center pt-4 pb-2 cursor-grab active:cursor-grabbing"
+                  style={{ touchAction: 'none' }}>
 
                   <motion.div
-                className="flex flex-col items-center gap-1"
-                animate={{
-                  y: isDraggingSwipeBar ? swipeBarPosition * 5 : 0,
-                  opacity: isDraggingSwipeBar ? 0.7 : 1
-                }}
-                transition={{ duration: 0.1 }}>
+                    className="flex flex-col items-center gap-1"
+                    animate={{
+                      y: isDraggingSwipeBar ? swipeBarPosition * 5 : 0,
+                      opacity: isDraggingSwipeBar ? 0.7 : 1
+                    }}
+                    transition={{ duration: 0.1 }}>
 
                     <button
-                  onClick={handleChevronUpClick}
-                  className="flex items-center justify-center p-2 -m-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
-                  aria-label="Slide up">
+                      onClick={handleChevronUpClick}
+                      className="flex items-center justify-center p-2 -m-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                      aria-label="Slide up">
 
                       <ChevronUp className="!w-12 !h-8 scale-x-150 text-gray-400 -mt-2 font-bold" strokeWidth={3} />
                     </button>
@@ -8451,89 +8479,122 @@ export default function DeliveryHome() {
                 {/* Content Area - Shows map info when down */}
                 <div className="px-4 pb-6">
                   {mapViewMode === "hotspot" ?
-              <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center">
                       {/* <h3 className="text-lg font-bold text-gray-900 mb-2">No hotspots are available</h3>
                   <p className="text-sm text-gray-600 mb-4">Please go online to see hotspots</p> */}
                     </div> :
 
-              <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center">
                       {/* <h3 className="text-lg font-bold text-gray-900 mb-2">Select drop location</h3>
                   <p className="text-sm text-gray-600 mb-4">Choose a drop location on the map</p> */}
                     </div>
-              }
+                  }
                 </div>
               </motion.div>
-          }
+            }
           </div>
         </> :
 
-      <>
+        <>
           {/* Home Sections View - Full screen when swipe bar is dragged up */}
           <motion.div
-          ref={swipeBarRef}
-          initial={{ y: "100%" }}
-          animate={{
-            y: isDraggingSwipeBar ?
-            `${(1 - swipeBarPosition) * (window.innerHeight * 0.8)}px` :
-            0
-          }}
-          exit={{ y: "100%" }}
-          transition={isDraggingSwipeBar ? { duration: 0 } : { type: "spring", damping: 30, stiffness: 300 }}
-          onTouchStart={handleSwipeBarTouchStart}
-          onTouchMove={handleSwipeBarTouchMove}
-          onTouchEnd={handleSwipeBarTouchEnd}
-          onMouseDown={handleSwipeBarMouseDown}
-          className="relative flex-1 bg-white rounded-t-3xl shadow-2xl overflow-hidden"
-          style={{ height: 'calc(100vh - 200px)', touchAction: 'pan-y' }}>
+            ref={swipeBarRef}
+            initial={{ y: "100%" }}
+            animate={{
+              y: isDraggingSwipeBar ?
+                `${(1 - swipeBarPosition) * (window.innerHeight * 0.8)}px` :
+                0
+            }}
+            exit={{ y: "100%" }}
+            transition={isDraggingSwipeBar ? { duration: 0 } : { type: "spring", damping: 30, stiffness: 300 }}
+            onTouchStart={handleSwipeBarTouchStart}
+            onTouchMove={handleSwipeBarTouchMove}
+            onTouchEnd={handleSwipeBarTouchEnd}
+            onMouseDown={handleSwipeBarMouseDown}
+            className="relative flex-1 bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+            style={{ height: 'calc(100vh - 200px)', touchAction: 'pan-y' }}>
 
             {/* Swipe Handle at Top - Can be dragged down to go back to map */}
             <div
-            className="flex flex-col items-center pt-4 pb-2 cursor-grab active:cursor-grabbing bg-white sticky top-0 z-10"
-            style={{ touchAction: 'none' }}>
+              className="flex flex-col items-center pt-4 pb-2 cursor-grab active:cursor-grabbing bg-white sticky top-0 z-10"
+              style={{ touchAction: 'none' }}>
 
               <motion.div
-              className="flex flex-col items-center gap-1"
-              animate={{
-                y: isDraggingSwipeBar ? -swipeBarPosition * 5 : 0,
-                opacity: isDraggingSwipeBar ? 0.7 : 1
-              }}
-              transition={{ duration: 0.1 }}>
+                className="flex flex-col items-center gap-1"
+                animate={{
+                  y: isDraggingSwipeBar ? -swipeBarPosition * 5 : 0,
+                  opacity: isDraggingSwipeBar ? 0.7 : 1
+                }}
+                transition={{ duration: 0.1 }}>
 
                 <button
-                onClick={handleChevronDownClick}
-                className="flex items-center justify-center p-2 -m-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
-                aria-label="Slide down">
+                  onClick={handleChevronDownClick}
+                  className="flex items-center justify-center p-2 -m-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                  aria-label="Slide down">
 
                   <ChevronDown
-                  className="!w-12 !h-8 scale-x-150 text-gray-400 -mt-2 font-bold"
-                  strokeWidth={3} />
+                    className="!w-12 !h-8 scale-x-150 text-gray-400 -mt-2 font-bold"
+                    strokeWidth={3} />
 
                 </button>
               </motion.div>
             </div>
 
             <div
-            ref={homeSectionsScrollRef}
-            className="px-4 pt-4 pb-16 space-y-4 overflow-y-auto"
-            style={{
-              height: 'calc(100vh - 250px)',
-              touchAction: 'pan-y', // Allow vertical scrolling
-              WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
-            }}>
+              ref={homeSectionsScrollRef}
+              className="px-4 pt-4 pb-16 space-y-4 overflow-y-auto"
+              style={{
+                height: 'calc(100vh - 250px)',
+                touchAction: 'pan-y', // Allow vertical scrolling
+                WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+              }}>
+
+              {/* Cash Limit Exhausted Banner */}
+              {showCashLimitBanner && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-amber-700" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-amber-900">Cash limit exhausted</div>
+                      <div className="text-xs text-amber-800 mt-1">
+                        Deposit cash to receive COD orders.
+                      </div>
+                      <div className="mt-2 text-xs text-amber-900/80 space-y-1">
+                        <div>Available limit: {formatCurrency(availableCashLimitValue)}</div>
+                        <div>Cash in hand: {formatCurrency(cashInHand)}</div>
+                        {pendingCodReserve > 0 && (
+                          <div>Pending COD reserve: {formatCurrency(pendingCodReserve)}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => navigate("/delivery/pocket-balance")}
+                        className="mt-3 inline-flex items-center justify-center rounded-lg bg-black text-white px-3 py-2 text-xs font-semibold hover:bg-gray-800 transition-colors">
+                        Deposit now
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Referral Bonus Banner */}
               <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              onClick={() => navigate("/delivery/refer-and-earn")}
-              className="w-full rounded-xl p-6 shadow-lg relative overflow-hidden min-h-[70px] cursor-pointer"
-              style={{
-                backgroundImage: `url(${referralBonusBg})`,
-                backgroundSize: '100% 100%',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }}>
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => navigate("/delivery/refer-and-earn")}
+                className="w-full rounded-xl p-6 shadow-lg relative overflow-hidden min-h-[70px] cursor-pointer"
+                style={{
+                  backgroundImage: `url(${referralBonusBg})`,
+                  backgroundSize: '100% 100%',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
+                }}>
 
                 <div className="relative z-10">
                   <div className="text-white text-3xl font-bold mb-1">₹6,000                 <span className="text-white/90 text-base font-medium mb-1">referral bonus</span>
@@ -8544,10 +8605,10 @@ export default function DeliveryHome() {
 
               {/* Unlock Offer Card */}
               <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="w-full rounded-xl p-6 shadow-lg bg-black text-white">
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="w-full rounded-xl p-6 shadow-lg bg-black text-white">
 
                 <div className="flex items-center text-center justify-center gap-2 mb-2">
                   <div className="text-4xl font-bold text-center">₹100</div>
@@ -8559,15 +8620,15 @@ export default function DeliveryHome() {
                   <span className="text-center">Valid till 10 December 2025</span>
                 </div>
                 <button
-                onClick={() => {
-                  if (isOnline) {
-                    goOffline();
-                  } else {
-                    // Always show the popup when offline (same as navbar behavior)
-                    setShowBookGigsPopup(true);
-                  }
-                }}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                  onClick={() => {
+                    if (isOnline) {
+                      goOffline();
+                    } else {
+                      // Always show the popup when offline (same as navbar behavior)
+                      setShowBookGigsPopup(true);
+                    }
+                  }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
 
                   <span>Go online</span>
                   <ArrowRight className="w-5 h-5" />
@@ -8577,10 +8638,10 @@ export default function DeliveryHome() {
 
               {/* Earnings Guarantee Card */}
               <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.25 }}
-              className="w-full rounded-xl overflow-hidden shadow-lg bg-white">
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.25 }}
+                className="w-full rounded-xl overflow-hidden shadow-lg bg-white">
 
                 {/* Header */}
                 <div className="border-b  border-gray-100">
@@ -8590,11 +8651,11 @@ export default function DeliveryHome() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-white">Valid till {weekEndDate}</span>
                         {isOfferLive &&
-                      <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             <span className="text-sm text-green-600 font-medium">Live</span>
                           </div>
-                      }
+                        }
                       </div>
                     </div>
                     {/* Summary Box */}
@@ -8610,34 +8671,34 @@ export default function DeliveryHome() {
                   <div className="flex items-center justify-around gap-6">
                     {/* Orders Progress Circle */}
                     <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
-                    className="flex flex-col items-center">
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
+                      className="flex flex-col items-center">
 
                       <div className="relative w-32 h-32">
                         <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
                           {/* Background circle */}
                           <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="none"
-                          stroke="#e5e7eb"
-                          strokeWidth="8" />
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#e5e7eb"
+                            strokeWidth="8" />
 
                           {/* Progress circle */}
                           <motion.circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="none"
-                          stroke="#000000"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          initial={{ pathLength: 0 }}
-                          animate={{ pathLength: ordersProgress }}
-                          transition={{ delay: 0.6, duration: 1, ease: "easeOut" }} />
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth="8"
+                            strokeLinecap="round"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: ordersProgress }}
+                            transition={{ delay: 0.6, duration: 1, ease: "easeOut" }} />
 
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -8656,34 +8717,34 @@ export default function DeliveryHome() {
 
                     {/* Earnings Progress Circle */}
                     <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 0.5, type: "spring" }}
-                    className="flex flex-col items-center">
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5, duration: 0.5, type: "spring" }}
+                      className="flex flex-col items-center">
 
                       <div className="relative w-32 h-32">
                         <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
                           {/* Background circle */}
                           <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="none"
-                          stroke="#e5e7eb"
-                          strokeWidth="8" />
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#e5e7eb"
+                            strokeWidth="8" />
 
                           {/* Progress circle */}
                           <motion.circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="none"
-                          stroke="#000000"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          initial={{ pathLength: 0 }}
-                          animate={{ pathLength: earningsProgress }}
-                          transition={{ delay: 0.7, duration: 1, ease: "easeOut" }} />
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth="8"
+                            strokeLinecap="round"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: earningsProgress }}
+                            transition={{ delay: 0.7, duration: 1, ease: "easeOut" }} />
 
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -8701,10 +8762,10 @@ export default function DeliveryHome() {
 
               {/* Today's Progress Card */}
               <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-              className="w-full rounded-xl overflow-hidden shadow-lg bg-white">
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+                className="w-full rounded-xl overflow-hidden shadow-lg bg-white">
 
                 {/* Header */}
                 <div className="bg-black px-4 py-3 flex items-center gap-3">
@@ -8721,8 +8782,8 @@ export default function DeliveryHome() {
                   <div className="grid grid-cols-2 gap-4">
                     {/* Top Left - Earnings */}
                     <button
-                    onClick={() => navigate("/delivery/earnings")}
-                    className="flex flex-col items-start gap-1 hover:opacity-80 transition-opacity">
+                      onClick={() => navigate("/delivery/earnings")}
+                      className="flex flex-col items-start gap-1 hover:opacity-80 transition-opacity">
 
                       <span className="text-2xl font-bold text-gray-900">
                         {formatCurrency(todayEarnings)}
@@ -8735,8 +8796,8 @@ export default function DeliveryHome() {
 
                     {/* Top Right - Trips */}
                     <button
-                    onClick={() => navigate("/delivery/trip-history")}
-                    className="flex flex-col items-end gap-1 hover:opacity-80 transition-opacity">
+                      onClick={() => navigate("/delivery/trip-history")}
+                      className="flex flex-col items-end gap-1 hover:opacity-80 transition-opacity">
 
                       <span className="text-2xl font-bold text-gray-900">
                         {todayTrips}
@@ -8749,8 +8810,8 @@ export default function DeliveryHome() {
 
                     {/* Bottom Left - Time on orders */}
                     <button
-                    onClick={() => navigate("/delivery/time-on-orders")}
-                    className="flex flex-col items-start gap-1 hover:opacity-80 transition-opacity">
+                      onClick={() => navigate("/delivery/time-on-orders")}
+                      className="flex flex-col items-start gap-1 hover:opacity-80 transition-opacity">
 
                       <span className="text-2xl font-bold text-gray-900">
                         {`${formatHours(todayHoursWorked)} hrs`}
@@ -8763,8 +8824,8 @@ export default function DeliveryHome() {
 
                     {/* Bottom Right - Gigs History */}
                     <button
-                    onClick={() => navigate("/delivery/gig")}
-                    className="flex flex-col items-end gap-1 hover:opacity-80 transition-opacity">
+                      onClick={() => navigate("/delivery/gig")}
+                      className="flex flex-col items-end gap-1 hover:opacity-80 transition-opacity">
 
                       <span className="text-2xl font-bold text-gray-900">
                         {`${todayGigsCount} Gigs`}
@@ -8793,31 +8854,31 @@ export default function DeliveryHome() {
 
         <div className="py-2">
           {helpOptions.map((option) =>
-          <button
-            key={option.id}
-            onClick={() => handleHelpOptionClick(option)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
+            <button
+              key={option.id}
+              onClick={() => handleHelpOptionClick(option)}
+              className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
 
               {/* Icon */}
               <div className="shrink-0 w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                 {option.icon === "helpCenter" &&
-              <HelpCircle className="w-6 h-6 text-gray-700" />
-              }
+                  <HelpCircle className="w-6 h-6 text-gray-700" />
+                }
                 {option.icon === "ticket" &&
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                   </svg>
-              }
+                }
                 {option.icon === "idCard" &&
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                   </svg>
-              }
+                }
                 {option.icon === "language" &&
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                   </svg>
-              }
+                }
               </div>
 
               {/* Text Content */}
@@ -8844,15 +8905,15 @@ export default function DeliveryHome() {
 
         <div className="py-2">
           {emergencyOptions.map((option, index) =>
-          <button
-            key={option.id}
-            onClick={() => handleEmergencyOptionClick(option)}
-            className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
+            <button
+              key={option.id}
+              onClick={() => handleEmergencyOptionClick(option)}
+              className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
 
               {/* Icon */}
               <div className="shrink-0 w-14 h-14 rounded-lg flex items-center justify-center">
                 {option.icon === "ambulance" &&
-              <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative overflow-hidden">
+                  <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative overflow-hidden">
                     {/* Ambulance vehicle */}
                     <div className="absolute inset-0 bg-blue-500"></div>
                     {/* Red and blue lights on roof */}
@@ -8868,9 +8929,9 @@ export default function DeliveryHome() {
                     {/* AMBULANCE text */}
                     <div className="absolute bottom-1 left-0 right-0 text-[6px] font-bold text-white text-center">AMBULANCE</div>
                   </div>
-              }
+                }
                 {option.icon === "siren" &&
-              <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative">
+                  <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative">
                     {/* Red siren dome */}
                     <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center relative">
                       {/* Yellow light rays */}
@@ -8881,9 +8942,9 @@ export default function DeliveryHome() {
                       <Phone className="w-5 h-5 text-yellow-400 z-10" />
                     </div>
                   </div>
-              }
+                }
                 {option.icon === "police" &&
-              <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
+                  <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200">
                     {/* Police officer bust */}
                     <div className="relative">
                       {/* Head */}
@@ -8896,9 +8957,9 @@ export default function DeliveryHome() {
                       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-6 h-2 bg-gray-800 rounded-full"></div>
                     </div>
                   </div>
-              }
+                }
                 {option.icon === "insurance" &&
-              <div className="w-14 h-14 bg-yellow-400 rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative">
+                  <div className="w-14 h-14 bg-yellow-400 rounded-lg flex items-center justify-center shadow-sm border border-gray-200 relative">
                     {/* Card shape */}
                     <div className="w-12 h-8 bg-white rounded-sm relative">
                       {/* Red heart and cross on left */}
@@ -8910,7 +8971,7 @@ export default function DeliveryHome() {
                       </div>
                     </div>
                   </div>
-              }
+                }
               </div>
 
               {/* Text Content */}
@@ -9012,30 +9073,30 @@ export default function DeliveryHome() {
       {/* New Order Popup with Countdown Timer - Custom Implementation */}
       <AnimatePresence>
         {showNewOrderPopup && (newOrder || selectedRestaurant) &&
-        <>
+          <>
             {/* Backdrop */}
             {!isNewOrderPopupMinimized &&
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 z-[100]" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/50 z-[100]" />
 
-          }
+            }
 
             {/* Minimized Handle - Show when minimized for swipe up */}
             {isNewOrderPopupMinimized &&
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed bottom-0 left-0 right-0 z-[115] flex justify-center pb-2"
-            onTouchStart={handleNewOrderPopupTouchStart}
-            onTouchMove={handleNewOrderPopupTouchMove}
-            onTouchEnd={handleNewOrderPopupTouchEnd}
-            style={{ touchAction: 'none' }}>
+              <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="fixed bottom-0 left-0 right-0 z-[115] flex justify-center pb-2"
+                onTouchStart={handleNewOrderPopupTouchStart}
+                onTouchMove={handleNewOrderPopupTouchMove}
+                onTouchEnd={handleNewOrderPopupTouchEnd}
+                style={{ touchAction: 'none' }}>
 
                 <div className="bg-green-500 rounded-t-2xl px-6 py-3 shadow-lg cursor-grab active:cursor-grabbing">
                   <div className="flex items-center gap-2">
@@ -9045,35 +9106,35 @@ export default function DeliveryHome() {
                   </div>
                 </div>
               </motion.div>
-          }
+            }
 
             {/* Popup */}
             <motion.div
-            ref={newOrderPopupRef}
-            initial={{ y: "100%" }}
-            animate={{
-              y: isDraggingNewOrderPopup ?
-              newOrderDragY :
-              isNewOrderPopupMinimized ?
-              newOrderPopupRef.current?.offsetHeight || 600 :
-              0
-            }}
-            transition={isDraggingNewOrderPopup ?
-            { duration: 0 } :
-            isNewOrderPopupMinimized ?
-            { duration: 0.3, ease: "easeOut" } // Smooth transition when minimizing
-            : {
-              type: "spring",
-              damping: 30,
-              stiffness: 300
-            }
-            }
-            exit={{ y: "100%" }}
-            onTouchStart={handleNewOrderPopupTouchStart}
-            onTouchMove={handleNewOrderPopupTouchMove}
-            onTouchEnd={handleNewOrderPopupTouchEnd}
-            className="fixed bottom-0 left-0 right-0 bg-transparent rounded-t-3xl z-[110] overflow-visible"
-            style={{ touchAction: 'none' }}>
+              ref={newOrderPopupRef}
+              initial={{ y: "100%" }}
+              animate={{
+                y: isDraggingNewOrderPopup ?
+                  newOrderDragY :
+                  isNewOrderPopupMinimized ?
+                    newOrderPopupRef.current?.offsetHeight || 600 :
+                    0
+              }}
+              transition={isDraggingNewOrderPopup ?
+                { duration: 0 } :
+                isNewOrderPopupMinimized ?
+                  { duration: 0.3, ease: "easeOut" } // Smooth transition when minimizing
+                  : {
+                    type: "spring",
+                    damping: 30,
+                    stiffness: 300
+                  }
+              }
+              exit={{ y: "100%" }}
+              onTouchStart={handleNewOrderPopupTouchStart}
+              onTouchMove={handleNewOrderPopupTouchMove}
+              onTouchEnd={handleNewOrderPopupTouchEnd}
+              className="fixed bottom-0 left-0 right-0 bg-transparent rounded-t-3xl z-[110] overflow-visible"
+              style={{ touchAction: 'none' }}>
 
               {/* Swipe Handle */}
               <div className="flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing">
@@ -9087,14 +9148,14 @@ export default function DeliveryHome() {
                   <div className="relative inline-flex items-center justify-center">
                     {/* Animated green border around badge - positioned behind badge, wider */}
                     <svg
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      width: 'calc(100% + 10px)',
-                      height: 'calc(100% + 10px)',
-                      zIndex: 35
-                    }}
-                    viewBox="0 0 200 60"
-                    preserveAspectRatio="xMidYMid meet">
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        width: 'calc(100% + 10px)',
+                        height: 'calc(100% + 10px)',
+                        zIndex: 35
+                      }}
+                      viewBox="0 0 200 60"
+                      preserveAspectRatio="xMidYMid meet">
 
                       <defs>
                         <linearGradient id="newOrderCountdownGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -9105,38 +9166,38 @@ export default function DeliveryHome() {
 
                       {/* Full white border path - rounded rectangle (background) */}
                       <path
-                      d="M 30,5 L 170,5 A 25,25 0 0,1 195,30 L 195,30 A 25,25 0 0,1 170,55 L 30,55 A 25,25 0 0,1 5,30 L 5,30 A 25,25 0 0,1 30,5 Z"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round" />
+                        d="M 30,5 L 170,5 A 25,25 0 0,1 195,30 L 195,30 A 25,25 0 0,1 170,55 L 30,55 A 25,25 0 0,1 5,30 L 5,30 A 25,25 0 0,1 30,5 Z"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round" />
 
 
                       {/* Animated green progress border - starts from top center, decreases clockwise */}
                       <motion.path
-                      d="M 100,5 L 170,5 A 25,25 0 0,1 195,30 L 195,30 A 25,25 0 0,1 170,55 L 30,55 A 25,25 0 0,1 5,30 L 5,30 A 25,25 0 0,1 30,5 L 100,5"
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeDasharray="450"
-                      initial={{ strokeDashoffset: 0 }}
-                      animate={{
-                        strokeDashoffset: `${450 * (1 - countdownSeconds / 300)}`
-                      }}
-                      transition={{ duration: 1, ease: "linear" }} />
+                        d="M 100,5 L 170,5 A 25,25 0 0,1 195,30 L 195,30 A 25,25 0 0,1 170,55 L 30,55 A 25,25 0 0,1 5,30 L 5,30 A 25,25 0 0,1 30,5 L 100,5"
+                        fill="none"
+                        stroke="#22c55e"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeDasharray="450"
+                        initial={{ strokeDashoffset: 0 }}
+                        animate={{
+                          strokeDashoffset: `${450 * (1 - countdownSeconds / 300)}`
+                        }}
+                        transition={{ duration: 1, ease: "linear" }} />
 
 
                       {/* White segment indicator at top center */}
                       <rect
-                      x="95"
-                      y="0"
-                      width="10"
-                      height="8"
-                      fill="white"
-                      rx="1" />
+                        x="95"
+                        y="0"
+                        width="10"
+                        height="8"
+                        fill="white"
+                        rx="1" />
 
                     </svg>
 
@@ -9159,56 +9220,56 @@ export default function DeliveryHome() {
                     <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
-                      const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                      const fallback = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
-                      let value = 0;
+                        const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
+                        const fallback = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
+                        let value = 0;
 
 
-                      if (earnings) {
-                        if (typeof earnings === 'object') {
-                          // Handle earnings object
-                          if (earnings.totalEarning != null) {
-                            value = Number(earnings.totalEarning) || 0;
-                          } else if (earnings.basePayout != null) {
-                            // If only basePayout is available, use it
-                            value = Number(earnings.basePayout) || 0;
+                        if (earnings) {
+                          if (typeof earnings === 'object') {
+                            // Handle earnings object
+                            if (earnings.totalEarning != null) {
+                              value = Number(earnings.totalEarning) || 0;
+                            } else if (earnings.basePayout != null) {
+                              // If only basePayout is available, use it
+                              value = Number(earnings.basePayout) || 0;
+                            }
+                          } else if (typeof earnings === 'number') {
+                            value = earnings > 0 ? earnings : 0;
                           }
-                        } else if (typeof earnings === 'number') {
-                          value = earnings > 0 ? earnings : 0;
                         }
-                      }
 
-                      // If value is still 0, try fallback
-                      if (value <= 0 && fallback > 0) {
-                        value = Number(fallback);
-                      }
+                        // If value is still 0, try fallback
+                        if (value <= 0 && fallback > 0) {
+                          value = Number(fallback);
+                        }
 
-                      return value > 0 ? value.toFixed(2) : '0.00';
-                    })()}
+                        return value > 0 ? value.toFixed(2) : '0.00';
+                      })()}
                     </p>
                     {/* Earnings Breakdown */}
                     {(() => {
-                    const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                    if (typeof earnings === 'object' && earnings.breakdown) {
-                      return (
-                        <div className="bg-green-50 rounded-lg p-3 mb-2">
+                      const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
+                      if (typeof earnings === 'object' && earnings.breakdown) {
+                        return (
+                          <div className="bg-green-50 rounded-lg p-3 mb-2">
                             <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
                             <p className="text-green-700 text-xs">
                               Base: ₹{earnings.basePayout?.toFixed(0) || '0'}
                               {earnings.distanceCommission > 0 &&
-                            <> + Distance ({(earnings.distance - earnings.minDistance)?.toFixed(1)} km × ₹{earnings.commissionPerKm?.toFixed(0)}/km) = ₹{earnings.distanceCommission?.toFixed(0)}</>
-                            }
+                                <> + Distance ({(earnings.distance - earnings.minDistance)?.toFixed(1)} km × ₹{earnings.commissionPerKm?.toFixed(0)}/km) = ₹{earnings.distanceCommission?.toFixed(0)}</>
+                              }
                             </p>
                             {earnings.distance <= earnings.minDistance && earnings.distanceCommission === 0 &&
-                          <p className="text-green-600 text-xs mt-1">
+                              <p className="text-green-600 text-xs mt-1">
                                 Note: Distance {earnings.distance?.toFixed(1)} km ≤ {earnings.minDistance} km, per km commission not applicable
                               </p>
-                          }
+                            }
                           </div>);
 
-                    }
-                    return null;
-                  })()}
+                      }
+                      return null;
+                    })()}
                     <p className="text-gray-400 text-xs">
                       Pickup: {newOrder?.pickupDistance || selectedRestaurant?.pickupDistance || '0 km'} | Drop: {newOrder?.deliveryDistance || selectedRestaurant?.dropDistance || '0 km'}
                     </p>
@@ -9241,10 +9302,10 @@ export default function DeliveryHome() {
                       <Clock className="w-4 h-4" />
                       <span>
                         {selectedRestaurant?.timeAway && selectedRestaurant.timeAway !== 'Calculating...' ?
-                      `${selectedRestaurant.timeAway} away` :
-                      newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...' ?
-                      `${calculateTimeAway(newOrder.pickupDistance)} away` :
-                      'Calculating...'}
+                          `${selectedRestaurant.timeAway} away` :
+                          newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...' ?
+                            `${calculateTimeAway(newOrder.pickupDistance)} away` :
+                            'Calculating...'}
                       </span>
                     </div>
 
@@ -9252,10 +9313,10 @@ export default function DeliveryHome() {
                       <MapPin className="w-4 h-4" />
                       <span>
                         {selectedRestaurant?.distance && selectedRestaurant.distance !== '0 km' && selectedRestaurant.distance !== 'Calculating...' ?
-                      `${selectedRestaurant.distance} away` :
-                      newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...' ?
-                      `${newOrder.pickupDistance} away` :
-                      'Calculating...'}
+                          `${selectedRestaurant.distance} away` :
+                          newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...' ?
+                            `${newOrder.pickupDistance} away` :
+                            'Calculating...'}
                       </span>
                     </div>
                   </div>
@@ -9263,40 +9324,40 @@ export default function DeliveryHome() {
                   {/* Accept Order Button with Swipe */}
                   <div className="relative w-full">
                     <motion.div
-                    ref={newOrderAcceptButtonRef}
-                    className="relative w-full bg-green-600 rounded-full overflow-hidden shadow-xl"
-                    style={{ touchAction: 'pan-x' }} // Prevent vertical scrolling, allow horizontal pan
-                    onTouchStart={handleNewOrderAcceptTouchStart}
-                    onTouchMove={handleNewOrderAcceptTouchMove}
-                    onTouchEnd={handleNewOrderAcceptTouchEnd}
-                    whileTap={{ scale: 0.98 }}>
+                      ref={newOrderAcceptButtonRef}
+                      className="relative w-full bg-green-600 rounded-full overflow-hidden shadow-xl"
+                      style={{ touchAction: 'pan-x' }} // Prevent vertical scrolling, allow horizontal pan
+                      onTouchStart={handleNewOrderAcceptTouchStart}
+                      onTouchMove={handleNewOrderAcceptTouchMove}
+                      onTouchEnd={handleNewOrderAcceptTouchEnd}
+                      whileTap={{ scale: 0.98 }}>
 
                       {/* Swipe progress background */}
                       <motion.div
-                      className="absolute inset-0 bg-green-500 rounded-full"
-                      animate={{
-                        width: `${newOrderAcceptButtonProgress * 100}%`
-                      }}
-                      transition={newOrderIsAnimatingToComplete ? {
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 25
-                      } : { duration: 0 }} />
+                        className="absolute inset-0 bg-green-500 rounded-full"
+                        animate={{
+                          width: `${newOrderAcceptButtonProgress * 100}%`
+                        }}
+                        transition={newOrderIsAnimatingToComplete ? {
+                          type: "spring",
+                          stiffness: 200,
+                          damping: 25
+                        } : { duration: 0 }} />
 
 
                       {/* Button content container */}
                       <div className="relative flex items-center h-[64px] px-1">
                         {/* Left: Black circle with arrow */}
                         <motion.div
-                        className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center shrink-0 relative z-20 shadow-2xl"
-                        animate={{
-                          x: newOrderAcceptButtonProgress * (newOrderAcceptButtonRef.current ? newOrderAcceptButtonRef.current.offsetWidth - 56 - 32 : 240)
-                        }}
-                        transition={newOrderIsAnimatingToComplete ? {
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 30
-                        } : { duration: 0 }}>
+                          className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center shrink-0 relative z-20 shadow-2xl"
+                          animate={{
+                            x: newOrderAcceptButtonProgress * (newOrderAcceptButtonRef.current ? newOrderAcceptButtonRef.current.offsetWidth - 56 - 32 : 240)
+                          }}
+                          transition={newOrderIsAnimatingToComplete ? {
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30
+                          } : { duration: 0 }}>
 
                           <ArrowRight className="w-5 h-5 text-white" />
                         </motion.div>
@@ -9304,16 +9365,16 @@ export default function DeliveryHome() {
                         {/* Text - centered and stays visible */}
                         <div className="absolute inset-0 flex items-center justify-center left-16 right-4 pointer-events-none">
                           <motion.span
-                          className="text-white font-semibold flex items-center justify-center text-center text-base select-none"
-                          animate={{
-                            opacity: newOrderAcceptButtonProgress > 0.5 ? Math.max(0.2, 1 - newOrderAcceptButtonProgress * 0.8) : 1,
-                            x: newOrderAcceptButtonProgress > 0.5 ? newOrderAcceptButtonProgress * 15 : 0
-                          }}
-                          transition={newOrderIsAnimatingToComplete ? {
-                            type: "spring",
-                            stiffness: 200,
-                            damping: 25
-                          } : { duration: 0 }}>
+                            className="text-white font-semibold flex items-center justify-center text-center text-base select-none"
+                            animate={{
+                              opacity: newOrderAcceptButtonProgress > 0.5 ? Math.max(0.2, 1 - newOrderAcceptButtonProgress * 0.8) : 1,
+                              x: newOrderAcceptButtonProgress > 0.5 ? newOrderAcceptButtonProgress * 15 : 0
+                            }}
+                            transition={newOrderIsAnimatingToComplete ? {
+                              type: "spring",
+                              stiffness: 200,
+                              damping: 25
+                            } : { duration: 0 }}>
 
                             {newOrderAcceptButtonProgress > 0.5 ? 'Release to Accept' : 'Accept order'}
                           </motion.span>
@@ -9327,15 +9388,15 @@ export default function DeliveryHome() {
 
             {/* Reject Button - Outside the popup, positioned below */}
             <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="fixed top-4 right-4 z-[115]">
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="fixed top-4 right-4 z-[115]">
 
               <button
-              onClick={handleRejectConfirm}
-              className="  bg-black border-2 border-white text-white text-bold px-5 p-2 rounded-full font-semibold text-sm hover:bg-red-50 transition-colors shadow-2xl">
+                onClick={handleRejectConfirm}
+                className="  bg-black border-2 border-white text-white text-bold px-5 p-2 rounded-full font-semibold text-sm hover:bg-red-50 transition-colors shadow-2xl">
 
                 Deny
               </button>
@@ -9347,20 +9408,20 @@ export default function DeliveryHome() {
       {/* Reject Order Popup */}
       <AnimatePresence>
         {showRejectPopup &&
-        <>
+          <>
             <motion.div
-            className="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleRejectCancel}>
+              className="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectCancel}>
 
               <motion.div
-              className="w-[90%] max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}>
+                className="w-[90%] max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="px-4 py-4 border-b border-gray-200">
@@ -9372,47 +9433,47 @@ export default function DeliveryHome() {
                 <div className="px-4 py-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
                     {rejectReasons.map((reason) =>
-                  <button
-                    key={reason}
-                    onClick={() => setRejectReason(reason)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${rejectReason === reason ?
-                    "border-black bg-red-50" :
-                    "border-gray-200 bg-white hover:border-gray-300"}`
-                    }>
+                      <button
+                        key={reason}
+                        onClick={() => setRejectReason(reason)}
+                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${rejectReason === reason ?
+                          "border-black bg-red-50" :
+                          "border-gray-200 bg-white hover:border-gray-300"}`
+                        }>
 
                         <div className="flex items-center justify-between">
                           <span className={`text-sm font-medium ${rejectReason === reason ? "text-black" : "text-gray-900"}`
-                      }>
+                          }>
                             {reason}
                           </span>
                           {rejectReason === reason &&
-                      <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
                               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             </div>
-                      }
+                          }
                         </div>
                       </button>
-                  )}
+                    )}
                   </div>
                 </div>
 
                 {/* Footer */}
                 <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
                   <button
-                  onClick={handleRejectCancel}
-                  className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors">
+                    onClick={handleRejectCancel}
+                    className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors">
 
                     Cancel
                   </button>
                   <button
-                  onClick={handleRejectConfirm}
-                  disabled={!rejectReason}
-                  className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${rejectReason ?
-                  "!bg-black !text-white" :
-                  "bg-gray-200 text-gray-400 cursor-not-allowed"}`
-                  }>
+                    onClick={handleRejectConfirm}
+                    disabled={!rejectReason}
+                    className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${rejectReason ?
+                      "!bg-black !text-white" :
+                      "bg-gray-200 text-gray-400 cursor-not-allowed"}`
+                    }>
 
                     Confirm
                   </button>
@@ -9426,26 +9487,26 @@ export default function DeliveryHome() {
       {/* Directions Map View */}
       <AnimatePresence>
         {showDirectionsMap && selectedRestaurant &&
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[120] bg-white">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[120] bg-white">
 
             {/* Ola Maps Container for Directions */}
             <div
-            ref={directionsMapContainerRef}
-            key="directions-map-container" // Fixed key - don't remount on location change
-            style={{ height: '100%', width: '100%', zIndex: 1 }} />
+              ref={directionsMapContainerRef}
+              key="directions-map-container" // Fixed key - don't remount on location change
+              style={{ height: '100%', width: '100%', zIndex: 1 }} />
 
 
             {/* Loading indicator */}
             {directionsMapLoading &&
-          <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
                 <div className="text-gray-600">Loading map...</div>
               </div>
-          }
+            }
           </motion.div>
         }
       </AnimatePresence>
@@ -9484,13 +9545,13 @@ export default function DeliveryHome() {
                 if (!address || address === 'Restaurant Address' || address === 'Restaurant address') {
                   // Check if address might be in a different field
                   const possibleAddress =
-                  selectedRestaurant?.restaurantAddress ||
-                  selectedRestaurant?.restaurant?.address ||
-                  selectedRestaurant?.restaurantId?.address ||
-                  selectedRestaurant?.restaurantId?.location?.formattedAddress ||
-                  selectedRestaurant?.restaurantId?.location?.address ||
-                  selectedRestaurant?.location?.address ||
-                  selectedRestaurant?.location?.formattedAddress;
+                    selectedRestaurant?.restaurantAddress ||
+                    selectedRestaurant?.restaurant?.address ||
+                    selectedRestaurant?.restaurantId?.address ||
+                    selectedRestaurant?.restaurantId?.location?.formattedAddress ||
+                    selectedRestaurant?.restaurantId?.location?.address ||
+                    selectedRestaurant?.location?.address ||
+                    selectedRestaurant?.location?.formattedAddress;
 
                   if (possibleAddress && possibleAddress !== 'Restaurant Address' && possibleAddress !== 'Restaurant address') {
                     return possibleAddress;
@@ -9498,8 +9559,8 @@ export default function DeliveryHome() {
                 }
 
                 return address && address !== 'Restaurant Address' && address !== 'Restaurant address' ?
-                address :
-                'Address will be updated...';
+                  address :
+                  'Address will be updated...';
               })()}
             </p>
             <p className="text-gray-500 text-sm font-medium">
@@ -9513,10 +9574,10 @@ export default function DeliveryHome() {
               onClick={async () => {
                 // Try multiple paths to find restaurant phone number
                 let restaurantPhone = selectedRestaurant?.phone ||
-                selectedRestaurant?.restaurantId?.phone ||
-                selectedRestaurant?.ownerPhone ||
-                selectedRestaurant?.restaurant?.phone ||
-                null;
+                  selectedRestaurant?.restaurantId?.phone ||
+                  selectedRestaurant?.ownerPhone ||
+                  selectedRestaurant?.restaurant?.phone ||
+                  null;
 
 
                 // If phone not found in selectedRestaurant, try to fetch order details from backend
@@ -9534,12 +9595,12 @@ export default function DeliveryHome() {
                       // Try all possible paths in the API response
                       // Restaurant model has both 'phone' and 'ownerPhone' fields
                       restaurantPhone = order.restaurantId?.phone ||
-                      order.restaurantId?.ownerPhone ||
-                      order.restaurant?.phone ||
-                      order.restaurant?.ownerPhone ||
-                      order.restaurantId?.contact?.phone ||
-                      order.restaurantId?.owner?.phone ||
-                      null;
+                        order.restaurantId?.ownerPhone ||
+                        order.restaurant?.phone ||
+                        order.restaurant?.ownerPhone ||
+                        order.restaurantId?.contact?.phone ||
+                        order.restaurantId?.owner?.phone ||
+                        null;
 
 
                       // If phone found, update selectedRestaurant for future use
@@ -9554,8 +9615,8 @@ export default function DeliveryHome() {
                       // If still not found, try restaurant API directly
                       if (!restaurantPhone && order.restaurantId) {
                         const restaurantId = typeof order.restaurantId === 'string' ?
-                        order.restaurantId :
-                        order.restaurantId._id || order.restaurantId.id || order.restaurantId.toString();
+                          order.restaurantId :
+                          order.restaurantId._id || order.restaurantId.id || order.restaurantId.toString();
 
                         if (restaurantId) {
                           try {
@@ -9787,27 +9848,27 @@ export default function DeliveryHome() {
                   onClick={handleCameraCapture}
                   disabled={isUploadingBill}
                   className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${isUploadingBill ?
-                  'bg-gray-400 cursor-not-allowed' :
-                  billImageUploaded ?
-                  'bg-green-600 hover:bg-green-700' :
-                  'bg-blue-600 hover:bg-blue-700'} text-white font-medium`
+                    'bg-gray-400 cursor-not-allowed' :
+                    billImageUploaded ?
+                      'bg-green-600 hover:bg-green-700' :
+                      'bg-blue-600 hover:bg-blue-700'} text-white font-medium`
                   }>
 
                   {isUploadingBill ?
-                  <>
+                    <>
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Uploading...</span>
                     </> :
-                  billImageUploaded ?
-                  <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Bill Uploaded</span>
-                    </> :
+                    billImageUploaded ?
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Bill Uploaded</span>
+                      </> :
 
-                  <>
-                      <Camera className="w-5 h-5" />
-                      <span>Capture Bill</span>
-                    </>
+                      <>
+                        <Camera className="w-5 h-5" />
+                        <span>Capture Bill</span>
+                      </>
                   }
                 </button>
               </div>
@@ -9884,10 +9945,10 @@ export default function DeliveryHome() {
                       } : { duration: 0 }}>
 
                       {!billImageUploaded ?
-                      'Upload Bill First' :
-                      orderIdConfirmButtonProgress > 0.5 ?
-                      'Release to Confirm' :
-                      'Order Picked Up'}
+                        'Upload Bill First' :
+                        orderIdConfirmButtonProgress > 0.5 ?
+                          'Release to Confirm' :
+                          'Order Picked Up'}
                     </motion.span>
                   </div>
                 </div>
@@ -9899,75 +9960,75 @@ export default function DeliveryHome() {
 
       {/* Start Navigation Button Card - Show when order is out_for_delivery */}
       {selectedRestaurant && (
-      selectedRestaurant.orderStatus === 'out_for_delivery' ||
-      selectedRestaurant.deliveryPhase === 'en_route_to_delivery') &&
-      !showReachedDropPopup &&
-      !showOrderDeliveredAnimation &&
-      !showCustomerReviewPopup &&
-      !showPaymentPage &&
-      <div className="fixed bottom-24 left-0 right-0 px-4 z-50">
-            <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="bg-white rounded-2xl shadow-2xl p-5 border border-gray-100">
+        selectedRestaurant.orderStatus === 'out_for_delivery' ||
+        selectedRestaurant.deliveryPhase === 'en_route_to_delivery') &&
+        !showReachedDropPopup &&
+        !showOrderDeliveredAnimation &&
+        !showCustomerReviewPopup &&
+        !showPaymentPage &&
+        <div className="fixed bottom-24 left-0 right-0 px-4 z-50">
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="bg-white rounded-2xl shadow-2xl p-5 border border-gray-100">
 
-              {/* Customer Info */}
-              <div className="mb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="text-teal-600">
+            {/* Customer Info */}
+            <div className="mb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="text-teal-600">
 
-                      <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Head to Customer Location
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-0.5">
-                      {selectedRestaurant?.customerName || 'Customer'}
-                    </p>
-                  </div>
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                  </svg>
                 </div>
-                {selectedRestaurant?.customerAddress &&
-            <p className="text-xs text-gray-500 ml-13 truncate">
-                    {selectedRestaurant.customerAddress}
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Head to Customer Location
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    {selectedRestaurant?.customerName || 'Customer'}
                   </p>
-            }
+                </div>
               </div>
+              {selectedRestaurant?.customerAddress &&
+                <p className="text-xs text-gray-500 ml-13 truncate">
+                  {selectedRestaurant.customerAddress}
+                </p>
+              }
+            </div>
 
-              {/* Start Navigation Button */}
-              <button
-            onClick={handleStartNavigation}
-            className="w-full bg-[#4285F4] hover:bg-[#357ae8] text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 active:scale-95">
+            {/* Start Navigation Button */}
+            <button
+              onClick={handleStartNavigation}
+              className="w-full bg-[#4285F4] hover:bg-[#357ae8] text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 active:scale-95">
 
-                <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2">
 
-                  <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-                </svg>
-                <span>START NAVIGATION</span>
-              </button>
+                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+              </svg>
+              <span>START NAVIGATION</span>
+            </button>
 
-              <p className="text-center text-xs text-gray-500 mt-3">
-                Opens Google Maps in Bike Mode 🏍️
-              </p>
-            </motion.div>
-          </div>
+            <p className="text-center text-xs text-gray-500 mt-3">
+              Opens Google Maps in Bike Mode 🏍️
+            </p>
+          </motion.div>
+        </div>
       }
 
       {/* Reached Drop Popup - shown instantly after Order Picked Up confirmation */}
@@ -10121,8 +10182,8 @@ export default function DeliveryHome() {
                     }
                     if (tripDistance !== null) {
                       return tripDistance >= 1000 ?
-                      `${(tripDistance / 1000).toFixed(1)} kms` :
-                      `${tripDistance.toFixed(0)} m`;
+                        `${(tripDistance / 1000).toFixed(1)} kms` :
+                        `${tripDistance.toFixed(0)} m`;
                     }
                     return selectedRestaurant?.tripDistance || 'Calculating...';
                   })()}
@@ -10135,10 +10196,10 @@ export default function DeliveryHome() {
                 </div>
                 <span className="text-gray-900 font-semibold">
                   {tripTime !== null ?
-                  tripTime >= 60 ?
-                  `${Math.round(tripTime / 60)} mins` :
-                  `${tripTime} secs` :
-                  selectedRestaurant?.tripTime || 'Calculating...'}
+                    tripTime >= 60 ?
+                      `${Math.round(tripTime / 60)} mins` :
+                      `${tripTime} secs` :
+                    selectedRestaurant?.tripTime || 'Calculating...'}
                 </span>
               </div>
             </div>
@@ -10166,22 +10227,20 @@ export default function DeliveryHome() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleSelectCashPayment}
-                  className={`px-4 py-3 rounded-lg font-semibold border transition-colors ${
-                    codPaymentOption === 'cash'
+                  className={`px-4 py-3 rounded-lg font-semibold border transition-colors ${codPaymentOption === 'cash'
                       ? 'bg-green-600 text-white border-green-600'
                       : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   Collect Cash
                 </button>
                 <button
                   onClick={handleGenerateQrPayment}
                   disabled={qrPaymentState.loading}
-                  className={`px-4 py-3 rounded-lg font-semibold transition-colors ${
-                    qrPaymentState.loading
+                  className={`px-4 py-3 rounded-lg font-semibold transition-colors ${qrPaymentState.loading
                       ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+                    }`}
                 >
                   {qrPaymentState.loading ? 'Generating...' : 'Generate QR Payment'}
                 </button>
@@ -10337,16 +10396,16 @@ export default function DeliveryHome() {
             {/* Star Rating */}
             <div className="flex justify-center gap-2 mb-6">
               {[1, 2, 3, 4, 5].map((star) =>
-              <button
-                key={star}
-                onClick={() => setCustomerRating(star)}
-                className="text-4xl transition-transform hover:scale-110">
+                <button
+                  key={star}
+                  onClick={() => setCustomerRating(star)}
+                  className="text-4xl transition-transform hover:scale-110">
 
                   {star <= customerRating ?
-                <span className="text-yellow-400">★</span> :
+                    <span className="text-yellow-400">★</span> :
 
-                <span className="text-gray-300">★</span>
-                }
+                    <span className="text-gray-300">★</span>
+                  }
                 </button>
               )}
             </div>
@@ -10370,10 +10429,10 @@ export default function DeliveryHome() {
               onClick={async () => {
                 // Get order ID - use MongoDB _id for API call
                 const orderIdForApi = selectedRestaurant?.id ||
-                newOrder?.orderMongoId ||
-                newOrder?._id ||
-                selectedRestaurant?.orderId ||
-                newOrder?.orderId;
+                  newOrder?.orderMongoId ||
+                  newOrder?._id ||
+                  selectedRestaurant?.orderId ||
+                  newOrder?.orderId;
 
                 // Save review by calling completeDelivery API with rating and review
                 if (orderIdForApi) {
@@ -10390,8 +10449,8 @@ export default function DeliveryHome() {
                       // Get updated earnings from response
                       // Note: completeDelivery API already adds earnings and COD cash collected to wallet
                       const earnings = response.data.data?.earnings?.amount ||
-                      response.data.data?.totalEarning ||
-                      orderEarnings;
+                        response.data.data?.totalEarning ||
+                        orderEarnings;
                       setOrderEarnings(earnings);
 
                       // Update selectedRestaurant with the final breakdown
@@ -10442,12 +10501,12 @@ export default function DeliveryHome() {
       {/* Payment Page - shown after Customer Review is submitted */}
       <AnimatePresence>
         {showPaymentPage &&
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[200] bg-white overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[200] bg-white overflow-y-auto">
 
             {/* Header */}
             <div className="bg-green-500 text-white px-6 py-6">
@@ -10460,16 +10519,16 @@ export default function DeliveryHome() {
               <p className="text-gray-600 text-sm mb-2">Earnings from this order</p>
               <p className="text-5xl font-bold text-gray-900">
                 ₹{(() => {
-                if (orderEarnings > 0) {
-                  return orderEarnings.toFixed(2);
-                }
-                // Handle estimatedEarnings - can be number or object
-                const earnings = selectedRestaurant?.amount || selectedRestaurant?.estimatedEarnings || 0;
-                if (typeof earnings === 'object' && earnings.totalEarning) {
-                  return earnings.totalEarning.toFixed(2);
-                }
-                return typeof earnings === 'number' ? earnings.toFixed(2) : '0.00';
-              })()}
+                  if (orderEarnings > 0) {
+                    return orderEarnings.toFixed(2);
+                  }
+                  // Handle estimatedEarnings - can be number or object
+                  const earnings = selectedRestaurant?.amount || selectedRestaurant?.estimatedEarnings || 0;
+                  if (typeof earnings === 'object' && earnings.totalEarning) {
+                    return earnings.totalEarning.toFixed(2);
+                  }
+                  return typeof earnings === 'number' ? earnings.toFixed(2) : '0.00';
+                })()}
               </p>
               <p className="text-green-600 text-sm mt-2">💰 Added to your wallet</p>
             </div>
@@ -10499,31 +10558,31 @@ export default function DeliveryHome() {
 
                   {/* Show Distance Bonus only if it's more than 0 */}
                   {(() => {
-                  const distComm = selectedRestaurant?.estimatedEarnings?.distanceCommission || 0;
-                  if (distComm > 0) {
-                    return (
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    const distComm = selectedRestaurant?.estimatedEarnings?.distanceCommission || 0;
+                    if (distComm > 0) {
+                      return (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
                           <span className="text-gray-600">Distance Bonus</span>
                           <span className="text-gray-900 font-semibold">₹{Number(distComm).toFixed(2)}</span>
                         </div>);
 
-                  }
-                  return null;
-                })()}
+                    }
+                    return null;
+                  })()}
 
                   {/* Show Customer Tip only if it's more than 0 */}
                   {(() => {
-                  const tip = selectedRestaurant?.estimatedEarnings?.tip || 0;
-                  if (tip > 0) {
-                    return (
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100 italic text-green-700">
+                    const tip = selectedRestaurant?.estimatedEarnings?.tip || 0;
+                    if (tip > 0) {
+                      return (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100 italic text-green-700">
                           <span className="font-medium">Customer Tip ❤️</span>
                           <span className="font-bold">₹{Number(tip).toFixed(2)}</span>
                         </div>);
 
-                  }
-                  return null;
-                })()}
+                    }
+                    return null;
+                  })()}
 
                   <div className="flex justify-between items-center py-2">
                     <span className="text-lg font-bold text-gray-900">Total Earnings</span>
@@ -10544,40 +10603,40 @@ export default function DeliveryHome() {
 
               {/* Complete Button */}
               <button
-              onClick={() => {
-                setShowPaymentPage(false);
-                // CRITICAL: Clear all order-related popups and states when completing
-                setShowreachedPickupPopup(false);
-                setShowOrderIdConfirmationPopup(false);
-                setShowReachedDropPopup(false);
-                setShowOrderDeliveredAnimation(false);
-                setShowCustomerReviewPopup(false);
+                onClick={() => {
+                  setShowPaymentPage(false);
+                  // CRITICAL: Clear all order-related popups and states when completing
+                  setShowreachedPickupPopup(false);
+                  setShowOrderIdConfirmationPopup(false);
+                  setShowReachedDropPopup(false);
+                  setShowOrderDeliveredAnimation(false);
+                  setShowCustomerReviewPopup(false);
 
-                // Clear selected restaurant/order to prevent showing popups for delivered order
-                setSelectedRestaurant(null);
+                  // Clear selected restaurant/order to prevent showing popups for delivered order
+                  setSelectedRestaurant(null);
 
-                // CRITICAL: Clear active order from localStorage to prevent it from showing again
-                localStorage.removeItem('deliveryActiveOrder');
-                localStorage.removeItem('activeOrder');
+                  // CRITICAL: Clear active order from localStorage to prevent it from showing again
+                  localStorage.removeItem('deliveryActiveOrder');
+                  localStorage.removeItem('activeOrder');
 
-                // Clear newOrder from notifications hook (if available)
-                if (typeof clearNewOrder === 'function') {
-                  clearNewOrder();
-                }
+                  // Clear newOrder from notifications hook (if available)
+                  if (typeof clearNewOrder === 'function') {
+                    clearNewOrder();
+                  }
 
-                // Clear accepted orders list when order is completed
-                acceptedOrderIdsRef.current.clear();
+                  // Clear accepted orders list when order is completed
+                  acceptedOrderIdsRef.current.clear();
 
-                navigate("/delivery");
-                // Reset states
-                setTimeout(() => {
-                  setReachedDropButtonProgress(0);
-                  setReachedDropIsAnimatingToComplete(false);
-                  setCustomerRating(0);
-                  setCustomerReviewText("");
-                }, 500);
-              }}
-              className="w-full sticky bottom-4 bg-black text-white py-4 rounded-xl font-semibold text-lg hover:bg-gray-800 transition-colors shadow-lg ">
+                  navigate("/delivery");
+                  // Reset states
+                  setTimeout(() => {
+                    setReachedDropButtonProgress(0);
+                    setReachedDropIsAnimatingToComplete(false);
+                    setCustomerRating(0);
+                    setCustomerReviewText("");
+                  }, 500);
+                }}
+                className="w-full sticky bottom-4 bg-black text-white py-4 rounded-xl font-semibold text-lg hover:bg-gray-800 transition-colors shadow-lg ">
 
                 Complete
               </button>

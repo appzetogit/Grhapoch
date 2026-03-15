@@ -37,6 +37,7 @@ export default function RestaurantCommission() {
       type: "percentage",
       value: "10"
     },
+    commissionRules: [], // Multiple tiered rules
     notes: ""
   })
   const [formErrors, setFormErrors] = useState({})
@@ -190,6 +191,7 @@ export default function RestaurantCommission() {
         type: "percentage",
         value: "10"
       },
+      commissionRules: [],
       notes: ""
     })
     setFormErrors({})
@@ -244,6 +246,7 @@ export default function RestaurantCommission() {
             type: commissionData.defaultCommission?.type || "percentage",
             value: commissionData.defaultCommission?.value || "10"
           },
+          commissionRules: commissionData.commissionRules || [],
           notes: commissionData.notes || "",
 
         })
@@ -316,6 +319,12 @@ export default function RestaurantCommission() {
           type: formData.defaultCommission.type,
           value: parseFloat(formData.defaultCommission.value)
         },
+        commissionRules: formData.commissionRules.map(rule => ({
+          ...rule,
+          minOrderAmount: parseFloat(rule.minOrderAmount),
+          maxOrderAmount: rule.maxOrderAmount ? parseFloat(rule.maxOrderAmount) : null,
+          value: parseFloat(rule.value)
+        })),
         notes: formData.notes
       }
 
@@ -672,6 +681,116 @@ export default function RestaurantCommission() {
             </div>
 
 
+
+            {/* Commission Rules / Tiers */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700"> Commission Rules (Tiers)</label>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    commissionRules: [...prev.commissionRules, {
+                      type: "percentage",
+                      value: "5",
+                      minOrderAmount: "0",
+                      maxOrderAmount: "",
+                      isActive: true,
+                      priority: 0
+                    }]
+                  }))}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Add Rule
+                </button>
+              </div>
+
+              {formData.commissionRules.length === 0 ? (
+                <div className="p-4 border border-dashed border-slate-200 rounded-lg text-center">
+                  <p className="text-xs text-slate-500">No tiered rules added. Default commission will apply to all orders.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {formData.commissionRules.map((rule, index) => (
+                    <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-200 relative group">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          commissionRules: prev.commissionRules.filter((_, i) => i !== index)
+                        }))}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-red-200 shadow-sm"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Min Order (₹)</label>
+                          <input
+                            type="number"
+                            value={rule.minOrderAmount}
+                            onChange={(e) => {
+                              const newRules = [...formData.commissionRules];
+                              newRules[index].minOrderAmount = e.target.value;
+                              setFormData({ ...formData, commissionRules: newRules });
+                            }}
+                            className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Max Order (₹)</label>
+                          <input
+                            type="number"
+                            value={rule.maxOrderAmount || ""}
+                            onChange={(e) => {
+                              const newRules = [...formData.commissionRules];
+                              newRules[index].maxOrderAmount = e.target.value;
+                              setFormData({ ...formData, commissionRules: newRules });
+                            }}
+                            className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Unlimited"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Comm. Type</label>
+                          <select
+                            value={rule.type}
+                            onChange={(e) => {
+                              const newRules = [...formData.commissionRules];
+                              newRules[index].type = e.target.value;
+                              setFormData({ ...formData, commissionRules: newRules });
+                            }}
+                            className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="amount">Fixed (₹)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Comm. Value</label>
+                          <input
+                            type="number"
+                            value={rule.value}
+                            onChange={(e) => {
+                              const newRules = [...formData.commissionRules];
+                              newRules[index].value = e.target.value;
+                              setFormData({ ...formData, commissionRules: newRules });
+                            }}
+                            className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Value"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Notes */}
             <div>

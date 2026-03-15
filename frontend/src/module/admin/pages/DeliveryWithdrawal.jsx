@@ -174,6 +174,11 @@ export default function DeliveryWithdrawal() {
   }
 
   const handleReject = async (id) => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a rejection reason')
+      return
+    }
+
     try {
       setProcessingAction(id)
       const response = await adminAPI.rejectDeliveryWithdrawal(id, rejectionReason)
@@ -656,7 +661,7 @@ export default function DeliveryWithdrawal() {
             <div className="px-6 pb-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Rejection reason (optional)
+                  Rejection reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={rejectionReason}
@@ -680,7 +685,7 @@ export default function DeliveryWithdrawal() {
               </button>
               <button
                 onClick={() => selectedRequest && handleReject(selectedRequest.id)}
-                disabled={processingAction === selectedRequest?.id}
+                disabled={!rejectionReason.trim() || processingAction === selectedRequest?.id}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processingAction === selectedRequest?.id ? "Rejecting…" : "Reject"}

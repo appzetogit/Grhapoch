@@ -448,11 +448,12 @@ apiClient.interceptors.response.use(
         // BUT: Don't auto-redirect on certain pages - let them handle errors gracefully
         const currentPath = window.location.pathname;
         const isOnboardingPage = currentPath.includes('/onboarding');
+        const isPlansPage = currentPath.includes('/subscription-plans') || currentPath.includes('/subscription-plans/') || currentPath.endsWith('/plans');
         const isLandingPageManagement = currentPath.includes('/hero-banner-management') || currentPath.includes('/landing-page');
+        const holdsPendingOnboarding = !!localStorage.getItem('pending_subscription_onboarding');
 
-        // For landing page management, don't auto-logout on 401 - let component handle it
-        // Only auto-logout for other pages after token refresh fails
-        if (!isOnboardingPage && !isLandingPageManagement) {
+        // For onboarding page and subscription plans (especially for prospects), don't auto-logout on 401
+        if (!isOnboardingPage && !isPlansPage && !isLandingPageManagement && !holdsPendingOnboarding) {
           if (currentPath.startsWith('/admin')) {
             localStorage.removeItem('admin_accessToken');
             localStorage.removeItem('admin_authenticated');
@@ -660,7 +661,8 @@ apiClient.interceptors.response.use(
           lowerMsg.includes('inactive') ||
           lowerMsg.includes('wait for admin approval') ||
           lowerMsg.includes('account is inactive') ||
-          lowerMsg.includes('verification pending')
+          lowerMsg.includes('verification pending') ||
+          lowerMsg.includes('already completed')
         ) {
           return;
         }

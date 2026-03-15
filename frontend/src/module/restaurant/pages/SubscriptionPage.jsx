@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ArrowLeft, Crown, Sparkles, TrendingUp, Loader2, History, Calendar, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { restaurantAPI, api } from '@/lib/api';
+import { restaurantAPI, api, uploadAPI } from '@/lib/api';
 import { loadRazorpayScript } from '@/lib/utils/razorpay';
-import { clearIDB } from '../utils/onboardingStorage';
+import { clearIDB, getFileFromIDB } from '../utils/onboardingStorage';
+import { setAuthData as setRestaurantAuthData } from "@/lib/utils/auth";
 
 const ICONS = {
     'Starter': Crown,
@@ -115,20 +116,44 @@ export default function SubscriptionPage() {
         }
     };
 
+    const handleUpload = async (file, folder) => {
+        try {
+            const res = await uploadAPI.uploadMedia(file, { folder });
+            const d = res?.data?.data || res?.data;
+            return { url: d.url, publicId: d.publicId };
+        } catch (err) {
+            const errorMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to upload image";
+            throw new Error(`Image upload failed: ${errorMsg}`);
+        }
+    };
+
     useEffect(() => {
         const fetchInitialData = async () => {
+            const token = localStorage.getItem("restaurant_accessToken");
+            const isProspect = !!localStorage.getItem("pending_subscription_onboarding");
+            
             setLoading(true);
-            await Promise.all([fetchStatus(), fetchPlans()]);
+            
+            // Only fetch status if authenticated and not a prospect
+            // (Prospects don't have a token yet, it will be null or "null")
+            if (token && token !== 'null' && token !== 'undefined' && !isProspect) {
+                await fetchStatus();
+            }
+            
+            await fetchPlans();
+            
             try {
-                if (restaurantAPI.getRestaurantByOwner) {
-                    const ownerRes = await restaurantAPI.getRestaurantByOwner();
-                    if (ownerRes.data?.data?.restaurant) {
-                        setRestaurantData(ownerRes.data.data.restaurant);
-                    }
-                } else {
-                    const meRes = await restaurantAPI.getCurrentRestaurant();
-                    if (meRes.data?.data?.restaurant) {
-                        setRestaurantData(meRes.data.data.restaurant);
+                if (token) {
+                    if (restaurantAPI.getRestaurantByOwner) {
+                        const ownerRes = await restaurantAPI.getRestaurantByOwner();
+                        if (ownerRes.data?.data?.restaurant) {
+                            setRestaurantData(ownerRes.data.data.restaurant);
+                        }
+                    } else {
+                        const meRes = await restaurantAPI.getCurrentRestaurant();
+                        if (meRes.data?.data?.restaurant) {
+                            setRestaurantData(meRes.data.data.restaurant);
+                        }
                     }
                 }
             } catch (error) {
@@ -142,7 +167,10 @@ export default function SubscriptionPage() {
 
     // Refetch status when user returns to this tab (e.g. after updating DB) so UI is never stale
     useEffect(() => {
-        const onFocus = () => fetchStatus();
+        const onFocus = () => {
+            const token = localStorage.getItem("restaurant_accessToken");
+            if (token) fetchStatus();
+        };
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
     }, []);
@@ -188,7 +216,79 @@ export default function SubscriptionPage() {
 
         setSubmittingPlanId(plan.id);
         try {
-            // 1. Create Subscription on Backend
+            // 1. Check for Deferred Prospect (Registration needed)
+            const pendingOnboarding = localStorage.getItem("pending_subscription_onboarding");
+            if (pendingOnboarding) {
+                const onboardingData = JSON.parse(pendingOnboarding);
+                
+                // If it's a prospect, register first
+                if (onboardingData.pendingRegistrationData) {
+                    toast.info("Setting up your account...");
+                    const regData = onboardingData.pendingRegistrationData;
+                    const regResponse = await restaurantAPI.verifyOTP(
+                        regData.phone,
+                        regData.otpCode,
+                        "register",
+                        onboardingData.step1.restaurantName,
+                        regData.email,
+                        "Subscription Base"
+                    );
+
+                    const data = regResponse?.data?.data || regResponse?.data;
+                    if (!data?.accessToken) {
+                        throw new Error("Registration failed. Please try again.");
+                    }
+
+                    // Authenticate the user (required for uploads and order creation)
+                    setRestaurantAuthData("restaurant", data.accessToken, data.restaurant);
+                    localStorage.setItem("restaurant_accessToken", data.accessToken);
+                    localStorage.setItem("restaurant_authenticated", "true");
+                    
+                    // Now that we're authenticated, perform uploads
+                    toast.info("Uploading documents...");
+                    
+                    // Hydrate File objects from IDB
+                    const menuFiles = await getFileFromIDB('menuImages') || [];
+                    const profileFile = await getFileFromIDB('profileImage');
+                    const panFile = await getFileFromIDB('panImage');
+                    const gstFile = await getFileFromIDB('gstImage');
+                    const fssaiFile = await getFileFromIDB('fssaiImage');
+
+                    const menuUploads = [];
+                    for (const file of menuFiles) {
+                        if (file instanceof File) {
+                            const uploaded = await handleUpload(file, "appzeto/restaurant/menu");
+                            menuUploads.push(uploaded);
+                        } else if (file?.url) {
+                            menuUploads.push(file);
+                        }
+                    }
+                    onboardingData.step2.menuImageUrls = menuUploads;
+
+                    if (profileFile instanceof File) {
+                        onboardingData.step2.profileImageUrl = await handleUpload(profileFile, "appzeto/restaurant/profile");
+                    }
+                    if (panFile instanceof File) {
+                        onboardingData.step3.pan.image = await handleUpload(panFile, "appzeto/restaurant/pan");
+                    }
+                    if (gstFile instanceof File) {
+                        onboardingData.step3.gst.image = await handleUpload(gstFile, "appzeto/restaurant/gst");
+                    }
+                    if (fssaiFile instanceof File) {
+                        onboardingData.step3.fssai.image = await handleUpload(fssaiFile, "appzeto/restaurant/fssai");
+                    }
+
+                    // Save full onboarding data to DB
+                    onboardingData.onboardingCompleted = false; // Still false until payment verified
+                    await api.put("/restaurant/onboarding", onboardingData);
+                    
+                    // Remove current pending registration flag but KEEP payload for payment handler
+                    delete onboardingData.pendingRegistrationData;
+                    localStorage.setItem("pending_subscription_onboarding", JSON.stringify(onboardingData));
+                }
+            }
+
+            // 2. Create Subscription on Backend
             const orderRes = await restaurantAPI.createSubscriptionOrder(plan.id);
             const { subscriptionId, amount, currency, keyId } = orderRes.data.data;
 
@@ -334,7 +434,8 @@ export default function SubscriptionPage() {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => {
-                                if (!isActive) {
+                                const isProspect = !!localStorage.getItem("pending_subscription_onboarding");
+                                if (isProspect) {
                                     // If taking user back to onboarding, we use step 5
                                     navigate("/restaurant/onboarding?step=5");
                                 } else {

@@ -787,11 +787,7 @@ export default function App() {
       />
       <Route
         path="/restaurant/subscription-plans"
-        element={
-          <ProtectedRoute requiredRole="restaurant" loginPath="/restaurant/login">
-            <SubscriptionPage />
-          </ProtectedRoute>
-        }
+        element={<SubscriptionPage />}
       />
       <Route
         path="/restaurant/subscription-success"

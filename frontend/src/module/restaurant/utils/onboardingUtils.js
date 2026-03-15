@@ -130,6 +130,13 @@ export const checkOnboardingStatus = async () => {
     // No onboarding data, start from step 1
     return 1
   } catch (err) {
+    // If backend says onboarding is already complete, return null
+    if (err?.response?.status === 403 && 
+        (err?.response?.data?.message?.includes("already completed") || 
+         err?.response?.data?.error?.includes("already completed"))) {
+      return null
+    }
+
     // If API call fails, check localStorage
     try {
       const localData = localStorage.getItem(ONBOARDING_STORAGE_KEY)

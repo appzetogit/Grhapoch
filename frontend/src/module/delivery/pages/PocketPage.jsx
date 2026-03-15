@@ -406,6 +406,10 @@ export default function PocketPage() {
       Math.max(0, totalCashLimit - (Number(balances.cashInHand) || 0));
   const depositAmount = pocketBalance < 0 ? Math.abs(pocketBalance) : 0;
 
+  const hasCashInHand = cashInHand > 0.01;
+  const withdrawableAmount = pocketBalance > 0 ? pocketBalance : 0;
+  const displayWithdrawAmount = hasCashInHand ? Math.max(0, pocketBalance + cashInHand) : withdrawableAmount;
+
   // Customer tips balance - calculate from transactions
   const customerTipsBalance = walletState.transactions?.
     filter((t) => t.type === 'tip' && t.status === 'Completed').
@@ -980,7 +984,7 @@ export default function PocketPage() {
               <div onClick={() => navigate("/delivery/pocket-balance")} className="flex items-center justify-between">
                 <span className="text-black text-sm">Pocket balance</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-black text-sm font-medium">₹{pocketBalance.toFixed(2)}</span>
+                  <span className="text-black text-sm font-medium">₹{displayWithdrawAmount.toFixed(2)}</span>
                   <ArrowRight className="w-4 h-4 text-gray-600" />
                 </div>
               </div>

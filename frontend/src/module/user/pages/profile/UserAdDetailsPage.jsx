@@ -233,6 +233,17 @@ export default function UserAdDetailsPage() {
                   </Button>
                 )}
 
+                {normalizedStatus === "rejected" && adData.rejectionReason && (
+                  <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-100">
+                    <p className="text-xs font-bold text-red-700 mb-1 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                      Rejection Reason
+                    </p>
+                    <p className="text-sm text-red-600 leading-relaxed font-medium">
+                      {adData.rejectionReason}
+                    </p>
+                  </div>
+                )}
                 {actionError && <p className="text-xs text-red-600">{actionError}</p>}
               </CardContent>
             </Card>

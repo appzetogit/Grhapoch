@@ -62,6 +62,7 @@ export const fetchDeliveryWallet = async () => {
         totalEarned: Number(walletData.totalEarned) || 0,
         totalCashLimit: Number(walletData.totalCashLimit) || 0,
         availableCashLimit: Number(walletData.availableCashLimit) || 0,
+        pendingCodReserve: Number(walletData.pendingCodReserve) || 0,
         deliveryWithdrawalLimit: Number(walletData.deliveryWithdrawalLimit ?? walletData.delivery_withdrawal_limit) || 100,
         // Pocket balance = total balance (includes bonus)
         pocketBalance: walletData.pocketBalance !== undefined ? Number(walletData.pocketBalance) : Number(walletData.totalBalance) || 0,
@@ -148,8 +149,8 @@ export const calculateDeliveryBalances = (state) => {
   let pendingWithdrawals = state.pendingWithdrawals || 0;
   if (state.transactions && Array.isArray(state.transactions)) {
     const pendingFromTransactions = state.transactions.
-    filter((t) => t.type === 'withdrawal' && t.status === 'Pending').
-    reduce((sum, t) => sum + (t.amount || 0), 0);
+      filter((t) => t.type === 'withdrawal' && t.status === 'Pending').
+      reduce((sum, t) => sum + (t.amount || 0), 0);
     if (pendingFromTransactions > 0) {
       pendingWithdrawals = pendingFromTransactions;
     }
@@ -159,8 +160,8 @@ export const calculateDeliveryBalances = (state) => {
   let totalEarningsFromTransactions = totalEarned;
   if (state.transactions && Array.isArray(state.transactions)) {
     const earningsFromTransactions = state.transactions.
-    filter((t) => (t.type === 'payment' || t.type === 'tip') && t.status === 'Completed') // Include tips in earnings, exclude bonus
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
+      filter((t) => (t.type === 'payment' || t.type === 'tip') && t.status === 'Completed') // Include tips in earnings, exclude bonus
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
     if (earningsFromTransactions > 0) {
       totalEarningsFromTransactions = earningsFromTransactions;
     }
@@ -209,17 +210,17 @@ export const calculatePeriodEarnings = (state, period) => {
   }
 
   return state.transactions.
-  filter((t) => {
-    // Include payment, earning_addon, and tip transactions in earnings
-    if (t.type !== 'payment' && t.type !== 'earning_addon' && t.type !== 'tip') return false;
-    if (t.status !== 'Completed') return false;
+    filter((t) => {
+      // Include payment, earning_addon, and tip transactions in earnings
+      if (t.type !== 'payment' && t.type !== 'earning_addon' && t.type !== 'tip') return false;
+      if (t.status !== 'Completed') return false;
 
-    const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
-    if (!transactionDate) return false;
+      const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
+      if (!transactionDate) return false;
 
-    return transactionDate >= startDate && transactionDate <= now;
-  }).
-  reduce((sum, t) => sum + (t.amount || 0), 0);
+      return transactionDate >= startDate && transactionDate <= now;
+    }).
+    reduce((sum, t) => sum + (t.amount || 0), 0);
 };
 
 /**

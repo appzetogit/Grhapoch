@@ -63,6 +63,7 @@ const mapRow = (ad) => {
     rawStatus: String(ad.status || "pending").toLowerCase(),
     endDateRaw: endDate,
     bannerImage: ad.bannerImage || "",
+    rejectionReason: ad.rejectionReason || "",
     createdAt: ad.createdAt,
   }
 }
@@ -82,6 +83,7 @@ export default function UserAdvertisements() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [rejectTargetId, setRejectTargetId] = useState("")
+  const [rejectionReason, setRejectionReason] = useState("")
   const [isRejecting, setIsRejecting] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const rowsFetchPromiseRef = useRef(null)
@@ -235,12 +237,17 @@ export default function UserAdvertisements() {
   }
 
   const handleRejectRequest = async (id) => {
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please provide a reason for rejection")
+      return
+    }
     setIsRejecting(true)
     try {
-      await userAdvertisementAPI.rejectAdminUserAdvertisement(id)
+      await userAdvertisementAPI.rejectAdminUserAdvertisement(id, { reason: rejectionReason })
       await loadRows()
       setIsRejectDialogOpen(false)
       setRejectTargetId("")
+      setRejectionReason("")
     } catch (error) {
       setErrorMessage(error?.response?.data?.message || "Failed to reject user advertisement")
     } finally {
@@ -432,6 +439,12 @@ export default function UserAdvertisements() {
                   <img src={selectedRow.bannerImage} alt={selectedRow.title} className="w-full h-48 object-cover rounded-lg border border-slate-200" />
                 </div>
               )}
+              {selectedRow.rejectionReason && (
+                <div className="col-span-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+                  <p className="font-semibold text-red-700 mb-1">Rejection Reason</p>
+                  <p className="text-red-600">{selectedRow.rejectionReason}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -442,7 +455,10 @@ export default function UserAdvertisements() {
         onOpenChange={(open) => {
           if (!isRejecting) {
             setIsRejectDialogOpen(open)
-            if (!open) setRejectTargetId("")
+            if (!open) {
+              setRejectTargetId("")
+              setRejectionReason("")
+            }
           }
         }}
       >
@@ -451,7 +467,17 @@ export default function UserAdvertisements() {
             <DialogTitle>Reject User Advertisement</DialogTitle>
           </DialogHeader>
           <div className="px-6 pb-6">
-            <p className="text-sm text-slate-600">Reject this user advertisement request?</p>
+            <p className="text-sm text-slate-600 mb-4">Are you sure you want to reject this user advertisement request? Please provide a reason below.</p>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700">Rejection Reason</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Broken link, inappropriate image, etc."
+                className="w-full min-h-[100px] px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                disabled={isRejecting}
+              />
+            </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -459,6 +485,7 @@ export default function UserAdvertisements() {
                   if (isRejecting) return
                   setIsRejectDialogOpen(false)
                   setRejectTargetId("")
+                  setRejectionReason("")
                 }}
                 className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 disabled={isRejecting}

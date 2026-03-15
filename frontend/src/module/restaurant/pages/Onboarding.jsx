@@ -879,6 +879,12 @@ export default function RestaurantOnboarding() {
           console.error("Authentication error fetching onboarding:", err);
           // Don't show error to user, they can still fill the form
           // The error might be because restaurant is not yet active (pending verification)
+        } else if (err?.response?.status === 403 && 
+                  (err?.response?.data?.message?.includes("already completed") || 
+                   err?.response?.data?.error?.includes("already completed"))) {
+          // If backend says already completed, don't stay here
+          console.log("Onboarding already completed (403), redirecting to hub...");
+          navigate("/restaurant/to-hub", { replace: true });
         } else {
           console.error("Error fetching onboarding data:", err);
         }
@@ -1521,7 +1527,8 @@ export default function RestaurantOnboarding() {
         setStep(5);
       } else if (step === 5) {
         // 1. Final Account Creation for Prospects
-        if (isProspect && pendingData) {
+        // If Subscription based, we delay registration until SubscriptionPage (to avoid creating doc prematurely)
+        if (isProspect && pendingData && step5.businessModel === "Commission Base") {
           const regResponse = await restaurantAPI.verifyOTP(
             pendingData.phone,
             pendingData.otpCode,
@@ -1543,34 +1550,43 @@ export default function RestaurantOnboarding() {
         }
 
         // 2. Perform necessary uploads for EVERYONE
-        const menuUploads = [];
-        for (const file of step2.menuImages) {
-          if (file instanceof File) {
-            const uploaded = await handleUpload(file, "appzeto/restaurant/menu");
-            menuUploads.push(uploaded);
-          } else if (file?.url || (typeof file === 'string' && file.startsWith('http'))) {
-            menuUploads.push(file?.url ? file : { url: file });
-          }
-        }
-
+        // If Subscription based prospect, we skip uploads for now (no auth yet)
+        let menuUploads = [];
         let profileUpload = step2.profileImage;
-        if (step2.profileImage instanceof File) {
-          profileUpload = await handleUpload(step2.profileImage, "appzeto/restaurant/profile");
-        }
-
         let panUpload = step3.panImage;
-        if (step3.panImage instanceof File) {
-          panUpload = await handleUpload(step3.panImage, "appzeto/restaurant/pan");
-        }
-
         let gstUpload = step3.gstImage;
-        if (step3.gstRegistered && step3.gstImage instanceof File) {
-          gstUpload = await handleUpload(step3.gstImage, "appzeto/restaurant/gst");
-        }
-
         let fssaiUpload = step3.fssaiImage;
-        if (step3.fssaiImage instanceof File) {
-          fssaiUpload = await handleUpload(step3.fssaiImage, "appzeto/restaurant/fssai");
+
+        if (!(isProspect && step5.businessModel === "Subscription Base")) {
+          // Perform actual uploads if not a deferred prospect
+          for (const file of step2.menuImages) {
+            if (file instanceof File) {
+              const uploaded = await handleUpload(file, "appzeto/restaurant/menu");
+              menuUploads.push(uploaded);
+            } else if (file?.url || (typeof file === 'string' && file.startsWith('http'))) {
+              menuUploads.push(file?.url ? file : { url: file });
+            }
+          }
+
+          if (step2.profileImage instanceof File) {
+            profileUpload = await handleUpload(step2.profileImage, "appzeto/restaurant/profile");
+          }
+
+          if (step3.panImage instanceof File) {
+            panUpload = await handleUpload(step3.panImage, "appzeto/restaurant/pan");
+          }
+
+          if (step3.gstRegistered && step3.gstImage instanceof File) {
+            gstUpload = await handleUpload(step3.gstImage, "appzeto/restaurant/gst");
+          }
+
+          if (step3.fssaiImage instanceof File) {
+            fssaiUpload = await handleUpload(step3.fssaiImage, "appzeto/restaurant/fssai");
+          }
+        } else {
+          // For deferred prospects, we just use the current state (which contains File objects or placeholder names)
+          menuUploads = step2.menuImages;
+          // Note: profileUpload, panUpload etc. are already assigned above
         }
 
         // 3. Final submission with ALL onboarding data
@@ -1626,6 +1642,10 @@ export default function RestaurantOnboarding() {
 
         // If Subscription based, we DON'T save to DB yet.
         if (step5.businessModel === "Subscription Base") {
+          // Include registration data for prospects to allow "late registration"
+          if (isProspect && pendingData) {
+            finalPayload.pendingRegistrationData = pendingData;
+          }
           localStorage.setItem("pending_subscription_onboarding", JSON.stringify(finalPayload));
         } else {
           // Ensure model is set correctly
@@ -1635,7 +1655,7 @@ export default function RestaurantOnboarding() {
         }
 
         // 4. Cleanup for Prospects
-        if (isProspect) {
+        if (isProspect && step5.businessModel === "Commission Base") {
           localStorage.removeItem("pendingRestaurantRegistration");
           setIsProspect(false);
           setPendingData(null);
@@ -1657,6 +1677,15 @@ export default function RestaurantOnboarding() {
         }, 800);
       }
     } catch (err) {
+      if (err?.response?.status === 403 && 
+          (err?.response?.data?.message?.includes("already completed") || 
+           err?.response?.data?.error?.includes("already completed"))) {
+        // If it's already completed, treat as success and move to hub
+        toast.success("Registration Successful!");
+        clearOnboardingFromLocalStorage();
+        navigate("/restaurant/to-hub", { replace: true });
+        return;
+      }
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||

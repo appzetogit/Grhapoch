@@ -28,7 +28,7 @@ router.delete('/cancel', authenticate, cancelSubscription);
 // Get subscription status
 router.get('/status', authenticate, getSubscriptionStatus);
 
-// Get active subscription plans
-router.get('/plans', authenticate, getActiveSubscriptionPlans);
+// Get active subscription plans (Publicly available)
+router.get('/plans', getActiveSubscriptionPlans);
 
 export default router;

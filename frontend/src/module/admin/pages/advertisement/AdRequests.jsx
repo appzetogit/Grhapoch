@@ -26,6 +26,7 @@ const mapRow = (ad) => ({
   duration: `${formatDate(ad.startDate)} - ${formatDate(ad.endDate || ad.validityDate)}`,
   status: String(ad.effectiveStatus || ad.status || "pending").toLowerCase(),
   description: ad.description || "",
+  rejectionReason: ad.rejectionReason || "",
 })
 
 const parseTabFromSearch = (search) => {
@@ -66,6 +67,7 @@ export default function AdRequests() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [rejectTargetId, setRejectTargetId] = useState("")
   const [isRejecting, setIsRejecting] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const requestsFetchPromiseRef = useRef(null)
 
@@ -193,12 +195,17 @@ export default function AdRequests() {
   }
 
   const handleRejectRequest = async (id) => {
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please provide a reason for rejection")
+      return
+    }
     setIsRejecting(true)
     try {
-      await campaignAPI.rejectAdvertisement(id)
+      await campaignAPI.rejectAdvertisement(id, { reason: rejectionReason })
       await loadRequests()
       setIsRejectDialogOpen(false)
       setRejectTargetId("")
+      setRejectionReason("")
     } catch (error) {
       setErrorMessage(error?.response?.data?.message || "Failed to reject advertisement")
     } finally {
@@ -382,6 +389,12 @@ export default function AdRequests() {
               <div><p className="font-semibold text-slate-700">Restaurant</p><p>{selectedRequest.restaurantName}</p></div>
               <div><p className="font-semibold text-slate-700">Email</p><p>{selectedRequest.restaurantEmail}</p></div>
               <div className="col-span-2"><p className="font-semibold text-slate-700">Description</p><p>{selectedRequest.description || "-"}</p></div>
+              {selectedRequest.rejectionReason && (
+                <div className="col-span-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+                  <p className="font-semibold text-red-700 mb-1">Rejection Reason</p>
+                  <p className="text-red-600">{selectedRequest.rejectionReason}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -392,7 +405,10 @@ export default function AdRequests() {
         onOpenChange={(open) => {
           if (!isRejecting) {
             setIsRejectDialogOpen(open)
-            if (!open) setRejectTargetId("")
+            if (!open) {
+              setRejectTargetId("")
+              setRejectionReason("")
+            }
           }
         }}
       >
@@ -401,7 +417,17 @@ export default function AdRequests() {
             <DialogTitle>Reject Advertisement Request</DialogTitle>
           </DialogHeader>
           <div className="px-6 pb-6">
-            <p className="text-sm text-slate-600">Reject this advertisement request?</p>
+            <p className="text-sm text-slate-600 mb-4">Are you sure you want to reject this advertisement request? Please provide a reason below.</p>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700">Rejection Reason</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Image quality is low, Invalid content, etc."
+                className="w-full min-h-[100px] px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                disabled={isRejecting}
+              />
+            </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -409,6 +435,7 @@ export default function AdRequests() {
                   if (isRejecting) return
                   setIsRejectDialogOpen(false)
                   setRejectTargetId("")
+                  setRejectionReason("")
                 }}
                 className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 disabled={isRejecting}

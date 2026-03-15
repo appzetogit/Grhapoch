@@ -604,7 +604,7 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Initialize Firebase Admin before starting server
 await firebaseAuthService.init();

@@ -50,6 +50,51 @@ export const getWallet = asyncHandler(async (req, res) => {
       filter((t) => t.type === 'withdrawal' && t.status === 'Pending').
       reduce((sum, t) => sum + t.amount, 0);
 
+    // Reconcile COD cash collection in case orders were marked delivered outside the delivery flow
+    // (prevents cashInHand staying at 0 even after COD deliveries).
+    try {
+      const paymentTxByOrderId = new Map();
+      for (const tx of wallet.transactions || []) {
+        if (tx.type === 'payment' && tx.orderId) {
+          paymentTxByOrderId.set(tx.orderId.toString(), tx);
+        }
+      }
+
+      const codOrders = await Order.find({
+        deliveryPartnerId: delivery._id,
+        $expr: {
+          $in: [
+            { $toLower: { $ifNull: ['$payment.method', ''] } },
+            ['cash', 'cod', 'cash on delivery']
+          ]
+        },
+        $or: [
+          { status: 'delivered' },
+          { 'deliveryState.status': 'delivered' },
+          { 'deliveryState.currentPhase': 'completed' }
+        ]
+      }).select('_id pricing.total total').lean();
+
+      let missingTotal = 0;
+      for (const o of codOrders) {
+        const key = o._id.toString();
+        const tx = paymentTxByOrderId.get(key);
+        if (!tx || tx.paymentCollected) continue;
+        const orderTotal = Number(o.pricing?.total ?? o.total ?? 0);
+        if (orderTotal > 0) {
+          tx.paymentCollected = true;
+          missingTotal += orderTotal;
+        }
+      }
+
+      if (missingTotal > 0) {
+        wallet.cashInHand = (Number(wallet.cashInHand) || 0) + missingTotal;
+        await wallet.save();
+      }
+    } catch (reconcileError) {
+      logger.warn(`Failed to reconcile COD cash in hand: ${reconcileError?.message || reconcileError}`);
+    }
+
     // Global cash limit and withdrawal limit (same for all delivery partners)
     let totalCashLimit = 0;
     let withdrawalLimit = 100;

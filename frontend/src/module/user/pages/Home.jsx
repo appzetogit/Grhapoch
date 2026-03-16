@@ -36,7 +36,7 @@ import { useLocation } from "../hooks/useLocation";
 import { useZone } from "../hooks/useZone";
 
 import offerImage from "@/assets/offerimage.png";
-import api, { restaurantAPI, campaignAPI, userAdvertisementAPI } from "@/lib/api";
+import api, { restaurantAPI, campaignAPI, userAdvertisementAPI, analyticsAPI } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api/config";
 import OptimizedImage from "@/components/OptimizedImage";
 // Explore More Icons
@@ -47,16 +47,7 @@ import exploreCollection from "@/assets/explore more icons/collection.png";
 
 // Banner images for hero carousel - will be fetched from API
 
-// Animated placeholder for search - moved outside component to prevent recreation
-const placeholders = [
-  "Search \"burger\"",
-  "Search \"biryani\"",
-  "Search \"pizza\"",
-  "Search \"desserts\"",
-  "Search \"chinese\"",
-  "Search \"thali\"",
-  "Search \"momos\"",
-  "Search \"dosa\""];
+// Banner images for hero carousel - will be fetched from API
 
 
 // Restaurant Image Carousel Component
@@ -623,6 +614,16 @@ export default function Home() {
   const userPoints = 99;
 
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [activePlaceholders, setActivePlaceholders] = useState([
+    "Search \"burger\"",
+    "Search \"biryani\"",
+    "Search \"pizza\"",
+    "Search \"desserts\"",
+    "Search \"chinese\"",
+    "Search \"thali\"",
+    "Search \"momos\"",
+    "Search \"dosa\""
+  ]);
 
   // Simple filter toggle function
   const toggleFilter = (filterId) => {
@@ -730,6 +731,11 @@ export default function Home() {
         params.topRated = 'true';
       } else if (filters.activeFilters?.has('trusted')) {
         params.trusted = 'true';
+      }
+      
+      // Veg Mode
+      if (vegMode) {
+        params.isVeg = 'true';
       }
 
       // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
@@ -892,7 +898,7 @@ export default function Home() {
       setLoadingRestaurants(false);
 
     }
-  }, [zoneId]);
+  }, [zoneId, vegMode]);
 
   // Fetch restaurants when appliedFilters change
   useEffect(() => {
@@ -1123,14 +1129,16 @@ export default function Home() {
   // Removed GSAP animations - using CSS and ScrollReveal components instead for better performance
   // Auto-scroll removed - manual scroll only
 
-  // Animated placeholder cycling - same as RestaurantDetails highlight offer animation
+  // Animated placeholder cycling - dynamic based on trending searches
   useEffect(() => {
+    if (activePlaceholders.length === 0) return;
+
     const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
-    }, 2000); // Change placeholder every 2 seconds (same as RestaurantDetails)
+      setPlaceholderIndex((prev) => (prev + 1) % activePlaceholders.length);
+    }, 2000); // Change placeholder every 2 seconds
 
     return () => clearInterval(interval);
-  }, []); // placeholders is a constant, no need for dependency
+  }, [activePlaceholders.length]);
 
   // Lightweight ScrollReveal replacement - CSS only, no IntersectionObserver
   const ScrollRevealSimple = ({ children, delay = 0, className = "" }) =>
@@ -1301,7 +1309,7 @@ export default function Home() {
                           exit={{ y: -16, opacity: 0 }}
                           transition={{ duration: 0.3 }}
                           className="text-sm sm:text-base lg:text-lg font-semibold text-gray-400 dark:text-gray-500 inline-block pointer-events-none">
-                          {placeholders[placeholderIndex]}
+                          {activePlaceholders[placeholderIndex]}
                         </motion.span>
                       </AnimatePresence>
                     </div>

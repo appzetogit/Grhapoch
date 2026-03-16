@@ -1928,3 +1928,19 @@ export const heroBannerAPI = {
   },
 };
 
+// Export analytics API helper functions
+export const analyticsAPI = {
+  // Get trending searches
+  getTrendingSearches: () => {
+    return apiClient.get('/analytics/trending-searches');
+  },
+};
+
+// Export public category API
+export const categoryAPI = {
+  // Get all active categories for public use
+  getPublicCategories: () => {
+    return apiClient.get('/categories/public');
+  }
+};
+

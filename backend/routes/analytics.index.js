@@ -1,8 +1,8 @@
 import express from 'express';
+import { getTrendingSearches } from '../controllers/analyticsController.js';
 
 const router = express.Router();
-router.get('/', (req, res) => {
-  res.status(501).json({ message: 'Analytics module not implemented yet' });
-});
+
+router.get('/trending-searches', getTrendingSearches);
 
 export default router;

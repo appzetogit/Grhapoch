@@ -107,6 +107,7 @@ export const getRestaurants = async (req, res) => {
       maxDistance,
       maxPrice,
       hasOffers,
+      isVeg,
       zoneId // User's zone ID (optional - if provided, filters by zone)
     } = req.query;
 
@@ -166,6 +167,12 @@ export const getRestaurants = async (req, res) => {
         { offer: { $exists: true, $ne: null, $ne: '' } },
         { featuredPrice: { $exists: true } }
       );
+    }
+
+    // Veg Mode filter
+    if (isVeg === 'true') {
+      query.$or = query.$or || [];
+      query.$or.push({ isVeg: true }, { isPureVeg: true });
     }
 
     // Build sort object

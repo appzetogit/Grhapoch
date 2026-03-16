@@ -238,6 +238,10 @@ import {
   approveBankDeposit,
   rejectBankDeposit
 } from '../controllers/deliveryBankDepositController.js';
+import {
+  listNotificationTemplates,
+  upsertNotificationTemplates
+} from '../controllers/notificationTemplateController.js';
 
 const router = express.Router();
 
@@ -359,6 +363,10 @@ router.patch('/earning-addon-history/:id/cancel', cancelEarningAddonHistory);
 // Environment Variables Management
 router.get('/env-variables', getEnvVariables);
 router.post('/env-variables', saveEnvVariables);
+
+// Notification Templates Management
+router.get('/notification-templates', listNotificationTemplates);
+router.put('/notification-templates', upsertNotificationTemplates);
 
 // Delivery Boy Commission Management
 router.get('/delivery-boy-commission', getCommissionRules);

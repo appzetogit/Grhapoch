@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cloud, Settings, Info } from "lucide-react";
+import { adminAPI } from "@/lib/api";
 
 const languageTabs = [
 { key: "default", label: "Default" },
@@ -9,98 +10,125 @@ const languageTabs = [
 { key: "es", label: "Spanish - español(ES)" }];
 
 
-const notificationMessages = [
-{
-  id: 1,
-  key: "orderPending",
-  label: "Order pending message",
-  defaultText: "Your order {orderId} is pending",
-  enabled: true
-},
-{
-  id: 2,
-  key: "orderConfirmation",
-  label: "Order confirmation message",
-  defaultText: "Your order {orderId} has been confirmed",
-  enabled: true
-},
-{
-  id: 3,
-  key: "orderProcessing",
-  label: "Order processing message",
-  defaultText: "Your order {orderId} is being processed",
-  enabled: true
-},
-{
-  id: 4,
-  key: "restaurantHandover",
-  label: "Restaurant handover message",
-  defaultText: "Your order {orderId} has been handed over to restaurant {restaurantName}",
-  enabled: true
-},
-{
-  id: 5,
-  key: "orderOutForDelivery",
-  label: "Order out for delivery message",
-  defaultText: "Your order {orderId} is out for delivery",
-  enabled: true
-},
-{
-  id: 6,
-  key: "orderDelivered",
-  label: "Order delivered message",
-  defaultText: "Your order {orderId} has been delivered",
-  enabled: true
-},
-{
-  id: 7,
-  key: "deliverymanAssign",
-  label: "Deliveryman assign message",
-  defaultText: "Deliveryman {userName} has been assigned to your order {orderId}",
-  enabled: true
-},
-{
-  id: 8,
-  key: "deliverymanDelivered",
-  label: "Deliveryman delivered message",
-  defaultText: "Deliveryman {userName} has delivered your order {orderId}",
-  enabled: true
-},
-{
-  id: 9,
-  key: "orderCanceled",
-  label: "Order canceled message",
-  defaultText: "Your order {orderId} has been canceled",
-  enabled: true
-},
-{
-  id: 10,
-  key: "orderRefunded",
-  label: "Order refunded message",
-  defaultText: "Your order {orderId} has been refunded",
-  enabled: true
-},
-{
-  id: 11,
-  key: "orderRefundCancel",
-  label: "Order Refund cancel message",
-  defaultText: "Refund for order {orderId} has been canceled",
-  enabled: true
-},
-{
-  id: 12,
-  key: "offlineOrderDeny",
-  label: "Offline order deny message",
-  defaultText: "Ex : Your offline payment is denied",
-  enabled: false
-},
-{
-  id: 13,
-  key: "offlineOrderAccept",
-  label: "Offline order accept message",
-  defaultText: "Ex : Your offline payment is accepted",
-  enabled: false
-}];
+const defaultTemplates = [
+  {
+    key: "user.order_confirmed",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Confirmed",
+    title: "✅ Order Confirmed",
+    body: "Your order #{orderId} has been confirmed and is being sent to the kitchen.",
+    enabled: true
+  },
+  {
+    key: "user.order_preparing",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Preparing",
+    title: "👨‍🍳 Preparing your food",
+    body: "The restaurant has started preparing your delicious meal for order #{orderId}.",
+    enabled: true
+  },
+  {
+    key: "user.order_ready",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Ready",
+    title: "📦 Order Ready",
+    body: "Your order #{orderId} is ready and waiting for a delivery partner.",
+    enabled: true
+  },
+  {
+    key: "user.order_picked_up",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Picked Up",
+    title: "🛵 Food is on the way!",
+    body: "Your order #{orderId} has been picked up and is heading your way.",
+    enabled: true
+  },
+  {
+    key: "user.order_at_delivery",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Arrived",
+    title: "📍 Arrived!",
+    body: "The delivery partner has reached your location with order #{orderId}.",
+    enabled: true
+  },
+  {
+    key: "user.order_delivered",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Delivered",
+    title: "🎉 Enjoy your meal!",
+    body: "Your order #{orderId} has been delivered. Don't forget to rate your experience!",
+    enabled: true
+  },
+  {
+    key: "user.order_cancelled",
+    audience: "user",
+    channel: "push",
+    label: "User: Order Cancelled",
+    title: "❌ Order Cancelled",
+    body: "Your order #{orderId} has been cancelled.",
+    enabled: true
+  },
+  {
+    key: "restaurant.order_new",
+    audience: "restaurant",
+    channel: "push",
+    label: "Restaurant: New Order",
+    title: "🛍️ New Order Received!",
+    body: "You have a new order #{orderId}. Open the app to accept it.",
+    enabled: true
+  },
+  {
+    key: "restaurant.order_delivered",
+    audience: "restaurant",
+    channel: "push",
+    label: "Restaurant: Order Delivered",
+    title: "🎉 Order Delivered",
+    body: "Order #{orderId} has been successfully delivered to the customer.",
+    enabled: true
+  },
+  {
+    key: "restaurant.order_cancelled",
+    audience: "restaurant",
+    channel: "push",
+    label: "Restaurant: Order Cancelled",
+    title: "❌ Order Cancelled",
+    body: "Order #{orderId} has been cancelled by the customer. Reason: {reason}",
+    enabled: true
+  },
+  {
+    key: "delivery.order_assigned",
+    audience: "delivery",
+    channel: "push",
+    label: "Delivery: Order Assigned",
+    title: "🛍️ New Order Assigned!",
+    body: "Order #{orderId} is assigned to you. Head to {restaurantName} for pickup.",
+    enabled: true
+  },
+  {
+    key: "delivery.order_available",
+    audience: "delivery",
+    channel: "push",
+    label: "Delivery: Order Available",
+    title: "🔔 New Delivery Opportunity",
+    body: "Order #{orderId} is available for pickup at {restaurantName}. First come first serve!",
+    enabled: true
+  },
+  {
+    key: "delivery.order_ready",
+    audience: "delivery",
+    channel: "push",
+    label: "Delivery: Order Ready",
+    title: "📦 Order Ready for Pickup",
+    body: "Order #{orderId} is ready at {restaurantName}. Please head there for pickup.",
+    enabled: true
+  }
+];
 
 
 function ToggleSwitch({ enabled, onToggle }) {
@@ -122,7 +150,9 @@ function ToggleSwitch({ enabled, onToggle }) {
 export default function FirebaseNotification() {
   const [activeTab, setActiveTab] = useState("push-notification");
   const [activeLanguage, setActiveLanguage] = useState("bn");
-  const [messages, setMessages] = useState(notificationMessages);
+  const [messages, setMessages] = useState(() => defaultTemplates);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [firebaseConfig, setFirebaseConfig] = useState({
     serviceFileContent: "",
     apiKey: "AIzaSyC_TqpDR7LNHxFEPd8cGjl_ka_Rj0ebECA",
@@ -134,15 +164,89 @@ export default function FirebaseNotification() {
     measurementId: "G-7JJV7JYVRX"
   });
 
-  const handleMessageToggle = (id) => {
+  const defaultTemplateMap = new Map(defaultTemplates.map((template) => [template.key, template]));
+  const templateOrder = new Map(defaultTemplates.map((template, index) => [template.key, index]));
+  const formatLabel = (key = "") =>
+    key.replace(/\./g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const buildFallbackTemplates = () =>
+    defaultTemplates.map((template) => ({
+      ...template,
+      language: activeLanguage,
+      channel: "push"
+    }));
+
+  const normalizeTemplates = (templates = []) => {
+    if (!Array.isArray(templates) || templates.length === 0) {
+      return buildFallbackTemplates();
+    }
+
+    const normalized = templates.map((template) => {
+      const fallback = defaultTemplateMap.get(template.key);
+      return {
+        ...fallback,
+        ...template,
+        label: template.label || fallback?.label || formatLabel(template.key),
+        title: template.title ?? fallback?.title ?? "",
+        body: template.body ?? fallback?.body ?? "",
+        enabled: template.enabled !== false,
+        language: template.language || activeLanguage,
+        channel: template.channel || "push"
+      };
+    });
+
+    normalized.sort((a, b) => (templateOrder.get(a.key) ?? 9999) - (templateOrder.get(b.key) ?? 9999));
+    return normalized;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTemplates = async () => {
+      setIsLoading(true);
+      try {
+        const response = await adminAPI.getNotificationTemplates({
+          channel: "push",
+          language: activeLanguage
+        });
+        const templates = response?.data?.data?.templates || response?.data?.templates || [];
+        if (mounted) {
+          setMessages(normalizeTemplates(templates));
+        }
+      } catch (error) {
+        console.error("Failed to load notification templates:", error);
+        if (mounted) {
+          setMessages(buildFallbackTemplates());
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadTemplates();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeLanguage]);
+
+  const handleMessageToggle = (key) => {
     setMessages((prev) => prev.map((msg) =>
-    msg.id === id ? { ...msg, enabled: !msg.enabled } : msg
+      msg.key === key ? { ...msg, enabled: !msg.enabled } : msg
     ));
   };
 
-  const handleMessageChange = (id, value) => {
+  const handleMessageChange = (key, value) => {
     setMessages((prev) => prev.map((msg) =>
-    msg.id === id ? { ...msg, defaultText: value } : msg
+      msg.key === key ? { ...msg, body: value } : msg
+    ));
+  };
+
+  const handleTitleChange = (key, value) => {
+    setMessages((prev) => prev.map((msg) =>
+      msg.key === key ? { ...msg, title: value } : msg
     ));
   };
 
@@ -150,14 +254,39 @@ export default function FirebaseNotification() {
     setFirebaseConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (activeTab === "firebase-configuration") {
+      alert("Firebase configuration UI is not wired to backend yet.");
+      return;
+    }
 
-    alert("Firebase Notification settings saved successfully!");
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      const payload = messages.map((msg) => ({
+        key: msg.key,
+        audience: msg.audience,
+        channel: msg.channel || "push",
+        language: activeLanguage,
+        title: msg.title,
+        body: msg.body,
+        enabled: msg.enabled !== false
+      }));
+
+      await adminAPI.saveNotificationTemplates(payload);
+      alert("Notification templates saved successfully!");
+    } catch (error) {
+      console.error("Failed to save notification templates:", error);
+      alert("Failed to save notification templates.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
-    setMessages(notificationMessages);
+    setMessages(buildFallbackTemplates());
     setFirebaseConfig({
       serviceFileContent: "",
       apiKey: "AIzaSyC_TqpDR7LNHxFEPd8cGjl_ka_Rj0ebECA",
@@ -257,23 +386,35 @@ export default function FirebaseNotification() {
             {/* Notification Messages */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
               <div className="space-y-4">
-                {messages.map((message) =>
-              <div key={message.id} className="border-b border-slate-200 pb-4 last:border-b-0 last:pb-0">
+                {isLoading && (
+                  <p className="text-xs text-slate-500">Loading templates...</p>
+                )}
+                {!isLoading && messages.length === 0 && (
+                  <p className="text-xs text-slate-500">No templates found.</p>
+                )}
+                {!isLoading && messages.map((message) =>
+              <div key={message.key} className="border-b border-slate-200 pb-4 last:border-b-0 last:pb-0">
                     <div className="flex items-start justify-between gap-4 mb-2">
-                      <label className="text-xs font-semibold text-slate-700 flex-1">
-                        {message.label}
-                      </label>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-slate-700">{message.label || message.key}</p>
+                        <p className="text-[10px] text-slate-500">{message.key} - {message.audience}</p>
+                      </div>
                       <ToggleSwitch
                     enabled={message.enabled}
-                    onToggle={() => handleMessageToggle(message.id)} />
+                    onToggle={() => handleMessageToggle(message.key)} />
                   
                     </div>
+                    <input
+                  value={message.title || ""}
+                  onChange={(e) => handleTitleChange(message.key, e.target.value)}
+                  className="w-full mb-2 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Notification title" />
                     <textarea
-                  value={message.defaultText}
-                  onChange={(e) => handleMessageChange(message.id, e.target.value)}
+                  value={message.body || ""}
+                  onChange={(e) => handleMessageChange(message.key, e.target.value)}
                   rows={2}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder="Enter notification message" />
+                  placeholder="Notification message" />
                 
                   </div>
               )}
@@ -416,9 +557,12 @@ export default function FirebaseNotification() {
             <button
             type="button"
             onClick={handleSubmit}
-            className="px-4 py-2 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            disabled={isSaving}
+            className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+              isSaving ? "bg-blue-300 text-white cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}>
             
-              Submit
+              {isSaving ? "Saving..." : "Submit"}
             </button>
           </div>
         }
@@ -426,3 +570,8 @@ export default function FirebaseNotification() {
     </div>);
 
 }
+
+
+
+
+

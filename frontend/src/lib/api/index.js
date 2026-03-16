@@ -1459,6 +1459,15 @@ export const adminAPI = {
     return apiClient.post(API_ENDPOINTS.ADMIN.ENV_VARIABLES, envData);
   },
 
+  // Notification Templates
+  getNotificationTemplates: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.NOTIFICATION_TEMPLATES, { params });
+  },
+
+  saveNotificationTemplates: (templates = []) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.NOTIFICATION_TEMPLATES, { templates });
+  },
+
   // Public Environment Variables (for frontend use)
   getPublicEnvVariables: () => {
     return apiClient.get('/env/public');

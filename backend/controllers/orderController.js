@@ -10,6 +10,7 @@ import { getRazorpayCredentials } from '../utils/envService.js';
 import { notifyRestaurantNewOrder } from '../services/restaurantNotificationService.js';
 import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
 import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
+import { resolveNotificationTemplate } from '../services/notificationTemplateService.js';
 
 import { calculateOrderSettlement } from '../services/orderSettlementService.js';
 import { holdEscrow } from '../services/escrowWalletService.js';
@@ -1538,16 +1539,26 @@ export const cancelOrder = async (req, res) => {
       // Notify restaurant
       const restaurantId = order.restaurantId?.toString() || order.restaurantId;
       if (restaurantId) {
-        notifyRestaurantFCM(
-          restaurantId,
-          '❌ Order Cancelled',
-          `Order #${order.orderId} has been cancelled by the customer. Reason: ${order.cancellationReason || 'Not provided'}`,
-          {
+        const resolved = await resolveNotificationTemplate({
+          key: 'restaurant.order_cancelled',
+          audience: 'restaurant',
+          data: {
             orderId: order.orderId,
-            orderMongoId: order._id.toString(),
-            type: 'ORDER_CANCELLED'
+            reason: order.cancellationReason || 'Not provided'
           }
-        ).catch(e => logger.error('Restaurant cancel notify error:', e));
+        });
+        if (resolved?.enabled) {
+          notifyRestaurantFCM(
+            restaurantId,
+            resolved.title,
+            resolved.body,
+            {
+              orderId: order.orderId,
+              orderMongoId: order._id.toString(),
+              type: 'ORDER_CANCELLED'
+            }
+          ).catch(e => logger.error('Restaurant cancel notify error:', e));
+        }
       }
     } catch (notifError) {
       logger.error('Error sending cancellation notifications:', notifError);

@@ -37,6 +37,11 @@ export default function SystemAddons() {
     
     // Google Maps
     VITE_GOOGLE_MAPS_API_KEY: "",
+    
+    // PRP SMS
+    PRPSMS_API_KEY: "",
+    PRPSMS_SENDER_ID: "",
+    PRPSMS_OTP_TEMPLATE: "",
   })
 
   // Load environment variables on component mount
@@ -250,6 +255,23 @@ export default function SystemAddons() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
               <InputField label="Google Maps API Key" fieldKey="VITE_GOOGLE_MAPS_API_KEY" />
+            </div>
+          </div>
+
+          {/* PRP SMS Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Settings className="w-4 h-4 text-blue-600" />
+              </div>
+              PRP SMS Configuration
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InputField label="PRP SMS API Key" fieldKey="PRPSMS_API_KEY" />
+              <InputField label="PRP SMS Sender ID" fieldKey="PRPSMS_SENDER_ID" />
+              <div className="md:col-span-2">
+                <InputField label="PRP SMS OTP Template" fieldKey="PRPSMS_OTP_TEMPLATE" />
+              </div>
             </div>
           </div>
         </div>

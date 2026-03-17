@@ -151,3 +151,15 @@ export async function getSMTPCredentials() {
 export async function getGoogleMapsApiKey() {
   return await getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
 }
+
+/**
+ * Get PRP SMS Credentials
+ * @returns {Promise<Object>} { apiKey, senderId, templateName }
+ */
+export async function getPRPSMSCredentials() {
+  return {
+    apiKey: await getEnvVar('PRPSMS_API_KEY'),
+    senderId: await getEnvVar('PRPSMS_SENDER_ID'),
+    templateName: await getEnvVar('PRPSMS_OTP_TEMPLATE')
+  };
+}

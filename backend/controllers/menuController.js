@@ -37,9 +37,10 @@ const updateRestaurantVegStatus = async (restaurantId, sections) => {
       if (items.length > 0) hasItems = true;
 
       items.forEach((item) => {
-        if (item.foodType === 'Non-Veg') {
+        const foodType = String(item.foodType || '').trim().toLowerCase();
+        if (foodType === 'non-veg') {
           hasNonVeg = true;
-        } else if (item.foodType === 'Veg') {
+        } else if (foodType === 'veg') {
           hasVeg = true;
         }
       });

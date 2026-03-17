@@ -30,13 +30,13 @@ class PRPSMSService {
   }
 
   async sendOTP(phone, otp, purpose = "login") {
-    const apiKey = process.env.PRPSMS_API_KEY?.trim();
-    const senderId = process.env.PRPSMS_SENDER_ID?.trim();
-    const templateName = process.env.PRPSMS_OTP_TEMPLATE?.trim();
+    // Dynamic import to avoid potential circular dependency with EnvironmentVariable model
+    const { getPRPSMSCredentials } = await import('../utils/envService.js');
+    const { apiKey, senderId, templateName } = await getPRPSMSCredentials();
 
     if (!apiKey || !senderId || !templateName) {
       throw new Error(
-        "PRP SMS not configured. Please set PRPSMS_API_KEY, PRPSMS_SENDER_ID, PRPSMS_OTP_TEMPLATE."
+        "PRP SMS not configured. Please set PRPSMS_API_KEY, PRPSMS_SENDER_ID, PRPSMS_OTP_TEMPLATE in Admin Panel or .env"
       );
     }
 

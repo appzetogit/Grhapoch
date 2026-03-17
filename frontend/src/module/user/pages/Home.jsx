@@ -1311,8 +1311,6 @@ return (
                       </motion.span>
                     </AnimatePresence>
                   </div>
-                  {/* Voice Search Icon */}
-                  <Mic className="h-4 w-4 sm:h-5 lg:h-6 text-gray-400 mr-2 sm:mr-3 lg:mr-4 cursor-pointer hover:text-green-600 transition-colors" />
                 </div>
               </div>
             </motion.div>

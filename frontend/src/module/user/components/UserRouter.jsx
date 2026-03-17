@@ -58,7 +58,7 @@ import EditPayment from "../pages/profile/EditPayment"
 import Favorites from "../pages/profile/Favorites"
 import Settings from "../pages/profile/Settings"
 import Coupons from "../pages/profile/Coupons"
-import RedeemGoldCoupon from "../pages/profile/RedeemGoldCoupon"
+
 import About from "../pages/profile/About"
 import Terms from "../pages/profile/Terms"
 import Privacy from "../pages/profile/Privacy"
@@ -287,14 +287,7 @@ export default function UserRouter() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/profile/redeem-gold-coupon"
-          element={
-            <ProtectedRoute requiredRole="user" loginPath="/user/auth/sign-in">
-              <RedeemGoldCoupon />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/profile/about"
           element={

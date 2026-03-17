@@ -1,5 +1,6 @@
 import { notifyUserFCM } from './fcmNotificationService.js';
 import Order from '../models/Order.js';
+import { resolveNotificationTemplate } from './notificationTemplateService.js';
 
 let getIO = null;
 
@@ -11,41 +12,14 @@ async function getIOInstance() {
   return getIO ? getIO() : null;
 }
 
-/**
- * Get notification text based on status
- */
-const getStatusNotification = (status, orderId) => {
-  const statusMap = {
-    'confirmed': {
-      title: '✅ Order Confirmed',
-      body: `Your order #${orderId} has been confirmed and is being sent to the kitchen.`
-    },
-    'preparing': {
-      title: '👨‍🍳 Preparing your food',
-      body: `The restaurant has started preparing your delicious meal for order #${orderId}.`
-    },
-    'ready': {
-      title: '📦 Order Ready',
-      body: `Your order #${orderId} is ready and waiting for a delivery partner.`
-    },
-    'picked_up': {
-      title: '🛵 Food is on the way!',
-      body: `Your order #${orderId} has been picked up and is heading your way.`
-    },
-    'at_delivery': {
-      title: '📍 Arrived!',
-      body: `The delivery partner has reached your location with order #${orderId}.`
-    },
-    'delivered': {
-      title: '🎉 Enjoy your meal!',
-      body: `Your order #${orderId} has been delivered. Don't forget to rate your experience!`
-    },
-    'cancelled': {
-      title: '❌ Order Cancelled',
-      body: `Your order #${orderId} has been cancelled.`
-    }
-  };
-  return statusMap[status] || { title: 'Order Update', body: `Your order #${orderId} status is now ${status}.` };
+const STATUS_TEMPLATE_KEYS = {
+  confirmed: 'user.order_confirmed',
+  preparing: 'user.order_preparing',
+  ready: 'user.order_ready',
+  picked_up: 'user.order_picked_up',
+  at_delivery: 'user.order_at_delivery',
+  delivered: 'user.order_delivered',
+  cancelled: 'user.order_cancelled'
 };
 
 export async function notifyUserOrderUpdate(orderId, status) {
@@ -67,13 +41,23 @@ export async function notifyUserOrderUpdate(orderId, status) {
     }
 
     // FCM notifications
-    const { title, body } = getStatusNotification(status, order.orderId);
-    await notifyUserFCM(order.userId, title, body, {
-      orderId: order.orderId,
-      orderMongoId: order._id.toString(),
-      status
+    const templateKey = STATUS_TEMPLATE_KEYS[status] || 'user.order_update';
+    const resolved = await resolveNotificationTemplate({
+      key: templateKey,
+      audience: 'user',
+      data: {
+        orderId: order.orderId,
+        status
+      }
     });
 
+    if (resolved?.enabled) {
+      await notifyUserFCM(order.userId, resolved.title, resolved.body, {
+        orderId: order.orderId,
+        orderMongoId: order._id.toString(),
+        status
+      });
+    }
   } catch (error) {
     console.error('Error notifying user about order update:', error);
   }

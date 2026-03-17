@@ -23,6 +23,11 @@ const logger = winston.createLogger({
  */
 export const sendOTP = asyncHandler(async (req, res) => {
   const { phone, email, purpose = 'login' } = req.body;
+  console.info('[OTP] sendOTP called', {
+    hasPhone: Boolean(phone),
+    hasEmail: Boolean(email),
+    purpose
+  });
 
   // Validate that either phone or email is provided
   if (!phone && !email) {

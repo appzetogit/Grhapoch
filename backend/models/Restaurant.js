@@ -140,6 +140,14 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isVeg: {
+      type: Boolean,
+      default: false,
+    },
+    isPureVeg: {
+      type: Boolean,
+      default: false,
+    },
     distance: {
       type: String,
       default: "",

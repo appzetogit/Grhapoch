@@ -415,35 +415,45 @@ export default function PocketPage() {
     filter((t) => t.type === 'tip' && t.status === 'Completed').
     reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
 
-  // Payout data - calculate from completed withdrawals in previous week
+  // Payout data - show total withdrawn amount (all time or current week withdrawals)
   const calculatePayoutAmount = () => {
     const now = new Date();
-    const lastWeekStart = new Date(now);
-    lastWeekStart.setDate(now.getDate() - now.getDay() - 7); // Previous week start
-    lastWeekStart.setHours(0, 0, 0, 0);
-    const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-    lastWeekEnd.setHours(23, 59, 59, 999);
+    // Current week range
+    const currentWeekStart = new Date(now);
+    currentWeekStart.setDate(now.getDate() - now.getDay()); // Sunday
+    currentWeekStart.setHours(0, 0, 0, 0);
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+    currentWeekEnd.setHours(23, 59, 59, 999);
 
-    return walletState.transactions?.
+    // Try to get current week withdrawals from transactions
+    const currentWeekWithdrawals = walletState.transactions?.
       filter((t) => {
-        if (t.type !== 'withdrawal' || t.status !== 'Completed') return false;
+        if (t.status !== 'Completed') return false;
+        if (!['withdrawal', 'withdraw', 'payout'].includes((t.type || '').toLowerCase())) return false;
         const transactionDate = t.date ? new Date(t.date) : t.createdAt ? new Date(t.createdAt) : null;
         if (!transactionDate) return false;
-        return transactionDate >= lastWeekStart && transactionDate <= lastWeekEnd;
+        return transactionDate >= currentWeekStart && transactionDate <= currentWeekEnd;
       }).
       reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+
+    // Fallback: if transactions are empty but totalWithdrawn exists, use that
+    if (currentWeekWithdrawals === 0 && totalWithdrawn > 0) {
+      return totalWithdrawn;
+    }
+
+    return currentWeekWithdrawals;
   };
 
   const payoutAmount = calculatePayoutAmount();
 
-  // Payout period - previous week
+  // Payout period - current week
   const getPayoutPeriod = () => {
     const now = new Date();
-    const lastWeekStart = new Date(now);
-    lastWeekStart.setDate(now.getDate() - now.getDay() - 7);
-    const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+    const currentWeekStart = new Date(now);
+    currentWeekStart.setDate(now.getDate() - now.getDay()); // Sunday
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
 
     const formatDate = (date) => {
       const day = date.getDate();
@@ -451,7 +461,7 @@ export default function PocketPage() {
       return `${day} ${month}`;
     };
 
-    return `${formatDate(lastWeekStart)} - ${formatDate(lastWeekEnd)}`;
+    return `${formatDate(currentWeekStart)} - ${formatDate(currentWeekEnd)}`;
   };
 
   const payoutPeriod = getPayoutPeriod();

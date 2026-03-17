@@ -21,6 +21,50 @@ const countDishes = (menu) => {
   return count;
 };
 
+// Helper function to update restaurant veg/pure-veg status based on menu
+const updateRestaurantVegStatus = async (restaurantId, sections) => {
+  try {
+    let hasItems = false;
+    let hasNonVeg = false;
+    let hasVeg = false;
+
+    sections.forEach((section) => {
+      const items = [
+        ...(section.items || []),
+        ...(section.subsections || []).flatMap((sub) => sub.items || [])
+      ];
+
+      if (items.length > 0) hasItems = true;
+
+      items.forEach((item) => {
+        if (item.foodType === 'Non-Veg') {
+          hasNonVeg = true;
+        } else if (item.foodType === 'Veg') {
+          hasVeg = true;
+        }
+      });
+    });
+
+    if (!hasItems) return;
+
+    // Logic: 
+    // isPureVeg = Only Veg items (no Non-Veg)
+    // isVeg = Serves Veg items (can have Non-Veg too, but for "Veg Mode" filter we might want this to be true if they have many veg options)
+    // However, based on user request "if there is no non-veg, it should come in veg", 
+    // we will set isVeg = true if there are no non-veg items.
+    
+    const isPureVeg = hasVeg && !hasNonVeg;
+    const isVeg = hasVeg; // If it has at least one veg item, mark it as serves veg
+
+    await Restaurant.findByIdAndUpdate(restaurantId, {
+      isPureVeg,
+      isVeg
+    });
+  } catch (error) {
+    console.error('Error updating restaurant veg status:', error);
+  }
+};
+
 
 
 // Get menu for a restaurant
@@ -122,7 +166,7 @@ export const updateMenu = asyncHandler(async (req, res) => {
           stock: item.stock || "Unlimited",
           discount: item.discount || null,
           originalPrice: item.originalPrice || null,
-          foodType: item.foodType || "Non-Veg",
+          foodType: item.foodType || "Veg",
           availabilityTimeStart: item.availabilityTimeStart || "12:01 AM",
           availabilityTimeEnd: item.availabilityTimeEnd || "11:57 PM",
           description: item.description || "",
@@ -211,7 +255,7 @@ export const updateMenu = asyncHandler(async (req, res) => {
               stock: item.stock || "Unlimited",
               discount: item.discount || null,
               originalPrice: item.originalPrice || null,
-              foodType: item.foodType || "Non-Veg",
+              foodType: item.foodType || "Veg",
               availabilityTimeStart: item.availabilityTimeStart || "12:01 AM",
               availabilityTimeEnd: item.availabilityTimeEnd || "11:57 PM",
               description: item.description || "",
@@ -301,6 +345,7 @@ export const updateMenu = asyncHandler(async (req, res) => {
 
 
   await menu.save();
+  await updateRestaurantVegStatus(restaurantId, normalizedSections);
 
 
   // Debug: Verify what was saved - reload from database
@@ -425,7 +470,7 @@ export const addItemToSection = asyncHandler(async (req, res) => {
     stock: item.stock || "Unlimited",
     discount: item.discount || null,
     originalPrice: item.originalPrice || null,
-    foodType: item.foodType || "Non-Veg",
+    foodType: item.foodType || "Veg",
     availabilityTimeStart: item.availabilityTimeStart || "12:01 AM",
     availabilityTimeEnd: item.availabilityTimeEnd || "11:57 PM",
     description: item.description || "",
@@ -460,6 +505,7 @@ export const addItemToSection = asyncHandler(async (req, res) => {
 
   section.items.push(newItem);
   await menu.save();
+  await updateRestaurantVegStatus(restaurantId, menu.sections);
 
   return successResponse(res, 201, 'Item added successfully', {
     item: newItem,
@@ -572,7 +618,7 @@ export const addItemToSubsection = asyncHandler(async (req, res) => {
     stock: item.stock || "Unlimited",
     discount: item.discount || null,
     originalPrice: item.originalPrice || null,
-    foodType: item.foodType || "Non-Veg",
+    foodType: item.foodType || "Veg",
     availabilityTimeStart: item.availabilityTimeStart || "12:01 AM",
     availabilityTimeEnd: item.availabilityTimeEnd || "11:57 PM",
     description: item.description || "",
@@ -601,6 +647,7 @@ export const addItemToSubsection = asyncHandler(async (req, res) => {
 
   subsection.items.push(newItem);
   await menu.save();
+  await updateRestaurantVegStatus(restaurantId, menu.sections);
 
   return successResponse(res, 201, 'Item added to subsection successfully', {
     item: newItem,

@@ -182,6 +182,9 @@ apiClient.interceptors.request.use(
     // Check if this is a public restaurant route (should not require authentication)
     const isPublicRestaurantRoute = normalizedRequestUrl.includes('/restaurant/list') ||
       normalizedRequestUrl.includes('/restaurant/under-250') ||
+      normalizedRequestUrl.includes('/restaurant/otp') ||
+      normalizedRequestUrl.includes('/restaurant/auth/send-otp') ||
+      normalizedRequestUrl.includes('/restaurant/auth/verify-otp') ||
       normalizedRequestUrl.startsWith('/restaurant/') &&
       !normalizedRequestUrl.includes('/restaurant/orders') &&
       !normalizedRequestUrl.includes('/restaurant/auth') &&

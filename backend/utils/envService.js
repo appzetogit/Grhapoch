@@ -145,17 +145,6 @@ export async function getSMTPCredentials() {
 }
 
 /**
- * Get SMS Hub India credentials
- * @returns {Promise<Object>} { apiKey, senderId }
- */
-export async function getSMSHubIndiaCredentials() {
-  return {
-    apiKey: await getEnvVar('SMSINDIAHUB_API_KEY'),
-    senderId: await getEnvVar('SMSINDIAHUB_SENDER_ID')
-  };
-}
-
-/**
  * Get Google Maps API Key
  * @returns {Promise<string>} Google Maps API Key
  */

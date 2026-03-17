@@ -3,37 +3,60 @@ import { useNavigate } from "react-router-dom"
 import { X, Search, Clock, Mic } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { analyticsAPI, categoryAPI } from "@/lib/api"
 
-// Import shared food images - prevents duplication
-import { foodImages } from "@/constants/images"
-
-// Recent search suggestions
-const recentSuggestions = [
-  "Biryani", "Cake", "Chhole Bhature", "Chicken Tanduri", "Donuts", "Dosa", "French Fries", "Idli"
+// Fallback search suggestions
+const fallbackSuggestions = [
+  "Biryani", "Pizza", "Burger", "Chicken", "Thali", "Dosa", "Sandwich", "Cake"
 ]
 
-// Categories matching the home page browse section - only unique categories
-const categories = [
-  { id: 1, name: "Biryani", image: foodImages[0] },
-  { id: 2, name: "Cake", image: foodImages[1] },
-  { id: 3, name: "Chhole Bhature", image: foodImages[2] },
-  { id: 4, name: "Chicken Tanduri", image: foodImages[3] },
-  { id: 5, name: "Donuts", image: foodImages[4] },
-  { id: 6, name: "Dosa", image: foodImages[5] },
-  { id: 7, name: "French Fries", image: foodImages[6] },
-  { id: 8, name: "Idli", image: foodImages[7] },
-  { id: 9, name: "Momos", image: foodImages[8] },
-  { id: 10, name: "Samosa", image: foodImages[9] },
-  { id: 11, name: "Starters", image: foodImages[10] },
-]
-
-// Use only unique categories (no duplicates)
-const allFoodsWithWhiteBg = categories
+const API_CATEGORY_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop";
 
 export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchChange }) {
   const navigate = useNavigate()
   const inputRef = useRef(null)
-  const [filteredFoods, setFilteredFoods] = useState(allFoodsWithWhiteBg)
+  const [categories, setCategories] = useState([])
+  const [filteredFoods, setFilteredFoods] = useState([])
+  const [trendingSearches, setTrendingSearches] = useState(fallbackSuggestions)
+  const [recentSearches, setRecentSearches] = useState(() => {
+    const saved = localStorage.getItem("user_recent_searches")
+    return saved ? JSON.parse(saved) : []
+  })
+  const [loading, setLoading] = useState(false)
+
+  // Fetch Categories & Trending on Mount (when open)
+  useEffect(() => {
+    if (isOpen) {
+      const fetchData = async () => {
+        setLoading(true)
+        try {
+          const [trendingRes, categoriesRes] = await Promise.allSettled([
+            analyticsAPI.getTrendingSearches(),
+            categoryAPI.getPublicCategories()
+          ])
+
+          if (trendingRes.status === 'fulfilled' && trendingRes.value.data.success) {
+            setTrendingSearches(trendingRes.value.data.data.trending || fallbackSuggestions)
+          }
+
+          if (categoriesRes.status === 'fulfilled' && categoriesRes.value.data.success) {
+            const fetched = (categoriesRes.value.data.data.categories || []).map(cat => ({
+              id: cat.id || cat._id,
+              name: cat.name,
+              image: cat.image || cat.imageUrl || API_CATEGORY_IMAGE_FALLBACK
+            }))
+            setCategories(fetched)
+            setFilteredFoods(fetched)
+          }
+        } catch (error) {
+          console.error("Error fetching SearchOverlay data:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchData()
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -61,23 +84,38 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
 
   useEffect(() => {
     if (searchValue.trim() === "") {
-      setFilteredFoods(allFoodsWithWhiteBg)
+      setFilteredFoods(categories)
     } else {
-      const filtered = allFoodsWithWhiteBg.filter((food) =>
+      const filtered = categories.filter((food) =>
         food.name.toLowerCase().includes(searchValue.toLowerCase())
       )
       setFilteredFoods(filtered)
     }
-  }, [searchValue])
+  }, [searchValue, categories])
+
+  const saveSearch = (term) => {
+    if (!term || term.trim() === "") return
+    const trimmed = term.trim()
+    setRecentSearches(prev => {
+      const filtered = prev.filter(s => s.toLowerCase() !== trimmed.toLowerCase())
+      const updated = [trimmed, ...filtered].slice(0, 8)
+      localStorage.setItem("user_recent_searches", JSON.stringify(updated))
+      return updated
+    })
+  }
 
   const handleSuggestionClick = (suggestion) => {
     onSearchChange(suggestion)
-    inputRef.current?.focus()
+    saveSearch(suggestion)
+    navigate(`/user/search?q=${encodeURIComponent(suggestion.trim())}`)
+    onClose()
+    onSearchChange("")
   }
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
     if (searchValue.trim()) {
+      saveSearch(searchValue)
       navigate(`/user/search?q=${encodeURIComponent(searchValue.trim())}`)
       onClose()
       onSearchChange("")
@@ -85,6 +123,7 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
   }
 
   const handleFoodClick = (food) => {
+    saveSearch(food.name)
     navigate(`/user/search?q=${encodeURIComponent(food.name)}`)
     onClose()
     onSearchChange("")
@@ -128,42 +167,75 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
         </div>
 
           <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 scrollbar-hide bg-white dark:bg-[#0a0a0a]">
-          {/* Suggestions Row */}
+          {/* Recent Searches Row - Only show if user has history */}
+          {recentSearches.length > 0 && searchValue.trim() === "" && (
+            <div
+              className="mb-8"
+              style={{
+                animation: 'slideDown 0.3s ease-out 0.05s both'
+              }}
+            >
+              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                <Clock className="h-4 w-4 text-orange-500" />
+                Your Recent Searches
+              </h3>
+              <div className="flex gap-2 sm:gap-3 flex-wrap">
+                {recentSearches.map((term, index) => (
+                  <button
+                    key={`recent-${term}-${index}`}
+                    onClick={() => handleSuggestionClick(term)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 transition-all duration-200 text-xs sm:text-sm font-medium"
+                  >
+                    <Clock className="h-3.5 w-3.5 text-gray-400" />
+                    <span>{term}</span>
+                  </button>
+                ))}
+                <button 
+                  onClick={() => {
+                    setRecentSearches([])
+                    localStorage.removeItem("user_recent_searches")
+                  }}
+                  className="text-xs text-orange-500 font-bold hover:underline px-2"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Trending Searches Row */}
           <div
-            className="mb-6"
+            className="mb-8"
             style={{
               animation: 'slideDown 0.3s ease-out 0.1s both'
             }}
           >
-            <h3 className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary-orange" />
-              Recent Searches
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2 uppercase tracking-wide">
+              <Search className="h-4 w-4 text-orange-500" />
+              Popular Right Now
             </h3>
             <div className="flex gap-2 sm:gap-3 flex-wrap">
-              {recentSuggestions.slice(0, 8).map((suggestion, index) => (
+              {trendingSearches.slice(0, 8).map((suggestion, index) => (
                 <button
-                  key={suggestion}
+                  key={`trending-${suggestion}`}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 border border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-gray-700 dark:text-gray-300 hover:text-primary-orange dark:hover:text-orange-400 transition-all duration-200 text-xs sm:text-sm font-medium shadow-sm hover:shadow-md"
-                  style={{
-                    animation: `scaleIn 0.3s ease-out ${0.1 + index * 0.02}s both`
-                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-50 dark:bg-orange-900/10 hover:bg-orange-100 dark:hover:bg-orange-900/20 border border-orange-100 dark:border-orange-800 text-gray-800 dark:text-gray-200 transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
-                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-primary-orange flex-shrink-0" />
+                  <Search className="h-3.5 w-3.5 text-orange-400" />
                   <span>{suggestion}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Food Grid */}
+          {/* Categories Grid */}
           <div
             style={{
               animation: 'fadeIn 0.3s ease-out 0.2s both'
             }}
           >
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
-              {searchValue.trim() === "" ? "All Dishes" : `Search Results (${filteredFoods.length})`}
+              {searchValue.trim() === "" ? "Browse Categories" : `Dishes & Cuisines (${filteredFoods.length})`}
             </h3>
             {filteredFoods.length > 0 ? (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
@@ -183,12 +255,12 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                         className="w-full h-full object-cover rounded-full"
                           loading="lazy"
                           onError={(e) => {
-                            e.target.src = foodImages[0]
+                            e.target.src = API_CATEGORY_IMAGE_FALLBACK
                           }}
                         />
                     </div>
                     <div className="px-1 sm:px-2 text-center">
-                      <span className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-primary-orange dark:group-hover:text-orange-400 transition-colors line-clamp-2">
+                      <span className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2">
                           {food.name}
                       </span>
                     </div>
@@ -243,4 +315,3 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
       </div>
   )
 }
-

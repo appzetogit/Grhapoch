@@ -106,18 +106,6 @@ const environmentVariableSchema = new mongoose.Schema(
       trim: true
     },
     
-    // SMS Hub India
-    SMSINDIAHUB_API_KEY: {
-      type: String,
-      default: '',
-      trim: true
-    },
-    SMSINDIAHUB_SENDER_ID: {
-      type: String,
-      default: '',
-      trim: true
-    },
-    
     // Google Maps
     VITE_GOOGLE_MAPS_API_KEY: {
       type: String,
@@ -173,7 +161,6 @@ environmentVariableSchema.methods.toEnvObject = function() {
     'FIREBASE_PRIVATE_KEY',
     'SMTP_USER',
     'SMTP_PASS',
-    'SMSINDIAHUB_API_KEY',
     'VITE_GOOGLE_MAPS_API_KEY'
   ];
   
@@ -204,7 +191,6 @@ environmentVariableSchema.pre('save', function(next) {
     'FIREBASE_PRIVATE_KEY',
     'SMTP_USER',
     'SMTP_PASS',
-    'SMSINDIAHUB_API_KEY',
     'VITE_GOOGLE_MAPS_API_KEY'
   ];
   

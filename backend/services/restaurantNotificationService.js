@@ -2,6 +2,7 @@ import Order from '../models/Order.js';
 import Payment from '../models/Payment.js';
 import Restaurant from '../models/Restaurant.js';
 import mongoose from 'mongoose';
+import { resolveNotificationTemplate } from './notificationTemplateService.js';
 
 // Dynamic import to avoid circular dependency
 let getIO = null;
@@ -205,11 +206,20 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
     // FCM Notification
     try {
       const { notifyRestaurantFCM } = await import('./fcmNotificationService.js');
-      await notifyRestaurantFCM(restaurantId, '🛍️ New Order Received!', `You have a new order #${order.orderId}. Open the app to accept it.`, {
-        orderId: order.orderId,
-        orderMongoId: order._id.toString(),
-        type: 'NEW_ORDER'
+      const resolved = await resolveNotificationTemplate({
+        key: 'restaurant.order_new',
+        audience: 'restaurant',
+        data: {
+          orderId: order.orderId
+        }
       });
+      if (resolved?.enabled) {
+        await notifyRestaurantFCM(restaurantId, resolved.title, resolved.body, {
+          orderId: order.orderId,
+          orderMongoId: order._id.toString(),
+          type: 'NEW_ORDER'
+        });
+      }
     } catch (fcmError) {
       console.error('Error sending Restaurant FCM notification:', fcmError);
     }

@@ -913,7 +913,7 @@ export default function PageNavbar({
       onClick={onNavClick}
     >
       {/* Mobile layout: location (left), centered logo, actions (right) */}
-      <div className="relative flex items-center justify-between gap-2 sm:gap-3 max-w-7xl mx-auto w-full md:hidden">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 max-w-7xl mx-auto w-full md:hidden">
         {/* Location (takes available space) */}
         <div className="flex items-center min-w-0 flex-1">
           <Button
@@ -950,7 +950,7 @@ export default function PageNavbar({
         </div>
 
         {/* Centered Logo */}
-        <Link to="/user" className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center flex-shrink-0 w-20 min-w-[72px]">
+        <Link to="/user" className="flex items-center justify-center flex-shrink-0 w-20 min-w-[72px] justify-self-center">
           <img
             src={logoUrl || fallbackLogo}
             alt="Company Logo"
@@ -963,7 +963,7 @@ export default function PageNavbar({
         </Link>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 justify-self-end">
           {/* Wallet Icon */}
           <Link to="/user/wallet">
             <Button

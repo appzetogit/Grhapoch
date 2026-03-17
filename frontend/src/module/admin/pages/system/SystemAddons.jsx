@@ -35,10 +35,6 @@ export default function SystemAddons() {
     SMTP_USER: "",
     SMTP_PASS: "",
     
-    // SMS Hub India
-    SMSINDIAHUB_API_KEY: "",
-    SMSINDIAHUB_SENDER_ID: "",
-    
     // Google Maps
     VITE_GOOGLE_MAPS_API_KEY: "",
   })
@@ -241,20 +237,6 @@ export default function SystemAddons() {
               <InputField label="SMTP Port" fieldKey="SMTP_PORT" type="number" placeholder="587" />
               <InputField label="SMTP User" fieldKey="SMTP_USER" type="email" />
               <InputField label="SMTP Password" fieldKey="SMTP_PASS" type="password" />
-            </div>
-          </div>
-
-          {/* SMS Hub India Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
-                <Key className="w-4 h-4 text-pink-600" />
-              </div>
-              SMS Hub India Configuration
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="SMS Hub India API Key" fieldKey="SMSINDIAHUB_API_KEY" />
-              <InputField label="SMS Hub India Sender ID" fieldKey="SMSINDIAHUB_SENDER_ID" />
             </div>
           </div>
 

@@ -1470,6 +1470,15 @@ export const adminAPI = {
     return apiClient.post(API_ENDPOINTS.ADMIN.ENV_VARIABLES, envData);
   },
 
+  // Notification Templates
+  getNotificationTemplates: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.NOTIFICATION_TEMPLATES, { params });
+  },
+
+  saveNotificationTemplates: (templates = []) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.NOTIFICATION_TEMPLATES, { templates });
+  },
+
   // Public Environment Variables (for frontend use)
   getPublicEnvVariables: () => {
     return apiClient.get('/env/public');
@@ -1937,5 +1946,21 @@ export const heroBannerAPI = {
   getGourmetRestaurants: () => {
     return apiClient.get(API_ENDPOINTS.HERO_BANNER.GOURMET_PUBLIC);
   },
+};
+
+// Export analytics API helper functions
+export const analyticsAPI = {
+  // Get trending searches
+  getTrendingSearches: () => {
+    return apiClient.get('/analytics/trending-searches');
+  },
+};
+
+// Export public category API
+export const categoryAPI = {
+  // Get all active categories for public use
+  getPublicCategories: () => {
+    return apiClient.get('/categories/public');
+  }
 };
 

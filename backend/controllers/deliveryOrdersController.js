@@ -22,6 +22,7 @@ import {
   '../services/firebaseRealtimeService.js';
 import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
 import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
+import { resolveNotificationTemplate } from '../services/notificationTemplateService.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
 
@@ -2112,16 +2113,25 @@ export const completeDelivery = asyncHandler(async (req, res) => {
       // Notify restaurant
       const restaurantId = updatedOrder.restaurantId?._id?.toString() || updatedOrder.restaurantId?.toString() || updatedOrder.restaurantId;
       if (restaurantId) {
-        notifyRestaurantFCM(
-          restaurantId,
-          '🎉 Order Delivered',
-          `Order #${updatedOrder.orderId} has been successfully delivered to the customer.`,
-          {
-            orderId: updatedOrder.orderId,
-            orderMongoId: updatedOrder._id.toString(),
-            type: 'ORDER_DELIVERED'
+        const resolved = await resolveNotificationTemplate({
+          key: 'restaurant.order_delivered',
+          audience: 'restaurant',
+          data: {
+            orderId: updatedOrder.orderId
           }
-        ).catch(e => logger.error('Restaurant delivery notify error:', e));
+        });
+        if (resolved?.enabled) {
+          notifyRestaurantFCM(
+            restaurantId,
+            resolved.title,
+            resolved.body,
+            {
+              orderId: updatedOrder.orderId,
+              orderMongoId: updatedOrder._id.toString(),
+              type: 'ORDER_DELIVERED'
+            }
+          ).catch(e => logger.error('Restaurant delivery notify error:', e));
+        }
       }
     } catch (notifError) {
       logger.error('Error sending delivery completion notifications:', notifError);

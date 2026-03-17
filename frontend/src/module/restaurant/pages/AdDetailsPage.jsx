@@ -187,7 +187,7 @@ export default function AdDetailsPage() {
 
             <Card className="bg-white border border-gray-100"><CardContent className="p-4 space-y-2">
               <h3 className="text-sm font-bold text-gray-900">Banner / Media</h3>
-              <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50 aspect-[12/5]">
+              <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50 aspect-[4/1]">
                 {!coverMedia && <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No media</div>}
                 {coverMedia && isVideo && <video src={coverMedia} className="w-full h-full object-cover" controls />}
                 {coverMedia && !isVideo && <img src={coverMedia} alt="Advertisement banner" className="w-full h-full object-cover" />}

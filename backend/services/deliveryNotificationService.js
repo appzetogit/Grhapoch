@@ -2,6 +2,7 @@ import Order from '../models/Order.js';
 import Delivery from '../models/Delivery.js';
 import Restaurant from '../models/Restaurant.js';
 import mongoose from 'mongoose';
+import { resolveNotificationTemplate } from './notificationTemplateService.js';
 
 // Dynamic import to avoid circular dependency
 let getIO = null;
@@ -317,11 +318,21 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
     // FCM Notification
     try {
       const { notifyDeliveryFCM } = await import('./fcmNotificationService.js');
-      await notifyDeliveryFCM(deliveryPartnerId, '🛍️ New Order Assigned!', `Order #${order.orderId} is assigned to you. Head to ${order.restaurantName} for pickup.`, {
-        orderId: order.orderId,
-        orderMongoId: order._id.toString(),
-        type: 'NEW_ORDER_ASSIGNED'
+      const resolved = await resolveNotificationTemplate({
+        key: 'delivery.order_assigned',
+        audience: 'delivery',
+        data: {
+          orderId: order.orderId,
+          restaurantName: order.restaurantName
+        }
       });
+      if (resolved?.enabled) {
+        await notifyDeliveryFCM(deliveryPartnerId, resolved.title, resolved.body, {
+          orderId: order.orderId,
+          orderMongoId: order._id.toString(),
+          type: 'NEW_ORDER_ASSIGNED'
+        });
+      }
     } catch (fcmError) {
       console.error('Error sending Delivery FCM notification:', fcmError);
     }
@@ -597,11 +608,21 @@ export async function notifyMultipleDeliveryBoys(order, deliveryPartnerIds, phas
     // FCM Notification
     try {
       const { notifyMultipleDeliveryFCM } = await import('./fcmNotificationService.js');
-      await notifyMultipleDeliveryFCM(deliveryPartnerIds, '🔔 New Delivery Opportunity', `Order #${order.orderId} is available for pickup at ${order.restaurantName}. First come first serve!`, {
-        orderId: order.orderId || order._id,
-        orderMongoId: order._id?.toString(),
-        type: 'NEW_ORDER_AVAILABLE'
+      const resolved = await resolveNotificationTemplate({
+        key: 'delivery.order_available',
+        audience: 'delivery',
+        data: {
+          orderId: order.orderId || order._id,
+          restaurantName: order.restaurantName
+        }
       });
+      if (resolved?.enabled) {
+        await notifyMultipleDeliveryFCM(deliveryPartnerIds, resolved.title, resolved.body, {
+          orderId: order.orderId || order._id,
+          orderMongoId: order._id?.toString(),
+          type: 'NEW_ORDER_AVAILABLE'
+        });
+      }
     } catch (fcmError) {
       console.error('Error sending Multiple Delivery FCM notification:', fcmError);
     }
@@ -682,11 +703,21 @@ export async function notifyDeliveryBoyOrderReady(order, deliveryPartnerId) {
     // FCM Notification
     try {
       const { notifyDeliveryFCM } = await import('./fcmNotificationService.js');
-      await notifyDeliveryFCM(normalizedDeliveryPartnerId, '📦 Order Ready for Pickup', `Order #${order.orderId} is ready at ${order.restaurantName}. Please head there for pickup.`, {
-        orderId: order.orderId || order._id,
-        orderMongoId: order._id?.toString(),
-        type: 'ORDER_READY'
+      const resolved = await resolveNotificationTemplate({
+        key: 'delivery.order_ready',
+        audience: 'delivery',
+        data: {
+          orderId: order.orderId || order._id,
+          restaurantName: order.restaurantName
+        }
       });
+      if (resolved?.enabled) {
+        await notifyDeliveryFCM(normalizedDeliveryPartnerId, resolved.title, resolved.body, {
+          orderId: order.orderId || order._id,
+          orderMongoId: order._id?.toString(),
+          type: 'ORDER_READY'
+        });
+      }
     } catch (fcmError) {
       console.error('Error sending Delivery FCM notification for ready:', fcmError);
     }

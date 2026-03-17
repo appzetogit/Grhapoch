@@ -39,7 +39,7 @@ export default function ItemDetailsPage() {
   const [itemSizeQuantity, setItemSizeQuantity] = useState("");
   const [itemSizeUnit, setItemSizeUnit] = useState("piece");
   const [itemDescription, setItemDescription] = useState("");
-  const [foodType, setFoodType] = useState("Non-Veg");
+  const [foodType, setFoodType] = useState("Veg");
   const [basePrice, setBasePrice] = useState("0");
   const [preparationTime, setPreparationTime] = useState("");
   const [gst, setGst] = useState("5.0");

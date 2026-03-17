@@ -119,7 +119,15 @@ function getTokenForCurrentRoute() {
 
   if (path.startsWith('/admin')) {
     return localStorage.getItem('admin_accessToken');
-  } else if (path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !path.startsWith('/restaurant/list') && !path.startsWith('/restaurant/under-250')) {
+  } else if (path.startsWith('/restaurant') && 
+             !path.startsWith('/restaurants') && 
+             !path.startsWith('/restaurant/list') && 
+             !path.startsWith('/restaurant/under-250') && 
+             !path.startsWith('/restaurant/welcome') &&
+             !path.startsWith('/restaurant/login') &&
+             !path.startsWith('/restaurant/signup') &&
+             !path.startsWith('/restaurant/otp') &&
+             !path.startsWith('/restaurant/forgot-password')) {
     // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
     // Exclude public routes like /restaurant/list and /restaurant/under-250
     return localStorage.getItem('restaurant_accessToken');
@@ -185,6 +193,7 @@ apiClient.interceptors.request.use(
       normalizedRequestUrl.includes('/restaurant/otp') ||
       normalizedRequestUrl.includes('/restaurant/auth/send-otp') ||
       normalizedRequestUrl.includes('/restaurant/auth/verify-otp') ||
+      normalizedRequestUrl.includes('/restaurant/welcome') ||
       normalizedRequestUrl.startsWith('/restaurant/') &&
       !normalizedRequestUrl.includes('/restaurant/orders') &&
       !normalizedRequestUrl.includes('/restaurant/auth') &&
@@ -221,8 +230,14 @@ apiClient.interceptors.request.use(
     // We check normalizedRequestUrl (the API endpoint) rather than path (the browser URL)
     const isApiDeliveryRoute = normalizedRequestUrl.startsWith('/delivery') || normalizedRequestUrl.includes('/api/delivery');
 
+    const isPublicRestaurantPath = path.startsWith('/restaurant/login') || 
+      path.startsWith('/restaurant/signup') || 
+      path.startsWith('/restaurant/otp') || 
+      path.startsWith('/restaurant/forgot-password') ||
+      path.startsWith('/restaurant/welcome');
+
     const isAuthenticatedRoute = (path.startsWith('/admin') ||
-      path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !isPublicRestaurantRoute ||
+      (path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !isPublicRestaurantPath && !isPublicRestaurantRoute) ||
       isApiDeliveryRoute && !isPublicDeliveryRoute) && !isPublicRestaurantRoute;
 
     // For authenticated routes, ALWAYS ensure Authorization header is set if we have a token

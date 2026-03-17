@@ -994,8 +994,6 @@ export default function SignIn() {
               <span onClick={fetchTermsOfService} className="underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer">Terms of Service</span>
               <span className="text-gray-500">•</span>
               <span onClick={fetchPrivacyPolicy} className="underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer">Privacy Policy</span>
-              <span className="text-gray-500">•</span>
-              <a href="#" className="underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Content Policy</a>
             </div>
           </div>
         </div>

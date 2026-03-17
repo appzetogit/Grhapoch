@@ -28,7 +28,6 @@ export default function CollectionDetail() {
         items: prev.items.filter(item => item.slug !== confirmModal.data.slug),
         restaurants: prev.restaurants - 1
       }))
-      toast.success("Removed from collection")
     }
     setConfirmModal({ isOpen: false, data: null })
   }

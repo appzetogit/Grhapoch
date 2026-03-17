@@ -26,7 +26,6 @@ import RestaurantSignupEmail from "@/module/restaurant/pages/auth/SignupEmail"
 import RestaurantForgotPassword from "@/module/restaurant/pages/auth/ForgotPassword"
 import RestaurantOTP from "@/module/restaurant/pages/auth/OTP"
 import RestaurantGoogleCallback from "@/module/restaurant/pages/auth/GoogleCallback"
-import RestaurantWelcome from "@/module/restaurant/pages/auth/Welcome"
 
 import AdvertisementsPage from "@/module/restaurant/pages/AdvertisementsPage"
 import AdDetailsPage from "@/module/restaurant/pages/AdDetailsPage"
@@ -112,6 +111,14 @@ function UserPathRedirect() {
   return <Navigate to={newPath} replace />
 }
 
+/**
+ * Robust redirect for the removed restaurant welcome page
+ * Ensures users are redirected even when using browser back button
+ */
+function RestaurantWelcomeRedirect() {
+  return <Navigate to="/restaurant/login" replace />
+}
+
 export default function App() {
   useEffect(() => {
     // Start foreground notification handler once on mount.
@@ -131,7 +138,7 @@ export default function App() {
       {/* Removed /routes route - Home should be accessed through UserRouter */}
 
       {/* Restaurant Public Routes */}
-      <Route path="/restaurant/welcome" element={<AuthRedirect module="restaurant"><RestaurantWelcome /></AuthRedirect>} />
+      <Route path="/restaurant/welcome" element={<RestaurantWelcomeRedirect />} />
       <Route path="/restaurant/auth/sign-in" element={<AuthRedirect module="restaurant"><RestaurantSignIn /></AuthRedirect>} />
       <Route path="/restaurant/login" element={<AuthRedirect module="restaurant"><RestaurantLogin /></AuthRedirect>} />
       <Route path="/restaurant/signup" element={<AuthRedirect module="restaurant"><RestaurantSignup /></AuthRedirect>} />

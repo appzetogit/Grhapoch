@@ -466,7 +466,7 @@ export default function ExploreMore() {
 
       // Small delay for UX, then navigate to welcome page
       setTimeout(() => {
-        navigate("/restaurant/welcome", { replace: true });
+        navigate("/restaurant/login", { replace: true });
       }, 300);
     } catch (error) {
       // Even if there's an error, we should still clear local data and logout
@@ -478,7 +478,7 @@ export default function ExploreMore() {
       localStorage.removeItem("restaurant_user");
       sessionStorage.removeItem("restaurantAuthData");
       window.dispatchEvent(new Event("restaurantAuthChanged"));
-      navigate("/restaurant/welcome", { replace: true });
+      navigate("/restaurant/login", { replace: true });
     } finally {
       setIsLoggingOut(false);
     }
@@ -531,7 +531,7 @@ export default function ExploreMore() {
 
       // Small delay for UX, then navigate to welcome page
       setTimeout(() => {
-        navigate("/restaurant/welcome", { replace: true });
+        navigate("/restaurant/login", { replace: true });
       }, 300);
     } catch (error) {
       // Even if there's an error, we should still clear local data and logout
@@ -543,7 +543,7 @@ export default function ExploreMore() {
       sessionStorage.removeItem("deliveryAuthData");
       sessionStorage.removeItem("userAuthData");
       window.dispatchEvent(new Event("restaurantAuthChanged"));
-      navigate("/restaurant/welcome", { replace: true });
+      navigate("/restaurant/login", { replace: true });
     } finally {
       setIsLoggingOut(false);
     }

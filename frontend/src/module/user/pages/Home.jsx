@@ -1951,12 +1951,11 @@ return (
                 e.preventDefault();
                 e.stopPropagation();
                 if (favorite) {
-                  // If already bookmarked, show Manage Collections modal
-                  setSelectedRestaurantSlug(restaurantSlug);
-                  setShowManageCollections(true);
+                  removeFavorite(restaurantSlug);
                 } else {
-                  // Add to favorites and show toast
+                  // Add to favorites
                   addFavorite({
+                    id: restaurant.id || restaurant._id || restaurant.restaurantId,
                     slug: restaurantSlug,
                     name: restaurant.name,
                     cuisine: restaurant.cuisine,
@@ -1966,10 +1965,6 @@ return (
                     priceRange: restaurant.priceRange,
                     image: restaurant.image
                   });
-                  setShowToast(true);
-                  setTimeout(() => {
-                    setShowToast(false);
-                  }, 3000);
                 }
               };
 
@@ -2060,8 +2055,8 @@ return (
                                 "border-white bg-white/90 text-gray-600 hover:bg-white"}`
                               }>
 
-                              <Bookmark
-                                className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500" : ""}`
+                              <Heart
+                                className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
                                 } />
                             </Button>
                           </motion.div>
@@ -3200,11 +3195,11 @@ return (
                     }}>
 
                     <div className="h-12 w-12 rounded-lg bg-pink-100 flex items-center justify-center flex-shrink-0">
-                      <Bookmark className="h-6 w-6 text-red-500 fill-red-500" />
+                      <Heart className="h-6 w-6 text-red-500 fill-red-500" />
                     </div>
                     <div className="flex-1 text-left">
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-medium text-gray-900">Bookmarks</span>
+                        <span className="text-base font-medium text-gray-900">Favorites</span>
                         {selectedRestaurantSlug &&
                           <div onClick={(e) => e.stopPropagation()}>
                             <Checkbox

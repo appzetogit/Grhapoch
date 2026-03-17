@@ -248,7 +248,7 @@ export default function EditOwner() {
 
       // Navigate to welcome page
       setTimeout(() => {
-        navigate("/restaurant/welcome", { replace: true });
+        navigate("/restaurant/login", { replace: true });
       }, 300);
     } catch (error) {
       console.error("Error deleting account:", error);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Mail, ChevronDown, Phone } from "lucide-react"
+import { Mail, ChevronDown, Phone, X, Loader2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { setAuthData } from "@/lib/utils/auth"
 import {
   Select,
@@ -10,7 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { restaurantAPI } from "@/lib/api"
+import { restaurantAPI, authAPI } from "@/lib/api"
+import api from "@/lib/api"
+import { API_ENDPOINTS } from "@/lib/api/config"
 import { firebaseAuth, googleProvider } from "@/lib/firebase"
 
 // Common country codes
@@ -56,6 +59,54 @@ export default function RestaurantLogin() {
   const [isSending, setIsSending] = useState(false)
   const [apiError, setApiError] = useState("")
 
+  // Privacy Policy state
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [privacyContent, setPrivacyContent] = useState("");
+  const [loadingPrivacy, setLoadingPrivacy] = useState(false);
+
+  // Terms of Service state
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsContent, setTermsContent] = useState("");
+  const [loadingTerms, setLoadingTerms] = useState(false);
+
+  // Fetch Privacy Policy
+  const fetchPrivacyPolicy = async () => {
+    try {
+      setLoadingPrivacy(true);
+      setShowPrivacyModal(true);
+      const response = await api.get(API_ENDPOINTS.ADMIN.PRIVACY_PUBLIC);
+      if (response?.data?.success) {
+        setPrivacyContent(response.data.data.content || "No privacy policy content available.");
+      } else {
+        setPrivacyContent("Failed to load privacy policy.");
+      }
+    } catch (err) {
+      console.error("Error fetching privacy policy:", err);
+      setPrivacyContent("Unable to load privacy policy at this time.");
+    } finally {
+      setLoadingPrivacy(false);
+    }
+  };
+
+  // Fetch Terms of Service
+  const fetchTermsOfService = async () => {
+    try {
+      setLoadingTerms(true);
+      setShowTermsModal(true);
+      const response = await api.get(API_ENDPOINTS.ADMIN.TERMS_PUBLIC);
+      if (response?.data?.success) {
+        setTermsContent(response.data.data.content || "No terms of service content available.");
+      } else {
+        setTermsContent("Failed to load terms of service.");
+      }
+    } catch (err) {
+      console.error("Error fetching terms of service:", err);
+      setTermsContent("Unable to load terms of service at this time.");
+    } finally {
+      setLoadingTerms(false);
+    }
+  };
+
   // Pre-fill data if user comes back from OTP screen
   useEffect(() => {
     const stored = sessionStorage.getItem("restaurantAuthData");
@@ -67,7 +118,7 @@ export default function RestaurantLogin() {
           // Extract digits from stored phone (handles cases like "+91 9098569620")
           const phoneNum = data.phone.split(" ").slice(1).join("") || data.phone.replace(/^\+\d+\s?/, "");
           const countryCode = data.phone.split(" ")[0] || "+91";
-          
+
           setFormData(prev => ({
             ...prev,
             phone: phoneNum,
@@ -348,18 +399,6 @@ export default function RestaurantLogin() {
 
   return (
     <div className="max-h-screen h-screen bg-white flex flex-col">
-      {/* Header with Back Button */}
-      <div className="relative flex items-center justify-center py-4 px-4 mt-2">
-
-        <button
-          onClick={() => navigate("/restaurant/welcome")}
-          className="absolute left-4 top-4"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-black" />
-        </button>
-      </div>
-
       {/* Top Section - Logo and Badge */}
       <div className="flex flex-col items-center pt-8 pb-8 px-6">
         {/* Appzeto Logo */}
@@ -437,8 +476,8 @@ export default function RestaurantLogin() {
                     onChange={handlePhoneChange}
                     onBlur={handlePhoneBlur}
                     className={`w-full px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 text-base border rounded-lg min-w-0 bg-white ${errors.phone && formData.phone.length > 0
-                        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                       }`}
                     style={{ height: '48px' }}
                   />
@@ -458,8 +497,8 @@ export default function RestaurantLogin() {
                 onClick={handleSendOTP}
                 disabled={!isValidPhone || isSending}
                 className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${isValidPhone && !isSending
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
                   }`}
               >
                 {isSending ? "Sending OTP..." : "Send OTP"}
@@ -479,8 +518,8 @@ export default function RestaurantLogin() {
                   onChange={handleEmailChange}
                   onBlur={handleEmailBlur}
                   className={`w-full px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 text-base border rounded-lg bg-white ${errors.email && formData.email.length > 0
-                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                      : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     }`}
                   style={{ height: '48px' }}
                 />
@@ -499,8 +538,8 @@ export default function RestaurantLogin() {
                 onClick={handleSendEmailOTP}
                 disabled={!isValidEmail || isSending}
                 className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${isValidEmail && !isSending
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
                   }`}
               >
                 {isSending ? "Sending OTP..." : "Send OTP"}
@@ -568,15 +607,111 @@ export default function RestaurantLogin() {
 
       {/* Bottom Section - Terms and Conditions */}
       <div className="px-6 pb-8 pt-4">
-        <div className="w-full max-w-md mx-auto">
-          <p className="text-xs text-center text-gray-600 leading-relaxed">
+        <div className="w-full max-w-md mx-auto text-center">
+          <p className="text-xs text-gray-600 leading-relaxed">
             By continuing, you agree to our
           </p>
-          <p className="text-xs text-center text-gray-600 underline mt-1">
-            Terms of Service | Privacy Policy | Code of Conduct
-          </p>
+          <div className="flex justify-center gap-2 flex-wrap text-black/80 mt-1">
+            <span onClick={fetchTermsOfService} className="text-xs underline hover:text-gray-900 transition-colors cursor-pointer">Terms of Service</span>
+            <span className="text-gray-400 text-xs">•</span>
+            <span onClick={fetchPrivacyPolicy} className="text-xs underline hover:text-gray-900 transition-colors cursor-pointer">Privacy Policy</span>
+          </div>
         </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <AnimatePresence>
+        {showPrivacyModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPrivacyModal(false)}
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            />
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg max-h-[85vh] bg-white rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden"
+            >
+              <div className="relative flex items-center justify-center p-4 border-b border-gray-100 shrink-0 bg-white">
+                <h2 className="text-xl font-bold text-gray-900 text-center pointer-events-none">Privacy Policy</h2>
+                <button
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="absolute right-4 p-2 bg-gray-100 hover:bg-red-100 rounded-full transition-all group z-10 cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-gray-700 group-hover:text-red-500 transition-colors" />
+                </button>
+              </div>
+
+              <div className="p-4 pt-2 overflow-y-auto flex-1 bg-white">
+                {loadingPrivacy ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+                    <p className="text-sm text-gray-500 font-medium">Loading privacy policy...</p>
+                  </div>
+                ) : (
+                  <div
+                    className="prose prose-sm max-w-none text-gray-600 space-y-3 font-medium leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: privacyContent }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Terms of Service Modal */}
+      <AnimatePresence>
+        {showTermsModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTermsModal(false)}
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            />
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg max-h-[85vh] bg-white rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden"
+            >
+              <div className="relative flex items-center justify-center p-4 border-b border-gray-100 shrink-0 bg-white">
+                <h2 className="text-xl font-bold text-gray-900 text-center pointer-events-none">Terms of Service</h2>
+                <button
+                  onClick={() => setShowTermsModal(false)}
+                  className="absolute right-4 p-2 bg-gray-100 hover:bg-red-100 rounded-full transition-all group z-10 cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-gray-700 group-hover:text-red-500 transition-colors" />
+                </button>
+              </div>
+
+              <div className="p-4 pt-2 overflow-y-auto flex-1 bg-white">
+                {loadingTerms ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+                    <p className="text-sm text-gray-500 font-medium">Loading terms of service...</p>
+                  </div>
+                ) : (
+                  <div
+                    className="prose prose-sm max-w-none text-gray-600 space-y-3 font-medium leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: termsContent }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

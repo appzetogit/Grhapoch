@@ -203,6 +203,8 @@ export function ProfileProvider({ children }) {
 
             console.log("✨ [FRONTEND] Final favorites count:", transformedFavs.length);
             setFavorites(transformedFavs)
+          } else {
+            setFavorites([]);
           }
 
           // Sync Dishes
@@ -216,14 +218,16 @@ export function ProfileProvider({ children }) {
 
               return {
                 ...dishObj,
-                id: d.dishId || dishObj._id || dishObj.id,
+                id: d.dishId || dishObj.dishId || dishObj._id || dishObj.id,
+                dishId: d.dishId || dishObj.dishId || dishObj._id || dishObj.id,
                 restaurantId: d.restaurantId?._id || d.restaurantId || dishObj.restaurantId,
                 name: d.name || dishObj.name,
                 price: d.price || dishObj.price,
                 image: d.image || dishObj.image,
                 foodType: d.foodType || dishObj.foodType,
                 restaurantName: d.restaurantName || dishObj.restaurantName,
-                restaurantSlug: d.restaurantSlug || dishObj.restaurantSlug,
+                restaurantSlug: d.restaurantSlug || dishObj.restaurantSlug || 
+                               (typeof d.restaurantId === 'object' ? d.restaurantId.slug : null),
                 addedAt: d.addedAt
               };
             }).filter(Boolean);
@@ -436,23 +440,29 @@ export function ProfileProvider({ children }) {
         const response = await userAPI.toggleRestaurantFavorite(restaurantId);
         console.log('✅ [FRONTEND] toggleFavorite SUCCESS:', response.data?.message);
 
-        if (response.data?.success && response.data.data?.collections?.restaurants) {
-          const dbRestaurants = response.data.data.collections.restaurants;
-          const syncedFavs = dbRestaurants.map(f => {
-            const r = f.restaurantId || {};
-            const name = f.name || r.name || 'Unknown Restaurant';
-            return {
-              _id: f._id,
-              restaurantId: r._id || f.restaurantId,
-              name,
-              image: f.image || r.profileImage?.url || r.image,
-              slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
-              cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
-              rating: f.rating || r.rating,
-              addedAt: f.addedAt
-            };
-          });
-          setFavorites(syncedFavs);
+        // Ensure we always sync with server state if returned
+        if (response.data?.success && response.data.data?.collections) {
+          const dbData = response.data.data.collections;
+          
+          // Sync Restaurants
+          if (dbData.restaurants) {
+            const syncedFavs = dbData.restaurants.map(f => {
+              const r = f.restaurantId || {};
+              const name = f.name || r.name || 'Unknown Restaurant';
+              return {
+                ... (typeof r === 'object' ? r : {}),
+                _id: f._id,
+                restaurantId: r._id || f.restaurantId,
+                name: name,
+                image: f.image || r.profileImage?.url || r.image,
+                slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
+                cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
+                rating: f.rating || r.rating,
+                addedAt: f.addedAt
+              };
+            });
+            setFavorites(syncedFavs);
+          }
         }
       } else {
         console.error('❌ [FRONTEND] No restaurantId found to sync!');
@@ -464,8 +474,18 @@ export function ProfileProvider({ children }) {
   }, [])
 
   const removeFavorite = useCallback(async (slugOrId) => {
-    let itemToRemove = favorites.find(f => f.slug === slugOrId || f._id === slugOrId || f.id === slugOrId)
-    setFavorites((prev) => prev.filter(fav => fav.slug !== slugOrId && fav._id !== slugOrId && fav.id !== slugOrId))
+    let itemToRemove = favorites.find(f => 
+      f.slug === slugOrId || 
+      f._id === slugOrId || 
+      f.id === slugOrId || 
+      String(f.restaurantId) === String(slugOrId)
+    )
+    setFavorites((prev) => prev.filter(fav => 
+      fav.slug !== slugOrId && 
+      fav._id !== slugOrId && 
+      fav.id !== slugOrId &&
+      String(fav.restaurantId) !== String(slugOrId)
+    ))
 
     // Backend sync
     try {
@@ -476,23 +496,29 @@ export function ProfileProvider({ children }) {
         const response = await userAPI.toggleRestaurantFavorite(restaurantId);
         console.log('✅ [FRONTEND] remove toggle SUCCESS:', response.data?.message);
 
-        if (response.data?.success && response.data.data?.collections?.restaurants) {
-          const dbRestaurants = response.data.data.collections.restaurants;
-          const syncedFavs = dbRestaurants.map(f => {
-            const r = f.restaurantId || {};
-            const name = f.name || r.name || 'Unknown Restaurant';
-            return {
-              _id: f._id,
-              restaurantId: r._id || f.restaurantId,
-              name,
-              image: f.image || r.profileImage?.url || r.image,
-              slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
-              cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
-              rating: f.rating || r.rating,
-              addedAt: f.addedAt
-            };
-          });
-          setFavorites(syncedFavs);
+        // Ensure we always sync with server state if returned
+        if (response.data?.success && response.data.data?.collections) {
+          const dbData = response.data.data.collections;
+          
+          // Sync Restaurants
+          if (dbData.restaurants) {
+            const syncedFavs = dbData.restaurants.map(f => {
+              const r = f.restaurantId || {};
+              const name = f.name || r.name || 'Unknown Restaurant';
+              return {
+                ... (typeof r === 'object' ? r : {}),
+                _id: f._id,
+                restaurantId: r._id || f.restaurantId,
+                name: name,
+                image: f.image || r.profileImage?.url || r.image,
+                slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
+                cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
+                rating: f.rating || r.rating,
+                addedAt: f.addedAt
+              };
+            });
+            setFavorites(syncedFavs);
+          }
         }
       }
     } catch (error) {
@@ -514,27 +540,31 @@ export function ProfileProvider({ children }) {
   const addDishFavorite = useCallback(async (dish) => {
     // Optimistic update
     setDishFavorites((prev) => {
-      const dishId = dish.id || dish._id || dish.dishId;
-      const restaurantId = dish.restaurantId?._id || dish.restaurantId;
+      const dId = dish.id || dish.dishId || dish._id;
+      const resId = dish.restaurantId;
+      const resSlug = dish.restaurantSlug;
 
-      const exists = prev.find(fav =>
-        (fav.id === dishId || fav.dishId === dishId) &&
-        (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)
+      const exists = prev.some(fav =>
+        (fav.id === dId || fav.dishId === dId) &&
+        (fav.restaurantId === resId || 
+         fav.restaurantId?._id === resId || 
+         fav.restaurantSlug === resId ||
+         fav.restaurantSlug === resSlug)
       );
-
       if (!exists) {
-        return [...prev, { ...dish, id: dishId, restaurantId }]
+        return [...prev, dish]
       }
       return prev
     })
 
     // Backend sync
     try {
-      const resId = dish.restaurantId?._id || dish.restaurantId;
-      const dId = dish.id || dish._id || dish.dishId;
-      if (resId && dId) {
-        await userAPI.toggleDishFavorite({
-          dishId: dId,
+      const dishId = dish.id || dish.dishId || dish._id;
+      const resId = dish.restaurantId;
+
+      if (dishId && resId) {
+        const response = await userAPI.toggleDishFavorite({
+          dishId,
           restaurantId: resId,
           name: dish.name,
           price: dish.price,
@@ -543,34 +573,95 @@ export function ProfileProvider({ children }) {
           restaurantName: dish.restaurantName,
           restaurantSlug: dish.restaurantSlug
         });
+
+        if (response.data?.success && response.data.data?.collections?.dishes) {
+          // Sync with server state
+          const serverDishes = response.data.data.collections.dishes;
+          const transformedDishes = serverDishes.map(d => ({
+            ...d,
+            id: d.dishId || d.id || d._id,
+            dishId: d.dishId || d.id || d._id,
+            restaurantId: d.restaurantId?._id || d.restaurantId,
+            restaurantSlug: d.restaurantSlug || dish.restaurantSlug
+          }));
+          setDishFavorites(transformedDishes);
+        }
       }
     } catch (error) {
-      console.error("Error syncing dish favorite to DB:", error)
+      console.error("Error adding dish favorite to DB:", error)
     }
   }, [])
 
   const removeDishFavorite = useCallback(async (dishId, restaurantId) => {
-    setDishFavorites((prev) =>
-      prev.filter(fav => !((fav.id === dishId || fav.dishId === dishId) &&
-        (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)))
-    )
+    // Optimistic update
+    setDishFavorites((prev) => prev.filter(fav => {
+      const favDishId = fav.id || fav.dishId || fav._id;
+      const matchDish = favDishId === dishId;
+      const matchRes = 
+        fav.restaurantId === restaurantId || 
+        fav.restaurantId?._id === restaurantId || 
+        fav.restaurantSlug === restaurantId;
+        
+      return !(matchDish && matchRes);
+    }))
 
     // Backend sync
     try {
       const resId = restaurantId?._id || restaurantId;
       if (dishId && resId) {
-        await userAPI.toggleDishFavorite({ dishId, restaurantId: resId });
+        const response = await userAPI.toggleDishFavorite({ dishId, restaurantId: resId });
+
+        if (response.data?.success && response.data.data?.collections?.dishes) {
+          const transformedDishes = response.data.data.collections.dishes.map(d => ({
+            ...d,
+            id: d.dishId || d.id || d._id,
+            dishId: d.dishId || d.id || d._id,
+            restaurantId: d.restaurantId?._id || d.restaurantId
+          }));
+          setDishFavorites(transformedDishes);
+        }
       }
     } catch (error) {
       console.error("Error removing dish favorite from DB:", error)
     }
   }, [])
 
-  const isDishFavorite = useCallback((dishId, restaurantId) => {
-    return dishFavorites.some(fav =>
-      (fav.id === dishId || fav.dishId === dishId) &&
-      (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)
-    )
+  const isDishFavorite = useCallback((dishId, restaurantIdentifier, itemName = "") => {
+    if (!dishId || !restaurantIdentifier) return false;
+    
+    const dId = String(dishId);
+    const rId = String(restaurantIdentifier);
+    const iName = String(itemName || "").toLowerCase().trim();
+
+    // Guard against generic matches
+    if (dId === 'undefined' || dId === 'null' || dId === '[object Object]') {
+      if (!iName) return false;
+    }
+
+    return dishFavorites.some(fav => {
+      const favDishId = String(fav.id || fav.dishId || fav._id || "");
+      const favName = String(fav.name || "").toLowerCase().trim();
+      
+      // strict match: ID must match AND Name must match (if provided)
+      const idMatch = (favDishId !== "undefined" && favDishId !== "null" && favDishId === dId);
+      const nameMatch = (favName === iName);
+      
+      let matchDish = false;
+      if (dId !== "undefined" && dId !== "null" && iName) {
+        matchDish = idMatch && nameMatch;
+      } else if (dId !== "undefined" && dId !== "null") {
+        matchDish = idMatch;
+      } else if (iName) {
+        matchDish = nameMatch;
+      }
+      
+      const matchRes = 
+        String(fav.restaurantId || "") === rId || 
+        String(fav.restaurantId?._id || "") === rId || 
+        String(fav.restaurantSlug || "").toLowerCase() === rId.toLowerCase();
+
+      return matchDish && matchRes;
+    })
   }, [dishFavorites])
 
   const getDishFavorites = useCallback(() => {

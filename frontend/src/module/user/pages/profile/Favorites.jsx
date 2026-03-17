@@ -47,10 +47,8 @@ export default function Favorites() {
   const handleConfirmRemoval = () => {
     if (confirmModal.type === "restaurant") {
       removeFavorite(confirmModal.data.slug)
-      toast.success("Restaurant removed from favorites")
     } else if (confirmModal.type === "dish") {
       removeDishFavorite(confirmModal.data.dishId, confirmModal.data.restaurantId)
-      toast.success("Dish removed from favorites")
     }
     setConfirmModal({ isOpen: false, type: null, data: null })
   }
@@ -209,7 +207,7 @@ export default function Favorites() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {dishFavorites.length === 0 ? (
               <div className="col-span-full text-center py-12">
-                <Bookmark className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground text-lg mb-4">No dishes saved yet</p>
                 <Link to="/user">
                   <Button className="bg-gradient-to-r bg-primary-orange hover:opacity-90 text-white">
@@ -242,7 +240,7 @@ export default function Favorites() {
                               className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white text-red-500"
                               onClick={(e) => handleRemoveDishFavorite(e, dish.id, dish.restaurantId)}
                             >
-                              <Bookmark className="h-4 w-4 fill-red-500" />
+                              <Heart className="h-4 w-4 fill-red-500" />
                             </Button>
                           </div>
                         </div>
@@ -293,7 +291,7 @@ export default function Favorites() {
         onConfirm={handleConfirmRemoval}
         title={confirmModal.type === "restaurant" ? "Remove from favorites?" : "Remove dish?"}
         message={confirmModal.type === "restaurant" 
-          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"}? You'll miss out on their latest offers.`
+          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"} from your favorites?`
           : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
         }
         confirmText="Yes, Remove"

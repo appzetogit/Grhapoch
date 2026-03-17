@@ -42,7 +42,6 @@ export default function Restaurants() {
   const handleConfirmRemoval = () => {
     if (confirmModal.data) {
       removeFavorite(confirmModal.data.slug)
-      toast.success("Restaurant removed from favorites")
     }
     setConfirmModal({ isOpen: false, data: null })
   }
@@ -85,13 +84,10 @@ export default function Restaurants() {
                 e.preventDefault()
                 e.stopPropagation()
                 if (favorite) {
-                  setConfirmModal({
-                    isOpen: true,
-                    data: { slug: restaurantSlug, name: restaurant.name }
-                  })
+                  removeFavorite(restaurantSlug)
                 } else {
                   addFavorite({
-                    id: restaurant._id || restaurant.id,
+                    id: restaurant._id || restaurant.id || restaurant.restaurantId,
                     restaurantId: restaurant.restaurantId,
                     slug: restaurantSlug,
                     name: restaurant.name,
@@ -102,7 +98,6 @@ export default function Restaurants() {
                     priceRange: restaurant.priceRange,
                     image: restaurant.profileImage?.url || restaurant.image
                   })
-                  toast.success("Restaurant added to favorites")
                 }
               }
 
@@ -187,7 +182,7 @@ export default function Restaurants() {
         onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         onConfirm={handleConfirmRemoval}
         title="Remove from favorites?"
-        message={`Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"}? You'll miss out on their latest offers.`}
+        message={`Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"} from your favorites?`}
         confirmText="Yes, Remove"
         cancelText="No, Keep it"
       />

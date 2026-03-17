@@ -32,7 +32,8 @@ import {
   Percent,
   Eye,
   Users,
-  AlertCircle
+  AlertCircle,
+  Heart
 } from
   "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -469,13 +470,19 @@ export default function RestaurantDetails() {
               // Handle Menu Response
               if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
                 const menuSections = menuRes.value.data.data.menu.sections || [];
-                const recommendedItems = [];
+                const uniqueRecommended = [];
+                const seenGlobalIds = new Set();
 
+                // 1. Extract and deduplicate Recommended items first
                 menuSections.forEach((section) => {
                   if (section.items && Array.isArray(section.items)) {
                     section.items.forEach((item) => {
-                      if (item.isRecommended === true && typeof item.isRecommended === 'boolean' && item.isAvailable !== false) {
-                        recommendedItems.push(item);
+                      if (item.isRecommended === true && item.isAvailable !== false) {
+                        const id = item.id || item._id;
+                        if (id && !seenGlobalIds.has(id)) {
+                          uniqueRecommended.push(item);
+                          seenGlobalIds.add(id);
+                        }
                       }
                     });
                   }
@@ -483,8 +490,12 @@ export default function RestaurantDetails() {
                     section.subsections.forEach((subsection) => {
                       if (subsection.items && Array.isArray(subsection.items)) {
                         subsection.items.forEach((item) => {
-                          if (item.isRecommended === true && typeof item.isRecommended === 'boolean' && item.isAvailable !== false) {
-                            recommendedItems.push(item);
+                          if (item.isRecommended === true && item.isAvailable !== false) {
+                            const id = item.id || item._id;
+                            if (id && !seenGlobalIds.has(id)) {
+                              uniqueRecommended.push(item);
+                              seenGlobalIds.add(id);
+                            }
                           }
                         });
                       }
@@ -492,8 +503,57 @@ export default function RestaurantDetails() {
                   }
                 });
 
-                const finalMenuSections = [{ name: "Recommended for you", items: recommendedItems, subsections: [] }, ...menuSections];
-                setRestaurant((prev) => ({ ...prev, menuSections: finalMenuSections }));
+                // 2. Map and deduplicate remaining items in sections, excluding those already seen (in Recommended or previous sections)
+                const finalMenuSections = menuSections.map(section => {
+                  const uniqueItems = [];
+                  
+                  if (section.items && Array.isArray(section.items)) {
+                    section.items.forEach(item => {
+                      const id = item.id || item._id;
+                      // Ensure unique across the ENTIRE menu
+                      if (id && !seenGlobalIds.has(id)) {
+                        uniqueItems.push(item);
+                        seenGlobalIds.add(id);
+                      }
+                    });
+                  }
+
+                  const updatedSubsections = (section.subsections || []).map(sub => {
+                    const uniqueSubItems = [];
+                    if (sub.items && Array.isArray(sub.items)) {
+                      sub.items.forEach(item => {
+                        const id = item.id || item._id;
+                        if (id && !seenGlobalIds.has(id)) {
+                          uniqueSubItems.push(item);
+                          seenGlobalIds.add(id);
+                        }
+                      });
+                    }
+                    return { ...sub, items: uniqueSubItems };
+                  });
+
+                  return { ...section, items: uniqueItems, subsections: updatedSubsections };
+                }).filter(section => 
+                  (section.items && section.items.length > 0) || 
+                  (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
+                );
+
+                const finalMenuWithRecommended = [];
+                
+                // Add Recommended section if it has items
+                if (uniqueRecommended.length > 0) {
+                  finalMenuWithRecommended.push({ 
+                    name: "Recommended for you", 
+                    items: uniqueRecommended, 
+                    subsections: [],
+                    isRecommendedSection: true
+                  });
+                }
+                
+                // Add regular sections
+                finalMenuWithRecommended.push(...finalMenuSections);
+
+                setRestaurant((prev) => ({ ...prev, menuSections: finalMenuWithRecommended }));
                 setExpandedSections(new Set([0, 1, 2]));
               }
 
@@ -921,10 +981,8 @@ export default function RestaurantDetails() {
   const handleConfirmRemoval = () => {
     if (confirmModal.type === "restaurant") {
       removeFavorite(confirmModal.data.slug);
-      toast.success("Restaurant removed from collection");
     } else if (confirmModal.type === "dish") {
       removeDishFavorite(confirmModal.data.dishId, confirmModal.data.restaurantId);
-      toast.success("Dish removed from favorites");
     }
     setConfirmModal({ isOpen: false, type: null, data: null });
   };
@@ -953,14 +1011,10 @@ export default function RestaurantDetails() {
       return;
     }
 
-    const isBookmarked = isDishFavorite(dishId, restaurantId);
+    const isBookmarked = isDishFavorite(dishId, restaurant?.slug || slug, item.name);
 
     if (isBookmarked) {
-      setConfirmModal({
-        isOpen: true,
-        type: "dish",
-        data: { dishId, restaurantId, name: item.name }
-      });
+      removeDishFavorite(dishId, restaurantId);
     } else {
       // Add to favorites
       const dishData = {
@@ -978,7 +1032,6 @@ export default function RestaurantDetails() {
         customisable: item.customisable
       };
       addDishFavorite(dishData);
-      toast.success("Dish added to favorites");
     }
   };
 
@@ -999,11 +1052,7 @@ export default function RestaurantDetails() {
     const isAlreadyFavorite = isFavorite(restaurantSlug);
 
     if (isAlreadyFavorite) {
-      setConfirmModal({
-        isOpen: true,
-        type: "restaurant",
-        data: { slug: restaurantSlug, name: restaurant.name }
-      });
+      removeFavorite(restaurantSlug);
     } else {
       // Add to collection
       addFavorite({
@@ -1017,7 +1066,6 @@ export default function RestaurantDetails() {
         priceRange: restaurant.priceRange || "",
         image: restaurant.profileImageUrl?.url || restaurant.image || ""
       });
-      toast.success("Restaurant added to collection");
     }
 
     setShowMenuOptionsSheet(false);
@@ -1392,6 +1440,14 @@ export default function RestaurantDetails() {
 
               <MoreVertical className="h-5 w-5 text-gray-900 dark:text-white" />
             </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`rounded-full h-10 w-10 border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-[#1a1a1a] transition-all duration-300 ${isFavorite(restaurant?.slug || slug || "") ? "text-red-500 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10" : "text-gray-900 dark:text-white"}`}
+              onClick={handleAddToCollection}>
+
+              <Heart className={`h-5 w-5 transition-all duration-300 ${isFavorite(restaurant?.slug || slug || "") ? "fill-red-500 text-red-500" : ""}`} />
+            </Button>
           </div>
         </div>
       </div>
@@ -1675,14 +1731,14 @@ export default function RestaurantDetails() {
                                     e.stopPropagation();
                                     handleBookmarkClick(item);
                                   }}
-                                  className={`p-1.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${isDishFavorite(item.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ?
+                                  className={`p-1.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${isDishFavorite(item.id, restaurant?.slug || slug, item.name) ?
                                     "border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20" :
                                     "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400"}`
                                   }>
 
-                                  <Bookmark
+                                  <Heart
                                     size={18}
-                                    className={isDishFavorite(item.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ? "fill-red-500" : ""} />
+                                    className={isDishFavorite(item.id, restaurant?.slug || slug, item.name) ? "fill-red-500" : ""} />
 
                                 </button>
                                 <button
@@ -1891,14 +1947,14 @@ export default function RestaurantDetails() {
                                               e.stopPropagation();
                                               handleBookmarkClick(item);
                                             }}
-                                            className={`p-1.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${isDishFavorite(item.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ?
+                                            className={`p-1.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${isDishFavorite(item.id, restaurant?.slug || slug, item.name) ?
                                               "border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20" :
                                               "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400"}`
                                             }>
 
                                             <Bookmark
                                               size={18}
-                                              className={isDishFavorite(item.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ? "fill-red-500" : ""} />
+                                              className={isDishFavorite(item.id, restaurant?.slug || slug, item.name) ? "fill-red-500" : ""} />
 
                                           </button>
                                           <button
@@ -2448,14 +2504,14 @@ export default function RestaurantDetails() {
                       }}>
 
                       <div className="h-12 w-12 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center flex-shrink-0">
-                        <Bookmark className="h-6 w-6 text-red-500 dark:text-red-400 fill-red-500 dark:fill-red-400" />
+                        <Heart className="h-6 w-6 text-red-500 dark:text-red-400 fill-red-500 dark:fill-red-400" />
                       </div>
                       <div className="flex-1 text-left">
                         <div className="flex items-center justify-between">
-                          <span className="text-base font-medium text-gray-900 dark:text-white">Bookmarks</span>
+                          <span className="text-base font-medium text-gray-900 dark:text-white">Favorites</span>
                           {selectedItem &&
                             <Checkbox
-                              checked={isDishFavorite(selectedItem.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id)}
+                              checked={isDishFavorite(selectedItem.id, restaurant?.slug || slug, selectedItem.name)}
                               onCheckedChange={(checked) => {
                                 if (!checked && selectedItem) {
                                   const restaurantId = restaurant?.restaurantId || restaurant?._id || restaurant?.id;
@@ -2572,13 +2628,13 @@ export default function RestaurantDetails() {
                           e.stopPropagation();
                           handleBookmarkClick(selectedItem);
                         }}
-                        className={`h-10 w-10 rounded-full border flex items-center justify-center transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ?
+                        className={`h-10 w-10 rounded-full border flex items-center justify-center transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.slug || slug, selectedItem.name) ?
                           "border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400" :
                           "border-white dark:border-gray-800 bg-white/90 dark:bg-[#1a1a1a]/90 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-[#2a2a2a]"}`
                         }>
 
                         <Bookmark
-                          className={`h-5 w-5 transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ? "fill-red-500 dark:fill-red-400" : ""}`
+                          className={`h-5 w-5 transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.slug || slug, selectedItem.name) ? "fill-red-500 dark:fill-red-400" : ""}`
                           } />
 
                       </button>
@@ -2613,13 +2669,13 @@ export default function RestaurantDetails() {
                             e.stopPropagation();
                             handleBookmarkClick(selectedItem);
                           }}
-                          className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ?
+                          className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.slug || slug, selectedItem.name) ?
                             "border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400" :
                             "border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"}`
                           }>
 
                           <Bookmark
-                            className={`h-4 w-4 transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.restaurantId || restaurant?._id || restaurant?.id) ? "fill-red-500 dark:fill-red-400" : ""}`
+                            className={`h-4 w-4 transition-all duration-300 ${isDishFavorite(selectedItem.id, restaurant?.slug || slug, selectedItem.name) ? "fill-red-500 dark:fill-red-400" : ""}`
                             } />
 
                         </button>
@@ -3046,7 +3102,7 @@ export default function RestaurantDetails() {
                         className="w-full flex items-center gap-4 px-2 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors text-left"
                         onClick={handleAddToCollection}>
 
-                        <Bookmark className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                        <Heart className="h-5 w-5 text-gray-700 dark:text-gray-300" />
                         <span className="text-base text-gray-900 dark:text-white">
                           {isFavorite(restaurant?.slug || slug || "") ? "Remove from Collection" : "Add to Collection"}
                         </span>
@@ -3243,9 +3299,9 @@ export default function RestaurantDetails() {
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         onConfirm={handleConfirmRemoval}
-        title={confirmModal.type === "restaurant" ? "Remove from collection?" : "Remove from favorites?"}
+        title={confirmModal.type === "restaurant" ? "Remove from favorites?" : "Remove from favorites?"}
         message={confirmModal.type === "restaurant" 
-          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"}? You'll miss out on their latest offers.`
+          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"} from your favorites?`
           : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
         }
         confirmText="Yes, Remove"

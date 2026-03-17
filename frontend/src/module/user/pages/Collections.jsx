@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ArrowLeft, Plus, Share2, UtensilsCrossed, Store, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useProfile } from "../context/ProfileContext"
 
 // Import banner
 import collectionsBanner from "@/assets/collectionspagebanner.png"
@@ -21,19 +22,30 @@ const gradientColors = [
 
 export default function Collections() {
   const navigate = useNavigate()
+  const { getFavorites, getDishFavorites } = useProfile()
   const [activeTab, setActiveTab] = useState("delivery")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState("")
+
+  const restaurantCount = getFavorites().length
+  const dishCount = getDishFavorites().length
   
   // Delivery collections
   const [deliveryCollections, setDeliveryCollections] = useState([
-    { id: "bookmarks", name: "Bookmarks", dishes: 0, restaurants: 0, isDefault: true }
+    { id: "bookmarks", name: "Bookmarks", dishes: dishCount, restaurants: restaurantCount, isDefault: true }
   ])
   
   // Dining collections
   const [diningCollections, setDiningCollections] = useState([
     { id: "bookmarks", name: "Bookmarks", dishes: 0, restaurants: 0, isDefault: true }
   ])
+
+  // Update effect to keep counts in sync
+  useEffect(() => {
+    setDeliveryCollections(prev => prev.map(c => 
+      c.id === "bookmarks" ? { ...c, dishes: dishCount, restaurants: restaurantCount } : c
+    ))
+  }, [dishCount, restaurantCount])
 
   const currentCollections = activeTab === "delivery" ? deliveryCollections : diningCollections
   const setCurrentCollections = activeTab === "delivery" ? setDeliveryCollections : setDiningCollections

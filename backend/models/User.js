@@ -119,16 +119,40 @@ const userSchema = new mongoose.Schema({
       }
     }
   },
-  favorites: [{
-    restaurantId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Restaurant'
-    },
-    addedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
+  collections: {
+    restaurants: [{
+      restaurantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Restaurant'
+      },
+      name: String,
+      image: String,
+      slug: String,
+      cuisine: String,
+      rating: Number,
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    dishes: [{
+      dishId: String,
+      restaurantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Restaurant'
+      },
+      name: String,
+      price: Number,
+      image: String,
+      foodType: String,
+      restaurantName: String,
+      restaurantSlug: String,
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  },
   wallet: {
     balance: {
       type: Number,

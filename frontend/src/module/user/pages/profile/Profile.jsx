@@ -46,7 +46,8 @@ import { firebaseAuth } from "@/lib/firebase";
 import { clearModuleAuth } from "@/lib/utils/auth";
 
 export default function Profile() {
-  const { userProfile, vegMode, setVegMode } = useProfile();
+  const { userProfile, vegMode, setVegMode, getFavorites, getDishFavorites } = useProfile();
+  const totalFavs = getFavorites().length + getDishFavorites().length;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -273,7 +274,7 @@ export default function Profile() {
                       >
                         <AvatarImage
                           src={userProfile.profileImage.trim()}
-                          alt={displayName} 
+                          alt={displayName}
                           className="object-cover w-full h-full"
                         />
                       </motion.div>
@@ -589,7 +590,10 @@ export default function Profile() {
 
                       <Bookmark className="h-5 w-5 text-gray-700 dark:text-gray-300" />
                     </motion.div>
-                    <span className="text-base font-medium text-gray-900 dark:text-white">Your collections</span>
+                    <div className="flex flex-col">
+                      <span className="text-base font-medium text-gray-900 dark:text-white">Your collections</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{totalFavs} items</span>
+                    </div>
                   </div>
                   <motion.div
                     whileHover={{ x: 4 }}

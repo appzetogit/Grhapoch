@@ -10,7 +10,7 @@ export const authenticate = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return errorResponse(res, 401, 'No token provided');
     }
@@ -22,7 +22,7 @@ export const authenticate = async (req, res, next) => {
 
     // Get user from database
     const user = await User.findById(decoded.userId).select('-password');
-    
+
     if (!user) {
       return errorResponse(res, 401, 'User not found');
     }
@@ -34,7 +34,7 @@ export const authenticate = async (req, res, next) => {
     // Attach user to request
     req.user = user;
     req.token = decoded;
-    
+
     next();
   } catch (error) {
     return errorResponse(res, 401, error.message || 'Invalid token');

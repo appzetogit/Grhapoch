@@ -7,12 +7,32 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useProfile } from "../context/ProfileContext"
+import { toast } from "sonner"
+import ConfirmationModal from "../components/ConfirmationModal"
 
 export default function CollectionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { getFavorites, removeFavorite } = useProfile()
-  
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    data: null 
+  })
+
+  const handleConfirmRemoval = () => {
+    if (confirmModal.data) {
+      removeFavorite(confirmModal.data.slug)
+      // Update collection state
+      setCollection(prev => ({
+        ...prev,
+        items: prev.items.filter(item => item.slug !== confirmModal.data.slug),
+        restaurants: prev.restaurants - 1
+      }))
+      toast.success("Removed from collection")
+    }
+    setConfirmModal({ isOpen: false, data: null })
+  }
+
   // Mock collection data - in real app, fetch from API based on id
   const [collection, setCollection] = useState({
     id: id,
@@ -25,7 +45,7 @@ export default function CollectionDetail() {
   // For now, use favorites as collection items
   // In real app, fetch collection items from API
   const favorites = getFavorites()
-  
+
   useEffect(() => {
     // In real app, fetch collection data from API
     // For now, use favorites as placeholder
@@ -38,18 +58,13 @@ export default function CollectionDetail() {
     }))
   }, [id, favorites])
 
-  const handleRemoveItem = (e, slug) => {
+  const handleRemoveItem = (e, slug, name) => {
     e.preventDefault()
     e.stopPropagation()
-    if (window.confirm("Remove this restaurant from collection?")) {
-      removeFavorite(slug)
-      // Update collection state
-      setCollection(prev => ({
-        ...prev,
-        items: prev.items.filter(item => item.slug !== slug),
-        restaurants: prev.restaurants - 1
-      }))
-    }
+    setConfirmModal({
+      isOpen: true,
+      data: { slug, name }
+    })
   }
 
   if (collection.items.length === 0) {
@@ -58,9 +73,9 @@ export default function CollectionDetail() {
         <div className="max-w-4xl mx-auto space-y-6">
           <ScrollReveal>
             <div className="flex items-center gap-3 sm:gap-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="rounded-full h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => navigate(-1)}
               >
@@ -91,9 +106,9 @@ export default function CollectionDetail() {
         <ScrollReveal>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3 sm:gap-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="rounded-full h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => navigate(-1)}
               >
@@ -130,7 +145,7 @@ export default function CollectionDetail() {
                         variant="ghost"
                         size="icon"
                         className="rounded-full bg-white/90 backdrop-blur-sm hover:bg-white text-red-500"
-                        onClick={(e) => handleRemoveItem(e, restaurant.slug)}
+                        onClick={(e) => handleRemoveItem(e, restaurant.slug, restaurant.name)}
                       >
                         <Trash2 className="h-5 w-5" />
                       </Button>
@@ -161,6 +176,16 @@ export default function CollectionDetail() {
           ))}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={handleConfirmRemoval}
+        title="Remove from collection?"
+        message={`Are you sure you want to remove ${confirmModal.data?.name || 'this restaurant'} from your collection?`}
+        confirmText="Yes, Remove"
+        cancelText="No, Keep it"
+      />
     </AnimatedPage>
   )
 }

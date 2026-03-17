@@ -8,7 +8,10 @@ import {
   getUserAddresses,
   addUserAddress,
   updateUserAddress,
-  deleteUserAddress
+  deleteUserAddress,
+  toggleRestaurantFavorite,
+  toggleDishFavorite,
+  getUserFavorites,
 } from '../controllers/userController.js';
 import { authenticate } from '../middleware/auth.js';
 import { uploadMiddleware } from '../utils/cloudinaryService.js';
@@ -41,6 +44,11 @@ router.get('/addresses', getUserAddresses);
 router.post('/addresses', addUserAddress);
 router.put('/addresses/:id', updateUserAddress);
 router.delete('/addresses/:id', deleteUserAddress);
+
+// Favorites & Collections routes
+router.get('/favorites', getUserFavorites);
+router.post('/favorites/restaurant', toggleRestaurantFavorite);
+router.post('/favorites/dish', toggleDishFavorite);
 
 // Wallet routes
 router.use('/wallet', userWalletRoutes);

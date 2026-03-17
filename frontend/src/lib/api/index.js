@@ -221,6 +221,17 @@ export const userAPI = {
   updateLocation: (locationData) => {
     return apiClient.put(API_ENDPOINTS.USER.LOCATION, locationData);
   },
+
+  // Favorites & Collections
+  getFavorites: () => {
+    return apiClient.get('/user/favorites');
+  },
+  toggleRestaurantFavorite: (restaurantId) => {
+    return apiClient.post('/user/favorites/restaurant', { restaurantId });
+  },
+  toggleDishFavorite: (data) => {
+    return apiClient.post('/user/favorites/dish', data);
+  },
 };
 
 // Export public settings API helper functions

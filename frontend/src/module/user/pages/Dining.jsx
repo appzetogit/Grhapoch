@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { MapPin, Search, Mic, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check } from "lucide-react"
+import { MapPin, Search, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,6 +13,7 @@ import { diningAPI } from "@/lib/api"
 import api from "@/lib/api"
 import PageNavbar from "../components/PageNavbar"
 import OptimizedImage from "@/components/OptimizedImage"
+import FoodTypeIcon from "../components/FoodTypeIcon"
 import { getActiveDiningBookings, mergeDiningBookings, normalizeDiningBooking, readDiningBookings, writeDiningBookings } from "../utils/diningBookings"
 
 // Using placeholders for dining card images
@@ -313,14 +314,12 @@ export default function Dining() {
                         Search "burger"
                       </span>
                     </div>
-                    {/* Voice Search Icon */}
-                    <Mic className="h-4 w-4 sm:h-5 text-gray-400 mr-2 sm:mr-3 cursor-pointer hover:text-green-600 transition-colors" />
-                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
       </div>
 
       {/* Content */}
@@ -733,8 +732,9 @@ export default function Dining() {
                             }}
                             transition={{ duration: 0.3 }}
                           >
-                            <div className="bg-gray-800/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium shadow-lg">
-                              {restaurant.featuredDish} · ₹{restaurant.featuredPrice}
+                            <div className="bg-gray-800/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium shadow-lg flex items-center gap-2">
+                              {restaurant.featuredDishType && <FoodTypeIcon isVeg={restaurant.featuredDishType === "Veg"} size="sm" />}
+                              <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
                             </div>
                           </motion.div>
 
@@ -944,8 +944,9 @@ export default function Dining() {
 
                           {/* Featured Dish Badge - Top Left */}
                           <div className="absolute top-3 left-3">
-                            <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium">
-                              {restaurant.featuredDish} · ₹{restaurant.featuredPrice}
+                            <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2">
+                              {restaurant.featuredDishType && <FoodTypeIcon isVeg={restaurant.featuredDishType === "Veg"} size="sm" />}
+                              <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
                             </div>
                           </div>
 

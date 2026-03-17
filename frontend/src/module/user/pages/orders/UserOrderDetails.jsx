@@ -15,6 +15,7 @@ import {
 "lucide-react";
 import { orderAPI, restaurantAPI } from "@/lib/api";
 import { toast } from "sonner";
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -380,17 +381,7 @@ export default function UserOrderDetails() {
           {items.map((item, idx) =>
           <div key={idx} className="flex justify-between items-start mt-2">
               <div className="flex items-center gap-2">
-                <div
-                className={`w-3 h-3 border ${
-                item.isVeg ? "border-green-600" : "border-red-600"} flex items-center justify-center p-[1px]`
-                }>
-                
-                  <div
-                  className={`w-full h-full rounded-full ${
-                  item.isVeg ? "bg-green-600" : "bg-red-600"}`
-                  } />
-                
-                </div>
+                <FoodTypeIcon isVeg={item.isVeg} size="sm" />
                 <span className="text-sm text-gray-700 font-medium">
                   {item.quantity || item.qty || 1} x {item.name}
                 </span>

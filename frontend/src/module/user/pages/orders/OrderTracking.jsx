@@ -1110,9 +1110,7 @@ export default function OrderTracking() {
                 <div className="mt-2 space-y-1">
                   {order?.items?.map((item, index) =>
                     <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="w-4 h-4 rounded border border-green-600 flex items-center justify-center">
-                        <span className="w-2 h-2 rounded-full bg-green-600" />
-                      </span>
+                      <FoodTypeIcon isVeg={item.isVeg !== undefined ? item.isVeg : true} size="sm" />
                       <span>{item.quantity} x {item.name}</span>
                     </div>
                   )}

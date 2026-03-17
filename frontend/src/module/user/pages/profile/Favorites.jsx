@@ -9,6 +9,7 @@ import { useProfile } from "../../context/ProfileContext"
 import { toast } from "sonner"
 
 import ConfirmationModal from "../../components/ConfirmationModal"
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 
 export default function Favorites() {
   const navigate = useNavigate();
@@ -257,15 +258,7 @@ export default function Favorites() {
                           </div>
                           <div className="flex items-center justify-between text-xs pt-2 border-t">
                             <div className="flex items-center gap-1">
-                              {dish.foodType === "Veg" ? (
-                                <div className="w-3 h-3 border-2 border-green-600 flex items-center justify-center rounded-sm">
-                                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                                </div>
-                              ) : (
-                                <div className="w-3 h-3 border-2 border-orange-600 flex items-center justify-center rounded-sm">
-                                  <div className="w-1.5 h-1.5 bg-orange-600 rounded-full"></div>
-                                </div>
-                              )}
+                              <FoodTypeIcon foodType={dish.foodType} size="sm" />
                               <span className="text-muted-foreground font-medium text-xs">{dish.foodType || "N/A"}</span>
                             </div>
                             <div className="text-sm font-bold text-primary-orange">

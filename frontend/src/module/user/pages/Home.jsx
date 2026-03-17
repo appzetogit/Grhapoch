@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSearchOverlay, useLocationSelector } from "../components/UserLayout";
 import PageNavbar from "../components/PageNavbar";
+import FoodTypeIcon from "../components/FoodTypeIcon";
 
 // Import shared food images - prevents duplication
 import { foodImages } from "@/constants/images";
@@ -2035,8 +2036,9 @@ return (
                             }}
                             transition={{ duration: 0.3 }}>
 
-                            <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center shadow-lg">
-                              {restaurant.featuredDish} · ₹{restaurant.featuredPrice}
+                            <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center gap-2 shadow-lg">
+                              <FoodTypeIcon isVeg={restaurant.isVeg} size="sm" />
+                              <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
                             </div>
                           </motion.div>
 

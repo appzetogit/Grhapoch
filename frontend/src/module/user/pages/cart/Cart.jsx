@@ -16,6 +16,7 @@ import { orderAPI, restaurantAPI, adminAPI, publicAPI, userAPI, API_ENDPOINTS } 
 import { API_BASE_URL } from "@/lib/api/config";
 import { initRazorpayPayment } from "@/lib/utils/razorpay";
 import { toast } from "sonner";
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 import {
   Sheet,
   SheetContent,
@@ -1450,9 +1451,7 @@ export default function Cart() {
                   {cart.map((item) =>
                     <div key={item.id} className="flex items-start gap-3 md:gap-4">
                       {/* Veg/Non-veg indicator */}
-                      <div className={`w-4 h-4 md:w-5 md:h-5 border-2 ${item.isVeg !== false ? 'border-green-600' : 'border-red-600'} flex items-center justify-center mt-1 flex-shrink-0`}>
-                        <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${item.isVeg !== false ? 'bg-green-600' : 'bg-red-600'}`} />
-                      </div>
+                      <FoodTypeIcon isVeg={item.isVeg !== false} size="sm" className="mt-1" />
 
                       <div className="flex-1 min-w-0">
                         <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200 leading-tight">{item.name}</p>

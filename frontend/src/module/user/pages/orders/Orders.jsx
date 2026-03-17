@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, MoreVertical, ChevronRight, Star, RotateCcw, AlertCircle, Loader2, Clock } from "lucide-react";
 import { orderAPI, api, API_ENDPOINTS } from "@/lib/api";
 import { toast } from "sonner";
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -664,9 +665,7 @@ Order again from this restaurant in the GrhaPoch app.`;
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-2">
                               {/* Veg/Non-Veg Icon */}
-                              <div className={`w-4 h-4 border ${isVeg ? 'border-green-600' : 'border-red-600'} flex items-center justify-center p-[2px] flex-shrink-0 mt-0.5`}>
-                                <div className={`w-full h-full rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-600'}`}></div>
-                              </div>
+                              <FoodTypeIcon isVeg={isVeg} size="sm" className="mt-0.5" />
                               <div className="flex-1 min-w-0">
                                 <span className="text-sm text-gray-800 font-medium block">
                                   {itemQuantity} x {itemName}

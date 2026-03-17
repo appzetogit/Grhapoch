@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { X, Search, Clock, Mic } from "lucide-react"
+import { X, Search, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { analyticsAPI, categoryAPI } from "@/lib/api"
@@ -149,9 +149,8 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                   value={searchValue}
                   onChange={(e) => onSearchChange(e.target.value)}
                   placeholder="Search for food, restaurants..."
-                  className="pl-12 pr-12 h-12 w-full bg-gray-100 dark:bg-[#1a1a1a] border-transparent focus:border-gray-300 dark:focus:border-gray-700 focus:bg-white dark:focus:bg-black rounded-xl lg:rounded-2xl text-lg dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-400 transition-all duration-300"
+                  className="pl-12 h-12 w-full bg-gray-100 dark:bg-[#1a1a1a] border-transparent focus:border-gray-300 dark:focus:border-gray-700 focus:bg-white dark:focus:bg-black rounded-xl lg:rounded-2xl text-lg dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-400 transition-all duration-300"
                 />
-                <Mic className="absolute right-4 h-5 w-5 text-gray-400 cursor-pointer hover:text-green-600 transition-colors" />
               </div>
               <Button
                 type="button"

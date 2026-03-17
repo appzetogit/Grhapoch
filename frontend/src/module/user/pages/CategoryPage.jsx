@@ -2,10 +2,11 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, Mic, MapPin, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, ShieldCheck, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, MapPin, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, ShieldCheck, X, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import FoodTypeIcon from "../components/FoodTypeIcon";
 
 // Import shared food images - prevents duplication
 import { foodImages } from "@/constants/images";
@@ -693,9 +694,6 @@ export default function CategoryPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-10 h-11 md:h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] focus:bg-white dark:focus:bg-[#2a2a2a] focus:border-gray-500 dark:focus:border-gray-600 text-sm md:text-base dark:text-white placeholder:text-gray-600 dark:placeholder:text-gray-400" />
               
-              <button className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Mic className="h-4 w-4 text-gray-500" />
-              </button>
             </div>
           </div>
 
@@ -918,9 +916,12 @@ export default function CategoryPage() {
                         </div>
 
                         {/* Restaurant Info - Show category dish name if available, otherwise restaurant name */}
-                        <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-1">
-                          {restaurant.categoryDishName || restaurant.name}
-                        </h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <FoodTypeIcon isVeg={restaurant.categoryDish?.foodType === "Veg"} size="sm" />
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-1">
+                            {restaurant.categoryDishName || restaurant.name}
+                          </h3>
+                        </div>
                         <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-[10px] md:text-xs">
                           <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
                           <span>{restaurant.deliveryTime || 'Not available'}</span>
@@ -1003,9 +1004,10 @@ export default function CategoryPage() {
 
                         {/* Category Dish Badge - Top Left (shows category dish if available, otherwise featured dish) */}
                         {(restaurant.categoryDishName || restaurant.featuredDish) &&
-                        <div className="absolute top-3 left-3">
-                            <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm md:text-base font-medium">
-                              {restaurant.categoryDishName || restaurant.featuredDish} · ₹{restaurant.categoryDishPrice || restaurant.featuredPrice}
+                        <div className="absolute top-3 left-3 flex items-center gap-2">
+                            <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm md:text-base font-medium flex items-center gap-2">
+                              <FoodTypeIcon isVeg={restaurant.categoryDish ? restaurant.categoryDish.foodType === "Veg" : restaurant.isVeg} size="sm" />
+                              <span>{restaurant.categoryDishName || restaurant.featuredDish} · ₹{restaurant.categoryDishPrice || restaurant.featuredPrice}</span>
                             </div>
                           </div>
                         }

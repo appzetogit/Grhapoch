@@ -43,6 +43,7 @@ import { useCart } from "../../context/CartContext";
 import { useProfile } from "../../context/ProfileContext";
 import AddToCartAnimation from "../../components/AddToCartAnimation";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 
 
 
@@ -1626,15 +1627,7 @@ export default function RestaurantDetails() {
                             <div className="flex-1 min-w-0">
                               {/* Veg Icon & Spicy Indicator */}
                               <div className="flex items-center gap-2 mb-1">
-                                {isVeg ?
-                                  <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                    <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                                  </div> :
-
-                                  <div className="w-4 h-4 border-2 border-orange-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                    <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
-                                  </div>
-                                }
+                                <FoodTypeIcon isVeg={isVeg} size="sm" className="flex-shrink-0" />
                                 {item.isSpicy && <span className="text-red-500">🌶️</span>}
                               </div>
 
@@ -1842,15 +1835,7 @@ export default function RestaurantDetails() {
                                       <div className="flex-1 min-w-0">
                                         {/* Veg Icon & Spicy Indicator */}
                                         <div className="flex items-center gap-2 mb-1">
-                                          {isVeg ?
-                                            <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                                            </div> :
-
-                                            <div className="w-4 h-4 border-2 border-orange-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                              <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
-                                            </div>
-                                          }
+                                          <FoodTypeIcon isVeg={isVeg} size="md" />
                                           {item.isSpicy && <span className="text-red-500">🌶️</span>}
                                         </div>
 
@@ -2593,15 +2578,7 @@ export default function RestaurantDetails() {
                     {/* Item Name and Indicator */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2 flex-1">
-                        {selectedItem.foodType === "Veg" ? (
-                          <div className="h-5 w-5 rounded border-2 border-green-600 bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                            <div className="h-2.5 w-2.5 rounded-full bg-green-600" />
-                          </div>
-                        ) : (
-                          <div className="h-5 w-5 rounded border-2 border-amber-700 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                            <div className="h-2.5 w-2.5 rounded-full bg-amber-700 dark:bg-amber-600" />
-                          </div>
-                        )}
+                        <FoodTypeIcon isVeg={selectedItem.foodType === "Veg"} size="md" />
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                           {selectedItem.name}
                         </h2>

@@ -384,7 +384,8 @@ export default function AddToCartAnimation({
         className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-white flex-shrink-0 shadow-lg"
         style={{
           borderRadius: '50%',
-          objectFit: 'cover'
+          objectFit: 'cover',
+          pointerEvents: 'none'
         }}>
         
           {removedProduct.product?.imageUrl ?
@@ -408,7 +409,8 @@ export default function AddToCartAnimation({
         className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-white flex-shrink-0 shadow-lg"
         style={{
           borderRadius: '50%',
-          objectFit: 'cover'
+          objectFit: 'cover',
+          pointerEvents: 'none'
         }}>
         
           {flyingProduct.product.imageUrl ?
@@ -444,7 +446,7 @@ export default function AddToCartAnimation({
           style={{
             bottom: dynamicBottom ? undefined : `${bottomOffset || 20}px`
           }}
-          className={`fixed ${dynamicBottom || ''} left-0 right-0 z-[60] flex justify-center px-4 pb-4 md:pb-6 transition-all duration-300 ease-in-out bg-transparent`}>
+          className={`fixed ${dynamicBottom || ''} left-0 right-0 z-[60] flex justify-center px-4 pb-4 md:pb-6 transition-all duration-300 ease-in-out bg-transparent pointer-events-none`}>
           
             <button
             ref={linkRef}

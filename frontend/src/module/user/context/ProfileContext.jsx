@@ -14,7 +14,7 @@ export function ProfileProvider({ children }) {
         console.error("Error parsing user_user from localStorage:", e)
       }
     }
-    
+
     // Fallback to userProfile from localStorage
     const saved = localStorage.getItem("userProfile")
     if (saved) {
@@ -24,11 +24,11 @@ export function ProfileProvider({ children }) {
         console.error("Error parsing userProfile from localStorage:", e)
       }
     }
-    
+
     // Default empty profile
     return null
   })
-  
+
   const [loading, setLoading] = useState(true)
 
   const [addresses, setAddresses] = useState([])
@@ -110,9 +110,9 @@ export function ProfileProvider({ children }) {
   useEffect(() => {
     const fetchUserProfile = async () => {
       // Check if user is authenticated
-      const isAuthenticated = localStorage.getItem("user_authenticated") === "true" || 
-                             localStorage.getItem("user_accessToken")
-      
+      const isAuthenticated = localStorage.getItem("user_authenticated") === "true" ||
+        localStorage.getItem("user_accessToken")
+
       if (!isAuthenticated) {
         setLoading(false)
         return
@@ -120,11 +120,11 @@ export function ProfileProvider({ children }) {
 
       try {
         setLoading(true)
-        
+
         // Fetch user profile
         const response = await authAPI.getCurrentUser()
         const userData = response?.data?.data?.user || response?.data?.user || response?.data
-        
+
         if (userData) {
           setUserProfile(userData)
           // Update localStorage
@@ -168,14 +168,131 @@ export function ProfileProvider({ children }) {
     }
 
     fetchUserProfile()
-    
+
+    // Fetch favorites from database
+    const fetchFavorites = async () => {
+      const isAuthenticated = localStorage.getItem("user_authenticated") === "true" ||
+        localStorage.getItem("user_accessToken")
+      if (!isAuthenticated) return
+
+      try {
+        const response = await userAPI.getFavorites()
+        const { collections: dbCollData } = response.data.data
+
+        if (dbCollData) {
+          // Sync Restaurants
+          if (dbCollData.restaurants) {
+            console.log("📥 [FRONTEND] Raw restaurants from DB count:", dbCollData.restaurants.length);
+            const transformedFavs = dbCollData.restaurants.map(f => {
+              const r = f.restaurantId;
+              const name = f.name || (typeof r === 'object' ? r.name : 'Unknown Restaurant');
+              const slug = f.slug || (typeof r === 'object' ? r.slug : name.toLowerCase().replace(/\s+/g, "-"));
+
+              return {
+                ... (typeof r === 'object' ? r : {}),
+                id: f._id || (typeof r === 'object' ? r._id : r),
+                restaurantId: typeof r === 'object' ? (r._id || r.id) : r,
+                slug: slug,
+                name: name,
+                image: f.image || (typeof r === 'object' ? (r.profileImage?.url || r.image) : null),
+                cuisine: f.cuisine || (typeof r === 'object' ? (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine) : null),
+                rating: f.rating || (typeof r === 'object' ? r.rating : null),
+                addedAt: f.addedAt
+              };
+            }).filter(Boolean);
+
+            console.log("✨ [FRONTEND] Final favorites count:", transformedFavs.length);
+            setFavorites(transformedFavs)
+          }
+
+          // Sync Dishes
+          if (dbCollData.dishes) {
+            const transformedDishes = dbCollData.dishes.map(d => {
+              const dishObj = typeof d === 'object' ?
+                (typeof d.toObject === 'function' ? d.toObject() : d) :
+                null;
+
+              if (!dishObj) return null;
+
+              return {
+                ...dishObj,
+                id: d.dishId || dishObj._id || dishObj.id,
+                restaurantId: d.restaurantId?._id || d.restaurantId || dishObj.restaurantId,
+                name: d.name || dishObj.name,
+                price: d.price || dishObj.price,
+                image: d.image || dishObj.image,
+                foodType: d.foodType || dishObj.foodType,
+                restaurantName: d.restaurantName || dishObj.restaurantName,
+                restaurantSlug: d.restaurantSlug || dishObj.restaurantSlug,
+                addedAt: d.addedAt
+              };
+            }).filter(Boolean);
+
+            // Deduplicate dishes
+            const uniqueDishes = [];
+            const seenDishIds = new Set();
+            transformedDishes.forEach(d => {
+              const key = `${d.id}-${d.restaurantId}`;
+              if (!seenDishIds.has(key)) {
+                uniqueDishes.push(d);
+                seenDishIds.add(key);
+              }
+            });
+
+            console.log("✨ [FRONTEND] Transformed dishes:", uniqueDishes);
+            setDishFavorites(uniqueDishes)
+          }
+        }
+
+        // --- Granular Migration ---
+        const localFavs = JSON.parse(localStorage.getItem("userFavorites") || "[]");
+        const localDishFavs = JSON.parse(localStorage.getItem("userDishFavorites") || "[]");
+
+        // Migrate Restaurants if DB is empty but local is not
+        if (localFavs.length > 0 && (!dbCollData || !dbCollData.restaurants || dbCollData.restaurants.length === 0)) {
+          console.log("Migrating local restaurant favorites to database...");
+          for (const rf of localFavs) {
+            await addFavorite(rf);
+          }
+          // Clear local storage after migration
+          localStorage.removeItem("userFavorites");
+        }
+
+        // Migrate Dishes if DB is empty but local is not
+        if (localDishFavs.length > 0 && (!dbCollData || !dbCollData.dishes || dbCollData.dishes.length === 0)) {
+          console.log("Migrating local dish favorites to database...");
+          for (const df of localDishFavs) {
+            await addDishFavorite(df);
+          }
+          // Clear local storage after migration
+          localStorage.removeItem("userDishFavorites");
+        }
+      } catch (error) {
+        console.error("Error fetching favorites from DB:", error)
+      }
+    }
+
+    fetchFavorites()
+
     // Listen for auth changes
     const handleAuthChange = () => {
-      fetchUserProfile()
+      const isAuthenticated = localStorage.getItem("user_authenticated") === "true" ||
+        localStorage.getItem("user_accessToken") ||
+        localStorage.getItem("accessToken");
+
+      if (!isAuthenticated) {
+        setUserProfile(null);
+        setAddresses([]);
+        setFavorites([]);
+        setDishFavorites([]);
+      } else {
+        fetchUserProfile()
+        fetchFavorites()
+      }
     }
-    
+
     window.addEventListener("userAuthChanged", handleAuthChange)
-    
+
     return () => {
       window.removeEventListener("userAuthChanged", handleAuthChange)
     }
@@ -186,7 +303,7 @@ export function ProfileProvider({ children }) {
     try {
       const response = await userAPI.addAddress(address)
       const newAddress = response?.data?.data?.address || response?.data?.address
-      
+
       if (newAddress) {
         setAddresses((prev) => {
           const updated = [...prev, newAddress]
@@ -205,7 +322,7 @@ export function ProfileProvider({ children }) {
     try {
       const response = await userAPI.updateAddress(id, updatedAddress)
       const updatedAddr = response?.data?.data?.address || response?.data?.address
-      
+
       if (updatedAddr) {
         setAddresses((prev) => {
           const updated = prev.map((addr) => (addr.id === id ? { ...updatedAddr, id } : addr))
@@ -269,12 +386,12 @@ export function ProfileProvider({ children }) {
     setPaymentMethods((prev) => {
       const paymentToDelete = prev.find((pm) => pm.id === id)
       const newPayments = prev.filter((pm) => pm.id !== id)
-      
+
       // If deleting default, set first remaining as default
       if (paymentToDelete?.isDefault && newPayments.length > 0) {
         newPayments[0].isDefault = true
       }
-      
+
       return newPayments
     })
   }, [])
@@ -301,21 +418,92 @@ export function ProfileProvider({ children }) {
   }, [paymentMethods])
 
   // Favorites functions - memoized with useCallback
-  const addFavorite = useCallback((restaurant) => {
+  const addFavorite = useCallback(async (restaurant) => {
+    // Optimistic update
     setFavorites((prev) => {
       if (!prev.find(fav => fav.slug === restaurant.slug)) {
         return [...prev, restaurant]
       }
       return prev
     })
+
+    // Backend sync
+    try {
+      const restaurantId = restaurant.restaurantId || restaurant._id || restaurant.id;
+      console.log('📡 [FRONTEND] Sending toggleFavorite for ID:', restaurantId, 'Name:', restaurant.name);
+
+      if (restaurantId) {
+        const response = await userAPI.toggleRestaurantFavorite(restaurantId);
+        console.log('✅ [FRONTEND] toggleFavorite SUCCESS:', response.data?.message);
+
+        if (response.data?.success && response.data.data?.collections?.restaurants) {
+          const dbRestaurants = response.data.data.collections.restaurants;
+          const syncedFavs = dbRestaurants.map(f => {
+            const r = f.restaurantId || {};
+            const name = f.name || r.name || 'Unknown Restaurant';
+            return {
+              _id: f._id,
+              restaurantId: r._id || f.restaurantId,
+              name,
+              image: f.image || r.profileImage?.url || r.image,
+              slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
+              cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
+              rating: f.rating || r.rating,
+              addedAt: f.addedAt
+            };
+          });
+          setFavorites(syncedFavs);
+        }
+      } else {
+        console.error('❌ [FRONTEND] No restaurantId found to sync!');
+      }
+    } catch (error) {
+      console.error("❌ [FRONTEND] Error syncing restaurant favorite to DB:", error.response?.data || error.message);
+      // Revert optimistic update if needed or just let it be (re-fetch will happen later)
+    }
   }, [])
 
-  const removeFavorite = useCallback((slug) => {
-    setFavorites((prev) => prev.filter(fav => fav.slug !== slug))
-  }, [])
+  const removeFavorite = useCallback(async (slugOrId) => {
+    let itemToRemove = favorites.find(f => f.slug === slugOrId || f._id === slugOrId || f.id === slugOrId)
+    setFavorites((prev) => prev.filter(fav => fav.slug !== slugOrId && fav._id !== slugOrId && fav.id !== slugOrId))
+
+    // Backend sync
+    try {
+      const restaurantId = itemToRemove?.restaurantId || itemToRemove?._id || itemToRemove?.id;
+      console.log('📡 [FRONTEND] Sending remove toggle for ID:', restaurantId);
+
+      if (restaurantId) {
+        const response = await userAPI.toggleRestaurantFavorite(restaurantId);
+        console.log('✅ [FRONTEND] remove toggle SUCCESS:', response.data?.message);
+
+        if (response.data?.success && response.data.data?.collections?.restaurants) {
+          const dbRestaurants = response.data.data.collections.restaurants;
+          const syncedFavs = dbRestaurants.map(f => {
+            const r = f.restaurantId || {};
+            const name = f.name || r.name || 'Unknown Restaurant';
+            return {
+              _id: f._id,
+              restaurantId: r._id || f.restaurantId,
+              name,
+              image: f.image || r.profileImage?.url || r.image,
+              slug: f.slug || r.slug || name.toLowerCase().replace(/\s+/g, "-"),
+              cuisine: f.cuisine || (Array.isArray(r.cuisines) ? r.cuisines.join(', ') : r.cuisine),
+              rating: f.rating || r.rating,
+              addedAt: f.addedAt
+            };
+          });
+          setFavorites(syncedFavs);
+        }
+      }
+    } catch (error) {
+      console.error("❌ [FRONTEND] Error removing restaurant favorite from DB:", error.response?.data || error.message);
+    }
+  }, [favorites])
 
   const isFavorite = useCallback((slug) => {
-    return favorites.some(fav => fav.slug === slug)
+    const isFav = favorites.some(fav => fav.slug === slug)
+    // console.log(`🔍 [isFavorite] Checking ${slug}: ${isFav ? 'YES' : 'NO'}`);
+    return isFav;
   }, [favorites])
 
   const getFavorites = useCallback(() => {
@@ -323,23 +511,66 @@ export function ProfileProvider({ children }) {
   }, [favorites])
 
   // Dish favorites functions - memoized with useCallback
-  const addDishFavorite = useCallback((dish) => {
+  const addDishFavorite = useCallback(async (dish) => {
+    // Optimistic update
     setDishFavorites((prev) => {
-      if (!prev.find(fav => fav.id === dish.id && fav.restaurantId === dish.restaurantId)) {
-        return [...prev, dish]
+      const dishId = dish.id || dish._id || dish.dishId;
+      const restaurantId = dish.restaurantId?._id || dish.restaurantId;
+
+      const exists = prev.find(fav =>
+        (fav.id === dishId || fav.dishId === dishId) &&
+        (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)
+      );
+
+      if (!exists) {
+        return [...prev, { ...dish, id: dishId, restaurantId }]
       }
       return prev
     })
+
+    // Backend sync
+    try {
+      const resId = dish.restaurantId?._id || dish.restaurantId;
+      const dId = dish.id || dish._id || dish.dishId;
+      if (resId && dId) {
+        await userAPI.toggleDishFavorite({
+          dishId: dId,
+          restaurantId: resId,
+          name: dish.name,
+          price: dish.price,
+          image: dish.image,
+          foodType: dish.foodType,
+          restaurantName: dish.restaurantName,
+          restaurantSlug: dish.restaurantSlug
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing dish favorite to DB:", error)
+    }
   }, [])
 
-  const removeDishFavorite = useCallback((dishId, restaurantId) => {
-    setDishFavorites((prev) => 
-      prev.filter(fav => !(fav.id === dishId && fav.restaurantId === restaurantId))
+  const removeDishFavorite = useCallback(async (dishId, restaurantId) => {
+    setDishFavorites((prev) =>
+      prev.filter(fav => !((fav.id === dishId || fav.dishId === dishId) &&
+        (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)))
     )
+
+    // Backend sync
+    try {
+      const resId = restaurantId?._id || restaurantId;
+      if (dishId && resId) {
+        await userAPI.toggleDishFavorite({ dishId, restaurantId: resId });
+      }
+    } catch (error) {
+      console.error("Error removing dish favorite from DB:", error)
+    }
   }, [])
 
   const isDishFavorite = useCallback((dishId, restaurantId) => {
-    return dishFavorites.some(fav => fav.id === dishId && fav.restaurantId === restaurantId)
+    return dishFavorites.some(fav =>
+      (fav.id === dishId || fav.dishId === dishId) &&
+      (fav.restaurantId === restaurantId || fav.restaurantId?._id === restaurantId)
+    )
   }, [dishFavorites])
 
   const getDishFavorites = useCallback(() => {
@@ -423,39 +654,36 @@ export function ProfileProvider({ children }) {
 export function useProfile() {
   const context = useContext(ProfileContext)
   if (!context) {
-    // Return fallback values instead of throwing error
-    // This prevents crashes when ProfileProvider is not available
-    console.warn("useProfile called outside ProfileProvider - using fallback values")
     return {
       userProfile: null,
       loading: false,
-      updateUserProfile: () => console.warn("ProfileProvider not available"),
+      updateUserProfile: () => { },
       addresses: [],
       paymentMethods: [],
       favorites: [],
-      addAddress: () => console.warn("ProfileProvider not available"),
-      updateAddress: () => console.warn("ProfileProvider not available"),
-      deleteAddress: () => console.warn("ProfileProvider not available"),
-      setDefaultAddress: () => console.warn("ProfileProvider not available"),
+      addAddress: () => { },
+      updateAddress: () => { },
+      deleteAddress: () => { },
+      setDefaultAddress: () => { },
       getDefaultAddress: () => null,
       getAddressById: () => null,
-      addPaymentMethod: () => console.warn("ProfileProvider not available"),
-      updatePaymentMethod: () => console.warn("ProfileProvider not available"),
-      deletePaymentMethod: () => console.warn("ProfileProvider not available"),
-      setDefaultPaymentMethod: () => console.warn("ProfileProvider not available"),
+      addPaymentMethod: () => { },
+      updatePaymentMethod: () => { },
+      deletePaymentMethod: () => { },
+      setDefaultPaymentMethod: () => { },
       getDefaultPaymentMethod: () => null,
       getPaymentMethodById: () => null,
-      addFavorite: () => console.warn("ProfileProvider not available"),
-      removeFavorite: () => console.warn("ProfileProvider not available"),
+      addFavorite: () => { },
+      removeFavorite: () => { },
       isFavorite: () => false,
       getFavorites: () => [],
       dishFavorites: [],
-      addDishFavorite: () => console.warn("ProfileProvider not available"),
-      removeDishFavorite: () => console.warn("ProfileProvider not available"),
+      addDishFavorite: () => { },
+      removeDishFavorite: () => { },
       isDishFavorite: () => false,
       getDishFavorites: () => [],
       vegMode: true,
-      setVegMode: () => console.warn("ProfileProvider not available")
+      setVegMode: () => { }
     }
   }
   return context

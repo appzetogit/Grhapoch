@@ -16,7 +16,6 @@ import {
   Clock,
   Tag,
   ChevronDown,
-  Info,
   Star,
   SlidersHorizontal,
   Utensils,
@@ -43,6 +42,7 @@ import AnimatedPage from "../../components/AnimatedPage";
 import { useCart } from "../../context/CartContext";
 import { useProfile } from "../../context/ProfileContext";
 import AddToCartAnimation from "../../components/AddToCartAnimation";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 
 
@@ -470,7 +470,7 @@ export default function RestaurantDetails() {
               if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
                 const menuSections = menuRes.value.data.data.menu.sections || [];
                 const recommendedItems = [];
-                
+
                 menuSections.forEach((section) => {
                   if (section.items && Array.isArray(section.items)) {
                     section.items.forEach((item) => {
@@ -912,6 +912,23 @@ export default function RestaurantDetails() {
     }) :
     [];
 
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    type: null, // "restaurant" or "dish"
+    data: null 
+  });
+
+  const handleConfirmRemoval = () => {
+    if (confirmModal.type === "restaurant") {
+      removeFavorite(confirmModal.data.slug);
+      toast.success("Restaurant removed from collection");
+    } else if (confirmModal.type === "dish") {
+      removeDishFavorite(confirmModal.data.dishId, confirmModal.data.restaurantId);
+      toast.success("Dish removed from favorites");
+    }
+    setConfirmModal({ isOpen: false, type: null, data: null });
+  };
+
   // Count active filters
   const getActiveFilterCount = () => {
     let count = 0;
@@ -936,12 +953,14 @@ export default function RestaurantDetails() {
       return;
     }
 
-    const isFavorite = isDishFavorite(dishId, restaurantId);
+    const isBookmarked = isDishFavorite(dishId, restaurantId);
 
-    if (isFavorite) {
-      // If already bookmarked, remove it
-      removeDishFavorite(dishId, restaurantId);
-      toast.success("Dish removed from favorites");
+    if (isBookmarked) {
+      setConfirmModal({
+        isOpen: true,
+        type: "dish",
+        data: { dishId, restaurantId, name: item.name }
+      });
     } else {
       // Add to favorites
       const dishData = {
@@ -980,12 +999,15 @@ export default function RestaurantDetails() {
     const isAlreadyFavorite = isFavorite(restaurantSlug);
 
     if (isAlreadyFavorite) {
-      // Remove from collection
-      removeFavorite(restaurantSlug);
-      toast.success("Restaurant removed from collection");
+      setConfirmModal({
+        isOpen: true,
+        type: "restaurant",
+        data: { slug: restaurantSlug, name: restaurant.name }
+      });
     } else {
       // Add to collection
       addFavorite({
+        id: restaurant.id || restaurant.restaurantId || restaurant._id,
         slug: restaurantSlug,
         name: restaurant.name || "",
         cuisine: restaurant.cuisine || "",
@@ -1381,7 +1403,6 @@ export default function RestaurantDetails() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{restaurant?.name || "Unknown Restaurant"}</h1>
-              <Info className="h-5 w-5 text-gray-400" />
             </div>
             <div className="flex flex-col items-end">
               <Badge className="bg-green-500 text-white mb-1 flex items-center gap-1 px-2 py-1">
@@ -3211,6 +3232,19 @@ export default function RestaurantDetails() {
           </motion.div>
         }
       </AnimatePresence>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={handleConfirmRemoval}
+        title={confirmModal.type === "restaurant" ? "Remove from collection?" : "Remove from favorites?"}
+        message={confirmModal.type === "restaurant" 
+          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"}? You'll miss out on their latest offers.`
+          : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
+        }
+        confirmText="Yes, Remove"
+        cancelText="No, Keep it"
+      />
     </AnimatedPage>);
 
 }

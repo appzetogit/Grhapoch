@@ -1,13 +1,14 @@
 import { Link, useNavigate } from "react-router-dom"
 import { useState } from "react"
-
 import { Heart, Star, Clock, MapPin, ArrowRight, ArrowLeft, Bookmark } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import ScrollReveal from "../../components/ScrollReveal"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Card, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useProfile } from "../../context/ProfileContext"
 import { toast } from "sonner"
+
+import ConfirmationModal from "../../components/ConfirmationModal"
 
 export default function Favorites() {
   const navigate = useNavigate();
@@ -15,30 +16,50 @@ export default function Favorites() {
   const restaurantFavorites = getFavorites()
   const dishFavorites = getDishFavorites()
   const [activeTab, setActiveTab] = useState("restaurants")
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    type: null, // "restaurant" or "dish"
+    data: null 
+  })
 
   const handleRemoveFavorite = (e, slug) => {
     e.preventDefault()
     e.stopPropagation()
-    if (window.confirm("Remove this restaurant from favorites?")) {
-      removeFavorite(slug)
-      toast.success("Restaurant removed from favorites")
-    }
+    const restaurant = restaurantFavorites.find(r => r.slug === slug)
+    setConfirmModal({
+      isOpen: true,
+      type: "restaurant",
+      data: { slug, name: restaurant?.name }
+    })
   }
 
   const handleRemoveDishFavorite = (e, dishId, restaurantId) => {
     e.preventDefault()
     e.stopPropagation()
-    if (window.confirm("Remove this dish from favorites?")) {
-      removeDishFavorite(dishId, restaurantId)
+    const dish = dishFavorites.find(d => d.id === dishId && d.restaurantId === restaurantId)
+    setConfirmModal({
+      isOpen: true,
+      type: "dish",
+      data: { dishId, restaurantId, name: dish?.name }
+    })
+  }
+
+  const handleConfirmRemoval = () => {
+    if (confirmModal.type === "restaurant") {
+      removeFavorite(confirmModal.data.slug)
+      toast.success("Restaurant removed from favorites")
+    } else if (confirmModal.type === "dish") {
+      removeDishFavorite(confirmModal.data.dishId, confirmModal.data.restaurantId)
       toast.success("Dish removed from favorites")
     }
+    setConfirmModal({ isOpen: false, type: null, data: null })
   }
 
   const totalFavorites = restaurantFavorites.length + dishFavorites.length
 
   if (totalFavorites === 0) {
     return (
-      <><AnimatedPage className="min-h-screen bg-gradient-to-b from-yellow-50/30 via-white to-orange-50/20 dark:from-[#0a0a0a] dark:via-[#0a0a0a] dark:to-[#0a0a0a] p-4">
+      <AnimatedPage className="min-h-screen bg-gradient-to-b from-yellow-50/30 via-white to-orange-50/20 dark:from-[#0a0a0a] dark:via-[#0a0a0a] dark:to-[#0a0a0a] p-4">
         <div className="max-w-4xl mx-auto space-y-6">
           <ScrollReveal>
             <div className="flex items-center gap-3 sm:gap-4">
@@ -60,7 +81,7 @@ export default function Favorites() {
             </CardContent>
           </Card>
         </div>
-      </AnimatedPage></>
+      </AnimatedPage>
     )
   }
 
@@ -122,7 +143,7 @@ export default function Favorites() {
               restaurantFavorites.map((restaurant, index) => (
                 <ScrollReveal key={restaurant.slug} delay={index * 0.1}>
                   <Link to={`/user/restaurants/${restaurant.slug}`}>
-                    <Card className="overflow-hidden h-full">
+                    <Card className="overflow-hidden h-full box-border border-2 border-transparent hover:border-primary-orange/20">
                       <div className="h-32 w-full relative overflow-hidden">
                         <img
                           src={restaurant.image}
@@ -147,7 +168,7 @@ export default function Favorites() {
                         <div className="absolute bottom-2 left-2">
                           <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="font-bold text-xs">{restaurant.rating}</span>
+                            <span className="font-bold text-xs">{restaurant.rating || "N/A"}</span>
                           </div>
                         </div>
                       </div>
@@ -157,17 +178,17 @@ export default function Favorites() {
                             {restaurant.name}
                           </CardTitle>
                           <p className="text-xs text-muted-foreground font-medium line-clamp-1">
-                            {restaurant.cuisine}
+                            {restaurant.cuisine || "Cuisine"}
                           </p>
                         </div>
                         <div className="flex items-center justify-between text-xs pt-2 border-t">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            <span className="font-medium">{restaurant.deliveryTime}</span>
+                            <span className="font-medium">{restaurant.deliveryTime || "20-30 min"}</span>
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <MapPin className="h-3 w-3" />
-                            <span className="font-medium">{restaurant.distance}</span>
+                            <span className="font-medium">{restaurant.distance || "1.2 km"}</span>
                           </div>
                         </div>
                         <Button className="w-full bg-gradient-to-r bg-primary-orange hover:opacity-90 text-white text-xs py-1.5 h-8">
@@ -265,6 +286,19 @@ export default function Favorites() {
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={handleConfirmRemoval}
+        title={confirmModal.type === "restaurant" ? "Remove from favorites?" : "Remove dish?"}
+        message={confirmModal.type === "restaurant" 
+          ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"}? You'll miss out on their latest offers.`
+          : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
+        }
+        confirmText="Yes, Remove"
+        cancelText="No, Keep it"
+      />
     </AnimatedPage>
   )
 }

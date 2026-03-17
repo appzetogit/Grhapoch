@@ -1,6 +1,8 @@
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
+import mongoose from 'mongoose';
 import { uploadToCloudinary } from '../utils/cloudinaryService.js';
 import axios from 'axios';
 import winston from 'winston';
@@ -57,36 +59,36 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     if (name !== undefined && name !== null) {
       user.name = name.trim();
     }
-    
+
     if (email !== undefined && email !== null && email.trim() !== '') {
       // Check if email already exists for another user
-      const existingUser = await User.findOne({ 
+      const existingUser = await User.findOne({
         email: email.toLowerCase().trim(),
         _id: { $ne: user._id },
         role: 'user'
       });
-      
+
       if (existingUser) {
         return errorResponse(res, 400, 'Email already in use');
       }
-      
+
       user.email = email.toLowerCase().trim();
     }
-    
+
     if (phone !== undefined && phone !== null) {
       // Check if phone already exists for another user
       if (phone.trim() !== '') {
-        const existingUser = await User.findOne({ 
+        const existingUser = await User.findOne({
           phone: phone.trim(),
           _id: { $ne: user._id },
           role: 'user'
         });
-        
+
         if (existingUser) {
           return errorResponse(res, 400, 'Phone number already in use');
         }
       }
-      
+
       user.phone = phone ? phone.trim() : null;
     }
 
@@ -181,13 +183,13 @@ export const uploadProfileImage = asyncHandler(async (req, res) => {
  */
 export const updateUserLocation = asyncHandler(async (req, res) => {
   try {
-    const { 
-      latitude, 
-      longitude, 
-      address, 
-      city, 
-      state, 
-      area, 
+    const {
+      latitude,
+      longitude,
+      address,
+      city,
+      state,
+      area,
       formattedAddress,
       accuracy,
       postalCode,
@@ -541,3 +543,193 @@ export const deleteUserAddress = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Toggle restaurant favorite
+ * POST /api/user/favorites/restaurant
+ */
+export const toggleRestaurantFavorite = asyncHandler(async (req, res) => {
+  const { restaurantId } = req.body;
+  const userId = req.user._id;
+
+  if (!restaurantId) {
+    return errorResponse(res, 400, 'Restaurant ID is required');
+  }
+
+  // Find the actual restaurant
+  const orConditions = [];
+  if (mongoose.isValidObjectId(restaurantId)) {
+    orConditions.push({ _id: restaurantId });
+  }
+  orConditions.push({ restaurantId: restaurantId });
+  orConditions.push({ slug: restaurantId });
+
+  const restaurant = await Restaurant.findOne({ $or: orConditions });
+
+  if (!restaurant) {
+    return errorResponse(res, 404, 'Restaurant not found');
+  }
+
+  const internalId = restaurant._id;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return errorResponse(res, 404, 'User not found');
+  }
+
+  // Ensure collections structure exists
+  if (!user.collections) user.collections = { restaurants: [], dishes: [] };
+  if (!user.collections.restaurants) user.collections.restaurants = [];
+
+  const favoriteIndex = user.collections.restaurants.findIndex(
+    fav => fav.restaurantId && fav.restaurantId.toString() === internalId.toString()
+  );
+
+  let updatedUser;
+  let message = '';
+
+  if (favoriteIndex > -1) {
+    updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { 'collections.restaurants': { restaurantId: internalId } } },
+      { new: true }
+    );
+    message = 'Restaurant removed from favorites';
+  } else {
+    const newFav = {
+      restaurantId: internalId,
+      name: restaurant.name,
+      image: restaurant.profileImage?.url || restaurant.image,
+      slug: restaurant.slug,
+      cuisine: Array.isArray(restaurant.cuisines) ? restaurant.cuisines.join(', ') : restaurant.cuisine,
+      rating: restaurant.rating,
+      addedAt: new Date()
+    };
+
+    updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $push: { 'collections.restaurants': newFav } },
+      { new: true }
+    );
+    message = 'Restaurant added to favorites';
+  }
+
+  return successResponse(res, 200, message, {
+    collections: updatedUser.collections
+  });
+});
+
+/**
+ * Toggle dish favorite
+ * POST /api/user/favorites/dish
+ */
+export const toggleDishFavorite = asyncHandler(async (req, res) => {
+  const {
+    dishId,
+    restaurantId,
+    name,
+    price,
+    image,
+    foodType,
+    restaurantName,
+    restaurantSlug
+  } = req.body;
+  const userId = req.user._id;
+
+  console.log(`🚀 [DISH_DEBUG] --- START ---`);
+  console.log(`🚀 [DISH_DEBUG] DishID: ${dishId} | ResID: ${restaurantId} | User: ${userId}`);
+
+  if (!dishId || !restaurantId) {
+    return errorResponse(res, 400, 'Dish ID and Restaurant ID are required');
+  }
+
+  // Find the actual restaurant
+  const orConditions = [];
+  if (mongoose.isValidObjectId(restaurantId)) {
+    orConditions.push({ _id: restaurantId });
+  }
+  orConditions.push({ restaurantId: restaurantId });
+  orConditions.push({ slug: restaurantId });
+
+  const restaurant = await Restaurant.findOne({ $or: orConditions });
+
+  if (!restaurant) {
+    return errorResponse(res, 404, 'Restaurant not found');
+  }
+
+  const internalId = restaurant._id;
+  const user = await User.findById(userId);
+  if (!user) return errorResponse(res, 404, 'User not found');
+
+  if (!user.collections) user.collections = { restaurants: [], dishes: [] };
+  if (!user.collections.dishes) user.collections.dishes = [];
+
+  const favoriteIndex = user.collections.dishes.findIndex(
+    fav => fav.dishId === dishId && fav.restaurantId && fav.restaurantId.toString() === internalId.toString()
+  );
+
+  let updatedUser;
+  let message = '';
+
+  if (favoriteIndex > -1) {
+    // REMOVE
+    console.log(`🗑️ [DISH_DEBUG] Action: REMOVE`);
+    updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $pull: {
+          'collections.dishes': {
+            dishId: dishId,
+            restaurantId: internalId
+          }
+        }
+      },
+      { new: true }
+    );
+    message = 'Dish removed from favorites';
+  } else {
+    // ADD
+    console.log(`➕ [DISH_DEBUG] Action: ADD | Name: ${name}`);
+    const newFav = {
+      dishId,
+      restaurantId: internalId,
+      name,
+      price,
+      image,
+      foodType,
+      restaurantName: restaurantName || restaurant.name,
+      restaurantSlug: restaurantSlug || restaurant.slug,
+      addedAt: new Date()
+    };
+
+    updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $push: { 'collections.dishes': newFav } },
+      { new: true, upsert: true }
+    );
+    message = 'Dish added to favorites';
+  }
+
+  console.log(`🚀 [DISH_DEBUG] --- END ---\n`);
+
+  return successResponse(res, 200, message, {
+    collections: updatedUser ? updatedUser.collections : user.collections
+  });
+});
+
+/**
+ * Get user favorites and collections
+ * GET /api/user/favorites
+ */
+export const getUserFavorites = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id)
+    .populate('collections.restaurants.restaurantId')
+    .populate('collections.dishes.restaurantId');
+
+  if (!user) {
+    return errorResponse(res, 404, 'User not found');
+  }
+
+  return successResponse(res, 200, 'Favorites retrieved successfully', {
+    collections: user.collections
+  });
+});

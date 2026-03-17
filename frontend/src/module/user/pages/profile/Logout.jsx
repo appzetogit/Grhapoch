@@ -55,7 +55,7 @@ export default function Logout() {
     } catch (err) {
       // Even if there's an error, we should still clear local data and logout
       console.error("Error during logout:", err)
-      
+
       // Clear local data anyway
       localStorage.removeItem("accessToken")
       localStorage.removeItem("user_authenticated")
@@ -64,7 +64,7 @@ export default function Logout() {
       window.dispatchEvent(new Event("userAuthChanged"))
 
       setError("An error occurred during logout, but you have been signed out locally.")
-      
+
       // Still navigate after showing error
       setTimeout(() => {
         navigate("/user/auth/sign-in", { replace: true })

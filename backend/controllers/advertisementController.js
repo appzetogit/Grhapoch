@@ -23,9 +23,9 @@ const OPEN_BANNER_STATUSES = ['pending', 'payment_pending', 'active', 'approved'
 const ADVERTISEMENT_WEBHOOK_EVENTS = new Set(['payment.captured', 'order.paid', 'payment.failed']);
 const BANNER_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 const BANNER_MIN_WIDTH = 1200;
-const BANNER_MIN_HEIGHT = 500;
-const BANNER_ASPECT_RATIO_TARGET = 2.4;
-const BANNER_ASPECT_RATIO_TOLERANCE = 0.15;
+const BANNER_MIN_HEIGHT = 300;
+const BANNER_ASPECT_RATIO_TARGET = 4;
+const BANNER_ASPECT_RATIO_TOLERANCE = 0.05;
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -306,7 +306,7 @@ const uploadBanner = async (file) => {
 
   if (!isBannerAspectRatioValid(width, height)) {
     await safeDeleteCloudinary(uploaded.public_id);
-    throw new Error('Banner aspect ratio must be around 2.4:1 (for example 1200x500)');
+    throw new Error('Banner aspect ratio must be around 4:1 (for example 1200x300)');
   }
 
   return {

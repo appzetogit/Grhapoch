@@ -1,9 +1,52 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Edit2, Plus, Eye, X, AlertCircle, UploadCloud } from "lucide-react"
+import { ArrowLeft, Edit2, Camera, Eye, X, AlertCircle, UploadCloud, RefreshCw, Check } from "lucide-react"
 import BottomPopup from "../components/BottomPopup"
 import { toast } from "sonner"
 import { deliveryAPI, uploadAPI } from "@/lib/api"
+
+/**
+ * Utility to compress image before upload to speed up network transfer
+ */
+const compressImage = async (file, maxWidth = 700, maxHeight = 700, quality = 0.6) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          }));
+        }, 'image/jpeg', quality);
+      };
+    };
+  });
+};
 
 export default function ProfileDetails() {
   const navigate = useNavigate()
@@ -30,6 +73,10 @@ export default function ProfileDetails() {
   })
   const [isUpdatingPayoutDetails, setIsUpdatingPayoutDetails] = useState(false)
   const [qrUploading, setQrUploading] = useState(false)
+  const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false)
+  const [showPhotoPopup, setShowPhotoPopup] = useState(false)
+  const [tempPhotoFile, setTempPhotoFile] = useState(null)
+  const [tempPhotoPreview, setTempPhotoPreview] = useState(null)
   const [vehicleError, setVehicleError] = useState("")
 
 
@@ -55,6 +102,95 @@ export default function ProfileDetails() {
 
   const [bankTouched, setBankTouched] = useState({})
   const [confirmCloseAction, setConfirmCloseAction] = useState(null) // { type, onSave }
+
+  // Custom Camera States
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const videoRef = useRef(null)
+  const [stream, setStream] = useState(null)
+  const [capturedImage, setCapturedImage] = useState(null)
+  const [facingMode, setFacingMode] = useState("environment")
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
+
+  // Check for multiple cameras on mount
+  useEffect(() => {
+    const checkCameras = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const videoDevices = devices.filter(device => device.kind === 'videoinput')
+        setHasMultipleCameras(videoDevices.length > 1)
+      } catch (err) {
+        console.error("Error checking cameras:", err)
+      }
+    }
+    checkCameras()
+  }, [])
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
+    }
+  }
+
+  const startCamera = async () => {
+    stopCamera()
+    try {
+      const constraints = {
+        video: { facingMode: facingMode },
+        audio: false
+      }
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+      setStream(mediaStream)
+    } catch (err) {
+      console.warn(`Camera error:`, err)
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        setStream(fallbackStream)
+      } catch (fallbackErr) {
+        toast.error("Could not access camera. Please check permissions.")
+        setIsCameraOpen(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (isCameraOpen) startCamera()
+    else stopCamera()
+    return () => stopCamera()
+  }, [isCameraOpen, facingMode])
+
+  useEffect(() => {
+    if (stream && videoRef.current && !capturedImage) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play().catch(e => console.error("Error playing video:", e))
+    }
+  }, [stream, capturedImage])
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas")
+      canvas.width = videoRef.current.videoWidth
+      canvas.height = videoRef.current.videoHeight
+      const ctx = canvas.getContext("2d")
+      ctx.drawImage(videoRef.current, 0, 0)
+      const dataUrl = canvas.toDataURL("image/jpeg")
+      setCapturedImage(dataUrl)
+    }
+  }
+
+  const useCapturedPhoto = async () => {
+    if (capturedImage) {
+      const res = await fetch(capturedImage)
+      const blob = await res.blob()
+      const file = new File([blob], "profile_capture.jpg", { type: "image/jpeg" })
+      
+      setTempPhotoFile(file)
+      setTempPhotoPreview(capturedImage)
+      setIsCameraOpen(false)
+      setCapturedImage(null)
+      setShowPhotoPopup(true)
+    }
+  }
 
   // Fetch profile data
   useEffect(() => {
@@ -146,6 +282,77 @@ export default function ProfileDetails() {
       toast.error(error?.response?.data?.message || "Failed to update payout details")
     } finally {
       setIsUpdatingPayoutDetails(false)
+    }
+  }
+
+  const handlePhotoSelection = (file) => {
+    if (!file) return
+    if (!file.type?.startsWith("image/")) {
+      toast.error("Please upload a valid image")
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setTempPhotoPreview(reader.result)
+      setTempPhotoFile(file)
+      // Ensure popup is open to show preview
+      setShowPhotoPopup(true)
+    }
+    reader.onerror = () => {
+      toast.error("Failed to read image")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const finalizePhotoUpload = async () => {
+    if (!tempPhotoFile || !tempPhotoPreview) return
+    
+    // Save original for rollback if needed
+    const originalProfile = { ...profile }
+    
+    // 1. Optimistic UI Update: Update the photo on screen immediately
+    setProfile(prev => ({
+      ...prev,
+      profileImage: { 
+        url: tempPhotoPreview, 
+        publicId: prev?.profileImage?.publicId 
+      }
+    }))
+    
+    // 2. Clear temp states and Close popup immediately
+    setShowPhotoPopup(false)
+    const toastId = toast.loading("Saving changes...")
+    
+    try {
+      // 3. Compress & Upload in the background
+      const compressedFile = await compressImage(tempPhotoFile)
+      const res = await uploadAPI.uploadMedia(compressedFile, { folder: "delivery/profile-photos" })
+      const data = res?.data?.data
+      if (!data?.url) throw new Error("Upload failed")
+      
+      // 4. Update profile in database
+      const updateRes = await deliveryAPI.updateProfile({
+        profileImage: { url: data.url, publicId: data.publicId }
+      })
+      
+      if (updateRes?.data?.data?.profile) {
+        setProfile(updateRes.data.data.profile)
+      }
+      
+      toast.success("Profile photo updated!", { id: toastId })
+      
+      // Clean up backup states
+      setTempPhotoFile(null)
+      setTempPhotoPreview(null)
+    } catch (error) {
+      console.error("Error uploading photo:", error)
+      toast.error("Failed to save photo. Restoring original...", { id: toastId })
+      
+      // Rollback to original profile if upload failed
+      setProfile(originalProfile)
+    } finally {
+      setIsUpdatingPhoto(false)
     }
   }
 
@@ -260,12 +467,46 @@ export default function ProfileDetails() {
 
       {/* Profile Picture Area */}
       <div className="relative w-full bg-gray-200 overflow-hidden flex items-center justify-center">
-        <img
-          src={profile?.profileImage?.url || profile?.documents?.photo || ""}
-          alt="Profile"
-          className="w-full h-auto max-h-96 object-contain"
-        />
+        {(profile?.profileImage?.url || profile?.documents?.photo) ? (
+          <img
+            src={profile?.profileImage?.url || profile?.documents?.photo}
+            alt="Profile"
+            className="w-full h-auto max-h-96 object-contain"
+          />
+        ) : (
+          <div className="w-full h-64 flex items-center justify-center bg-gray-100 italic text-gray-400">
+            No profile image available
+          </div>
+        )}
+        
+        {/* Edit Button Overlay */}
+        <button 
+          onClick={() => setShowPhotoPopup(true)}
+          disabled={isUpdatingPhoto}
+          className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-2xl shadow-xl hover:bg-white active:scale-95 transition-all border border-black/5"
+        >
+          <Edit2 className="w-5 h-5 text-black" />
+        </button>
+        
+        {isUpdatingPhoto && (
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] flex items-center justify-center">
+             <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin shadow-lg" />
+          </div>
+        )}
       </div>
+
+      <input
+        type="file"
+        id="profile-photo-input"
+        className="hidden"
+        accept="image/*"
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            handlePhotoSelection(e.target.files[0]);
+            e.target.value = ""; // Clear for re-selection
+          }
+        }}
+      />
 
       {/* Content */}
       <div className="px-4 py-6 space-y-6">
@@ -626,15 +867,15 @@ export default function ProfileDetails() {
       <BottomPopup
         isOpen={showBankDetailsPopup}
         onClose={() => {
-          const isChanged = 
+          const isChanged =
             bankDetails.accountHolderName !== (profile?.documents?.bankDetails?.accountHolderName || "") ||
             bankDetails.accountNumber !== (profile?.documents?.bankDetails?.accountNumber || "") ||
             bankDetails.ifscCode !== (profile?.documents?.bankDetails?.ifscCode || "") ||
             bankDetails.bankName !== (profile?.documents?.bankDetails?.bankName || "");
 
           if (isChanged) {
-            setConfirmCloseAction({ 
-              type: 'bank', 
+            setConfirmCloseAction({
+              type: 'bank',
               onSave: saveBankDetailsAction,
               onDiscard: () => {
                 setShowBankDetailsPopup(false);
@@ -742,14 +983,14 @@ export default function ProfileDetails() {
       <BottomPopup
         isOpen={showPayoutDetailsPopup}
         onClose={() => {
-          const isChanged = 
+          const isChanged =
             (payoutDetails.upiId || "").trim() !== (profile?.documents?.upiId || "").trim() ||
             (payoutDetails.qrCode?.url || null) !== (profile?.documents?.qrCode?.url || null);
 
           if (isChanged) {
-            setConfirmCloseAction({ 
-              type: 'payout', 
-              onSave: savePayoutDetails 
+            setConfirmCloseAction({
+              type: 'payout',
+              onSave: savePayoutDetails
             });
           } else {
             setShowPayoutDetailsPopup(false);
@@ -796,14 +1037,14 @@ export default function ProfileDetails() {
                 </div>
               </label>
             </div>
-            
+
             {qrUploading && (
               <div className="flex items-center gap-2 mt-2 px-1">
                 <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
                 <p className="text-xs text-gray-500 font-medium">Uploading QR code...</p>
               </div>
             )}
-            
+
             {payoutDetails.qrCode?.url && !qrUploading && (
               <div className="mt-4 p-3 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-4">
                 <img
@@ -877,15 +1118,15 @@ export default function ProfileDetails() {
       <BottomPopup
         isOpen={showRiderDetailsPopup}
         onClose={() => {
-          const isChanged = 
+          const isChanged =
             riderDetails.vehicleType !== (profile?.vehicle?.type || "") ||
             riderDetails.vehicleNumber !== (profile?.vehicle?.number || "") ||
             riderDetails.city !== (profile?.location?.city || "");
 
           if (isChanged) {
-            setConfirmCloseAction({ 
-              type: 'rider', 
-              onSave: saveRiderDetailsAction 
+            setConfirmCloseAction({
+              type: 'rider',
+              onSave: saveRiderDetailsAction
             });
           } else {
             setShowRiderDetailsPopup(false);
@@ -956,6 +1197,119 @@ export default function ProfileDetails() {
           >
             {isUpdatingRider ? "Saving..." : "Save Rider Details"}
           </button>
+        </div>
+      </BottomPopup>
+
+      {/* Custom Camera Modal */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-[1100] flex flex-col bg-black">
+          <div className="flex items-center justify-between p-4 text-white">
+            <h3 className="text-lg font-medium">Take Photo</h3>
+            <div className="flex items-center gap-2">
+              {hasMultipleCameras && !capturedImage && (
+                <button
+                  onClick={() => setFacingMode(p => p === "environment" ? "user" : "environment")}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <RefreshCw className="w-6 h-6" />
+                </button>
+              )}
+              <button onClick={() => { setIsCameraOpen(false); setCapturedImage(null); }} className="p-2">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+            {capturedImage ? (
+              <img src={capturedImage} className={`max-w-full max-h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} alt="Captured" />
+            ) : (
+              <video ref={videoRef} autoPlay playsInline className={`max-w-full max-h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
+            )}
+          </div>
+          <div className="p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center gap-6">
+            {capturedImage ? (
+              <>
+                <button onClick={() => setCapturedImage(null)} className="flex flex-col items-center gap-2 text-white">
+                  <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center"><X className="w-6 h-6" /></div>
+                  <span className="text-xs font-medium">Retake</span>
+                </button>
+                <button onClick={useCapturedPhoto} className="flex flex-col items-center gap-2 text-white">
+                  <div className="w-14 h-14 rounded-full bg-[#00B761] flex items-center justify-center"><Check className="w-6 h-6" /></div>
+                  <span className="text-xs font-medium">Use Photo</span>
+                </button>
+              </>
+            ) : (
+              <button onClick={takePhoto} className="flex flex-col items-center gap-2"><div className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1"><div className="w-full h-full rounded-full bg-white transition-transform active:scale-90"></div></div></button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Change Photo Popup */}
+      <BottomPopup
+        isOpen={showPhotoPopup}
+        onClose={() => {
+          if (!isUpdatingPhoto) {
+            setShowPhotoPopup(false)
+            setTempPhotoFile(null)
+            setTempPhotoPreview(null)
+          }
+        }}
+        title={tempPhotoPreview ? "Confirm Photo" : "Update Profile Photo"}
+      >
+        <div className="space-y-4 pb-2">
+          {tempPhotoPreview ? (
+            <div className="flex flex-col items-center">
+              <div className="w-48 h-48 rounded-3xl overflow-hidden border-4 border-green-50 shadow-inner mb-6 transition-all animate-in zoom-in-95 duration-300">
+                <img src={tempPhotoPreview} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <button
+                  onClick={() => finalizePhotoUpload()}
+                  disabled={isUpdatingPhoto}
+                  className="py-4 bg-[#00B761] text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#00A055] active:scale-[0.98] transition-all shadow-lg shadow-green-100"
+                >
+                  Select
+                </button>
+                <button
+                  onClick={() => {
+                    setTempPhotoFile(null)
+                    setTempPhotoPreview(null)
+                  }}
+                  disabled={isUpdatingPhoto}
+                  className="py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-200 active:scale-[0.98] transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setShowPhotoPopup(false);
+                  setIsCameraOpen(true);
+                }}
+                className="w-full py-4 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 active:scale-[0.98] transition-all"
+              >
+                <Camera className="w-5 h-5 text-white" />
+                Camera
+              </button>
+              <button
+                onClick={() => document.getElementById("profile-photo-input").click()}
+                className="w-full py-4 bg-gray-50 text-gray-900 border border-gray-200 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 active:scale-[0.98] transition-all"
+              >
+                <UploadCloud className="w-5 h-5 text-gray-600" />
+                Upload Photo
+              </button>
+              <button
+                onClick={() => setShowPhotoPopup(false)}
+                className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 active:scale-[0.98] transition-all"
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
       </BottomPopup>
     </div>

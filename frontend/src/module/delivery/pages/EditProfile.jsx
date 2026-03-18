@@ -13,16 +13,37 @@ export default function EditProfile() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "Jhon Doe",
-    phone: "+8801700000000",
+    phone: "8801700000",
     email: "jhon.doe@example.com",
     shift: "Morning (04:00 AM - 11:59 AM)"
   });
+  const [phoneError, setPhoneError] = useState("");
 
   const handleInputChange = (field, value) => {
+    let finalValue = value;
+    if (field === "phone") {
+      finalValue = value.replace(/\D/g, "").slice(0, 10);
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: finalValue
     }));
+
+    // Clear error while typing if it becomes valid
+    if (field === "phone" && phoneError && finalValue.length === 10) {
+      setPhoneError("");
+    }
+  };
+
+  const handleBlur = (field) => {
+    if (field === "phone" && formData.phone.length > 0) {
+      if (formData.phone.length !== 10) {
+        setPhoneError("Phone number must be exactly 10 digits");
+      } else {
+        setPhoneError("");
+      }
+    }
   };
 
   const handleSubmit = (e) => {
@@ -102,9 +123,16 @@ export default function EditProfile() {
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
-                className="w-full px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff8100] focus:border-transparent outline-none"
+                onBlur={() => handleBlur("phone")}
+                className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:ring-2 outline-none transition-all ${
+                  phoneError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#ff8100]'
+                }`}
                 required />
-              
+              {phoneError && (
+                <p className="text-red-500 text-xs mt-1 font-medium animate-in fade-in slide-in-from-top-1">
+                  {phoneError}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -145,7 +173,12 @@ export default function EditProfile() {
           {/* Save Button */}
           <Button
             type="submit"
-            className="w-full bg-[#ff8100] hover:bg-[#e67300] text-white font-semibold py-2.5 md:py-3 rounded-lg text-sm md:text-lg mt-2 md:mt-0">
+            disabled={!!phoneError || !formData.phone || !formData.name || !formData.email}
+            className={`w-full font-semibold py-2.5 md:py-3 rounded-lg text-sm md:text-lg mt-2 md:mt-0 transition-all ${
+              phoneError || !formData.phone || !formData.name || !formData.email
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-[#ff8100] hover:bg-[#e67300] text-white'
+            }`}>
             
             <Save className="w-4 h-4 md:w-5 md:h-5 mr-2" />
             Save Changes

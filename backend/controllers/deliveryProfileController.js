@@ -70,6 +70,28 @@ const updateProfileSchema = Joi.object({
     publicId: Joi.string().trim().optional().allow(null, '')
   }).optional(),
   documents: Joi.object({
+    aadhar: Joi.object({
+      number: Joi.string().trim().optional().allow(null, ''),
+      document: Joi.string().uri().optional().allow(null, ''),
+      verified: Joi.boolean().optional()
+    }).optional(),
+    pan: Joi.object({
+      number: Joi.string().trim().optional().allow(null, ''),
+      document: Joi.string().uri().optional().allow(null, ''),
+      verified: Joi.boolean().optional()
+    }).optional(),
+    drivingLicense: Joi.object({
+      number: Joi.string().trim().optional().allow(null, ''),
+      document: Joi.string().uri().optional().allow(null, ''),
+      verified: Joi.boolean().optional(),
+      expiryDate: Joi.date().optional().allow(null)
+    }).optional(),
+    vehicleRC: Joi.object({
+      number: Joi.string().trim().optional().allow(null, ''),
+      document: Joi.string().uri().optional().allow(null, ''),
+      verified: Joi.boolean().optional()
+    }).optional(),
+    photo: Joi.string().uri().optional().allow(null, ''),
     bankDetails: Joi.object({
       accountHolderName: Joi.string().trim().min(2).max(100).optional().allow(null, ''),
       accountNumber: Joi.string().trim().min(9).max(18).optional().allow(null, ''),
@@ -98,20 +120,22 @@ export const updateProfile = asyncHandler(async (req, res) => {
     // Handle nested documents updates properly
     const setData = { ...updateData };
     if (updateData.documents) {
-      if (updateData.documents.bankDetails) {
-        // Merge bankDetails with existing documents
-        setData['documents.bankDetails'] = {
-          ...delivery.documents?.bankDetails,
-          ...updateData.documents.bankDetails
-        };
-      }
-      if (updateData.documents.upiId !== undefined) {
-        setData['documents.upiId'] = updateData.documents.upiId;
-      }
-      if (updateData.documents.qrCode !== undefined) {
-        setData['documents.qrCode'] = updateData.documents.qrCode;
-      }
-      // Remove the nested documents object to avoid conflicts
+      // Map nested document fields using dot notation for $set
+      const docFields = ['aadhar', 'pan', 'drivingLicense', 'vehicleRC', 'bankDetails', 'upiId', 'qrCode', 'photo'];
+      
+      docFields.forEach(field => {
+        if (updateData.documents[field] !== undefined) {
+          if (typeof updateData.documents[field] === 'object' && updateData.documents[field] !== null && !Array.isArray(updateData.documents[field])) {
+            // Further nesting for specific fields like verified
+            Object.keys(updateData.documents[field]).forEach(subField => {
+              setData[`documents.${field}.${subField}`] = updateData.documents[field][subField];
+            });
+          } else {
+            setData[`documents.${field}`] = updateData.documents[field];
+          }
+        }
+      });
+      
       delete setData.documents;
     }
 

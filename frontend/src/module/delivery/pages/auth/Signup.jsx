@@ -63,11 +63,22 @@ export default function DeliverySignup() {
     if (!phone.trim()) {
       return "Phone number is required"
     }
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "")
-    const phoneRegex = /^\d{7,15}$/
-    if (!phoneRegex.test(cleanPhone)) {
-      return "Phone number must be 7-15 digits"
+    const cleanPhone = phone.replace(/\D/g, "")
+    if (cleanPhone.length < 10) {
+      return "Phone number must be exactly 10 digits"
     }
+    if (cleanPhone.length > 10) {
+      return "Phone number cannot exceed 10 digits"
+    }
+    
+    // India-specific validation if needed, but let's stick to the 10-digit requirement
+    if (formData.countryCode === "+91") {
+      const firstDigit = cleanPhone[0]
+      if (!["6", "7", "8", "9"].includes(firstDigit)) {
+        return "Invalid Indian mobile number"
+      }
+    }
+    
     return ""
   }
 
@@ -89,17 +100,33 @@ export default function DeliverySignup() {
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    let { name, value } = e.target
+    
+    // Sanitize phone input and limit to 10
+    if (name === "phone") {
+      value = value.replace(/\D/g, "").slice(0, 10)
+    }
+    
     setFormData({
       ...formData,
       [name]: value,
     })
 
-    // Real-time validation
-    if (name === "phone") {
-      setErrors({ ...errors, phone: validatePhone(value) })
-    } else if (name === "name") {
-      setErrors({ ...errors, name: validateName(value) })
+    // Clear specific error while typing
+    if (errors[name]) {
+      const error = name === "phone" ? validatePhone(value) : validateName(value)
+      if (!error) setErrors(prev => ({ ...prev, [name]: "" }))
+    }
+  }
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target
+    if (value.length > 0) {
+      if (name === "phone") {
+        setErrors(prev => ({ ...prev, phone: validatePhone(value) }))
+      } else if (name === "name") {
+        setErrors(prev => ({ ...prev, name: validateName(value) }))
+      }
     }
   }
 
@@ -238,6 +265,7 @@ export default function DeliverySignup() {
                   placeholder="Enter your full name"
                   value={formData.name}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   className={`h-11 pl-9 border-gray-300 rounded-md shadow-sm focus-visible:ring-primary-orange focus-visible:ring-2 transition-colors placeholder:text-gray-400 ${errors.name ? "border-red-500" : ""}`}
                   required
                 />
@@ -286,6 +314,7 @@ export default function DeliverySignup() {
                       placeholder="Enter phone number"
                       value={formData.phone}
                       onChange={handleChange}
+                      onBlur={handleBlur}
                       className={`h-11 pl-9 border-gray-300 rounded-md shadow-sm focus-visible:ring-primary-orange focus-visible:ring-2 transition-colors placeholder:text-gray-400 ${errors.phone ? "border-red-500" : ""}`}
                       required
                     />
@@ -303,8 +332,11 @@ export default function DeliverySignup() {
             {/* Sign up button */}
             <Button
               type="submit"
-              className="mt-2 h-11 w-full bg-primary-orange hover:bg-primary-orange/90 text-white text-base font-semibold rounded-md shadow-md transition-colors"
-              disabled={isLoading}
+              className={`mt-2 h-11 w-full text-white text-base font-semibold rounded-md shadow-md transition-colors ${!formData.phone || !formData.name || errors.phone || errors.name || isLoading
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300"
+                : "bg-primary-orange hover:bg-primary-orange/90"
+                }`}
+              disabled={!!errors.phone || !!errors.name || !formData.phone || !formData.name || isLoading}
             >
               {isLoading ? (
                 <>

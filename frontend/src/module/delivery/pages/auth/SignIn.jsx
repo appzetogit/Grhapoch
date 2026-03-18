@@ -123,15 +123,16 @@ export default function DeliverySignIn() {
 
     const digitsOnly = phone.replace(/\D/g, "")
 
-    if (digitsOnly.length < 7) {
-      return "Phone number must be at least 7 digits"
+    if (digitsOnly.length < 10) {
+      return "Phone number must be exactly 10 digits"
+    }
+
+    if (digitsOnly.length > 10) {
+      return "Phone number cannot exceed 10 digits"
     }
 
     // India-specific validation
     if (countryCode === "+91") {
-      if (digitsOnly.length !== 10) {
-        return "Indian phone number must be 10 digits"
-      }
       const firstDigit = digitsOnly[0]
       if (!["6", "7", "8", "9"].includes(firstDigit)) {
         return "Invalid Indian mobile number"
@@ -182,12 +183,25 @@ export default function DeliverySignIn() {
   }
 
   const handlePhoneChange = (e) => {
-    // Only allow digits
-    const value = e.target.value.replace(/\D/g, "")
+    // Only allow digits and limit to 10
+    const value = e.target.value.replace(/\D/g, "").slice(0, 10)
     setFormData({
       ...formData,
       phone: value,
     })
+
+    // Clear error while typing to be less intrusive
+    if (error && value.length === 10) {
+      const phoneError = validatePhone(value, formData.countryCode)
+      if (!phoneError) setError("")
+    }
+  }
+
+  const handlePhoneBlur = () => {
+    if (formData.phone.length > 0) {
+      const phoneError = validatePhone(formData.phone, formData.countryCode)
+      setError(phoneError)
+    }
   }
 
   const handleCountryCodeChange = (value) => {
@@ -275,6 +289,7 @@ export default function DeliverySignIn() {
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={handlePhoneChange}
+                  onBlur={handlePhoneBlur}
                   autoComplete="off"
                   autoFocus={false}
                   className={`w-full px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 text-base border rounded-lg min-w-0 bg-white ${error && formData.phone.length > 0
@@ -284,7 +299,9 @@ export default function DeliverySignIn() {
                   style={{ height: '48px' }}
                 />
                 {error && formData.phone.length > 0 && (
-                  <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>
+                  <p className="text-red-500 text-[11px] md:text-xs mt-1 ml-1 font-medium animate-in fade-in slide-in-from-top-1">
+                    {error}
+                  </p>
                 )}
               </div>
             </div>

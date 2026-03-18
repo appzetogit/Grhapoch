@@ -248,7 +248,8 @@ export const upsertOnboarding = async (req, res) => {
       await Restaurant.findByIdAndUpdate(restaurantId, {
         $set: {
           onboardingCompleted: true,
-          'onboarding.completedSteps': 5
+          'onboarding.completedSteps': 5,
+          isActive: false // keep inactive until admin approves
         }
       });
 

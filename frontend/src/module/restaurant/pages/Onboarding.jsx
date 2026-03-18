@@ -551,33 +551,25 @@ export default function RestaurantOnboarding() {
 
     console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
 
-    if (pending) {
+    if (token) {
+      // Already authenticated from OTP screen; treat as full account (single-OTP flow)
+      setIsProspect(false);
+      setPendingData(null);
+    } else if (pending) {
+      // Legacy pending data (older flow). Still allow but mark as prospect.
       const data = JSON.parse(pending);
       console.log("Prospect identified - name:", data.name);
-
-      // Clear old tokens to prevent interference
-      if (token) {
-        console.warn("Clearing old session token");
-        localStorage.removeItem("restaurant_accessToken");
-        localStorage.removeItem("restaurant_authenticated");
-        localStorage.removeItem("restaurant_user");
-      }
-
       setIsProspect(true);
       setPendingData(data);
-
-      // Use functional update to merge with existing step1 values (from local storage)
-      // but favor pending registration values if those are empty.
       setStep1(prev => ({
         ...prev,
-        // Prioritize data.name from pending registration to ensure latest input is used
         restaurantName: data.name || prev.restaurantName || "",
         ownerPhone: stripCountryCode(prev.ownerPhone || data.phone || ""),
         ownerEmail: prev.ownerEmail || data.email || "",
         primaryContactNumber: stripCountryCode(prev.primaryContactNumber || data.phone || "")
       }));
-    } else if (!token) {
-      console.log("No auth and no prospect data - redirecting to login");
+    } else {
+      console.log("No auth token - redirecting to login");
       navigate("/restaurant/login", { replace: true });
     }
   }, [navigate]);
@@ -1526,30 +1518,8 @@ export default function RestaurantOnboarding() {
         }
         setStep(5);
       } else if (step === 5) {
-        // 1. Final Account Creation for Prospects
-        // If Subscription based, we delay registration until SubscriptionPage (to avoid creating doc prematurely)
-        if (isProspect && pendingData && step5.businessModel === "Commission Base") {
-          const regResponse = await restaurantAPI.verifyOTP(
-            pendingData.phone,
-            pendingData.otpCode,
-            "register",
-            step1.restaurantName,
-            pendingData.email,
-            step5.businessModel
-          );
-
-          const regData = regResponse?.data?.data || regResponse?.data;
-          if (!regData?.accessToken) {
-            throw new Error("Registration failed. Please try again.");
-          }
-
-          // Authenticate the user
-          setRestaurantAuthData("restaurant", regData.accessToken, regData.restaurant);
-          localStorage.setItem("restaurant_accessToken", regData.accessToken);
-          localStorage.setItem("restaurant_authenticated", "true");
-        }
-
-        // 2. Perform necessary uploads for EVERYONE
+        // Single-OTP flow: registration already done on OTP screen.
+        // Perform necessary uploads for EVERYONE
         // If Subscription based prospect, we skip uploads for now (no auth yet)
         let menuUploads = [];
         let profileUpload = step2.profileImage;
@@ -1654,12 +1624,10 @@ export default function RestaurantOnboarding() {
           await api.put("/restaurant/onboarding", finalPayload);
         }
 
-        // 4. Cleanup for Prospects
-        if (isProspect && step5.businessModel === "Commission Base") {
-          localStorage.removeItem("pendingRestaurantRegistration");
-          setIsProspect(false);
-          setPendingData(null);
-        }
+        // 4. Cleanup for legacy prospect data if any remained
+        localStorage.removeItem("pendingRestaurantRegistration");
+        setIsProspect(false);
+        setPendingData(null);
 
         // Wait a moment to ensure data is saved, then navigate
         setTimeout(() => {

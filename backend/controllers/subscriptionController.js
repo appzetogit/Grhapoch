@@ -289,9 +289,9 @@ export const activateSubscriptionTx = async ({
 
   const now = new Date(paymentDate || Date.now());
   const { startDate, endDate, isRenewing } = buildSubscriptionDates({ restaurant, plan, now });
-  // Activate immediately once payment is verified
-  const requiresAdminApproval = false;
-  const nextSubscriptionStatus = 'active';
+  // Require admin approval before restaurant becomes active
+  const requiresAdminApproval = true;
+  const nextSubscriptionStatus = 'pending_approval';
 
   if (isRenewing) {
     appendRenewedHistory({ restaurant, now });
@@ -312,8 +312,7 @@ export const activateSubscriptionTx = async ({
     autoRenew: true
   };
   restaurant.businessModel = 'Subscription Base';
-  // Keep newly registered restaurants inactive until admin approval.
-  restaurant.isActive = requiresAdminApproval ? false : true;
+  // Do not force deactivate here; keep current activation state.
 
   // CRITICAL FIX: Normalize invalid accountType enum values that might prevent saving
   if (restaurant.onboarding?.step3?.bank?.accountType) {
@@ -325,7 +324,6 @@ export const activateSubscriptionTx = async ({
     }
   }
 
-  restaurant.isActive = true;
   restaurant.onboardingCompleted = true;
   if (!restaurant.onboarding) restaurant.onboarding = {};
   restaurant.onboarding.completedSteps = Math.max(Number(restaurant.onboarding.completedSteps || 0), 5);
@@ -1103,7 +1101,8 @@ export const getSubscriptionStatus = async (req, res) => {
         'subscription.status': 'active',
         businessModel: 'Subscription Base',
         onboardingCompleted: true,
-        'onboarding.completedSteps': 5
+        'onboarding.completedSteps': 5,
+        isActive: true
       }
     });
 
@@ -1347,12 +1346,13 @@ export const updateSubscriptionStatus = async (req, res) => {
         }
       }
 
-      updateFields['isActive'] = true;
+      // Admin-only path: activating subscription can flip isActive on
+      // Admin manual update can activate; leave isActive untouched unless explicitly set
       updateFields['businessModel'] = 'Subscription Base';
 
     } else if (status === 'inactive' || status === 'expired') {
       updateFields['businessModel'] = 'Commission Base';
-      updateFields['isActive'] = true; // Keep restaurant active on commission mode
+      updateFields['isActive'] = false; // Require re-approval after expiry/inactivation
     }
 
     await Restaurant.findByIdAndUpdate(

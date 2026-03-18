@@ -499,8 +499,6 @@ apiClient.interceptors.response.use(
 
         // For onboarding page, reject the promise so component can handle it
         return Promise.reject(refreshError);
-
-        return Promise.reject(refreshError);
       }
     }
 

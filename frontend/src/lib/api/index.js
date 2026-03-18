@@ -21,6 +21,16 @@
 import apiClient from './axios.js';
 import { API_ENDPOINTS } from './config.js';
 
+// Normalize phone similar to backend: digits only; add 91 for 10-digit Indian numbers.
+const normalizePhone = (phone) => {
+  if (!phone || typeof phone !== 'string') return phone;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith('0')) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+};
+
 // Export the configured axios instance
 export default apiClient;
 
@@ -60,7 +70,7 @@ export const authAPI = {
   // Send OTP (supports both phone and email)
   sendOTP: (phone = null, purpose = 'login', email = null) => {
     const payload = { purpose };
-    if (phone) payload.phone = phone;
+    if (phone) payload.phone = normalizePhone(phone);
     if (email) payload.email = email;
     return apiClient.post(API_ENDPOINTS.AUTH.SEND_OTP, payload);
   },
@@ -73,7 +83,7 @@ export const authAPI = {
       purpose,
       role,
     };
-    if (phone != null) payload.phone = phone;
+    if (phone != null) payload.phone = normalizePhone(phone);
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (password != null) payload.password = password; // don't send null, Joi expects string
@@ -272,7 +282,7 @@ export const restaurantAPI = {
   // Restaurant Authentication
   sendOTP: (phone = null, purpose = 'login', email = null) => {
     const payload = { purpose };
-    if (phone) payload.phone = phone;
+    if (phone) payload.phone = normalizePhone(phone);
     if (email) payload.email = email;
     return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.SEND_OTP, payload);
   },
@@ -282,7 +292,7 @@ export const restaurantAPI = {
       otp,
       purpose,
     };
-    if (phone != null) payload.phone = phone;
+    if (phone != null) payload.phone = normalizePhone(phone);
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (businessModel != null) payload.businessModel = businessModel;

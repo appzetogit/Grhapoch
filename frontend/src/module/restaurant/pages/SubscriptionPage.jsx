@@ -223,6 +223,15 @@ export default function SubscriptionPage() {
                 
                 // If it's a prospect, register first
                 if (onboardingData.pendingRegistrationData) {
+                    const otpAgeMs = Date.now() - (onboardingData.pendingRegistrationData?.otpGeneratedAt || 0);
+                    const MAX_OTP_AGE_MS = 15 * 60 * 1000; // align with extended server expiry window
+                    if (!onboardingData.pendingRegistrationData?.otpCode || otpAgeMs > MAX_OTP_AGE_MS) {
+                        toast.error("Your OTP has expired. Please request a new OTP to continue.");
+                        setSubmittingPlanId(null);
+                        navigate("/restaurant/otp", { replace: true });
+                        return;
+                    }
+
                     toast.info("Setting up your account...");
                     const regData = onboardingData.pendingRegistrationData;
                     const regResponse = await restaurantAPI.verifyOTP(

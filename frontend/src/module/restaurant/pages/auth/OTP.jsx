@@ -17,9 +17,6 @@ export default function RestaurantOTP() {
   const [contactInfo, setContactInfo] = useState(""); // Can be phone or email
   const [contactType, setContactType] = useState("phone"); // "phone" or "email"
   const [focusedIndex, setFocusedIndex] = useState(null);
-  const [name, setName] = useState("");
-  const [nameError, setNameError] = useState("");
-  const [showNameInput, setShowNameInput] = useState(false);
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -67,13 +64,11 @@ export default function RestaurantOTP() {
 
   useEffect(() => {
     // Focus first input on mount with a small delay to ensure page transition is complete
-    if (!showNameInput) {
-      const timer = setTimeout(() => {
-        inputRefs.current[0]?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [showNameInput]);
+    const timer = setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // Auto-clear error after 3 seconds
@@ -168,45 +163,6 @@ export default function RestaurantOTP() {
       return;
     }
 
-    // For any signup (phone or email), use a two-step UX:
-    // 1) First validate OTP format and show name input
-    // 2) Then, once name is provided, move to onboarding (delayed registration)
-    if (authData?.isSignUp && !showNameInput) {
-      setShowNameInput(true);
-      setError("");
-      // Pre-fill name if it was already provided in signup page
-      if (authData.name && !name) {
-        setName(authData.name);
-      }
-      return;
-    }
-
-    // If we are on step 2 for signup, store data and delay registration
-    if (showNameInput) {
-      if (!name.trim()) {
-        setNameError("Please enter your restaurant name to continue");
-        return;
-      }
-      setNameError("");
-
-      // Store data for delayed registration
-      const pendingData = {
-        phone: authData.method === "phone" ? authData.phone : null,
-        email: authData.method === "email" ? authData.email : null,
-        otpCode: code,
-        name: name.trim(),
-        businessModel: authData?.businessModel || "Commission Base"
-      };
-      localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(pendingData));
-      
-      // Clear any old onboarding progress cache to ensure fresh start with new name
-      localStorage.removeItem("restaurant_onboarding_data");
-      
-      // Navigate to onboarding
-      navigate("/restaurant/onboarding?step=1", { replace: true });
-      return;
-    }
-
     setIsLoading(true);
     setError("");
 
@@ -219,18 +175,7 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
       const purpose = authData.isSignUp ? "register" : "login";
-
-      // Decide which name to send:
-      // - If we're currently showing the name input (either because backend returned needsName
-      //   or because this is an email/phone signup flow), always send the typed name.
-      // - Otherwise, for explicit signup flows where a name was already collected earlier,
-      //   send that stored name.
-      let nameToSend = null;
-      if (showNameInput) {
-        nameToSend = name.trim();
-      } else if (authData.isSignUp && authData.name) {
-        nameToSend = authData.name;
-      }
+      const nameToSend = (authData?.name && authData.name.trim()) || "Restaurant";
 
       const response = await restaurantAPI.verifyOTP(
         phone,
@@ -244,30 +189,25 @@ export default function RestaurantOTP() {
       // Extract restaurant and token or special flags (like needsName) from backend response
       const data = response?.data?.data || response?.data;
 
-      // If backend says we need a name (restaurant not found on login), treat this as a new signup:
-      // - flip authData.isSignUp -> true so subsequent verify calls use "register"
-      // - persist this updated state back to sessionStorage
-      // - show the name input instead of erroring
+      // If backend still asks for name, retry quickly with fallback name
       if (data?.needsName) {
-        setAuthData((prev) => {
-          const updated = {
-            ...prev,
-            isSignUp: true,
-            businessModel: prev?.businessModel || "Commission Base",
-            // Preserve any existing name, but prefer the typed one if present
-            name: name?.trim() || prev?.name
-          };
-          try {
-            sessionStorage.setItem("restaurantAuthData", JSON.stringify(updated));
-          } catch {
-
-            // Ignore storage errors; state is enough for this flow
-          }return updated;
-        });
-        setShowNameInput(true);
-        setError("");
-        setNameError("");
-        return;
+        const retry = await restaurantAPI.verifyOTP(
+          phone,
+          code,
+          "register",
+          nameToSend,
+          email,
+          authData?.businessModel || "Commission Base"
+        );
+        const retryData = retry?.data?.data || retry?.data;
+        const accessTokenRetry = retryData?.accessToken;
+        const restaurantRetry = retryData?.restaurant;
+        if (accessTokenRetry && restaurantRetry) {
+          data.accessToken = accessTokenRetry;
+          data.restaurant = restaurantRetry;
+        } else {
+          throw new Error("Restaurant name missing. Please restart signup.");
+        }
       }
 
       const accessToken = data?.accessToken;
@@ -329,10 +269,10 @@ export default function RestaurantOTP() {
       await restaurantAPI.sendOTP(phone, purpose, email);
     } catch (err) {
       const message =
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      err?.message ||
-      "Failed to resend OTP. Please try again.";
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to resend OTP. Please try again.";
       setError(message);
     }
 
@@ -405,40 +345,6 @@ export default function RestaurantOTP() {
             ))}
           </div>
 
-          {/* Name input:
-               - Email-based signup (existing behavior)
-               - Phone-based login when backend returns needsName=true (auto-registration)
-            */}
-          {showNameInput &&
-          <div className="mt-6 max-w-sm mx-auto text-left">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Restaurant name
-              </label>
-              <input
-              type="text"
-              value={name || ""}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (nameError) setNameError("");
-              }}
-              placeholder="Enter your restaurant name"
-              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${nameError ?
-              "border-red-500 focus:ring-red-500" :
-              "border-gray-300 focus:ring-blue-500"}`
-              }
-              disabled={isLoading} />
-            
-              <p className="mt-1 text-xs text-gray-500">
-                If you&apos;re new, we&apos;ll use this to create your restaurant account.
-              </p>
-              {nameError &&
-            <p className="mt-1 text-xs text-red-600">
-                  {nameError}
-                </p>
-            }
-            </div>
-          }
-
           {/* Error Message */}
           {error &&
           <div className="text-center">
@@ -448,20 +354,20 @@ export default function RestaurantOTP() {
 
           {/* Resend OTP Timer */}
           <div className="text-center">
-            {resendTimer > 0 ?
-            <p className="text-sm text-gray-900">
+            {resendTimer > 0 ? (
+              <p className="text-sm text-gray-900">
                 Resend OTP in <span className="font-semibold">{resendTimer} secs</span>
-              </p> :
-
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={isLoading}
-              className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50">
-              
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isLoading}
+                className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50"
+              >
                 Resend OTP
               </button>
-            }
+            )}
           </div>
         </div>
       </div>

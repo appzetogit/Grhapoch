@@ -43,6 +43,7 @@ export default function ProfilePage() {
     // Load from localStorage, default to "zomato_tone"
     return localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
   });
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
 
   useEffect(() => {
     // Initialize Lenis for smooth scrolling
@@ -163,9 +164,7 @@ export default function ProfilePage() {
   }, []);
 
   const handleLogout = async () => {
-    if (!window.confirm("Are you sure you want to logout?")) {
-      return;
-    }
+    setShowLogoutPopup(false);
 
     try {
       // Call logout API to clear refresh token on server
@@ -337,7 +336,7 @@ export default function ProfilePage() {
           {/* Logout Section */}
           <div className="pt-4">
             <Card
-              onClick={handleLogout}
+              onClick={() => setShowLogoutPopup(true)}
               className="bg-white py-0 border-0 shadow-none rounded-lg cursor-pointer hover:bg-gray-200 transition-colors">
 
               <CardContent className="p-4 flex items-center justify-between">
@@ -452,6 +451,44 @@ export default function ProfilePage() {
           </div>
         </div>
       }
+      
+      {/* Logout Confirmation Popup */}
+      {showLogoutPopup && (
+        <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 sm:p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-[360px] p-8 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] animate-in fade-in zoom-in duration-300 flex flex-col items-center text-center border border-gray-100">
+            {/* Icon Wrapper */}
+            <div className="relative mb-6">
+              <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center rotate-3">
+                <div className="w-16 h-16 bg-red-100/50 rounded-[1.5rem] flex items-center justify-center -rotate-3 transition-transform hover:scale-110 duration-300">
+                  <LogOut className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <h3 className="text-2xl font-extrabold text-gray-900 mb-3 tracking-tight">Logout?</h3>
+            <p className="text-gray-500 font-medium leading-relaxed mb-8 px-2">
+              Are you sure you want to logout?
+            </p>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={handleLogout}
+                className="w-full py-4.5 bg-red-600 text-white rounded-2xl font-bold text-base hover:bg-red-700 active:scale-[0.97] transition-all shadow-[0_10px_20px_-5px_rgba(220,38,38,0.3)]"
+              >
+                Yes, Logout
+              </button>
+              <button
+                onClick={() => setShowLogoutPopup(false)}
+                className="w-full py-4.5 bg-gray-50 text-gray-500 rounded-2xl font-bold text-base hover:bg-gray-100 active:scale-[0.98] transition-all border border-gray-100"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>);
 

@@ -527,27 +527,29 @@ export default function SignIn() {
     return "";
   };
 
-  const validatePhone = (phone, isSubmit = false) => {
-    if (!phone.trim()) {
-      return isSubmit ? "Phone number is required" : "";
+  const validatePhone = (phone, countryCode) => {
+    if (!phone || phone.trim() === "") {
+      return "Phone number is required";
     }
 
-    // Check if contains only digits (important to show "must contain only digits" error)
-    if (/\D/.test(phone)) {
-      return "Phone number must contain only digits";
-    }
-
-    const selectedCountry = countryCodes.find((c) => c.code === formData.countryCode) || countryCodes[2];
+    const digitsOnly = phone.replace(/\D/g, "");
+    const selectedCountry = countryCodes.find((c) => c.code === countryCode) || countryCodes[2];
     const requiredLength = selectedCountry.length || 10;
 
-    // Show error instantly if length EXCEEDS required length
-    if (phone.length > requiredLength) {
-      return `Phone number must be exactly ${requiredLength} digits for ${selectedCountry.fullName}`;
+    if (digitsOnly.length < requiredLength) {
+      return `Phone number must be exactly ${requiredLength} digits`;
     }
 
-    // Show "less than" error ONLY on submit
-    if (isSubmit && phone.length < requiredLength) {
-      return `Phone number must be exactly ${requiredLength} digits for ${selectedCountry.fullName}`;
+    if (digitsOnly.length > requiredLength) {
+      return `Phone number cannot exceed ${requiredLength} digits`;
+    }
+
+    // India-specific validation
+    if (countryCode === "+91") {
+      const firstDigit = digitsOnly[0];
+      if (!["6", "7", "8", "9"].includes(firstDigit)) {
+        return "Invalid Indian mobile number";
+      }
     }
 
     return "";
@@ -575,16 +577,19 @@ export default function SignIn() {
 
     // For phone field: strictly digits only in state, but show error for attempted non-digits
     if (name === "phone") {
-      const numericValue = value.replace(/\D/g, "");
-      // Real-time validation: pass false so "less than" error doesn't show yet
-      const error = validatePhone(value, false);
-
+      const requiredLength = selectedCountry.length || 10;
+      const numericValue = value.replace(/\D/g, "").slice(0, requiredLength);
+      
       setFormData({
         ...formData,
         [name]: numericValue
       });
 
-      setErrors({ ...errors, phone: error });
+      // Clear error while typing if it becomes valid
+      if (errors.phone && numericValue.length === requiredLength) {
+        const error = validatePhone(numericValue, formData.countryCode);
+        setErrors({ ...errors, phone: error });
+      }
       return;
     }
 
@@ -606,7 +611,18 @@ export default function SignIn() {
       ...formData,
       countryCode: value
     });
+    // Re-validate phone with new country code length
+    if (formData.phone) {
+      const error = validatePhone(formData.phone, value);
+      setErrors(prev => ({ ...prev, phone: error }));
+    }
   };
+
+  const isPhoneValid = !validatePhone(formData.phone, formData.countryCode);
+  const isEmailValid = !validateEmail(formData.email);
+  const isNameValid = !isSignUp || !validateName(formData.name);
+
+  const canContinue = authMethod === "phone" ? isPhoneValid : (isEmailValid && isNameValid);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -919,8 +935,12 @@ export default function SignIn() {
             {/* Continue Button */}
             <Button
               type="submit"
-              className="w-full h-12 md:h-14 bg-[#E23744] hover:bg-[#d32f3d] text-white font-bold text-base md:text-lg rounded-lg transition-all hover:shadow-lg active:scale-[0.98]"
-              disabled={isLoading}>
+              className={`w-full h-12 md:h-14 font-bold text-base md:text-lg rounded-lg transition-all hover:shadow-lg active:scale-[0.98] ${
+                canContinue && !isLoading
+                  ? "bg-[#E23744] hover:bg-[#d32f3d] text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+              disabled={!canContinue || isLoading}>
 
               {isLoading ?
                 <>

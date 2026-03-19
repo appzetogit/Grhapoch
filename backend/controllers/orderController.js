@@ -983,7 +983,6 @@ export const verifyOrderPayment = async (req, res) => {
     let order;
     try {
       // Try to find by MongoDB ObjectId first
-      const mongoose = (await import('mongoose')).default;
       if (mongoose.Types.ObjectId.isValid(orderId)) {
         order = await Order.findOne({
           _id: orderId,
@@ -1199,7 +1198,6 @@ export const createOrderPayment = asyncHandler(async (req, res) => {
 
     // Find order by MongoDB _id or orderId
     let order;
-    const mongoose = (await import('mongoose')).default;
     if (mongoose.Types.ObjectId.isValid(id)) {
       order = await Order.findOne({ _id: id, userId });
     }
@@ -1294,7 +1292,6 @@ export const getUserOrders = async (req, res) => {
 
     // Build query - MongoDB should handle string/ObjectId conversion automatically
     // But we'll try both formats to be safe
-    const mongoose = (await import('mongoose')).default;
     const query = { userId };
 
     // If userId is a string that looks like ObjectId, also try ObjectId format
@@ -1363,7 +1360,10 @@ export const getUserOrders = async (req, res) => {
  */
 export const getOrderDetails = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?._id;
+    const userIdObj = (typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId))
+      ? new mongoose.Types.ObjectId(userId)
+      : (userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null);
     const { id } = req.params;
 
     // Try to find order by MongoDB _id or orderId (custom order ID)
@@ -1373,7 +1373,7 @@ export const getOrderDetails = async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
       order = await Order.findOne({
         _id: id,
-        userId
+        userId: userIdObj ? { $in: [userId, userIdObj] } : userId
       })
         .populate('restaurantId', 'name profileImage address location phone ownerPhone onboarding')
         .populate('deliveryPartnerId', 'name email phone')
@@ -1385,7 +1385,7 @@ export const getOrderDetails = async (req, res) => {
     if (!order) {
       order = await Order.findOne({
         orderId: id,
-        userId
+        userId: userIdObj ? { $in: [userId, userIdObj] } : userId
       })
         .populate('restaurantId', 'name profileImage address location phone ownerPhone onboarding')
         .populate('deliveryPartnerId', 'name email phone')

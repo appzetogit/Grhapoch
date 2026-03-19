@@ -194,16 +194,22 @@ export const upsertOnboarding = async (req, res) => {
     if (finalCompletedSteps >= 5 && (step5 || businessModel)) {
 
       const requestedModel = step5?.businessModel || businessModel || onboarding.businessModel;
-      const hasActiveSubscription =
-        existingRestaurant?.subscription?.status === 'active' &&
-        existingRestaurant?.subscription?.endDate &&
-        new Date(existingRestaurant.subscription.endDate) > new Date();
 
-      // Only allow Subscription Base if a paid/active subscription exists
+      // Treat any already-active subscription as the source of truth
+      const hasActiveSubscription = (() => {
+        const sub = restaurant?.subscription || existingRestaurant?.subscription;
+        if (!sub) return false;
+        if (sub.status !== 'active') return false;
+        if (!sub.endDate) return true;
+        return new Date(sub.endDate) > new Date();
+      })();
+
+      // Never downgrade if a subscription is active.
+      // If user picked Subscription Base, keep it so payment flow can proceed.
       const modelToSave =
-        requestedModel === 'Subscription Base' && hasActiveSubscription ?
-        'Subscription Base' :
-        'Commission Base';
+        hasActiveSubscription ? 'Subscription Base'
+          : requestedModel === 'Subscription Base' ? 'Subscription Base'
+            : 'Commission Base';
 
 
 

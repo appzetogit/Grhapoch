@@ -1862,7 +1862,11 @@ export const orderAPI = {
 
   // Get order details
   getOrderDetails: (orderId) => {
-    return apiClient.get(API_ENDPOINTS.ORDER.DETAILS.replace(':id', orderId));
+    // Add cache-buster to avoid stale/empty cached 304 responses from the GET dedup layer
+    return apiClient.get(
+      API_ENDPOINTS.ORDER.DETAILS.replace(':id', orderId),
+      { params: { _t: Date.now() } }
+    );
   },
 
   // Cancel order

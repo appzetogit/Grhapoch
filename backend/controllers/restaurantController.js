@@ -838,9 +838,17 @@ export const updateDeliveryStatus = asyncHandler(async (req, res) => {
 export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
   try {
     const restaurantId = req.restaurant._id;
+    console.info('[Restaurant Delete] Request received', {
+      restaurantId: restaurantId?.toString?.() || restaurantId,
+      path: req.originalUrl,
+      method: req.method
+    });
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!restaurant) {
+      console.warn('[Restaurant Delete] Restaurant not found', {
+        restaurantId: restaurantId?.toString?.() || restaurantId
+      });
       return errorResponse(res, 404, 'Restaurant not found');
     }
 
@@ -873,6 +881,10 @@ export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
 
     // Delete the restaurant from database
     await Restaurant.findByIdAndDelete(restaurantId);
+    console.info('[Restaurant Delete] Restaurant deleted successfully', {
+      restaurantId: restaurantId?.toString?.() || restaurantId,
+      restaurantName: restaurant?.name || ''
+    });
 
     return successResponse(res, 200, 'Restaurant account deleted successfully');
   } catch (error) {

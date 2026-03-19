@@ -245,11 +245,18 @@ export const upsertOnboarding = async (req, res) => {
 
       // Return success response with restaurant info
       // Mark onboarding completed flag
+      // If final business model is Commission Base, allow immediate activation.
+      // Subscription Base still awaits payment/approval -> keep inactive until enabled elsewhere.
+      const finalBusinessModel =
+        (step5 && step5.businessModel) ||
+        onboarding?.step5?.businessModel ||
+        'Commission Base';
+
       await Restaurant.findByIdAndUpdate(restaurantId, {
         $set: {
           onboardingCompleted: true,
           'onboarding.completedSteps': 5,
-          isActive: false // keep inactive until admin approves
+          isActive: finalBusinessModel === 'Commission Base'
         }
       });
 

@@ -482,19 +482,10 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // If deleted/inactive restaurant tries to access protected data, force logout once.
-    if (isRestaurantNotFoundOrInactiveError(error)) {
-      const currentPath = window.location.pathname;
-      const isRestaurantModulePath =
-        currentPath.startsWith('/restaurant') &&
-        !currentPath.startsWith('/restaurants');
-
-      if (isRestaurantModulePath) {
-        forceRestaurantLogoutAndRedirect();
-        // Stop additional interceptor logic/toasts for this terminal auth state.
-        return Promise.reject(error);
-      }
-    }
+    // If restaurant is inactive/missing, surface the error but do NOT hard-redirect to login.
+    // The previous behavior was logging users out during onboarding, which was jarring.
+    // Downstream calls can still handle the 4xx as needed.
+    // (Keep the block for user/admin; restaurant stays signed-in here.)
 
     // If request was canceled, don't show error/toast
     if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.message === 'canceled' || error.name === 'CanceledError') {

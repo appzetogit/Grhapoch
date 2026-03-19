@@ -34,7 +34,7 @@ export const authenticate = async (req, res, next) => {
         role: decoded.role,
         email: decoded.email
       });
-      return errorResponse(res, 401, 'Restaurant not found');
+      return errorResponse(res, 401, 'Restaurant not found or inactive');
     }
 
     // Allow inactive restaurants to access onboarding and profile routes

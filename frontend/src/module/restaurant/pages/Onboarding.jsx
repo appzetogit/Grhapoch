@@ -548,6 +548,7 @@ export default function RestaurantOnboarding() {
   useEffect(() => {
     const pending = localStorage.getItem("pendingRestaurantRegistration");
     const token = localStorage.getItem("restaurant_accessToken");
+    const restaurantUser = JSON.parse(localStorage.getItem("restaurant_user") || "{}");
 
     console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
 
@@ -555,6 +556,12 @@ export default function RestaurantOnboarding() {
       // Already authenticated from OTP screen; treat as full account (single-OTP flow)
       setIsProspect(false);
       setPendingData(null);
+      setStep1(prev => ({
+        ...prev,
+        restaurantName: prev.restaurantName || restaurantUser?.name || "",
+        ownerName: prev.ownerName || restaurantUser?.name || "",
+        ownerEmail: prev.ownerEmail || restaurantUser?.email || ""
+      }));
     } else if (pending) {
       // Legacy pending data (older flow). Still allow but mark as prospect.
       const data = JSON.parse(pending);
@@ -564,8 +571,9 @@ export default function RestaurantOnboarding() {
       setStep1(prev => ({
         ...prev,
         restaurantName: data.name || prev.restaurantName || "",
+        ownerName: prev.ownerName || data.name || restaurantUser?.name || "",
         ownerPhone: stripCountryCode(prev.ownerPhone || data.phone || ""),
-        ownerEmail: prev.ownerEmail || data.email || "",
+        ownerEmail: prev.ownerEmail || data.email || restaurantUser?.email || "",
         primaryContactNumber: stripCountryCode(prev.primaryContactNumber || data.phone || "")
       }));
     } else {
@@ -638,8 +646,8 @@ export default function RestaurantOnboarding() {
             ...prev,
             // Use nullish coalescing (??) so that intentionally cleared fields (empty "") are respected
             restaurantName: localData.step1.restaurantName ?? prev.restaurantName ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").name ?? "",
-            ownerName: localData.step1.ownerName ?? prev.ownerName ?? "",
-            ownerEmail: localData.step1.ownerEmail ?? prev.ownerEmail ?? "",
+            ownerName: localData.step1.ownerName ?? prev.ownerName ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").name ?? "",
+            ownerEmail: localData.step1.ownerEmail ?? prev.ownerEmail ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").email ?? "",
             ownerPhone: stripCountryCode(localData.step1.ownerPhone ?? prev.ownerPhone ?? ""),
             primaryContactNumber: stripCountryCode(localData.step1.primaryContactNumber ?? prev.primaryContactNumber ?? ""),
             location: {
@@ -792,8 +800,8 @@ export default function RestaurantOnboarding() {
               ...prev,
               // Use ?? to treat an empty string as a deliberate clear ??? never overwrite with server data
               restaurantName: prev.restaurantName !== undefined ? prev.restaurantName : (data.step1.restaurantName || JSON.parse(localStorage.getItem("restaurant_user") || "{}").name || ""),
-              ownerName: prev.ownerName !== undefined ? prev.ownerName : (data.step1.ownerName || ""),
-              ownerEmail: prev.ownerEmail !== undefined ? prev.ownerEmail : (data.step1.ownerEmail || ""),
+              ownerName: prev.ownerName !== undefined ? prev.ownerName : (data.step1.ownerName || JSON.parse(localStorage.getItem("restaurant_user") || "{}").name || ""),
+              ownerEmail: prev.ownerEmail !== undefined ? prev.ownerEmail : (data.step1.ownerEmail || JSON.parse(localStorage.getItem("restaurant_user") || "{}").email || ""),
               ownerPhone: stripCountryCode(prev.ownerPhone !== undefined ? prev.ownerPhone : (data.step1.ownerPhone || "")),
               primaryContactNumber: stripCountryCode(prev.primaryContactNumber !== undefined ? prev.primaryContactNumber : (data.step1.primaryContactNumber || "")),
               location: {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Mail, Phone, AlertCircle, Loader2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +20,8 @@ import { API_ENDPOINTS } from "@/lib/api/config";
 import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase";
 import { setAuthData } from "@/lib/utils/auth";
 import loginBanner from "@/assets/loginbanner.png";
+
+const GOOGLE_AUTH_PENDING_KEY = "user_google_auth_pending";
 
 // Common country codes
 const countryCodes = [
@@ -76,6 +78,9 @@ export default function SignIn() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [loadingTerms, setLoadingTerms] = useState(false);
+  const markGoogleAuthPending = () => sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
+  const clearGoogleAuthPending = () => sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+  const isGoogleAuthPending = () => sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
 
   // Fetch Privacy Policy
   const fetchPrivacyPolicy = async () => {
@@ -116,7 +121,7 @@ export default function SignIn() {
   };
 
   // Helper function to process signed-in user
-  const processSignedInUser = async (user, source = "unknown") => {
+  const processSignedInUser = useCallback(async (user, source = "unknown") => {
     if (redirectHandledRef.current) {
 
       return;
@@ -149,6 +154,7 @@ export default function SignIn() {
       const appUser = data.user;
 
       if (accessToken && appUser) {
+        clearGoogleAuthPending();
         setAuthData("user", accessToken, appUser);
         window.dispatchEvent(new Event("userAuthChanged"));
 
@@ -184,296 +190,56 @@ export default function SignIn() {
         errorMessage = error.message;
       }
       setApiError(errorMessage);
+      clearGoogleAuthPending();
     }
-  };
+  }, [navigate]);
 
-  // Handle Firebase redirect result on component mount and URL changes
+  // Handle Firebase redirect result in a single deterministic flow.
   useEffect(() => {
-    // Prevent multiple calls
-    if (redirectHandledRef.current) {
-      return;
-    }
+    if (redirectHandledRef.current) return;
+
+    let isCancelled = false;
+    let unsubscribeAuthState;
 
     const handleRedirectResult = async () => {
-      try {
-        // Check if we're coming back from a redirect (URL might have hash or params)
-        const currentUrl = window.location.href;
-        const hasHash = window.location.hash.length > 0;
-        const hasQueryParams = window.location.search.length > 0;
-
-
-
-
-
-
-
-
-
-
-        const { getRedirectResult, onAuthStateChanged } = await import("firebase/auth");
-
-        // Ensure Firebase is initialized
-        ensureFirebaseInitialized();
-
-        // Check current user immediately (before getRedirectResult)
-        const immediateUser = firebaseAuth.currentUser;
-
-
-
-
-
-
-
-
-
-
-
-        // First, try to get redirect result (non-blocking with timeout)
-        // Note: getRedirectResult returns null if there's no redirect result (normal on first load)
-        // We use a short timeout to avoid hanging, and rely on auth state listener as primary method
-        let result = null;
-        try {
-
-
-          // Use a short timeout (3 seconds) - if it hangs, auth state listener will handle it
-          result = await Promise.race([
-            getRedirectResult(firebaseAuth),
-            new Promise((resolve) =>
-              setTimeout(() => {
-
-                resolve(null);
-              }, 3000)
-            )]
-          );
-
-
-
-
-
-
-        } catch (redirectError) {
-
-
-          // Don't throw - auth state listener will handle sign-in
-          result = null;
-        }
-
-
-
-
-
-
-
-
-
-        if (result && result.user) {
-          // Process redirect result
-          await processSignedInUser(result.user, "redirect-result");
-        } else {
-          // No redirect result - check if user is already signed in
-          const currentUser = firebaseAuth.currentUser;
-
-
-
-
-
-
-          if (currentUser && !redirectHandledRef.current) {
-            // Process current user
-            await processSignedInUser(currentUser, "current-user-check");
-          } else {
-            // No redirect result - this is normal on first load
-
-            setIsLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error("❌ Google sign-in redirect error:", error);
-        console.error("Error details:", {
-          code: error?.code,
-          message: error?.message,
-          stack: error?.stack
-        });
-
-        redirectHandledRef.current = false;
-
-        // Show error to user
-        const errorCode = error?.code || "";
-        const errorMessage = error?.message || "";
-
-        // Don't show error for "no redirect result" - this is normal when page first loads
-        if (errorCode === "auth/no-auth-event" || errorCode === "auth/popup-closed-by-user") {
-          // These are expected cases, don't show error
-
-          setIsLoading(false);
-          return;
-        }
-
-        // Handle backend errors (500, etc.)
-        let message = "Google sign-in failed. Please try again.";
-
-        if (error?.response) {
-          // Axios error with response
-          const status = error.response.status;
-          const responseData = error.response.data || {};
-
-          if (status === 500) {
-            message = responseData.message || responseData.error || "Server error. Please try again later.";
-          } else if (status === 400 || status === 401) {
-            message = responseData.message || responseData.error || "Authentication failed. Please try again.";
-          } else {
-            message = responseData.message || responseData.error || errorMessage || message;
-          }
-        } else if (errorMessage) {
-          message = errorMessage;
-        } else if (errorCode) {
-          // Firebase auth error codes
-          if (errorCode === "auth/network-request-failed") {
-            message = "Network error. Please check your connection and try again.";
-          } else if (errorCode === "auth/invalid-credential") {
-            message = "Invalid credentials. Please try again.";
-          } else {
-            message = errorMessage || message;
-          }
-        }
-
-        setApiError(message);
+      // Important: only process Firebase cached/current user when user explicitly initiated Google auth.
+      // This prevents silent auto-login/auto-registration after account deletion.
+      if (!isGoogleAuthPending()) {
         setIsLoading(false);
-      }
-    };
-
-    // Helper function to process signed-in user
-    const processSignedInUser = async (user, source = "unknown") => {
-      if (redirectHandledRef.current) {
-
         return;
       }
 
-
-
-
-
-
-
-      redirectHandledRef.current = true;
-      setIsLoading(true);
-      setApiError("");
-
       try {
-        const idToken = await user.getIdToken();
+        ensureFirebaseInitialized();
+        const { getRedirectResult, onAuthStateChanged } = await import("firebase/auth");
 
+        const result = await getRedirectResult(firebaseAuth);
+        const signedInUser = result?.user || firebaseAuth.currentUser;
 
-        const response = await authAPI.firebaseGoogleLogin(idToken, "user");
-        const data = response?.data?.data || {};
-
-
-
-
-
-
-
-        const accessToken = data.accessToken;
-        const appUser = data.user;
-
-        if (accessToken && appUser) {
-          setAuthData("user", accessToken, appUser);
-          window.dispatchEvent(new Event("userAuthChanged"));
-
-          // Clear any URL hash or params
-          const hasHash = window.location.hash.length > 0;
-          const hasQueryParams = window.location.search.length > 0;
-          if (hasHash || hasQueryParams) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-
-
-          navigate("/user", { replace: true });
-        } else {
-          console.error(`❌ Invalid backend response from ${source}`);
-          redirectHandledRef.current = false;
+        if (signedInUser && !redirectHandledRef.current && !isCancelled) {
+          await processSignedInUser(
+            signedInUser,
+            result?.user ? "redirect-result" : "current-user-check"
+          );
+        } else if (!isCancelled) {
+          // Fallback: Firebase user can appear slightly later than redirect/popup resolution.
+          unsubscribeAuthState = onAuthStateChanged(firebaseAuth, async (authUser) => {
+            if (isCancelled || redirectHandledRef.current || !authUser) return;
+            await processSignedInUser(authUser, "auth-state-fallback");
+          });
           setIsLoading(false);
-          setApiError("Invalid response from server. Please try again.");
         }
       } catch (error) {
-        console.error(`❌ Error processing user from ${source}:`, error);
-        console.error("Error details:", {
-          code: error?.code,
-          message: error?.message,
-          response: error?.response?.data
-        });
+        if (isCancelled) return;
+        console.error("❌ Google sign-in redirect error:", error);
         redirectHandledRef.current = false;
+        clearGoogleAuthPending();
+        setApiError(error?.message || "Google sign-in failed. Please try again.");
         setIsLoading(false);
-
-        let errorMessage = "Failed to complete sign-in. Please try again.";
-        if (error?.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        } else if (error?.message) {
-          errorMessage = error.message;
-        }
-        setApiError(errorMessage);
       }
     };
 
-    // Set up auth state listener FIRST (before getRedirectResult)
-    // This ensures we catch auth state changes immediately
-    let unsubscribe = null;
-    const setupAuthListener = async () => {
-      try {
-        const { onAuthStateChanged } = await import("firebase/auth");
-        ensureFirebaseInitialized();
-
-
-
-        unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
-
-
-
-
-
-
-
-          // If user signed in and we haven't handled it yet
-          if (user && !redirectHandledRef.current) {
-            await processSignedInUser(user, "auth-state-listener");
-          } else if (!user) {
-            // User signed out
-
-            redirectHandledRef.current = false;
-          }
-
-
-        });
-
-
-      } catch (error) {
-        console.error("❌ Error setting up auth state listener:", error);
-      }
-    };
-
-    // Set up auth listener first, then check redirect result
-    setupAuthListener();
-
-    // Also check current user immediately (in case redirect already completed)
-    const checkCurrentUser = async () => {
-      try {
-        ensureFirebaseInitialized();
-        const currentUser = firebaseAuth.currentUser;
-        if (currentUser && !redirectHandledRef.current) {
-
-          await processSignedInUser(currentUser, "immediate-check");
-        }
-      } catch (error) {
-        console.error("❌ Error checking current user:", error);
-      }
-    };
-
-    // Check current user immediately
-    checkCurrentUser();
-
-    // Small delay to ensure Firebase is ready, then check redirect result
-    const timer = setTimeout(() => {
-      handleRedirectResult();
-    }, 500);
+    handleRedirectResult();
 
     // Check for existing auth data in sessionStorage (to pre-fill when coming back from OTP)
     const storedData = sessionStorage.getItem("userAuthData");
@@ -506,12 +272,12 @@ export default function SignIn() {
     }
 
     return () => {
-      clearTimeout(timer);
-      if (unsubscribe) {
-        unsubscribe();
+      isCancelled = true;
+      if (typeof unsubscribeAuthState === "function") {
+        unsubscribeAuthState();
       }
     };
-  }, [navigate, searchParams]);
+  }, [processSignedInUser, searchParams]);
 
   // Get selected country details dynamically
   const selectedCountry = countryCodes.find((c) => c.code === formData.countryCode) || countryCodes[2]; // Default to India (+91)
@@ -693,6 +459,7 @@ export default function SignIn() {
     setApiError("");
     setIsLoading(true);
     redirectHandledRef.current = false; // Reset flag when starting new sign-in
+    markGoogleAuthPending();
 
     try {
       // Ensure Firebase is initialized before use
@@ -703,24 +470,29 @@ export default function SignIn() {
         throw new Error("Firebase Auth is not initialized. Please check your Firebase configuration.");
       }
 
-      const { signInWithRedirect } = await import("firebase/auth");
+      const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
 
-      // Log current origin for debugging
-
-
-
-
-
-
-      // Use redirect directly to avoid COOP issues
-      // The redirect result will be handled by the useEffect hook above
-      await signInWithRedirect(firebaseAuth, googleProvider);
-
-      // Note: signInWithRedirect will cause a full page redirect to Google
-      // After user authenticates, they'll be redirected back to this page
-      // The useEffect hook will handle the result when the page loads again
-
-      // Don't set loading to false here - page will redirect
+      try {
+        // Prefer popup flow so backend login can happen immediately.
+        const popupResult = await signInWithPopup(firebaseAuth, googleProvider);
+        const popupUser = popupResult?.user || firebaseAuth.currentUser;
+        if (popupUser) {
+          await processSignedInUser(popupUser, "popup-result");
+          return;
+        }
+      } catch (popupError) {
+        // Fallback to redirect in environments where popup is restricted.
+        if (
+          popupError?.code === "auth/popup-blocked" ||
+          popupError?.code === "auth/cancelled-popup-request" ||
+          popupError?.code === "auth/popup-closed-by-user"
+        ) {
+          await signInWithRedirect(firebaseAuth, googleProvider);
+          return;
+        }
+        clearGoogleAuthPending();
+        throw popupError;
+      }
     } catch (error) {
       console.error("❌ Google sign-in redirect error:", error);
       console.error("Error code:", error?.code);
@@ -750,6 +522,7 @@ export default function SignIn() {
       }
 
       setApiError(message);
+      clearGoogleAuthPending();
     }
   };
 

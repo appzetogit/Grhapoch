@@ -15,6 +15,7 @@ import { restaurantAPI, authAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 import { firebaseAuth, googleProvider } from "@/lib/firebase"
+import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 // Common country codes
 const countryCodes = [
@@ -336,8 +337,14 @@ export default function RestaurantLogin() {
       // Notify any listeners that auth state has changed
       window.dispatchEvent(new Event("restaurantAuthChanged"))
 
-      // Navigate to restaurant home
-      navigate("/restaurant")
+      // Keep Google flow consistent with OTP flow:
+      // new/incomplete accounts must go through onboarding, completed go to to-hub.
+      const incompleteStep = await checkOnboardingStatus()
+      if (incompleteStep) {
+        navigate(`/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
+      } else {
+        navigate("/restaurant/to-hub", { replace: true })
+      }
     } catch (error) {
       console.error("Firebase Google login error:", error)
       const message =

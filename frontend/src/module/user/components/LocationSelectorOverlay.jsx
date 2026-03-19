@@ -9,7 +9,6 @@ import { useLocation as useGeoLocation } from "../hooks/useLocation";
 import { useProfile } from "../context/ProfileContext";
 import { toast } from "sonner";
 import { locationAPI, userAPI } from "@/lib/api";
-import { Loader } from '@googlemaps/js-api-loader';
 
 // Google Maps implementation - Leaflet components removed
 
@@ -82,6 +81,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   const [isSearching, setIsSearching] = useState(false);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [mapsKeyFetched, setMapsKeyFetched] = useState(false);
   const mapContainerRef = useRef(null);
   const googleMapRef = useRef(null); // Google Maps instance
   const greenMarkerRef = useRef(null); // Green marker for address selection
@@ -99,6 +99,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     import('@/lib/utils/googleMapsApiKey.js').then(({ getGoogleMapsApiKey }) => {
       getGoogleMapsApiKey().then((key) => {
         setGOOGLE_MAPS_API_KEY(key);
+        setMapsKeyFetched(true);
       });
     });
   }, []);
@@ -107,50 +108,43 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
 
   // Debug: Log API key status (only first few characters for security)
   useEffect(() => {
-    if (GOOGLE_MAPS_API_KEY) {
-
-    } else {
+    if (!GOOGLE_MAPS_API_KEY && mapsKeyFetched) {
       console.warn("⚠️ Google Maps API Key NOT found! Please set it in ENV Setup.");
     }
-  }, [GOOGLE_MAPS_API_KEY]);
+  }, [GOOGLE_MAPS_API_KEY, mapsKeyFetched]);
 
-  // Load Google Maps SDK as soon as API key is available
+  // Detect Google Maps SDK readiness from the global script (loaded in main.jsx)
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) return;
 
-    // Improved check: Ensure BOTH google.maps AND places library are available
+    let isMounted = true;
+
+    // Ensure BOTH google.maps AND places library are available
     if (window.google && window.google.maps && window.google.maps.places) {
       setMapsLoaded(true);
       return;
     }
 
-    const loadGoogleMaps = async () => {
-      try {
-
-        const loader = new Loader({
-          apiKey: GOOGLE_MAPS_API_KEY,
-          version: "weekly",
-          libraries: ["places", "geocoding"]
-        });
-
-        // Force load both libraries
-        await Promise.all([
-        loader.importLibrary("places"),
-        loader.importLibrary("geocoding")]
-        );
-
-
+    const intervalId = setInterval(() => {
+      if (!isMounted) return;
+      if (window.google && window.google.maps && window.google.maps.places) {
         setMapsLoaded(true);
-      } catch (error) {
-        console.error("❌ Error loading Google Maps SDK:", error);
-        setMapsLoaded(false);
-        // If it fails, we might be hitting a network issue or invalid key
-        if (error.message?.includes("InvalidKey")) {
-          toast.error("Google Maps API Key is invalid. Please check admin settings.");
-        }
+        clearInterval(intervalId);
       }
+    }, 200);
+
+    // Stop polling after 10 seconds to avoid running forever
+    const timeoutId = setTimeout(() => {
+      if (!isMounted) return;
+      clearInterval(intervalId);
+      setMapsLoaded(false);
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
     };
-    loadGoogleMaps();
   }, [GOOGLE_MAPS_API_KEY]);
 
   useEffect(() => {
@@ -615,7 +609,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   location?.accuracy ?? null]
   );
 
-  // Initialize Google Maps with Loader (ZOMATO-STYLE)
+  // Initialize Google Maps (ZOMATO-STYLE)
   useEffect(() => {
     if (!showAddressForm || !mapContainerRef.current || !GOOGLE_MAPS_API_KEY) {
       return;
@@ -626,14 +620,22 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
 
     const initializeGoogleMap = async () => {
       try {
-        const loader = new Loader({
-          apiKey: GOOGLE_MAPS_API_KEY,
-          version: "weekly",
-          libraries: ["places", "geocoding"],
-          loading: "async"
+        // Wait for the global Google Maps script injected in main.jsx
+        const google = await new Promise((resolve, reject) => {
+          const start = Date.now();
+          const poll = () => {
+            if (window.google && window.google.maps) {
+              resolve(window.google);
+              return;
+            }
+            if (Date.now() - start > 10000) {
+              reject(new Error("Google Maps SDK not available"));
+              return;
+            }
+            setTimeout(poll, 150);
+          };
+          poll();
         });
-
-        const google = await loader.load();
 
         if (!isMounted || !mapContainerRef.current) return;
 

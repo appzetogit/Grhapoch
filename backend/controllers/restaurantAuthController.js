@@ -828,7 +828,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
     const restaurant = await Restaurant.findById(decoded.userId).select('-password');
 
     if (!restaurant) {
-      return errorResponse(res, 401, 'Restaurant not found');
+      return errorResponse(res, 401, 'Restaurant not found or inactive');
     }
 
     // Allow inactive restaurants to refresh tokens - they need access to complete onboarding
@@ -1137,10 +1137,13 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       }
     }
 
-    // Ensure restaurant is active
+    // Keep Google login behavior consistent with OTP login:
+    // inactive restaurants can still authenticate and will see pending-approval UI in dashboard.
     if (!restaurant.isActive) {
-      logger.warn('Inactive restaurant attempted login', { restaurantId: restaurant._id, email });
-      return errorResponse(res, 403, 'Your restaurant account has been deactivated. Please contact support.');
+      logger.info('Inactive restaurant authenticated via Google; pending approval flow', {
+        restaurantId: restaurant._id,
+        email
+      });
     }
 
     // Generate JWT tokens for our app (email may be null for phone signups)
@@ -1158,7 +1161,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    return successResponse(res, 200, 'Firebase Google authentication successful', {
+    return successResponse(res, 200, 'Authentication successful', {
       accessToken: tokens.accessToken,
       restaurant: {
         id: restaurant._id,

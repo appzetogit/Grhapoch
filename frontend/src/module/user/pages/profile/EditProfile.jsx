@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -611,6 +612,9 @@ export default function EditProfile() {
               <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white text-center">
                 Change Profile Photo
               </DialogTitle>
+              <DialogDescription className="text-center text-sm text-gray-500 dark:text-gray-400">
+                Choose camera, gallery, or remove your current picture.
+              </DialogDescription>
             </DialogHeader>
             <div className="p-6 pt-2 space-y-4">
               <button
@@ -676,12 +680,14 @@ export default function EditProfile() {
               <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto text-red-600">
                 <Trash2 className="h-8 w-8" />
               </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Discard Changes?</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+              <DialogHeader className="space-y-2 text-center sm:text-center">
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+                  Discard Changes?
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
                   You have unsaved changes. Are you sure you want to discard them and go back?
-                </p>
-              </div>
+                </DialogDescription>
+              </DialogHeader>
               <div className="grid grid-cols-2 gap-3 pt-4">
                 <Button 
                   variant="outline" 

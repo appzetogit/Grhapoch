@@ -23,6 +23,7 @@ import { setAuthData } from "@/lib/utils/auth";
 import loginBanner from "@/assets/loginbanner.png";
 
 const GOOGLE_AUTH_PENDING_KEY = "user_google_auth_pending";
+let googleAuthPendingFallback = false;
 
 // Common country codes
 const countryCodes = [
@@ -79,9 +80,30 @@ export default function SignIn() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [loadingTerms, setLoadingTerms] = useState(false);
-  const markGoogleAuthPending = () => sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
-  const clearGoogleAuthPending = () => sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
-  const isGoogleAuthPending = () => sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
+  const markGoogleAuthPending = () => {
+    googleAuthPendingFallback = true;
+    try {
+      sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
+    } catch (storageError) {
+      console.warn("[UserGoogle] sessionStorage unavailable while setting pending flag:", storageError);
+    }
+  };
+  const clearGoogleAuthPending = () => {
+    googleAuthPendingFallback = false;
+    try {
+      sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+    } catch (storageError) {
+      console.warn("[UserGoogle] sessionStorage unavailable while clearing pending flag:", storageError);
+    }
+  };
+  const isGoogleAuthPending = () => {
+    try {
+      return sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
+    } catch (storageError) {
+      console.warn("[UserGoogle] sessionStorage unavailable while reading pending flag:", storageError);
+      return googleAuthPendingFallback;
+    }
+  };
 
   // Fetch Privacy Policy
   const fetchPrivacyPolicy = async () => {
@@ -210,36 +232,31 @@ export default function SignIn() {
     let unsubscribeAuthState;
 
     const handleRedirectResult = async () => {
-      // Important: only process Firebase cached/current user when user explicitly initiated Google auth.
-      // This prevents silent auto-login/auto-registration after account deletion.
-      if (!isGoogleAuthPending()) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         ensureFirebaseInitialized();
-        const { getRedirectResult, onAuthStateChanged } = await import("firebase/auth");
+        const { onAuthStateChanged } = await import("firebase/auth");
 
-        const result = await getRedirectResult(firebaseAuth);
-        const signedInUser = result?.user || firebaseAuth.currentUser;
+        // Only process an existing Firebase user when Google auth was explicitly initiated.
+        // Avoids unintended auto-login from stale Firebase sessions.
+        if (isGoogleAuthPending()) {
+          const signedInUser = firebaseAuth.currentUser;
+          if (signedInUser && !redirectHandledRef.current && !isCancelled) {
+            await processSignedInUser(signedInUser, "current-user-check");
+            return;
+          }
+        }
 
-        if (signedInUser && !redirectHandledRef.current && !isCancelled) {
-          await processSignedInUser(
-            signedInUser,
-            result?.user ? "redirect-result" : "current-user-check"
-          );
-        } else if (!isCancelled) {
-          // Fallback: Firebase user can appear slightly later than redirect/popup resolution.
+        if (!isCancelled) {
+          // Firebase user can appear slightly later than popup resolution.
           unsubscribeAuthState = onAuthStateChanged(firebaseAuth, async (authUser) => {
-            if (isCancelled || redirectHandledRef.current || !authUser) return;
+            if (isCancelled || redirectHandledRef.current || !authUser || !isGoogleAuthPending()) return;
             await processSignedInUser(authUser, "auth-state-fallback");
           });
           setIsLoading(false);
         }
       } catch (error) {
         if (isCancelled) return;
-        console.error("❌ Google sign-in redirect error:", error);
+        console.error("❌ Google sign-in auth state error:", error);
         redirectHandledRef.current = false;
         clearGoogleAuthPending();
         setApiError(error?.message || "Google sign-in failed. Please try again.");
@@ -478,7 +495,7 @@ export default function SignIn() {
         throw new Error("Firebase Auth is not initialized. Please check your Firebase configuration.");
       }
 
-      const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
+      const { signInWithPopup } = await import("firebase/auth");
       console.info("[UserGoogle] flow_start", {
         flutterWebView: isFlutterInAppWebView(),
         host: window.location.hostname
@@ -518,15 +535,6 @@ export default function SignIn() {
           return;
         }
       } catch (popupError) {
-        // Fallback to redirect in environments where popup is restricted.
-        if (
-          popupError?.code === "auth/popup-blocked" ||
-          popupError?.code === "auth/cancelled-popup-request" ||
-          popupError?.code === "auth/popup-closed-by-user"
-        ) {
-          await signInWithRedirect(firebaseAuth, googleProvider);
-          return;
-        }
         clearGoogleAuthPending();
         throw popupError;
       }
@@ -544,9 +552,11 @@ export default function SignIn() {
       if (errorCode === "auth/configuration-not-found") {
         message = "Firebase configuration error. Please ensure your domain is authorized in Firebase Console. Current domain: " + window.location.hostname;
       } else if (errorCode === "auth/popup-blocked") {
-        message = "Popup was blocked. Please allow popups and try again.";
+        message = "Popup was blocked. Please allow popups and try again. Redirect sign-in is disabled to avoid browser storage issues.";
       } else if (errorCode === "auth/popup-closed-by-user") {
         message = "Sign-in was cancelled. Please try again.";
+      } else if (errorCode === "auth/cancelled-popup-request") {
+        message = "Another Google sign-in request was triggered. Please try once more.";
       } else if (errorCode === "auth/network-request-failed") {
         message = "Network error. Please check your connection and try again.";
       } else if (error instanceof FlutterGoogleSignInError && errorCode === "missing_token") {

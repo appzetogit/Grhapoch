@@ -2388,7 +2388,11 @@ export default function DeliveryHome() {
                 customerLat: order.address?.location?.coordinates?.[1],
                 customerLng: order.address?.location?.coordinates?.[0],
                 items: order.items || [],
-                total: order.pricing?.total || 0,
+                total: order.pricing?.total ??
+                  order.userPayment?.total ??
+                  order.payment?.amount ??
+                  order.total ??
+                  0,
                 paymentMethod: order.paymentMethod ?? order.payment?.method ?? 'razorpay', // backend-resolved first (COD vs Online)
                 phone: order.restaurantId?.phone || order.restaurantId?.ownerPhone || null, // Restaurant phone number (prefer phone, fallback to ownerPhone)
                 ownerPhone: order.restaurantId?.ownerPhone || null, // Owner phone number (separate field for direct access)
@@ -8046,7 +8050,14 @@ export default function DeliveryHome() {
     deliveryPaymentMethod === 'cod' ||
     deliveryPaymentMethod === 'cash_on_delivery' ||
     deliveryPaymentMethod === 'cash on delivery';
-  const rawOrderTotal = Number(selectedRestaurant?.total ?? selectedRestaurant?.pricing?.total ?? 0);
+  // Prefer explicit pricing total, then userPayment total, then payment amount, then legacy total
+  const rawOrderTotal = Number(
+    selectedRestaurant?.pricing?.total ??
+    selectedRestaurant?.userPayment?.total ??
+    selectedRestaurant?.payment?.amount ??
+    selectedRestaurant?.total ??
+    0
+  );
   const deliveryOrderTotal = Number.isFinite(rawOrderTotal) ? rawOrderTotal : 0;
 
   // Render normal feed view when offline or no gig booked

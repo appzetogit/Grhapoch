@@ -15,7 +15,7 @@ import { restaurantAPI, authAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase"
-import { isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn"
+import { FlutterGoogleSignInError, isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn"
 import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 // Common country codes
@@ -315,18 +315,31 @@ export default function RestaurantLogin() {
       ensureFirebaseInitialized()
       const { signInWithPopup } = await import("firebase/auth")
       let user = null
+      console.info("[RestaurantGoogle] flow_start", {
+        flutterWebView: isFlutterInAppWebView(),
+        host: window.location.hostname
+      })
 
       // Flutter in-app webview flow: native sign-in + Firebase credential exchange.
       if (isFlutterInAppWebView()) {
         try {
+          console.info("[RestaurantGoogle] bridge_called")
           user = await signInWithFlutterGoogle(firebaseAuth)
         } catch (flutterError) {
-          console.warn("Flutter native Google sign-in failed, falling back to web popup flow:", flutterError?.message)
+          const flutterCode = flutterError?.code || ""
+          console.warn("[RestaurantGoogle] bridge_failed_fallback_popup", {
+            code: flutterCode,
+            message: flutterError?.message || "unknown"
+          })
+          if (flutterCode === "missing_token") {
+            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.")
+          }
         }
       }
 
       // Default browser flow.
       if (!user) {
+        console.info("[RestaurantGoogle] popup_called")
         const result = await signInWithPopup(firebaseAuth, googleProvider)
         user = result?.user || null
       }
@@ -337,13 +350,19 @@ export default function RestaurantLogin() {
 
       // Get Firebase ID token
       const idToken = await user.getIdToken()
+      console.info("[RestaurantGoogle] token_extracted", {
+        hasIdToken: !!idToken,
+        idTokenLength: idToken ? String(idToken).length : 0
+      })
 
       // Call backend to login/register via Firebase Google
+      console.info("[RestaurantGoogle] backend_call_start")
       const response = await restaurantAPI.firebaseGoogleLogin(idToken)
       const data = response?.data?.data || {}
+      console.info("[RestaurantGoogle] backend_ok")
 
       const accessToken = data.accessToken
-      const restaurant = data.restaurant
+      const restaurant = data.restaurant || data.user
 
       if (!accessToken || !restaurant) {
         throw new Error("Invalid response from server")
@@ -365,7 +384,11 @@ export default function RestaurantLogin() {
       }
     } catch (error) {
       console.error("Firebase Google login error:", error)
+      console.error("[RestaurantGoogle] error_meta:", { code: error?.code, message: error?.message })
       const message =
+        (error instanceof FlutterGoogleSignInError && error?.code === "missing_token")
+          ? "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga."
+          :
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         error?.message ||

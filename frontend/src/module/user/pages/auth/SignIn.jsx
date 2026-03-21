@@ -18,7 +18,7 @@ import { authAPI } from "@/lib/api";
 import api from "@/lib/api";
 import { API_ENDPOINTS } from "@/lib/api/config";
 import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase";
-import { isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn";
+import { FlutterGoogleSignInError, isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn";
 import { setAuthData } from "@/lib/utils/auth";
 import loginBanner from "@/assets/loginbanner.png";
 
@@ -140,10 +140,17 @@ export default function SignIn() {
 
     try {
       const idToken = await user.getIdToken();
+      console.info("[UserGoogle] token_extracted", {
+        hasIdToken: !!idToken,
+        idTokenLength: idToken ? String(idToken).length : 0,
+        source
+      });
 
 
+      console.info("[UserGoogle] backend_call_start", { source });
       const response = await authAPI.firebaseGoogleLogin(idToken, "user");
       const data = response?.data?.data || {};
+      console.info("[UserGoogle] backend_ok", { source });
 
 
 
@@ -472,26 +479,41 @@ export default function SignIn() {
       }
 
       const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
+      console.info("[UserGoogle] flow_start", {
+        flutterWebView: isFlutterInAppWebView(),
+        host: window.location.hostname
+      });
 
       // Flutter in-app webview flow: use native Google account picker and then Firebase credential sign-in.
       // If bridge returns unexpected payload, gracefully fallback to web popup flow.
       if (isFlutterInAppWebView()) {
         try {
+          console.info("[UserGoogle] bridge_called");
           const flutterUser = await signInWithFlutterGoogle(firebaseAuth);
           if (flutterUser) {
+            console.info("[UserGoogle] firebase_signed_in_via_bridge", { hasUser: true });
             await processSignedInUser(flutterUser, "flutter-native-bridge");
             return;
           }
         } catch (flutterError) {
-          console.warn("Flutter native Google sign-in failed, falling back to web popup flow:", flutterError?.message);
+          const flutterCode = flutterError?.code || "";
+          console.warn("[UserGoogle] bridge_failed_fallback_popup", {
+            code: flutterCode,
+            message: flutterError?.message || "unknown"
+          });
+          if (flutterCode === "missing_token") {
+            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.");
+          }
         }
       }
 
       try {
         // Prefer popup flow so backend login can happen immediately.
+        console.info("[UserGoogle] popup_called");
         const popupResult = await signInWithPopup(firebaseAuth, googleProvider);
         const popupUser = popupResult?.user || firebaseAuth.currentUser;
         if (popupUser) {
+          console.info("[UserGoogle] firebase_signed_in_via_popup", { hasUser: true });
           await processSignedInUser(popupUser, "popup-result");
           return;
         }
@@ -509,9 +531,8 @@ export default function SignIn() {
         throw popupError;
       }
     } catch (error) {
-      console.error("❌ Google sign-in redirect error:", error);
-      console.error("Error code:", error?.code);
-      console.error("Error message:", error?.message);
+      console.error("❌ Google sign-in error:", error);
+      console.error("[UserGoogle] error_meta:", { code: error?.code, message: error?.message });
       setIsLoading(false);
       redirectHandledRef.current = false;
 
@@ -528,6 +549,8 @@ export default function SignIn() {
         message = "Sign-in was cancelled. Please try again.";
       } else if (errorCode === "auth/network-request-failed") {
         message = "Network error. Please check your connection and try again.";
+      } else if (error instanceof FlutterGoogleSignInError && errorCode === "missing_token") {
+        message = "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga.";
       } else if (errorMessage) {
         message = errorMessage;
       } else if (error?.response?.data?.message) {

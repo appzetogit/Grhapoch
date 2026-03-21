@@ -518,9 +518,7 @@ export default function SignIn() {
             code: flutterCode,
             message: flutterError?.message || "unknown"
           });
-          if (flutterCode === "missing_token") {
-            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.");
-          }
+          // Do not hard-fail on bridge payload issues; continue with popup flow.
         }
       }
 

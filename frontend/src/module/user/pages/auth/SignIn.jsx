@@ -474,11 +474,16 @@ export default function SignIn() {
       const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
 
       // Flutter in-app webview flow: use native Google account picker and then Firebase credential sign-in.
+      // If bridge returns unexpected payload, gracefully fallback to web popup flow.
       if (isFlutterInAppWebView()) {
-        const flutterUser = await signInWithFlutterGoogle(firebaseAuth);
-        if (flutterUser) {
-          await processSignedInUser(flutterUser, "flutter-native-bridge");
-          return;
+        try {
+          const flutterUser = await signInWithFlutterGoogle(firebaseAuth);
+          if (flutterUser) {
+            await processSignedInUser(flutterUser, "flutter-native-bridge");
+            return;
+          }
+        } catch (flutterError) {
+          console.warn("Flutter native Google sign-in failed, falling back to web popup flow:", flutterError?.message);
         }
       }
 

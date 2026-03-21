@@ -318,7 +318,11 @@ export default function RestaurantLogin() {
 
       // Flutter in-app webview flow: native sign-in + Firebase credential exchange.
       if (isFlutterInAppWebView()) {
-        user = await signInWithFlutterGoogle(firebaseAuth)
+        try {
+          user = await signInWithFlutterGoogle(firebaseAuth)
+        } catch (flutterError) {
+          console.warn("Flutter native Google sign-in failed, falling back to web popup flow:", flutterError?.message)
+        }
       }
 
       // Default browser flow.

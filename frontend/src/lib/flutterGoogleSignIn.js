@@ -12,13 +12,43 @@ export function isFlutterInAppWebView() {
 }
 
 function extractIdTokenFromResult(result) {
-  if (!result) return "";
-  if (typeof result === "string") return result;
-  if (typeof result === "object") {
-    if (result.success === false) return "";
-    return result.idToken || result.id_token || result.token || "";
-  }
-  return "";
+  const tryExtract = (value) => {
+    if (!value) return { idToken: "", accessToken: "" };
+    if (typeof value === "string") {
+      // Handle JSON-string payload from Flutter bridge.
+      const trimmed = value.trim();
+      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+        try {
+          return tryExtract(JSON.parse(trimmed));
+        } catch (_) {
+          return { idToken: "", accessToken: "" };
+        }
+      }
+      // Raw token string fallback.
+      return { idToken: trimmed, accessToken: "" };
+    }
+
+    if (typeof value !== "object") return { idToken: "", accessToken: "" };
+    if (value.success === false || value.cancelled === true) {
+      return { idToken: "", accessToken: "" };
+    }
+
+    const directIdToken = value.idToken || value.id_token || value.firebaseIdToken || value.token || "";
+    const directAccessToken = value.accessToken || value.access_token || "";
+    if (directIdToken || directAccessToken) {
+      return { idToken: directIdToken, accessToken: directAccessToken };
+    }
+
+    // Common nested payload shapes from Flutter.
+    if (value.data) return tryExtract(value.data);
+    if (value.result) return tryExtract(value.result);
+    if (value.user) return tryExtract(value.user);
+    if (value.credential) return tryExtract(value.credential);
+
+    return { idToken: "", accessToken: "" };
+  };
+
+  return tryExtract(result);
 }
 
 export async function signInWithFlutterGoogle(firebaseAuth) {
@@ -28,13 +58,13 @@ export async function signInWithFlutterGoogle(firebaseAuth) {
   }
 
   const result = await bridge.callHandler("nativeGoogleSignIn");
-  const idToken = extractIdTokenFromResult(result);
+  const { idToken, accessToken } = extractIdTokenFromResult(result);
 
-  if (!idToken) {
+  if (!idToken && !accessToken) {
     throw new Error("Google sign-in was cancelled or no idToken was returned");
   }
 
-  const credential = GoogleAuthProvider.credential(idToken);
+  const credential = GoogleAuthProvider.credential(idToken || null, accessToken || null);
   const signedIn = await signInWithCredential(firebaseAuth, credential);
   return signedIn?.user || null;
 }

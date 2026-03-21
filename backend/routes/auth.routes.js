@@ -15,6 +15,7 @@ import {
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import Joi from 'joi';
+import { extractTokenPayload, getTokenFieldForPlatform } from '../services/fcmTokenPlatformService.js';
 
 const router = express.Router();
 
@@ -92,6 +93,22 @@ router.get('/google/:role/callback', googleCallback);
 
 // Protected routes
 router.get('/me', authenticate, getCurrentUser);
+router.post('/fcm-token', authenticate, async (req, res) => {
+  const { token, platform } = extractTokenPayload(req);
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'Token is required' });
+  }
+
+  const field = getTokenFieldForPlatform(platform);
+  req.user[field] = token;
+  await req.user.save();
+
+  return res.json({
+    success: true,
+    message: `FCM ${platform} token saved`,
+    data: { platform, tokenField: field }
+  });
+});
 
 export default router;
 

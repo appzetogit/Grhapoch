@@ -421,7 +421,11 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
-    fcmTokenMobile: {
+    fcmTokenAndroid: {
+      type: String,
+      default: ''
+    },
+    fcmTokenIos: {
       type: String,
       default: ''
     },

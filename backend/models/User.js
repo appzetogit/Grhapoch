@@ -226,8 +226,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  // FCM push notification token (mobile app)
-  fcmTokenMobile: {
+  // FCM push notification token (android app)
+  fcmTokenAndroid: {
+    type: String,
+    default: ''
+  },
+  // FCM push notification token (ios app)
+  fcmTokenIos: {
     type: String,
     default: ''
   },

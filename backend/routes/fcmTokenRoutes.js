@@ -14,28 +14,9 @@ import { authenticate as authenticateRestaurant } from '../middleware/restaurant
 import User from '../models/User.js';
 import Delivery from '../models/Delivery.js';
 import Restaurant from '../models/Restaurant.js';
+import { extractTokenPayload, getTokenFieldForPlatform } from '../services/fcmTokenPlatformService.js';
 
 const router = express.Router();
-
-/** Helper: determine which field to use based on platform */
-function getTokenField(platform) {
-    return platform === 'mobile' ? 'fcmTokenMobile' : 'fcmTokenWeb';
-}
-
-/** Helper: get token/platform from body/query with defaults */
-function extractTokenPayload(req) {
-    const body = req.body || {};
-    const token =
-        body.token ||
-        body.fcmToken ||
-        body.fcm_token ||
-        req.query?.token ||
-        '';
-    const platformRaw = body.platform || req.query?.platform || 'mobile';
-    const p = String(platformRaw).toLowerCase().trim();
-    const normalizedPlatform = (p === 'web' || p === 'browser' || p === 'pwa') ? 'web' : 'mobile';
-    return { token, platform: normalizedPlatform };
-}
 
 /** Helper: minimal debug log (avoids printing full token) */
 function logSave(role, platform, token, userId) {
@@ -57,7 +38,7 @@ router.post(['/user/save', '/user/token'], authenticateUser, async (req, res) =>
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         user[field] = token;
         await user.save();
 
@@ -79,7 +60,7 @@ router.delete(['/user/remove', '/user/token'], authenticateUser, async (req, res
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         // Clear token only if it matches the stored one
         if (user[field] === token) {
             user[field] = '';
@@ -105,7 +86,7 @@ router.post(['/delivery/save', '/delivery/token'], authenticateDelivery, async (
         const delivery = await Delivery.findById(req.delivery._id);
         if (!delivery) return res.status(404).json({ success: false, message: 'Delivery partner not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         delivery[field] = token;
         await delivery.save();
 
@@ -127,7 +108,7 @@ router.delete(['/delivery/remove', '/delivery/token'], authenticateDelivery, asy
         const delivery = await Delivery.findById(req.delivery._id);
         if (!delivery) return res.status(404).json({ success: false, message: 'Delivery partner not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         if (delivery[field] === token) {
             delivery[field] = '';
         }
@@ -152,7 +133,7 @@ router.post(['/restaurant/save', '/restaurant/token'], authenticateRestaurant, a
         const restaurant = await Restaurant.findById(req.restaurant._id);
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         restaurant[field] = token;
         await restaurant.save();
 
@@ -174,7 +155,7 @@ router.delete(['/restaurant/remove', '/restaurant/token'], authenticateRestauran
         const restaurant = await Restaurant.findById(req.restaurant._id);
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
-        const field = getTokenField(platform);
+        const field = getTokenFieldForPlatform(platform);
         if (restaurant[field] === token) {
             restaurant[field] = '';
         }

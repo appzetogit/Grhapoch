@@ -13,10 +13,10 @@ const logger = {
  */
 export const notifyUserFCM = async (userId, title, body, data = {}) => {
     try {
-        const user = await User.findById(userId).select('fcmTokensWeb fcmTokensMobile').lean();
+        const user = await User.findById(userId).select('fcmTokenWeb fcmTokenMobile').lean();
         if (!user) return;
 
-        const tokens = [...(user.fcmTokensWeb || []), ...(user.fcmTokensMobile || [])];
+        const tokens = [user.fcmTokenWeb, user.fcmTokenMobile].filter(Boolean);
         if (tokens.length === 0) return;
 
         return await sendPushNotification(tokens, {
@@ -34,10 +34,10 @@ export const notifyUserFCM = async (userId, title, body, data = {}) => {
  */
 export const notifyRestaurantFCM = async (restaurantId, title, body, data = {}) => {
     try {
-        const restaurant = await Restaurant.findById(restaurantId).select('fcmTokensWeb fcmTokensMobile').lean();
+        const restaurant = await Restaurant.findById(restaurantId).select('fcmTokenWeb fcmTokenMobile').lean();
         if (!restaurant) return;
 
-        const tokens = [...(restaurant.fcmTokensWeb || []), ...(restaurant.fcmTokensMobile || [])];
+        const tokens = [restaurant.fcmTokenWeb, restaurant.fcmTokenMobile].filter(Boolean);
         if (tokens.length === 0) return;
 
         return await sendPushNotification(tokens, {
@@ -55,10 +55,10 @@ export const notifyRestaurantFCM = async (restaurantId, title, body, data = {}) 
  */
 export const notifyDeliveryFCM = async (deliveryId, title, body, data = {}) => {
     try {
-        const delivery = await Delivery.findById(deliveryId).select('fcmTokensWeb fcmTokensMobile').lean();
+        const delivery = await Delivery.findById(deliveryId).select('fcmTokenWeb fcmTokenMobile').lean();
         if (!delivery) return;
 
-        const tokens = [...(delivery.fcmTokensWeb || []), ...(delivery.fcmTokensMobile || [])];
+        const tokens = [delivery.fcmTokenWeb, delivery.fcmTokenMobile].filter(Boolean);
         if (tokens.length === 0) return;
 
         return await sendPushNotification(tokens, {
@@ -76,9 +76,11 @@ export const notifyDeliveryFCM = async (deliveryId, title, body, data = {}) => {
  */
 export const notifyMultipleDeliveryFCM = async (deliveryIds, title, body, data = {}) => {
     try {
-        const partners = await Delivery.find({ _id: { $in: deliveryIds } }).select('fcmTokensWeb fcmTokensMobile').lean();
+        const partners = await Delivery.find({ _id: { $in: deliveryIds } }).select('fcmTokenWeb fcmTokenMobile').lean();
         const tokens = partners.reduce((acc, p) => {
-            return [...acc, ...(p.fcmTokensWeb || []), ...(p.fcmTokensMobile || [])];
+            if (p.fcmTokenWeb) acc.push(p.fcmTokenWeb);
+            if (p.fcmTokenMobile) acc.push(p.fcmTokenMobile);
+            return acc;
         }, []);
 
         if (tokens.length === 0) return;

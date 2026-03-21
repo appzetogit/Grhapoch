@@ -264,14 +264,14 @@ const deliverySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin'
     },
-    // FCM push notification tokens
-    fcmTokensWeb: {
-      type: [String],
-      default: []
+    // FCM push notification token (single, per platform)
+    fcmTokenWeb: {
+      type: String,
+      default: ''
     },
-    fcmTokensMobile: {
-      type: [String],
-      default: []
+    fcmTokenMobile: {
+      type: String,
+      default: ''
     }
   },
   {

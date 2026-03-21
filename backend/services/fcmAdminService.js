@@ -114,7 +114,7 @@ export async function sendPushNotification(tokens, payload) {
  * array of invalid tokens returned from sendPushNotification.
  * 
  * @param {Object} doc - Mongoose document
- * @param {string|string[]} fieldNames - Field or array of fields like ['fcmTokensWeb', 'fcmTokensMobile']
+ * @param {string|string[]} fieldNames - Field or array of fields like ['fcmTokenWeb', 'fcmTokenMobile']
  * @param {string[]} invalidTokens - Tokens to remove
  */
 export async function cleanupInvalidTokens(doc, fieldNames, invalidTokens) {
@@ -123,9 +123,19 @@ export async function cleanupInvalidTokens(doc, fieldNames, invalidTokens) {
     try {
         let anyRemoved = false;
         fields.forEach(field => {
-            const before = (doc[field] || []).length;
-            doc[field] = (doc[field] || []).filter(t => !invalidTokens.includes(t));
-            if ((doc[field] || []).length < before) anyRemoved = true;
+            const value = doc[field];
+            if (Array.isArray(value)) {
+                const filtered = value.filter(t => !invalidTokens.includes(t));
+                if (filtered.length !== value.length) {
+                    doc[field] = filtered;
+                    anyRemoved = true;
+                }
+            } else if (typeof value === 'string' && value) {
+                if (invalidTokens.includes(value)) {
+                    doc[field] = '';
+                    anyRemoved = true;
+                }
+            }
         });
 
         if (anyRemoved) {

@@ -221,15 +221,15 @@ const userSchema = new mongoose.Schema({
       }
     }
   },
-  // FCM push notification tokens (web browser tokens)
-  fcmTokensWeb: {
-    type: [String],
-    default: []
+  // FCM push notification token (web browser)
+  fcmTokenWeb: {
+    type: String,
+    default: ''
   },
-  // FCM push notification tokens (mobile app tokens)
-  fcmTokensMobile: {
-    type: [String],
-    default: []
+  // FCM push notification token (mobile app)
+  fcmTokenMobile: {
+    type: String,
+    default: ''
   },
   isActive: {
     type: Boolean,

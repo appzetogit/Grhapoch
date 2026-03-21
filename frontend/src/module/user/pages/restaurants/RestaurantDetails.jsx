@@ -472,6 +472,7 @@ export default function RestaurantDetails() {
               if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
                 const menuSections = menuRes.value.data.data.menu.sections || [];
                 const uniqueRecommended = [];
+                const recommendedIds = new Set();
                 const seenGlobalIds = new Set();
 
                 // 1. Extract and deduplicate Recommended items first
@@ -480,9 +481,9 @@ export default function RestaurantDetails() {
                     section.items.forEach((item) => {
                       if (item.isRecommended === true && item.isAvailable !== false) {
                         const id = item.id || item._id;
-                        if (id && !seenGlobalIds.has(id)) {
+                        if (id && !recommendedIds.has(id)) {
                           uniqueRecommended.push(item);
-                          seenGlobalIds.add(id);
+                          recommendedIds.add(id);
                         }
                       }
                     });
@@ -493,9 +494,9 @@ export default function RestaurantDetails() {
                         subsection.items.forEach((item) => {
                           if (item.isRecommended === true && item.isAvailable !== false) {
                             const id = item.id || item._id;
-                            if (id && !seenGlobalIds.has(id)) {
+                            if (id && !recommendedIds.has(id)) {
                               uniqueRecommended.push(item);
-                              seenGlobalIds.add(id);
+                              recommendedIds.add(id);
                             }
                           }
                         });
@@ -533,7 +534,13 @@ export default function RestaurantDetails() {
                     return { ...sub, items: uniqueSubItems };
                   });
 
-                  return { ...section, items: uniqueItems, subsections: updatedSubsections };
+                  return {
+                    ...section,
+                    // Explicit flag to mark regular sections (used later to avoid relying on index === 0)
+                    isRecommendedSection: section.isRecommendedSection === true ? true : false,
+                    items: uniqueItems,
+                    subsections: updatedSubsections
+                  };
                 }).filter(section => 
                   (section.items && section.items.length > 0) || 
                   (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
@@ -952,8 +959,9 @@ export default function RestaurantDetails() {
   const menuCategories = restaurant?.menuSections && Array.isArray(restaurant.menuSections) ?
     restaurant.menuSections.map((section, index) => {
       // Handle section name - check for valid non-empty string
+      const isRecommendedSection = section?.isRecommendedSection === true;
       let sectionTitle = "Unnamed Section";
-      if (index === 0) {
+      if (isRecommendedSection) {
         sectionTitle = "Recommended for you";
       } else if (section?.name && typeof section.name === 'string' && section.name.trim()) {
         sectionTitle = section.name.trim();
@@ -968,7 +976,8 @@ export default function RestaurantDetails() {
       return {
         name: sectionTitle,
         count: totalCount,
-        sectionIndex: index
+        sectionIndex: index,
+        isRecommendedSection
       };
     }) :
     [];
@@ -1572,8 +1581,9 @@ export default function RestaurantDetails() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 sm:py-8 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
             {getFilteredSections().map(({ section, originalIndex }, sectionIndex) => {
               // Handle section name - check for valid non-empty string
+              const isRecommendedSection = section?.isRecommendedSection === true;
               let sectionTitle = "Unnamed Section";
-              if (originalIndex === 0) {
+              if (isRecommendedSection) {
                 sectionTitle = "Recommended for you";
               } else if (section?.name && typeof section.name === 'string' && section.name.trim()) {
                 sectionTitle = section.name.trim();
@@ -1587,7 +1597,7 @@ export default function RestaurantDetails() {
               return (
                 <div key={sectionIndex} id={sectionId} className="space-y-4 scroll-mt-20">
                   {/* Section Header */}
-                  {sectionIndex === 0 &&
+                  {isRecommendedSection &&
                     <div className="flex items-center justify-between">
                       <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                         Recommended for you
@@ -1614,7 +1624,7 @@ export default function RestaurantDetails() {
                       </button>
                     </div>
                   }
-                  {sectionIndex > 0 &&
+                  {!isRecommendedSection &&
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1654,7 +1664,7 @@ export default function RestaurantDetails() {
                   }
 
                   {/* Direct Items */}
-                  {isExpanded && originalIndex === 0 && section.items && section.items.length === 0 &&
+                  {isExpanded && isRecommendedSection && section.items && section.items.length === 0 &&
                     <div className="text-center py-8">
                       <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
                         No dish recommended

@@ -250,9 +250,8 @@ export const upsertOnboarding = async (req, res) => {
 
 
       // Return success response with restaurant info
-      // Mark onboarding completed flag
-      // If final business model is Commission Base, allow immediate activation.
-      // Subscription Base still awaits payment/approval -> keep inactive until enabled elsewhere.
+      // Old flow restoration: ALWAYS require admin approval to activate.
+      // We keep onboarding completed, but keep isActive false and flag pending approval.
       const finalBusinessModel =
         (step5 && step5.businessModel) ||
         onboarding?.step5?.businessModel ||
@@ -262,7 +261,9 @@ export const upsertOnboarding = async (req, res) => {
         $set: {
           onboardingCompleted: true,
           'onboarding.completedSteps': 5,
-          isActive: finalBusinessModel === 'Commission Base'
+          'onboarding.status': 'pending_admin_approval',
+          businessModel: finalBusinessModel,
+          isActive: false
         }
       });
 

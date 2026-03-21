@@ -14,44 +14,36 @@ import { authenticate as authenticateRestaurant } from '../middleware/restaurant
 import User from '../models/User.js';
 import Delivery from '../models/Delivery.js';
 import Restaurant from '../models/Restaurant.js';
+import { extractTokenPayload, getTokenFieldForPlatform } from '../services/fcmTokenPlatformService.js';
 
 const router = express.Router();
 
-const MAX_TOKENS = 10; // Max FCM tokens per entity
-
-/** Helper: upsert token into array (dedup, cap at MAX_TOKENS) */
-function upsertToken(arr = [], token) {
-    if (!token || arr.includes(token)) return arr;
-    const updated = [...arr, token];
-    return updated.length > MAX_TOKENS ? updated.slice(-MAX_TOKENS) : updated;
-}
-
-/** Helper: remove token from array */
-function removeToken(arr = [], token) {
-    return arr.filter(t => t !== token);
-}
-
-/** Helper: determine which field to use based on platform */
-function getTokenField(platform) {
-    return platform === 'mobile' ? 'fcmTokensMobile' : 'fcmTokensWeb';
+/** Helper: minimal debug log (avoids printing full token) */
+function logSave(role, platform, token, userId) {
+    const short = token ? `${token.slice(0, 8)}…${token.slice(-6)}` : '';
+    console.log(
+        `[FCM] save ${role} platform=${platform} token=${short} user=${userId || ''}`
+    );
 }
 
 /* ─────────────────────────── USER ─────────────────────────── */
 
 // POST /api/notification/fcm/user/save
-router.post('/user/save', authenticateUser, async (req, res) => {
+// Alias for legacy mobile apps: /api/notification/user/token
+router.post(['/user/save', '/user/token'], authenticateUser, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const field = getTokenField(platform);
-        user[field] = upsertToken(user[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        user[field] = token;
         await user.save();
 
-        return res.json({ success: true, message: `FCM ${platform || 'web'} token saved` });
+        logSave('user', platform, token, req.user._id);
+        return res.json({ success: true, message: `FCM ${platform} token saved`, token });
     } catch (error) {
         console.error('[FCM] Error saving user token:', error.message);
         return res.status(500).json({ success: false, message: 'Failed to save token' });
@@ -59,16 +51,20 @@ router.post('/user/save', authenticateUser, async (req, res) => {
 });
 
 // DELETE /api/notification/fcm/user/remove
-router.delete('/user/remove', authenticateUser, async (req, res) => {
+// Alias: /api/notification/user/token (DELETE)
+router.delete(['/user/remove', '/user/token'], authenticateUser, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const field = getTokenField(platform);
-        user[field] = removeToken(user[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        // Clear token only if it matches the stored one
+        if (user[field] === token) {
+            user[field] = '';
+        }
         await user.save();
 
         return res.json({ success: true, message: `FCM ${platform || 'web'} token removed` });
@@ -81,19 +77,21 @@ router.delete('/user/remove', authenticateUser, async (req, res) => {
 /* ─────────────────────────── DELIVERY ─────────────────────────── */
 
 // POST /api/notification/fcm/delivery/save
-router.post('/delivery/save', authenticateDelivery, async (req, res) => {
+// Alias: /api/notification/delivery/token
+router.post(['/delivery/save', '/delivery/token'], authenticateDelivery, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const delivery = await Delivery.findById(req.delivery._id);
         if (!delivery) return res.status(404).json({ success: false, message: 'Delivery partner not found' });
 
-        const field = getTokenField(platform);
-        delivery[field] = upsertToken(delivery[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        delivery[field] = token;
         await delivery.save();
 
-        return res.json({ success: true, message: `FCM ${platform || 'web'} token saved` });
+        logSave('delivery', platform, token, req.delivery._id);
+        return res.json({ success: true, message: `FCM ${platform} token saved` });
     } catch (error) {
         console.error('[FCM] Error saving delivery token:', error.message);
         return res.status(500).json({ success: false, message: 'Failed to save token' });
@@ -101,16 +99,19 @@ router.post('/delivery/save', authenticateDelivery, async (req, res) => {
 });
 
 // DELETE /api/notification/fcm/delivery/remove
-router.delete('/delivery/remove', authenticateDelivery, async (req, res) => {
+// Alias: /api/notification/delivery/token (DELETE)
+router.delete(['/delivery/remove', '/delivery/token'], authenticateDelivery, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const delivery = await Delivery.findById(req.delivery._id);
         if (!delivery) return res.status(404).json({ success: false, message: 'Delivery partner not found' });
 
-        const field = getTokenField(platform);
-        delivery[field] = removeToken(delivery[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        if (delivery[field] === token) {
+            delivery[field] = '';
+        }
         await delivery.save();
 
         return res.json({ success: true, message: `FCM ${platform || 'web'} token removed` });
@@ -123,19 +124,21 @@ router.delete('/delivery/remove', authenticateDelivery, async (req, res) => {
 /* ─────────────────────────── RESTAURANT ─────────────────────────── */
 
 // POST /api/notification/fcm/restaurant/save
-router.post('/restaurant/save', authenticateRestaurant, async (req, res) => {
+// Alias: /api/notification/restaurant/token
+router.post(['/restaurant/save', '/restaurant/token'], authenticateRestaurant, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const restaurant = await Restaurant.findById(req.restaurant._id);
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
-        const field = getTokenField(platform);
-        restaurant[field] = upsertToken(restaurant[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        restaurant[field] = token;
         await restaurant.save();
 
-        return res.json({ success: true, message: `FCM ${platform || 'web'} token saved` });
+        logSave('restaurant', platform, token, req.restaurant._id);
+        return res.json({ success: true, message: `FCM ${platform} token saved` });
     } catch (error) {
         console.error('[FCM] Error saving restaurant token:', error.message);
         return res.status(500).json({ success: false, message: 'Failed to save token' });
@@ -143,16 +146,19 @@ router.post('/restaurant/save', authenticateRestaurant, async (req, res) => {
 });
 
 // DELETE /api/notification/fcm/restaurant/remove
-router.delete('/restaurant/remove', authenticateRestaurant, async (req, res) => {
+// Alias: /api/notification/restaurant/token (DELETE)
+router.delete(['/restaurant/remove', '/restaurant/token'], authenticateRestaurant, async (req, res) => {
     try {
-        const { token, platform } = req.body;
+        const { token, platform } = extractTokenPayload(req);
         if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
         const restaurant = await Restaurant.findById(req.restaurant._id);
         if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
-        const field = getTokenField(platform);
-        restaurant[field] = removeToken(restaurant[field], token);
+        const field = getTokenFieldForPlatform(platform);
+        if (restaurant[field] === token) {
+            restaurant[field] = '';
+        }
         await restaurant.save();
 
         return res.json({ success: true, message: `FCM ${platform || 'web'} token removed` });

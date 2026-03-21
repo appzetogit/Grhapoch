@@ -182,7 +182,6 @@ export function ProfileProvider({ children }) {
         if (dbCollData) {
           // Sync Restaurants
           if (dbCollData.restaurants) {
-            console.log("📥 [FRONTEND] Raw restaurants from DB count:", dbCollData.restaurants.length);
             const transformedFavs = dbCollData.restaurants.map(f => {
               const r = f.restaurantId;
               const name = f.name || (typeof r === 'object' ? r.name : 'Unknown Restaurant');
@@ -201,7 +200,6 @@ export function ProfileProvider({ children }) {
               };
             }).filter(Boolean);
 
-            console.log("✨ [FRONTEND] Final favorites count:", transformedFavs.length);
             setFavorites(transformedFavs)
           } else {
             setFavorites([]);
@@ -243,7 +241,6 @@ export function ProfileProvider({ children }) {
               }
             });
 
-            console.log("✨ [FRONTEND] Transformed dishes:", uniqueDishes);
             setDishFavorites(uniqueDishes)
           }
         }

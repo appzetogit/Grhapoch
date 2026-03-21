@@ -416,14 +416,18 @@ const restaurantSchema = new mongoose.Schema(
       }
     ],
 
-    // FCM push notification tokens
-    fcmTokensWeb: {
-      type: [String],
-      default: []
+    // FCM push notification token (single, per platform)
+    fcmTokenWeb: {
+      type: String,
+      default: ''
     },
-    fcmTokensMobile: {
-      type: [String],
-      default: []
+    fcmTokenAndroid: {
+      type: String,
+      default: ''
+    },
+    fcmTokenIos: {
+      type: String,
+      default: ''
     },
     razorpayCustomerId: {
       type: String,

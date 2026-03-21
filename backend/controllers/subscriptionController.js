@@ -1092,20 +1092,6 @@ export const checkSubscriptionExpiry = async (restaurant) => {
 // Get subscription status
 export const getSubscriptionStatus = async (req, res) => {
   try {
-    // Auto-activate pending subscriptions that already have a valid end date (payment verified)
-    await Restaurant.updateMany({
-      'subscription.status': 'pending_approval',
-      'subscription.endDate': { $gt: new Date() }
-    }, {
-      $set: {
-        'subscription.status': 'active',
-        businessModel: 'Subscription Base',
-        onboardingCompleted: true,
-        'onboarding.completedSteps': 5,
-        isActive: true
-      }
-    });
-
     const restaurantId = req.restaurant._id;
     let restaurant = await Restaurant.findById(restaurantId).select('subscription subscriptionHistory isActive businessModel');
 

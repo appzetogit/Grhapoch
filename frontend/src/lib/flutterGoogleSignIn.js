@@ -1,5 +1,14 @@
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
+export class FlutterGoogleSignInError extends Error {
+  constructor(code, message, meta = {}) {
+    super(message);
+    this.name = "FlutterGoogleSignInError";
+    this.code = code;
+    this.meta = meta;
+  }
+}
+
 function getFlutterBridge() {
   if (typeof window === "undefined") return null;
   const bridge = window.flutter_inappwebview;
@@ -33,8 +42,22 @@ function extractIdTokenFromResult(result) {
       return { idToken: "", accessToken: "" };
     }
 
-    const directIdToken = value.idToken || value.id_token || value.firebaseIdToken || value.token || "";
-    const directAccessToken = value.accessToken || value.access_token || "";
+    const authObj = value.authentication || value.auth || value.googleAuth || {};
+    const directIdToken =
+      value.idToken ||
+      value.id_token ||
+      value.firebaseIdToken ||
+      value.googleIdToken ||
+      value.token ||
+      authObj.idToken ||
+      authObj.id_token ||
+      "";
+    const directAccessToken =
+      value.accessToken ||
+      value.access_token ||
+      authObj.accessToken ||
+      authObj.access_token ||
+      "";
     if (directIdToken || directAccessToken) {
       return { idToken: directIdToken, accessToken: directAccessToken };
     }
@@ -54,18 +77,48 @@ function extractIdTokenFromResult(result) {
 export async function signInWithFlutterGoogle(firebaseAuth) {
   const bridge = getFlutterBridge();
   if (!bridge) {
-    throw new Error("Flutter bridge not available");
+    throw new FlutterGoogleSignInError("bridge_unavailable", "Flutter bridge not available");
   }
 
-  const result = await bridge.callHandler("nativeGoogleSignIn");
+  let result;
+  try {
+    result = await bridge.callHandler("nativeGoogleSignIn");
+  } catch (error) {
+    throw new FlutterGoogleSignInError(
+      "bridge_call_failed",
+      "nativeGoogleSignIn bridge call failed",
+      { message: error?.message || "unknown" }
+    );
+  }
   const { idToken, accessToken } = extractIdTokenFromResult(result);
+  console.info("[FlutterGoogle] token_extracted", {
+    hasIdToken: !!idToken,
+    idTokenLength: idToken ? String(idToken).length : 0,
+    hasAccessToken: !!accessToken,
+    accessTokenLength: accessToken ? String(accessToken).length : 0
+  });
 
   if (!idToken && !accessToken) {
-    throw new Error("Google sign-in was cancelled or no idToken was returned");
+    throw new FlutterGoogleSignInError(
+      "missing_token",
+      "Google sign-in was cancelled or no id/access token was returned",
+      {
+        resultType: typeof result,
+        keys: result && typeof result === "object" ? Object.keys(result).slice(0, 20) : []
+      }
+    );
   }
 
-  const credential = GoogleAuthProvider.credential(idToken || null, accessToken || null);
-  const signedIn = await signInWithCredential(firebaseAuth, credential);
-  return signedIn?.user || null;
+  try {
+    const credential = GoogleAuthProvider.credential(idToken || null, accessToken || null);
+    const signedIn = await signInWithCredential(firebaseAuth, credential);
+    return signedIn?.user || null;
+  } catch (error) {
+    throw new FlutterGoogleSignInError(
+      "credential_exchange_failed",
+      error?.message || "Firebase credential exchange failed",
+      { message: error?.message || "unknown" }
+    );
+  }
 }
 

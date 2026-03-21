@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ChevronDown } from "lucide-react"
 import { deliveryAPI } from "@/lib/api"
 import { toast } from "sonner"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function SignupStep1() {
   const navigate = useNavigate()
@@ -432,19 +439,32 @@ export default function SignupStep1() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Vehicle Type <span className="text-red-500">*</span>
             </label>
-            <select
-              name="vehicleType"
+            <Select
               value={formData.vehicleType}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${touched.vehicleType && errors.vehicleType ? "border-red-500 focus:ring-red-500" : "border-gray-300"
-                }`}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, vehicleType: value }))}
             >
-              <option value="bike">Bike</option>
-              <option value="scooter">Scooter</option>
-              <option value="bicycle">Bicycle</option>
-              <option value="car">Car</option>
-            </select>
+              <SelectTrigger 
+                className={`w-full px-4 py-3 h-[52px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium text-gray-900 ${
+                  touched.vehicleType && errors.vehicleType ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+                }`}
+              >
+                <SelectValue placeholder="Select vehicle type" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-gray-100 shadow-xl p-1 bg-white">
+                <SelectItem value="bike" className="focus:bg-green-50 focus:text-green-700 py-3 rounded-lg font-medium">
+                  Bike
+                </SelectItem>
+                <SelectItem value="scooter" className="focus:bg-green-50 focus:text-green-700 py-3 rounded-lg font-medium">
+                  Scooter
+                </SelectItem>
+                <SelectItem value="bicycle" className="focus:bg-green-50 focus:text-green-700 py-3 rounded-lg font-medium">
+                  Bicycle
+                </SelectItem>
+                <SelectItem value="car" className="focus:bg-green-50 focus:text-green-700 py-3 rounded-lg font-medium">
+                  Car
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Vehicle Name */}

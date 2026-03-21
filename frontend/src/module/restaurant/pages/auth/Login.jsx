@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button"
 import { restaurantAPI, authAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
-import { firebaseAuth, googleProvider } from "@/lib/firebase"
+import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase"
+import { isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn"
 import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 // Common country codes
@@ -311,11 +312,24 @@ export default function RestaurantLogin() {
     setIsSending(true)
 
     try {
+      ensureFirebaseInitialized()
       const { signInWithPopup } = await import("firebase/auth")
+      let user = null
 
-      // Sign in with Google using Firebase Auth
-      const result = await signInWithPopup(firebaseAuth, googleProvider)
-      const user = result.user
+      // Flutter in-app webview flow: native sign-in + Firebase credential exchange.
+      if (isFlutterInAppWebView()) {
+        user = await signInWithFlutterGoogle(firebaseAuth)
+      }
+
+      // Default browser flow.
+      if (!user) {
+        const result = await signInWithPopup(firebaseAuth, googleProvider)
+        user = result?.user || null
+      }
+
+      if (!user) {
+        throw new Error("Google user not available")
+      }
 
       // Get Firebase ID token
       const idToken = await user.getIdToken()

@@ -18,6 +18,7 @@ import { authAPI } from "@/lib/api";
 import api from "@/lib/api";
 import { API_ENDPOINTS } from "@/lib/api/config";
 import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase";
+import { isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn";
 import { setAuthData } from "@/lib/utils/auth";
 import loginBanner from "@/assets/loginbanner.png";
 
@@ -471,6 +472,15 @@ export default function SignIn() {
       }
 
       const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
+
+      // Flutter in-app webview flow: use native Google account picker and then Firebase credential sign-in.
+      if (isFlutterInAppWebView()) {
+        const flutterUser = await signInWithFlutterGoogle(firebaseAuth);
+        if (flutterUser) {
+          await processSignedInUser(flutterUser, "flutter-native-bridge");
+          return;
+        }
+      }
 
       try {
         // Prefer popup flow so backend login can happen immediately.

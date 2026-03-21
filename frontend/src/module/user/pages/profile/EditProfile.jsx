@@ -333,6 +333,9 @@ export default function EditProfile() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Close the popup immediately when a file is selected
+    setIsSourcePopupOpen(false);
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file');
@@ -368,7 +371,6 @@ export default function EditProfile() {
         setImagePreview(profileImage);
       } finally {
         setIsUploadingImage(false);
-        setIsSourcePopupOpen(false);
       }
     };
 
@@ -464,7 +466,7 @@ export default function EditProfile() {
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 sm:py-8 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
+      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 pt-6 pb-24 sm:pt-8 sm:pb-32 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
         {/* Avatar Section */}
         <div className="flex justify-center">
           <div className="relative">

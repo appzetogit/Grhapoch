@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { MapPin, ChevronDown, Search, Mic, Wallet, SlidersHorizontal, Star, Compass, X, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -114,9 +114,18 @@ export default function DiningRestaurants() {
   const { openSearch, closeSearch, setSearchValue } = useSearchOverlay()
   const { openLocationSelector } = useLocationSelector()
   const { location, loading } = useLocationHook()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = searchParams.get("q") || ""
   const { addFavorite, removeFavorite, isFavorite } = useProfile()
   const cityName = location?.city || "Select"
   const stateName = location?.state || "Location"
+
+  // Initialize hero search from URL query
+  useEffect(() => {
+    if (query && !heroSearch) {
+      setHeroSearch(query)
+    }
+  }, [query])
 
   const toggleFilter = (filterId) => {
     setActiveFilters(prev => {
@@ -179,8 +188,18 @@ export default function DiningRestaurants() {
       filtered.sort((a, b) => a.rating - b.rating)
     }
 
+    // Apply search query filter
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase()
+      filtered = filtered.filter(r => 
+        r.name.toLowerCase().includes(lowerQuery) || 
+        r.cuisine.toLowerCase().includes(lowerQuery) ||
+        (r.featuredDish && r.featuredDish.toLowerCase().includes(lowerQuery))
+      )
+    }
+
     return filtered
-  }, [activeFilters, selectedCuisine, sortBy])
+  }, [activeFilters, selectedCuisine, sortBy, query])
 
   const handleLocationClick = useCallback(() => {
     openLocationSelector()
@@ -256,9 +275,8 @@ export default function DiningRestaurants() {
                 onFocus={handleSearchFocus}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && heroSearch.trim()) {
-                    navigate(`/user/search?q=${encodeURIComponent(heroSearch.trim())}`)
+                    setSearchParams({ q: heroSearch.trim() })
                     closeSearch()
-                    setHeroSearch("")
                   }
                 }}
                 placeholder="Search for restaurants, cuisines, dishes..."

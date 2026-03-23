@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, User, Mail, CheckCircle } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,8 @@ export default function OTP() {
   const [showNameInput, setShowNameInput] = useState(false)
   const [name, setName] = useState("")
   const [nameError, setNameError] = useState("")
+  const [email, setEmail] = useState("")
+  const [emailError, setEmailError] = useState("")
   const [verifiedOtp, setVerifiedOtp] = useState("")
   const [contactInfo, setContactInfo] = useState("")
   const [contactType, setContactType] = useState("phone")
@@ -247,6 +250,8 @@ export default function OTP() {
 
   const handleSubmitName = async () => {
     const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+
     if (!trimmedName) {
       setNameError("Name is required")
       return
@@ -254,6 +259,11 @@ export default function OTP() {
 
     if (trimmedName.length < 2) {
       setNameError("Name must be at least 2 characters")
+      return
+    }
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setEmailError("Please enter a valid email address")
       return
     }
 
@@ -265,14 +275,23 @@ export default function OTP() {
     setIsLoading(true)
     setError("")
     setNameError("")
+    setEmailError("")
 
     try {
       const phone = authData?.method === "phone" ? authData.phone : null
-      const email = authData?.method === "email" ? authData.email : null
+      const currentEmail = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
 
-      // Second call with name to auto-register and login
-      const response = await authAPI.verifyOTP(phone, verifiedOtp, purpose, trimmedName, email, "user")
+      // Second call with name (and email) to auto-register and login
+      // authAPI.verifyOTP takes: phone, otp, purpose, name, email, role, password
+      const response = await authAPI.verifyOTP(
+        phone,
+        verifiedOtp,
+        purpose,
+        trimmedName,
+        trimmedEmail || currentEmail,
+        "user"
+      )
       const data = response?.data?.data || {}
 
       const accessToken = data.accessToken
@@ -377,20 +396,16 @@ export default function OTP() {
       <div className="flex flex-col justify-center px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20">
         <div className="max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto w-full space-y-8 md:space-y-10 lg:space-y-12">
           {/* Message */}
-          <div className="text-center space-y-2 md:space-y-3">
-            <p className="text-base md:text-lg lg:text-xl text-black dark:text-white">
-              {showNameInput
-                ? "You're almost done! Please tell us your name to complete registration."
-                : contactType === "email"
-                  ? "We have sent a verification code to"
-                  : "We have sent a verification code to"}
-            </p>
-            {!showNameInput && (
+          {!showNameInput && (
+            <div className="text-center space-y-2 md:space-y-3">
+              <p className="text-base md:text-lg lg:text-xl text-black dark:text-white">
+                We have sent a verification code to
+              </p>
               <p className="text-base md:text-lg lg:text-xl text-black dark:text-white font-medium">
                 {contactInfo}
               </p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Error message */}
           {error && (
@@ -401,7 +416,7 @@ export default function OTP() {
 
           {/* OTP Input Fields */}
           {!showNameInput && (
-            <>
+            <div className="space-y-8">
               <div className="flex justify-center gap-2 sm:gap-3 md:gap-4 lg:gap-5">
                 {otp.map((digit, index) => (
                   <Input
@@ -441,44 +456,94 @@ export default function OTP() {
                   </button>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {/* Name Input (shown only after OTP verified and user is new) */}
-          {showNameInput && (
-            <div className="space-y-4 md:space-y-5">
-              <div className="space-y-2">
-                <label className="block text-sm md:text-base font-medium text-black dark:text-white text-left">
-                  Full name
-                </label>
-                <Input
-                  type="text"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    if (nameError) setNameError("")
-                  }}
-                  disabled={isLoading}
-                  placeholder="Enter your name"
-                  className={`h-11 md:h-14 text-base md:text-lg border-2 ${nameError ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                    } bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[#E23744]`}
-                />
-                {nameError && (
-                  <p className="text-xs md:text-sm text-red-500 text-left">
-                    {nameError}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                onClick={handleSubmitName}
-                disabled={isLoading}
-                className="w-full h-11 md:h-14 bg-[#E23744] hover:bg-[#d32f3d] text-white font-semibold text-base md:text-lg rounded-lg transition-all hover:shadow-lg active:scale-[0.98]"
+          <AnimatePresence mode="wait">
+            {showNameInput && (
+              <motion.div 
+                key="profile-completion"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="space-y-6"
               >
-                {isLoading ? "Continuing..." : "Continue"}
-              </Button>
-            </div>
-          )}
+                <div className="text-center">
+                  <h2 className="text-3xl font-extrabold text-black dark:text-white tracking-tight">
+                    Welcome!
+                  </h2>
+                </div>
+
+                <div className="space-y-6 bg-white dark:bg-gray-900/40 p-6 md:p-8 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                  {/* Full Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">
+                      Full Name
+                    </label>
+                    <div className="relative group">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#E23744] transition-colors" />
+                      <Input
+                        type="text"
+                        value={name}
+                        onChange={(e) => {
+                          setName(e.target.value)
+                          if (nameError) setNameError("")
+                        }}
+                        disabled={isLoading}
+                        placeholder="e.g. John Doe"
+                        className={`h-12 pl-12 text-base border-2 ${nameError ? "border-red-500" : "border-gray-200 dark:border-gray-700"} bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-xl transition-all focus-visible:ring-0 focus-visible:border-[#E23744]`}
+                      />
+                    </div>
+                    {nameError && <p className="text-xs text-red-500 ml-1">{nameError}</p>}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center ml-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Email Address
+                      </label>
+                      <span className="text-[9px] uppercase tracking-tighter text-gray-400">(Optional)</span>
+                    </div>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#E23744] transition-colors" />
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value)
+                          if (emailError) setEmailError("")
+                        }}
+                        disabled={isLoading}
+                        placeholder="e.g. john@example.com"
+                        className={`h-12 pl-12 text-base border-2 ${emailError ? "border-red-500" : "border-gray-200 dark:border-gray-700"} bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-xl transition-all focus-visible:ring-0 focus-visible:border-[#E23744]`}
+                      />
+                    </div>
+                    {emailError && <p className="text-xs text-red-500 ml-1">{emailError}</p>}
+                  </div>
+
+                  <div className="pt-1">
+                    <Button
+                      onClick={handleSubmitName}
+                      disabled={isLoading || !name.trim()}
+                      className="w-full h-12 bg-[#E23744] hover:bg-[#d32f3d] text-white font-bold text-base rounded-xl transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Finalizing...
+                        </>
+                      ) : (
+                        "Complete Profile"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Loading Spinner */}
           {isLoading && !showNameInput && (
@@ -487,17 +552,6 @@ export default function OTP() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Go back to login methods */}
-      <div className="pt-4 md:pt-6 mt-auto px-6 md:px-8 lg:px-12 text-center pb-8 md:pb-12">
-        <button
-          type="button"
-          onClick={() => navigate("/user/auth/sign-in")}
-          className="text-sm md:text-base text-[#E23744] hover:text-[#d32f3d] hover:underline transition-colors font-medium"
-        >
-          Go back to login methods
-        </button>
       </div>
     </AnimatedPage>
   )

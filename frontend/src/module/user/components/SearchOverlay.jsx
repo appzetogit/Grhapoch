@@ -1,25 +1,33 @@
 import { useState, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { X, Search, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { analyticsAPI, categoryAPI } from "@/lib/api"
+import { analyticsAPI, categoryAPI, diningAPI } from "@/lib/api"
 
 // Fallback search suggestions
 const fallbackSuggestions = [
   "Biryani", "Pizza", "Burger", "Chicken", "Thali", "Dosa", "Sandwich", "Cake"
 ]
 
+const diningFallbackSuggestions = [
+  "Rooftop", "Indore Special", "Fine Dining", "Cafe", "Indore Must Tries", "Chinese", "Continental", "Pasta"
+]
+
 const API_CATEGORY_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop";
 
 export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchChange }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const inputRef = useRef(null)
+  
+  const isDiningMode = location.pathname.includes('/dining')
+  
   const [categories, setCategories] = useState([])
   const [filteredFoods, setFilteredFoods] = useState([])
-  const [trendingSearches, setTrendingSearches] = useState(fallbackSuggestions)
+  const [trendingSearches, setTrendingSearches] = useState(isDiningMode ? diningFallbackSuggestions : fallbackSuggestions)
   const [recentSearches, setRecentSearches] = useState(() => {
-    const saved = localStorage.getItem("user_recent_searches")
+    const saved = localStorage.getItem(isDiningMode ? "user_recent_dining_searches" : "user_recent_searches")
     return saved ? JSON.parse(saved) : []
   })
   const [loading, setLoading] = useState(false)
@@ -32,15 +40,18 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
         try {
           const [trendingRes, categoriesRes] = await Promise.allSettled([
             analyticsAPI.getTrendingSearches(),
-            categoryAPI.getPublicCategories()
+            isDiningMode ? diningAPI.getCategories() : categoryAPI.getPublicCategories()
           ])
 
           if (trendingRes.status === 'fulfilled' && trendingRes.value.data.success) {
-            setTrendingSearches(trendingRes.value.data.data.trending || fallbackSuggestions)
+            setTrendingSearches(trendingRes.value.data.data.trending || (isDiningMode ? diningFallbackSuggestions : fallbackSuggestions))
           }
 
           if (categoriesRes.status === 'fulfilled' && categoriesRes.value.data.success) {
-            const fetched = (categoriesRes.value.data.data.categories || []).map(cat => ({
+            const categoriesData = categoriesRes.value.data.data;
+            const rawCategories = Array.isArray(categoriesData) ? categoriesData : (categoriesData.categories || []);
+            
+            const fetched = rawCategories.map(cat => ({
               id: cat.id || cat._id,
               name: cat.name,
               image: cat.image || cat.imageUrl || API_CATEGORY_IMAGE_FALLBACK
@@ -56,7 +67,7 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
       }
       fetchData()
     }
-  }, [isOpen])
+  }, [isOpen, isDiningMode])
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -96,10 +107,11 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
   const saveSearch = (term) => {
     if (!term || term.trim() === "") return
     const trimmed = term.trim()
+    const storageKey = isDiningMode ? "user_recent_dining_searches" : "user_recent_searches"
     setRecentSearches(prev => {
       const filtered = prev.filter(s => s.toLowerCase() !== trimmed.toLowerCase())
       const updated = [trimmed, ...filtered].slice(0, 8)
-      localStorage.setItem("user_recent_searches", JSON.stringify(updated))
+      localStorage.setItem(storageKey, JSON.stringify(updated))
       return updated
     })
   }
@@ -107,7 +119,8 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
   const handleSuggestionClick = (suggestion) => {
     onSearchChange(suggestion)
     saveSearch(suggestion)
-    navigate(`/user/search?q=${encodeURIComponent(suggestion.trim())}`)
+    const targetPath = isDiningMode ? '/user/dining/restaurants' : '/user/search'
+    navigate(`${targetPath}?q=${encodeURIComponent(suggestion.trim())}`)
     onClose()
     onSearchChange("")
   }
@@ -116,7 +129,8 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
     e.preventDefault()
     if (searchValue.trim()) {
       saveSearch(searchValue)
-      navigate(`/user/search?q=${encodeURIComponent(searchValue.trim())}`)
+      const targetPath = isDiningMode ? '/user/dining/restaurants' : '/user/search'
+      navigate(`${targetPath}?q=${encodeURIComponent(searchValue.trim())}`)
       onClose()
       onSearchChange("")
     }
@@ -192,7 +206,8 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                 <button 
                   onClick={() => {
                     setRecentSearches([])
-                    localStorage.removeItem("user_recent_searches")
+                    const storageKey = isDiningMode ? "user_recent_dining_searches" : "user_recent_searches"
+                    localStorage.removeItem(storageKey)
                   }}
                   className="text-xs text-orange-500 font-bold hover:underline px-2"
                 >

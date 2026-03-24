@@ -200,12 +200,6 @@ export const sidebarMenuData = [
       },
       {
         type: "link",
-        label: "Delivery Boy Commission",
-        path: "/admin/delivery-boy-commission",
-        icon: "DollarSign",
-      },
-      {
-        type: "link",
         label: "Delivery Emergency Help",
         path: "/admin/delivery-emergency-help",
         icon: "Phone",
@@ -344,6 +338,12 @@ export const sidebarMenuData = [
         label: "Business Setup",
         path: "/admin/business-setup",
         icon: "Settings",
+      },
+      {
+        type: "link",
+        label: "Service Area",
+        path: "/admin/service-area",
+        icon: "MapPin",
       },
       {
         type: "link",

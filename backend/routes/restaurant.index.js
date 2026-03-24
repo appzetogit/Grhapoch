@@ -4,7 +4,7 @@ import { authenticate } from '../middleware/restaurant.auth.js';
 import { uploadMiddleware } from '../utils/cloudinaryService.js';
 import restaurantAuthRoutes from './restaurantAuthRoutes.js';
 import { getOnboarding, upsertOnboarding, createRestaurantFromOnboardingManual } from '../controllers/restaurantOnboardingController.js';
-import { getRestaurants, getRestaurantById, getRestaurantByOwner, updateRestaurantProfile, uploadProfileImage, uploadMenuImage, deleteRestaurantAccount, updateDeliveryStatus, getRestaurantsWithDishesUnder250, updateDiningSettings, updatePayoutDetails } from '../controllers/restaurantController.js';
+import { getRestaurants, getNearbyRestaurants, getRestaurantById, getRestaurantByOwner, updateRestaurantProfile, uploadProfileImage, uploadMenuImage, deleteRestaurantAccount, updateDeliveryStatus, getRestaurantsWithDishesUnder250, updateDiningSettings, updatePayoutDetails } from '../controllers/restaurantController.js';
 import { getRestaurantFinance } from '../controllers/restaurantFinanceController.js';
 import { getWallet, getWalletTransactions, getWalletStats } from '../controllers/restaurantWalletController.js';
 import { createWithdrawalRequest, getRestaurantWithdrawalRequests } from '../controllers/withdrawalController.js';
@@ -112,6 +112,7 @@ router.use('/subscription', subscriptionRoutes);
 
 // Restaurant routes (public - for user module)
 router.get('/list', getRestaurants);
+router.post('/nearby', getNearbyRestaurants);
 router.get('/under-250', getRestaurantsWithDishesUnder250);
 router.get('/:restaurantId/offers/item/:itemId/coupons', getCouponsByItemIdPublic);
 router.get('/:restaurantId/outlet-timings', getOutletTimingsByRestaurantId);

@@ -104,6 +104,18 @@ const restaurantSchema = new mongoose.Schema(
     },
     primaryContactNumber: String,
     location: locationSchema,
+    // GeoJSON location for spatial queries (used for nearby search)
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: undefined
+      }
+    },
     profileImage: {
       url: String,
       publicId: String,
@@ -445,6 +457,8 @@ const restaurantSchema = new mongoose.Schema(
 restaurantSchema.index({ email: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ phone: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+// Geo index for nearby queries
+restaurantSchema.index({ geoLocation: '2dsphere' });
 
 // Hash password before saving
 restaurantSchema.pre('save', async function (next) {
@@ -529,6 +543,26 @@ restaurantSchema.pre('save', async function (next) {
       this.onboarding.step3.bank.accountType = 'Saving';
     } else if (at === 'current') {
       this.onboarding.step3.bank.accountType = 'Current';
+    }
+  }
+
+  // Sync geoLocation from location coordinates if available
+  if (this.location) {
+    const lng = Number.isFinite(Number(this.location.longitude)) ?
+      Number(this.location.longitude) :
+      Number(this.location.coordinates?.[0]);
+    const lat = Number.isFinite(Number(this.location.latitude)) ?
+      Number(this.location.latitude) :
+      Number(this.location.coordinates?.[1]);
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      if (!this.location.coordinates || this.location.coordinates.length < 2) {
+        this.location.coordinates = [lng, lat];
+      }
+      this.geoLocation = {
+        type: 'Point',
+        coordinates: [lng, lat]
+      };
     }
   }
 

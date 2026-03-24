@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocationSelector } from "../components/UserLayout";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 import { useCart } from "../context/CartContext";
 import PageNavbar from "../components/PageNavbar";
 import { foodImages } from "@/constants/images";
@@ -22,7 +21,7 @@ import FoodTypeIcon from "../components/FoodTypeIcon";
 
 export default function Under250() {
   const { location } = useLocation();
-  const { zoneId, zoneStatus, isInService, isOutOfService } = useZone(location);
+  const isOutOfService = false;
   const navigate = useNavigate();
   const { addToCart, updateQuantity, removeFromCart, getCartItem, cart } = useCart();
   const [activeCategory, setActiveCategory] = useState(null);
@@ -143,7 +142,11 @@ export default function Under250() {
 
         const results = await Promise.allSettled([
           api.get('/hero-banners/under-250/public'),
-          restaurantAPI.getRestaurantsUnder250(zoneId),
+          restaurantAPI.getRestaurantsUnder250(
+            location?.latitude && location?.longitude ?
+              { lat: location.latitude, lng: location.longitude } :
+              {}
+          ),
           api.get('/categories/public')
         ]);
 
@@ -193,7 +196,7 @@ export default function Under250() {
     };
 
     fetchInitialData();
-  }, [zoneId, isOutOfService]);
+  }, [location?.latitude, location?.longitude]);
 
   // Sync quantities from cart on mount
   useEffect(() => {

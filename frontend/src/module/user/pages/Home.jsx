@@ -34,7 +34,6 @@ import {
 } from
   "@/components/ui/dropdown-menu";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 
 import offerImage from "@/assets/offerimage.png";
 import api, { restaurantAPI, campaignAPI, userAdvertisementAPI, analyticsAPI } from "@/lib/api";
@@ -597,7 +596,7 @@ export default function Home() {
   const { addFavorite, removeFavorite, isFavorite, getFavorites } = profileContext;
   const { addToCart, cart } = useCart();
   const { location, loading, requestLocation } = useLocation();
-  const { zoneId, zoneStatus, isInService, isOutOfService, loading: zoneLoading } = useZone(location);
+  const isOutOfService = false;
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState(null);
@@ -739,11 +738,11 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
       params.isVeg = 'true';
     }
 
-    // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
-    if (zoneId) {
-      params.zoneId = zoneId;
+    // Add user coordinates for nearby fetch when available
+    if (location?.latitude && location?.longitude) {
+      params.lat = location.latitude;
+      params.lng = location.longitude;
     }
-    // Note: We show all restaurants regardless of zone, but apply grayscale styling if user is out of service
 
 
     const response = await restaurantAPI.getRestaurants(params);
@@ -901,7 +900,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
     setLoadingRestaurants(false);
 
   }
-  }, [zoneId, vegMode, location?.latitude, location?.longitude]);
+  }, [vegMode, location?.latitude, location?.longitude]);
 
 // Fetch restaurants when appliedFilters change
 useEffect(() => {

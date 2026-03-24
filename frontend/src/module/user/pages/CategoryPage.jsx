@@ -11,14 +11,13 @@ import api from "@/lib/api";
 import { restaurantAPI, adminAPI } from "@/lib/api";
 import { useProfile } from "../context/ProfileContext";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 
 export default function CategoryPage() {
   const { category } = useParams();
   const navigate = useNavigate();
   const { vegMode } = useProfile();
   const { location } = useLocation();
-  const { zoneId, isOutOfService } = useZone(location);
+  const isOutOfService = false;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(category?.toLowerCase() || 'all');
   const [activeFilters, setActiveFilters] = useState(new Set());
@@ -196,10 +195,10 @@ export default function CategoryPage() {
     const fetchRestaurants = async () => {
       try {
         setLoadingRestaurants(true);
-        // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
         const params = {};
-        if (zoneId) {
-          params.zoneId = zoneId;
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude;
+          params.lng = location.longitude;
         }
         const response = await restaurantAPI.getRestaurants(params);
 
@@ -384,7 +383,7 @@ export default function CategoryPage() {
     };
 
     fetchRestaurants();
-  }, [zoneId, isOutOfService]);
+  }, [location?.latitude, location?.longitude]);
 
   // Update selected category when URL changes
   useEffect(() => {
@@ -674,7 +673,7 @@ export default function CategoryPage() {
   };
 
   // Check if should show grayscale (user out of service)
-  const shouldShowGrayscale = isOutOfService;
+  const shouldShowGrayscale = false;
 
   return (
     <div className={`min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>

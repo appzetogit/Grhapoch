@@ -7,7 +7,6 @@ import { API_BASE_URL } from "@/lib/api/config";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "../../hooks/useLocation";
-import { useZone } from "../../hooks/useZone";
 import {
   ArrowLeft,
   Search,
@@ -56,7 +55,7 @@ export default function RestaurantDetails() {
   const { addToCart, updateQuantity, removeFromCart, getCartItem, cart } = useCart();
   const { vegMode, addDishFavorite, removeDishFavorite, isDishFavorite, getDishFavorites, getFavorites, addFavorite, removeFavorite, isFavorite } = useProfile();
   const { location: userLocation } = useLocation(); // Get user's current location
-  const { zoneId, zone, loading: loadingZone, isOutOfService } = useZone(userLocation); // Get user's zone for zone-based filtering
+  const isOutOfService = false;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [quantities, setQuantities] = useState({});
@@ -97,14 +96,9 @@ export default function RestaurantDetails() {
     const fetchRestaurant = async () => {
       if (!slug) return;
 
-      // Prevent re-fetching if we've already fetched for this slug and zoneId hasn't changed meaningfully
-      // Only re-fetch if slug changed or if we're waiting for zoneId and it just became available
+      // Prevent re-fetching if we've already fetched for this slug
       if (fetchedRestaurantRef.current && restaurant && restaurant.slug === slug) {
-        // Only re-fetch if zoneId changed from null to a value (zone just detected)
-        if (zoneId && !loadingZone) {
-          // Zone is available, but we already have restaurant data - don't re-fetch
-          return;
-        }
+        return;
       }
 
       try {
@@ -128,7 +122,7 @@ export default function RestaurantDetails() {
 
             try {
               // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
-              // This doesn't require zoneId, so it works even if zone is not detected
+              // This doesn't require a zone, so it works even if location isn't detected
               try {
                 response = await restaurantAPI.getRestaurantById(slug);
                 if (response.data && response.data.success && response.data.data) {
@@ -136,34 +130,31 @@ export default function RestaurantDetails() {
 
                 }
               } catch (directLookupError) {
-                // If direct lookup fails, try searching by name (requires zoneId)
+                // If direct lookup fails, try searching by name
 
 
-                // Only search if zoneId is available (zoneId is required by backend for search)
-                if (!zoneId) {
-                  console.warn('⚠️ User zone not available, cannot search restaurants. Restaurant may not be found.');
-                  // Don't throw error - let it fall through to show "Restaurant not found" message
-                } else {
-                  // Include zoneId for zone-based filtering
-                  const searchParams = { limit: 100, zoneId: zoneId };
-                  const searchResponse = await restaurantAPI.getRestaurants(searchParams);
-                  const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
+                const searchParams = { limit: 100 };
+                if (userLocation?.latitude && userLocation?.longitude) {
+                  searchParams.lat = userLocation.latitude;
+                  searchParams.lng = userLocation.longitude;
+                }
+                const searchResponse = await restaurantAPI.getRestaurants(searchParams);
+                const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
 
-                  // Try to find by slug match or name match
-                  const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-                  const matchingRestaurant = restaurants.find((r) =>
-                    r.slug === slug ||
-                    r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
-                    r.name?.toLowerCase() === restaurantName.toLowerCase()
-                  );
+                // Try to find by slug match or name match
+                const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+                const matchingRestaurant = restaurants.find((r) =>
+                  r.slug === slug ||
+                  r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
+                  r.name?.toLowerCase() === restaurantName.toLowerCase()
+                );
 
-                  if (matchingRestaurant) {
-                    // Get full restaurant details by ID
-                    const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
-                    if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
-                      apiRestaurant = fullResponse.data.data;
+                if (matchingRestaurant) {
+                  // Get full restaurant details by ID
+                  const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
+                  if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
+                    apiRestaurant = fullResponse.data.data;
 
-                    }
                   }
                 }
               }
@@ -426,15 +417,11 @@ export default function RestaurantDetails() {
           if (!restaurantIdForMenu) {
             console.warn('⚠️ No restaurant ID available, searching for restaurant by name...');
             try {
-              // CRITICAL: Only search if zoneId is available (zoneId is required by backend)
-              if (!zoneId) {
-                console.warn('⚠️ User zone not available, cannot search restaurants. Menu may not load.');
-                // Continue without menu - restaurant details are still available
-                return;
+              const searchParams = { limit: 100 };
+              if (userLocation?.latitude && userLocation?.longitude) {
+                searchParams.lat = userLocation.latitude;
+                searchParams.lng = userLocation.longitude;
               }
-
-              // Include zoneId for zone-based filtering
-              const searchParams = { limit: 100, zoneId: zoneId };
               const searchResponse = await restaurantAPI.getRestaurants(searchParams);
               const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
 
@@ -635,15 +622,8 @@ export default function RestaurantDetails() {
       fetchedRestaurantRef.current = false;
     }
 
-    // Wait for zone to load before fetching (if zone-based search might be needed)
-    // But don't block if we're fetching by direct ID
-    if (loadingZone) {
-
-      return;
-    }
-
     fetchRestaurant();
-  }, [slug, zoneId, loadingZone, restaurant?.slug]);
+  }, [slug, restaurant?.slug]);
 
   // Track previous values to prevent unnecessary recalculations
   const prevCoordsRef = useRef({ userLat: null, userLng: null, restaurantLat: null, restaurantLng: null });

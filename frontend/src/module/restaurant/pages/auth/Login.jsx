@@ -375,7 +375,9 @@ export default function RestaurantLogin() {
             code: flutterCode,
             message: flutterError?.message || "unknown"
           })
-          // Keep fallback path active when Flutter bridge does not return tokens.
+          if (flutterCode === "missing_token") {
+            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.")
+          }
         }
       }
 

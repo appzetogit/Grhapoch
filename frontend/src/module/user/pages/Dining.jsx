@@ -81,6 +81,28 @@ export default function Dining() {
   const [diningHeroBanner, setDiningHeroBanner] = useState(null)
   const [diningBookings, setDiningBookings] = useState([])
   const [bookingTimeTick, setBookingTimeTick] = useState(Date.now())
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
+  const activePlaceholders = [
+    "Search restaurants...",
+    "Search cuisines...",
+    "Search dishes...",
+    "Search locations...",
+    "Search table booking...",
+    "Search bars...",
+    "Search cafes...",
+    "Search rooftop..."
+  ]
+
+  // Cycle through search placeholders
+  useEffect(() => {
+    if (activePlaceholders.length === 0) return
+
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % activePlaceholders.length)
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [activePlaceholders.length])
 
   const syncDiningBookings = useCallback(async () => {
     const cachedBookings = readDiningBookings()
@@ -304,20 +326,34 @@ export default function Dining() {
           <div className="relative z-20 w-full px-3 sm:px-6 lg:px-8">
             {/* Search Bar Container */}
             <div className="z-20">
-              {/* Enhanced Search Bar */}
-              <div className="w-full relative max-w-4xl mx-auto">
+              {/* Enhanced Search Bar Trigger */}
+              <motion.div
+                className="w-full relative max-w-4xl mx-auto cursor-pointer focus:outline-none"
+                whileHover={{ scale: 1.01 }}
+                onClick={() => openSearch()}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
                 <div className="relative bg-white dark:bg-[#1a1a1a] rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-1 sm:p-1.5 transition-all duration-300 hover:shadow-xl">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Search className="h-4 w-4 sm:h-4 sm:w-4 text-green-500 flex-shrink-0 ml-2 sm:ml-3" strokeWidth={2.5} />
+                  <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 h-8 sm:h-9 lg:h-11">
+                    <Search className="h-4 w-4 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-green-500 flex-shrink-0 ml-2 sm:ml-3 lg:ml-4" strokeWidth={2.5} />
                     <div className="flex-1 relative h-full flex items-center">
-                      <span className="text-sm sm:text-base font-semibold text-gray-400 dark:text-gray-500 inline-block pointer-events-none">
-                        Search "burger"
-                      </span>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={placeholderIndex}
+                          initial={{ y: 16, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -16, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="text-sm sm:text-base lg:text-lg font-semibold text-gray-400 dark:text-gray-500 inline-block pointer-events-none"
+                        >
+                          {activePlaceholders[placeholderIndex]}
+                        </motion.span>
+                      </AnimatePresence>
                     </div>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
-          </div>
         </div>
       </section>
       </div>

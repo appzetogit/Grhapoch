@@ -137,17 +137,6 @@ const allowedSocketOrigins = [
   'http://127.0.0.1:3000'
 ].filter(Boolean); // Remove undefined values
 
-const vercelPreviewOriginRegex = /^https:\/\/grhapoch-[a-z0-9-]+-grhapochindia-1880s-projects\.vercel\.app$/i;
-const isAllowedOrigin = (origin, baseAllowedOrigins) => {
-  if (!origin) return true;
-  if (baseAllowedOrigins.includes(origin)) return true;
-  if (vercelPreviewOriginRegex.test(origin)) return true;
-  if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-    return true;
-  }
-  return false;
-};
-
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
@@ -158,16 +147,22 @@ const io = new Server(httpServer, {
       }
 
       // Check if origin is in allowed list
-      if (isAllowedOrigin(origin, allowedSocketOrigins)) {
+      if (allowedSocketOrigins.includes(origin)) {
 
         callback(null, true);
       } else {
-        if (process.env.NODE_ENV === 'production') {
+        // In development, allow all localhost origins
+        if (process.env.NODE_ENV !== 'production') {
+          if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+
+            return callback(null, true);
+          }
+          // Allow all origins in development for easier debugging
+
+          return callback(null, true);
+        } else {
           console.error(`❌ Socket.IO: Blocking connection from: ${origin} (not in allowed list)`);
           callback(new Error('Not allowed by CORS'));
-        } else {
-          // Keep dev experience flexible for ad-hoc local tunnels/previews.
-          callback(null, true);
         }
       }
     },
@@ -366,11 +361,11 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    if (isAllowedOrigin(origin, allowedOrigins) || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
       console.warn(`⚠️ CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow in development, block in production
     }
   },
   credentials: true,

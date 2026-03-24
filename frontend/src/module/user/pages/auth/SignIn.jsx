@@ -234,24 +234,12 @@ export default function SignIn() {
     const handleRedirectResult = async () => {
       try {
         ensureFirebaseInitialized();
-        const { getRedirectResult, onAuthStateChanged } = await import("firebase/auth");
+        const { onAuthStateChanged } = await import("firebase/auth");
 
         // Only process an existing Firebase user when Google auth was explicitly initiated.
         // Avoids unintended auto-login from stale Firebase sessions.
         if (isGoogleAuthPending()) {
-          let redirectUser = null;
-          try {
-            const redirectResult = await getRedirectResult(firebaseAuth);
-            redirectUser = redirectResult?.user || null;
-          } catch (redirectError) {
-            // Ignore redirect resolver state errors and continue with current user/auth state checks.
-            console.warn("[UserGoogle] getRedirectResult ignored:", {
-              code: redirectError?.code,
-              message: redirectError?.message
-            });
-          }
-
-          const signedInUser = redirectUser || firebaseAuth.currentUser;
+          const signedInUser = firebaseAuth.currentUser;
           if (signedInUser && !redirectHandledRef.current && !isCancelled) {
             await processSignedInUser(signedInUser, "current-user-check");
             return;
@@ -507,14 +495,14 @@ export default function SignIn() {
         throw new Error("Firebase Auth is not initialized. Please check your Firebase configuration.");
       }
 
-      const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
+      const { signInWithPopup } = await import("firebase/auth");
       console.info("[UserGoogle] flow_start", {
         flutterWebView: isFlutterInAppWebView(),
         host: window.location.hostname
       });
 
-      // Flutter in-app webview flow: use native Google account picker and Firebase credential sign-in only.
-      // Avoid popup/redirect fallback here because webview environments can show blank pages.
+      // Flutter in-app webview flow: use native Google account picker and then Firebase credential sign-in.
+      // If bridge returns unexpected payload, gracefully fallback to web popup flow.
       if (isFlutterInAppWebView()) {
         try {
           console.info("[UserGoogle] bridge_called");
@@ -530,8 +518,9 @@ export default function SignIn() {
             code: flutterCode,
             message: flutterError?.message || "unknown"
           });
-          clearGoogleAuthPending();
-          throw flutterError;
+          if (flutterCode === "missing_token") {
+            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.");
+          }
         }
       }
 
@@ -546,13 +535,6 @@ export default function SignIn() {
           return;
         }
       } catch (popupError) {
-        if (
-          popupError?.code === "auth/popup-blocked" ||
-          popupError?.code === "auth/cancelled-popup-request"
-        ) {
-          await signInWithRedirect(firebaseAuth, googleProvider);
-          return;
-        }
         clearGoogleAuthPending();
         throw popupError;
       }

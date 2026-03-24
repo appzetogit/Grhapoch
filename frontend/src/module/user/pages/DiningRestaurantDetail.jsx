@@ -411,7 +411,7 @@ export default function DiningRestaurantDetail() {
 
                         <div className="bg-green-600 text-white px-2 py-1 rounded-lg flex flex-col items-center shadow-lg border border-green-500/30">
                             <div className="flex items-center gap-1 font-bold text-sm">
-                                <span>{restaurant.rating || "0.0"}</span>
+                                <span>{restaurant.rating || 0}</span>
                                 <Star className="w-3 h-3 fill-white" />
                             </div>
                             <span className="text-[9px] font-medium opacity-90 uppercase tracking-wider">{restaurant.totalRatings || "0"} Reviews</span>

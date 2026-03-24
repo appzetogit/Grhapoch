@@ -845,7 +845,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
           id: restaurant.restaurantId || restaurant._id,
           name: restaurant.name,
           cuisine: cuisine,
-          rating: restaurant.rating || 4.5,
+          rating: restaurant.rating || 0,
           deliveryTime: deliveryTime,
           distance: distance,
           distanceInKm: distanceInKm, // Store numeric distance for sorting

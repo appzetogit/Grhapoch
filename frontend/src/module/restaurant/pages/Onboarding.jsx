@@ -1646,7 +1646,18 @@ export default function RestaurantOnboarding() {
         if (step5.businessModel === "Subscription Base") {
           // Include registration data for prospects to allow "late registration"
           if (isProspect && pendingData) {
-            finalPayload.pendingRegistrationData = pendingData;
+            const normalizedPending = { ...pendingData };
+            if (!normalizedPending.otpExpiresIn && normalizedPending.expiresIn) {
+              normalizedPending.otpExpiresIn = normalizedPending.expiresIn;
+            }
+            if (!normalizedPending.otpExpiresInMs && normalizedPending.expiresInMs) {
+              normalizedPending.otpExpiresInMs = normalizedPending.expiresInMs;
+            }
+            const expiresInNumber = Number(normalizedPending.otpExpiresIn);
+            if (!normalizedPending.otpExpiresInMs && Number.isFinite(expiresInNumber)) {
+              normalizedPending.otpExpiresInMs = expiresInNumber * 1000;
+            }
+            finalPayload.pendingRegistrationData = normalizedPending;
           }
           localStorage.setItem("pending_subscription_onboarding", JSON.stringify(finalPayload));
         } else {

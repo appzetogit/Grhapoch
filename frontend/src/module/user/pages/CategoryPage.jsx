@@ -7,25 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FoodTypeIcon from "../components/FoodTypeIcon";
-
-// Import shared food images - prevents duplication
-import { foodImages } from "@/constants/images";
 import api from "@/lib/api";
 import { restaurantAPI, adminAPI } from "@/lib/api";
 import { useProfile } from "../context/ProfileContext";
 import { useLocation } from "../hooks/useLocation";
 import { useZone } from "../hooks/useZone";
-
-// Filter options
-const filterOptions = [
-{ id: 'under-30-mins', label: 'Under 30 mins' },
-{ id: 'price-match', label: 'Price Match', hasIcon: true },
-{ id: 'flat-50-off', label: 'Flat 50% OFF', hasIcon: true },
-{ id: 'under-250', label: 'Under ₹250' },
-{ id: 'rating-4-plus', label: 'Rating 4.0+' }];
-
-
-// Mock data removed - using backend data only
 
 export default function CategoryPage() {
   const { category } = useParams();
@@ -55,6 +41,7 @@ export default function CategoryPage() {
   const [restaurantsData, setRestaurantsData] = useState([]);
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [categoryKeywords, setCategoryKeywords] = useState({});
+  const [availableCuisines, setAvailableCuisines] = useState([]);
 
   // Fetch categories from admin API
   useEffect(() => {
@@ -68,11 +55,11 @@ export default function CategoryPage() {
 
           // Transform API categories to match expected format
           const transformedCategories = [
-          { id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' },
+          { id: 'all', name: "All", image: null, slug: 'all' },
           ...categoriesArray.map((cat) => ({
             id: cat.slug || cat.id,
             name: cat.name,
-            image: cat.image || foodImages[0],
+            image: cat.image || null,
             slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
             type: cat.type
           }))];
@@ -99,12 +86,12 @@ export default function CategoryPage() {
           setCategoryKeywords(keywordsMap);
         } else {
           // Keep default "All" category on error
-          setCategories([{ id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' }]);
+          setCategories([{ id: 'all', name: "All", image: null, slug: 'all' }]);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
         // Keep default "All" category on error
-        setCategories([{ id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' }]);
+        setCategories([{ id: 'all', name: "All", image: null, slug: 'all' }]);
       } finally {
         setLoadingCategories(false);
       }
@@ -296,6 +283,7 @@ export default function CategoryPage() {
               id: restaurantId,
               name: restaurant.name,
               cuisine: cuisine,
+              cuisines: restaurant.cuisines || [],
               rating: restaurant.rating || null,
               deliveryTime: deliveryTime,
               distance: distance,
@@ -368,12 +356,28 @@ export default function CategoryPage() {
 
           const transformedRestaurants = await Promise.all(menuPromises);
           setRestaurantsData(transformedRestaurants);
+
+          // Derive cuisines dynamically from restaurant data
+          const cuisinesSet = new Set();
+          transformedRestaurants.forEach((r) => {
+            if (Array.isArray(r.cuisines)) {
+              r.cuisines.forEach((c) => c && cuisinesSet.add(c.trim()));
+            } else if (typeof r.cuisine === 'string') {
+              r.cuisine.split(',').forEach((c) => {
+                const val = c.trim();
+                if (val) cuisinesSet.add(val);
+              });
+            }
+          });
+          setAvailableCuisines(Array.from(cuisinesSet).sort((a, b) => a.localeCompare(b)));
         } else {
           setRestaurantsData([]);
+          setAvailableCuisines([]);
         }
       } catch (error) {
         console.error('Error fetching restaurants:', error);
         setRestaurantsData([]);
+        setAvailableCuisines([]);
       } finally {
         setLoadingRestaurants(false);
       }
@@ -727,12 +731,12 @@ export default function CategoryPage() {
                   }>
                         <img
                       src={cat.image}
-                      alt={cat.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Fallback to default image if category image fails to load
-                        e.target.src = foodImages[0] || 'https://via.placeholder.com/100';
-                      }} />
+                  alt={cat.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Hide broken images to avoid showing static placeholders
+                    e.target.style.display = 'none';
+                  }} />
                     
                       </div> :
 
@@ -1343,6 +1347,7 @@ export default function CategoryPage() {
                       </div>
 
                       {/* Cuisine Tab */}
+                      {availableCuisines.length > 0 &&
                       <div
                     ref={(el) => filterSectionRefs.current['cuisine'] = el}
                     data-section-id="cuisine"
@@ -1350,7 +1355,7 @@ export default function CategoryPage() {
                     
                         <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-4">Cuisine</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                          {['Chinese', 'American', 'Japanese', 'Italian', 'Mexican', 'Indian', 'Asian', 'Seafood', 'Desserts', 'Cafe', 'Healthy'].map((cuisine) =>
+                          {availableCuisines.map((cuisine) =>
                       <button
                         key={cuisine}
                         onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
@@ -1366,6 +1371,7 @@ export default function CategoryPage() {
                       )}
                         </div>
                       </div>
+                      }
 
                       {/* Offers Tab */}
                       <div

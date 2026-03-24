@@ -40,6 +40,18 @@ const isGlobalMockOTPEnabled = () => {
   return parseBooleanEnv(process.env.ENABLE_MOCK_OTP, false);
 };
 
+const isMockOTPVerifyEnabled = () => {
+  // Safety: never allow mock OTP verify in production
+  if (process.env.NODE_ENV === 'production') return false;
+  return parseBooleanEnv(process.env.ALLOW_MOCK_OTP_VERIFY, false);
+};
+
+const isPrpSmsDisabled = () => {
+  // Allow disabling PRP SMS in dev/test without breaking OTP flow
+  if (process.env.NODE_ENV === 'production') return false;
+  return parseBooleanEnv(process.env.DISABLE_PRP_SMS, false);
+};
+
 /**
  * Generate a random 6-digit OTP
  */
@@ -112,6 +124,11 @@ class OTPService {
             identifierType,
             identifier
           });
+        } else if (phone && isPrpSmsDisabled()) {
+          logger.info('PRP SMS disabled, skipping send', {
+            identifierType,
+            identifier
+          });
         } else if (phone) {
           await prpSmsService.sendOTP(phone, otp, purpose);
         } else if (email) {
@@ -129,10 +146,11 @@ class OTPService {
         otpId: otpRecord._id
       });
 
+      const expiresInSeconds = OTP_EXPIRY_MINUTES * 60;
       return {
         success: true,
         message: `OTP sent successfully to ${identifierType === 'phone' ? 'phone' : 'email'}`,
-        expiresIn: 300, // 5 minutes in seconds
+        expiresIn: expiresInSeconds,
         identifierType,
         isMockOTP: useMockOTP
       };
@@ -172,7 +190,7 @@ class OTPService {
       const identifierType = normalizedPhone ? 'phone' : 'email';
 
       // Allow mock OTP validation when enabled (dev/test only)
-      if (isGlobalMockOTPEnabled() && otp === getMockOTPValue()) {
+      if (isMockOTPVerifyEnabled() && otp === getMockOTPValue()) {
         logger.info('Mock OTP verified', {
           identifierType,
           identifier,

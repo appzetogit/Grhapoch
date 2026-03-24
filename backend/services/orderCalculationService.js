@@ -155,30 +155,37 @@ export const calculateDeliveryFee = async (orderValue, restaurant, deliveryAddre
   // Get fee settings from database or use cached
   const feeSettings = cachedFeeSettings || await getFeeSettings();
 
-  // 1. Free delivery threshold check DISABLED
-
-
-  // 2. Dynamic distance-based calculation
+  // Distance-based calculation (single per-km rule)
   const distance = distanceInKm ?? await calculateDeliveryDistance(restaurant, deliveryAddress);
 
   if (distance !== null && Number.isFinite(distance)) {
     try {
-      const commissionResult = await DeliveryBoyCommission.calculateCommission(distance);
-      if (commissionResult && commissionResult.commission > 0) {
+      // Pick the applicable rule
+      const rule = await DeliveryBoyCommission.findApplicableRule(distance);
 
-
-
-        return commissionResult.commission;
+      // If no rule or distance exceeds the rule's maxDistance, reject the order (unless maxDistance is unlimited/null)
+      if (!rule) {
+        throw new Error('DELIVERY_RULE_NOT_FOUND');
       }
+      if (rule.maxDistance !== null && rule.maxDistance !== undefined && distance > rule.maxDistance) {
+        throw new Error('DELIVERY_DISTANCE_EXCEEDS_MAX_RULE');
+      }
+
+      if (rule.commissionPerKm !== undefined) {
+        const fee = distance * rule.commissionPerKm;
+        return Math.round(fee);
+      }
+      throw new Error('DELIVERY_RULE_INVALID');
     } catch (error) {
-      console.error('Error calculating dynamic delivery fee:', error);
+      // Bubble up explicit rule/distance errors so API can show user-friendly message
+      if (['DELIVERY_RULE_NOT_FOUND', 'DELIVERY_DISTANCE_EXCEEDS_MAX_RULE', 'DELIVERY_RULE_INVALID'].includes(error.message)) {
+        throw error;
+      }
+      console.error('Error calculating per-km delivery fee:', error);
     }
   }
 
-  // 3. Restaurant free delivery DISABLED
-
-
-  // 4. Fallback to order-value based ranges if distance calculation failed
+  // Fallback to order-value based ranges if distance calculation failed
   if (feeSettings.deliveryFeeRanges && Array.isArray(feeSettings.deliveryFeeRanges) && feeSettings.deliveryFeeRanges.length > 0) {
     const sortedRanges = [...feeSettings.deliveryFeeRanges].sort((a, b) => a.min - b.min);
 
@@ -198,7 +205,7 @@ export const calculateDeliveryFee = async (orderValue, restaurant, deliveryAddre
     }
   }
 
-  // 5. Ultimate fallback
+  // Ultimate fallback
   return feeSettings.deliveryFee || 25;
 };
 
@@ -463,6 +470,10 @@ export const calculateOrderPricing = async ({
       }
     };
   } catch (error) {
+    // Pass through specific rule/distance errors for user-friendly messaging
+    if (['DELIVERY_RULE_NOT_FOUND', 'DELIVERY_DISTANCE_EXCEEDS_MAX_RULE', 'DELIVERY_RULE_INVALID'].includes(error.message)) {
+      throw error;
+    }
     throw new Error(`Failed to calculate order pricing: ${error.message}`);
   }
 };

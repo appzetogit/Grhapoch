@@ -57,10 +57,11 @@ window.__googleMapsLoaded = window.__googleMapsLoaded || false;
     const googleMapsApiKey = await getGoogleMapsApiKey();
     if (googleMapsApiKey) {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing&loading=async`;
+      // Use standard (non-async) loader so legacy globals like google.maps.Map are available immediately.
+      // The Delivery panel relies on new google.maps.Map; the async modular loader leaves Map undefined until importLibrary is called.
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing`;
       script.async = true;
       script.defer = true;
-      script.loading = 'async'; // Add this for modern browsers
       script.onload = () => {
 
         window.__googleMapsLoaded = true;

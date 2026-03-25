@@ -204,6 +204,10 @@ console.warn = (...args) => {
   if (warnStr.includes('google.maps.Marker is deprecated')) {
     return;
   }
+  // Suppress Google Maps performance warning
+  if (warnStr.includes('Google Maps JavaScript API has been loaded directly without loading=async')) {
+    return;
+  }
   originalWarn.apply(console, args);
 };
 

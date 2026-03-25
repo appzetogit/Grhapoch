@@ -847,6 +847,9 @@ export const deliveryAPI = {
   getOrders: (params = {}) => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.ORDERS, { params });
   },
+  getAvailableOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ORDERS_AVAILABLE, { params });
+  },
   getOrderDetails: (orderId) => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.ORDER_BY_ID.replace(':orderId', orderId));
   },

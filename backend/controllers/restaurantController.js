@@ -212,20 +212,26 @@ export const getRestaurants = async (req, res) => {
     }
 
     const coords = getGeoCoordinates({ ...req.query, ...req.body, lat, lng });
-    if (coords) {
-      await backfillGeoLocationForRestaurants();
-      const settings = await ServiceSettings.getSettings();
-      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
-      query.geoLocation = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [coords.lng, coords.lat]
-          },
-          $maxDistance: serviceRadiusKm * 1000
-        }
-      };
+    if (!coords) {
+      return successResponse(res, 200, 'Location coordinates are required to list nearby restaurants', {
+        restaurants: [],
+        total: 0,
+        locationRequired: true
+      });
     }
+
+    await backfillGeoLocationForRestaurants();
+    const settings = await ServiceSettings.getSettings();
+    const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+    query.geoLocation = {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [coords.lng, coords.lat]
+        },
+        $maxDistance: serviceRadiusKm * 1000
+      }
+    };
 
     // Fetch restaurants - zone dependency removed, optional nearby filtering by coordinates
     let restaurantQuery = Restaurant.find(query)
@@ -1157,21 +1163,27 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
     };
 
     const coords = getGeoCoordinates({ ...req.query, ...req.body, lat, lng });
-    const restaurantQuery = { isActive: true };
-    if (coords) {
-      await backfillGeoLocationForRestaurants();
-      const settings = await ServiceSettings.getSettings();
-      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
-      restaurantQuery.geoLocation = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [coords.lng, coords.lat]
-          },
-          $maxDistance: serviceRadiusKm * 1000
-        }
-      };
+    if (!coords) {
+      return successResponse(res, 200, 'Location coordinates are required to list nearby restaurants', {
+        restaurants: [],
+        total: 0,
+        locationRequired: true
+      });
     }
+
+    const restaurantQuery = { isActive: true };
+    await backfillGeoLocationForRestaurants();
+    const settings = await ServiceSettings.getSettings();
+    const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+    restaurantQuery.geoLocation = {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [coords.lng, coords.lat]
+        },
+        $maxDistance: serviceRadiusKm * 1000
+      }
+    };
 
     let restaurants = await Restaurant.find(restaurantQuery)
       .select('-owner -createdAt -updatedAt')

@@ -69,6 +69,10 @@ export const useDeliveryNotifications = () => {
     }
   }, []);
 
+  const pushNewOrder = useCallback((orderData) => {
+    setNewOrder(orderData || null);
+  }, []);
+
   // Step 4: All effects (unconditional hook calls, conditional logic inside)
   // Track user interaction for autoplay policy
   useEffect(() => {
@@ -361,6 +365,7 @@ export const useDeliveryNotifications = () => {
     orderReady,
     clearOrderReady,
     isConnected,
+    pushNewOrder,
     playNotificationSound
   };
 };

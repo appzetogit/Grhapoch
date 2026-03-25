@@ -385,7 +385,7 @@ export default function DeliveryHome() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(() => getUnreadDeliveryNotificationCount());
 
   // Delivery notifications hook
-  const { newOrder, clearNewOrder, orderReady, clearOrderReady, isConnected } = useDeliveryNotifications();
+  const { newOrder, clearNewOrder, orderReady, clearOrderReady, isConnected, pushNewOrder } = useDeliveryNotifications();
 
   // Default location - will be set from saved location or GPS, not hardcoded
   const [riderLocation, setRiderLocation] = useState(null); // Will be set from GPS or saved location
@@ -4367,6 +4367,67 @@ export default function DeliveryHome() {
     }
   }, [selectedRestaurant?.orderId, selectedRestaurant?.id, selectedRestaurant?.address]);
 
+  const buildNotificationFromOrder = useCallback((order) => {
+    if (!order) return null;
+
+    const restaurant = order.restaurantId || {};
+    const restaurantLocation = restaurant.location || {};
+    const restaurantCoords = restaurantLocation.coordinates || [];
+    const restaurantAddress =
+      restaurantLocation.formattedAddress ||
+      restaurant.address ||
+      restaurantLocation.address ||
+      'Restaurant address';
+
+    const customerLocation = order.address?.location || {};
+    const customerCoords = customerLocation.coordinates || [];
+    const customerAddressParts = [order.address?.street, order.address?.city].filter(Boolean);
+    const customerAddress =
+      order.address?.formattedAddress ||
+      customerAddressParts.join(', ') ||
+      'Customer address';
+
+    const deliveryDistanceValue =
+      typeof order.assignmentInfo?.distance === 'number' && Number.isFinite(order.assignmentInfo.distance) ?
+        order.assignmentInfo.distance :
+        null;
+
+    return {
+      orderId: order.orderId,
+      orderMongoId: order._id?.toString?.() || order._id,
+      restaurantId: restaurant._id?.toString?.() || restaurant.restaurantId || order.restaurantId,
+      restaurantName: order.restaurantName || restaurant.name || 'Restaurant',
+      restaurantLocation: restaurantCoords.length >= 2 ? {
+        latitude: restaurantCoords[1],
+        longitude: restaurantCoords[0],
+        address: restaurantAddress
+      } : null,
+      customerLocation: customerCoords.length >= 2 ? {
+        latitude: customerCoords[1],
+        longitude: customerCoords[0],
+        address: customerAddress
+      } : null,
+      items: Array.isArray(order.items) ? order.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      })) : [],
+      total: order.pricing?.total ?? order.total ?? 0,
+      deliveryFee: order.pricing?.deliveryFee ?? 0,
+      paymentMethod: order.payment?.method || 'cash',
+      customerName: order.userId?.name || 'Customer',
+      customerPhone: order.userId?.phone || '',
+      status: order.status,
+      createdAt: order.createdAt,
+      estimatedDeliveryTime: order.estimatedDeliveryTime || 30,
+      note: order.note || '',
+      pickupDistance: null,
+      deliveryDistance: deliveryDistanceValue ? `${deliveryDistanceValue.toFixed(2)} km` : 'Calculating...',
+      deliveryDistanceRaw: deliveryDistanceValue || 0,
+      estimatedEarnings: order.pricing?.deliveryFee ?? 0
+    };
+  }, []);
+
   // Handle online toggle - check for booked gigs
   const handleToggleOnline = () => {
     if (isOnline) {
@@ -4697,7 +4758,33 @@ export default function DeliveryHome() {
           setSelectedRestaurant(restaurantData);
           setShowNewOrderPopup(true);
           setCountdownSeconds(300); // Reset countdown to 5 minutes
-        } else {
+        } else if (!newOrder) {
+          try {
+            const availableResponse = await deliveryAPI.getAvailableOrders({
+              limit: 10,
+              page: 1
+            });
+
+            const availableOrders = availableResponse?.data?.data?.orders || [];
+            const nextAvailable = availableOrders.find((order) => {
+              const availableOrderId = order.orderId || order._id?.toString();
+              return availableOrderId && !acceptedOrderIdsRef.current.has(availableOrderId);
+            });
+
+            if (nextAvailable) {
+              const notification = buildNotificationFromOrder(nextAvailable);
+              if (notification) {
+                const notificationId = notification.orderMongoId || notification.orderId;
+                if (notificationId && !acceptedOrderIdsRef.current.has(notificationId)) {
+                  pushNewOrder(notification);
+                }
+              }
+            }
+          } catch (availableError) {
+            if (availableError?.code !== 'ERR_NETWORK') {
+              console.error('Error fetching available orders:', availableError);
+            }
+          }
         }
       } else {
       }
@@ -4705,7 +4792,7 @@ export default function DeliveryHome() {
       console.error('❌ Error fetching assigned orders:', error);
       // Don't show error to user, just log it
     }
-  }, [isOnline, calculateTimeAway, getCashLimitStatus]);
+  }, [isOnline, calculateTimeAway, getCashLimitStatus, newOrder, buildNotificationFromOrder, pushNewOrder]);
 
   // Fetch assigned orders when delivery person goes online
   useEffect(() => {

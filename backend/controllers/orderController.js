@@ -5,7 +5,7 @@ import Restaurant from '../models/Restaurant.js';
 import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
-import { calculateOrderPricing, normalizeCoordinates } from '../services/orderCalculationService.js';
+import { calculateOrderPricing, normalizeCoordinates, calculateDeliveryDistance } from '../services/orderCalculationService.js';
 import { getRazorpayCredentials } from '../utils/envService.js';
 import { notifyRestaurantNewOrder } from '../services/restaurantNotificationService.js';
 import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
@@ -36,18 +36,6 @@ const logger = winston.createLogger({
 const ACTIVE_ORDERS_RT_ROOT = 'active_orders';
 const ORDERS_TRACKING_RT_ROOT = 'orders';
 const sanitizeFirebaseKey = (value) => String(value || '').replace(/[.#$/\[\]]/g, '_');
-
-const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
 
 const getOrderRealtimeTracking = async (order) => {
   const db = getFirebaseRealtimeDb();
@@ -242,13 +230,25 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const userLat = address?.location?.latitude || address?.location?.coordinates?.[1];
-    const userLng = address?.location?.longitude || address?.location?.coordinates?.[0];
+    const userCoords = normalizeCoordinates(address?.location || address);
+    const userLat = Array.isArray(userCoords) ? userCoords[1] : null;
+    const userLng = Array.isArray(userCoords) ? userCoords[0] : null;
+
+    if (!Number.isFinite(Number(userLat)) || !Number.isFinite(Number(userLng))) {
+      logger.warn('⚠️ User delivery location missing - order blocked', {
+        userId,
+        addressProvided: !!address
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery location coordinates are required. Please select a precise location.'
+      });
+    }
 
     if (Number.isFinite(Number(userLat)) && Number.isFinite(Number(userLng))) {
       const settings = await ServiceSettings.getSettings();
       const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
-      const distanceKm = calculateDistanceKm(Number(userLat), Number(userLng), restaurantLat, restaurantLng);
+      const distanceKm = await calculateDeliveryDistance(restaurant, address);
 
       if (distanceKm > serviceRadiusKm) {
         logger.warn('⚠️ Restaurant is outside service radius:', {
@@ -273,8 +273,6 @@ export const createOrder = async (req, res) => {
         distanceKm,
         serviceRadiusKm
       });
-    } else {
-      logger.warn('⚠️ User delivery location missing - service radius validation skipped');
     }
 
     assignedRestaurantId = restaurant._id?.toString() || restaurant.restaurantId;
@@ -1562,6 +1560,16 @@ export const calculateOrder = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Order must have at least one item'
+      });
+    }
+
+    // Validate delivery address coordinates (required for distance-based fees)
+    const deliveryCoords = normalizeCoordinates(deliveryAddress?.location || deliveryAddress);
+    if (!Array.isArray(deliveryCoords) || deliveryCoords.length < 2 ||
+      !Number.isFinite(Number(deliveryCoords[0])) || !Number.isFinite(Number(deliveryCoords[1]))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery location coordinates are required. Please select a precise location.'
       });
     }
 

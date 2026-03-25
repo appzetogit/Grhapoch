@@ -137,6 +137,70 @@ export const getOrders = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get Available Orders (not assigned, but notified to this delivery partner)
+ * GET /api/delivery/orders/available
+ * Query params: page, limit
+ */
+export const getAvailableOrders = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { page = 1, limit = 20 } = req.query;
+
+    const deliveryId = delivery?._id?.toString();
+    if (!deliveryId) {
+      return errorResponse(res, 401, 'Delivery partner authentication required');
+    }
+
+    const deliveryIdCandidates = [deliveryId];
+    if (mongoose.Types.ObjectId.isValid(deliveryId)) {
+      deliveryIdCandidates.push(new mongoose.Types.ObjectId(deliveryId));
+    }
+
+    const query = {
+      status: { $in: ['preparing', 'ready'] },
+      $and: [
+        {
+          $or: [
+            { deliveryPartnerId: { $exists: false } },
+            { deliveryPartnerId: null }
+          ]
+        },
+        {
+          $or: [
+            { 'assignmentInfo.priorityDeliveryPartnerIds': { $in: deliveryIdCandidates } },
+            { 'assignmentInfo.expandedDeliveryPartnerIds': { $in: deliveryIdCandidates } }
+          ]
+        }
+      ]
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('restaurantId', 'name slug profileImage address location phone ownerPhone')
+      .populate('userId', 'name phone')
+      .lean();
+
+    const total = await Order.countDocuments(query);
+
+    return successResponse(res, 200, 'Available orders retrieved successfully', {
+      orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    logger.error(`Error fetching available delivery orders: ${error.message}`);
+    return errorResponse(res, 500, 'Failed to fetch available orders');
+  }
+});
+
+/**
  * Get Single Order Details
  * GET /api/delivery/orders/:orderId
  */

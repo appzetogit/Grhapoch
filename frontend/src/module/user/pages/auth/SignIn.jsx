@@ -85,7 +85,7 @@ export default function SignIn() {
     try {
       sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
     } catch (storageError) {
-      console.warn("[UserGoogle] sessionStorage unavailable while setting pending flag:", storageError);
+      // storage unavailable
     }
   };
   const clearGoogleAuthPending = () => {
@@ -93,14 +93,13 @@ export default function SignIn() {
     try {
       sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
     } catch (storageError) {
-      console.warn("[UserGoogle] sessionStorage unavailable while clearing pending flag:", storageError);
+      // storage unavailable
     }
   };
   const isGoogleAuthPending = () => {
     try {
       return sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
     } catch (storageError) {
-      console.warn("[UserGoogle] sessionStorage unavailable while reading pending flag:", storageError);
       return googleAuthPendingFallback;
     }
   };
@@ -161,18 +160,8 @@ export default function SignIn() {
     setApiError("");
 
     try {
-      const idToken = await user.getIdToken();
-      console.info("[UserGoogle] token_extracted", {
-        hasIdToken: !!idToken,
-        idTokenLength: idToken ? String(idToken).length : 0,
-        source
-      });
-
-
-      console.info("[UserGoogle] backend_call_start", { source });
       const response = await authAPI.firebaseGoogleLogin(idToken, "user");
       const data = response?.data?.data || {};
-      console.info("[UserGoogle] backend_ok", { source });
 
 
 
@@ -496,41 +485,29 @@ export default function SignIn() {
       }
 
       const { signInWithPopup } = await import("firebase/auth");
-      console.info("[UserGoogle] flow_start", {
-        flutterWebView: isFlutterInAppWebView(),
-        host: window.location.hostname
-      });
 
       // Flutter in-app webview flow: use native Google account picker and then Firebase credential sign-in.
       // If bridge returns unexpected payload, gracefully fallback to web popup flow.
       if (isFlutterInAppWebView()) {
         try {
-          console.info("[UserGoogle] bridge_called");
           const flutterUser = await signInWithFlutterGoogle(firebaseAuth);
           if (flutterUser) {
-            console.info("[UserGoogle] firebase_signed_in_via_bridge", { hasUser: true });
             await processSignedInUser(flutterUser, "flutter-native-bridge");
             return;
           }
         } catch (flutterError) {
           const flutterCode = flutterError?.code || "";
-          console.warn("[UserGoogle] bridge_failed_fallback_popup", {
-            code: flutterCode,
-            message: flutterError?.message || "unknown"
-          });
           if (flutterCode === "missing_token") {
             throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.");
           }
         }
       }
 
-      try {
-        // Prefer popup flow so backend login can happen immediately.
-        console.info("[UserGoogle] popup_called");
-        const popupResult = await signInWithPopup(firebaseAuth, googleProvider);
+        try {
+          // Prefer popup flow so backend login can happen immediately.
+          const popupResult = await signInWithPopup(firebaseAuth, googleProvider);
         const popupUser = popupResult?.user || firebaseAuth.currentUser;
         if (popupUser) {
-          console.info("[UserGoogle] firebase_signed_in_via_popup", { hasUser: true });
           await processSignedInUser(popupUser, "popup-result");
           return;
         }
@@ -540,7 +517,6 @@ export default function SignIn() {
       }
     } catch (error) {
       console.error("❌ Google sign-in error:", error);
-      console.error("[UserGoogle] error_meta:", { code: error?.code, message: error?.message });
       setIsLoading(false);
       redirectHandledRef.current = false;
 

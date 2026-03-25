@@ -26,8 +26,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { deliveryAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { clearModuleAuth } from "@/lib/utils/auth";
-import alertSound from "@/assets/audio/alert.mp3";
-import originalSound from "@/assets/audio/original.mp3";
+const alertSound = "/assets/audio/alert.mp3";
+const originalSound = "/assets/audio/original.mp3";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -170,7 +170,6 @@ export default function ProfilePage() {
       // Call logout API to clear refresh token on server
       await deliveryAPI.logout();
     } catch (error) {
-      console.error("Logout API error (continuing with local cleanup):", error);
       // Continue with local cleanup even if API call fails
     }
 
@@ -392,11 +391,9 @@ export default function ProfilePage() {
 
                             }).
                             catch((err) => {
-                              console.error('❌ Preview audio error:', err);
                             });
                         }
                       } catch (err) {
-                        console.error('❌ Could not create preview audio:', err);
                       }
                     }}
                     className="w-5 h-5 text-black focus:ring-2 focus:ring-black" />
@@ -426,11 +423,9 @@ export default function ProfilePage() {
 
                             }).
                             catch((err) => {
-                              console.error('❌ Preview audio error:', err);
                             });
                         }
                       } catch (err) {
-                        console.error('❌ Could not create preview audio:', err);
                       }
                     }}
                     className="w-5 h-5 text-black focus:ring-2 focus:ring-black" />

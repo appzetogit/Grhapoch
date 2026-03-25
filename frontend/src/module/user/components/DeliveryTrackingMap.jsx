@@ -1552,47 +1552,7 @@ const DeliveryTrackingMap = ({
     }
   }, [isMapLoaded, userLiveCoords, userLocationAccuracy]);
 
-  // Periodic check to ensure bike marker is created if it should be visible
-  // DISABLED - prevents duplicate marker creation
-  // useEffect(() => {
-  //   if (!isMapLoaded || !mapInstance.current) return;
-  //   
-  //   const checkInterval = setInterval(() => {
-  //     const currentPhase = order?.deliveryState?.currentPhase;
-  //     const deliveryStateStatus = order?.deliveryState?.status;
-  //     const shouldHaveBike = deliveryStateStatus === 'accepted' ||
-  //                            currentPhase === 'en_route_to_pickup' ||
-  //                            currentPhase === 'at_pickup' ||
-  //                            currentPhase === 'en_route_to_delivery' ||
-  //                            (deliveryStateStatus && deliveryStateStatus !== 'pending');
-  //     
-  //     if (shouldHaveBike && !bikeMarkerRef.current && restaurantCoords && restaurantCoords.lat && restaurantCoords.lng) {
-  //       console.log('🔄 Periodic check: Bike should be visible but missing, creating now...');
-  //       try {
-  //         const position = new window.google.maps.LatLng(restaurantCoords.lat, restaurantCoords.lng);
-  //         bikeMarkerRef.current = new window.google.maps.Marker({
-  //           position: position,
-  //           map: mapInstance.current,
-  //           icon: {
-  //             url: bikeLogo,
-  //             scaledSize: new window.google.maps.Size(50, 50),
-  //             anchor: new window.google.maps.Point(25, 25),
-  //             rotation: 0
-  //           },
-  //           optimized: false,
-  //           zIndex: window.google.maps.Marker.MAX_ZINDEX + 3,
-  //           title: 'Delivery Partner',
-  //           visible: true
-  //         });
-  //         console.log('✅✅✅ BIKE MARKER CREATED via periodic check!');
-  //       } catch (err) {
-  //         console.error('❌ Periodic bike creation failed:', err);
-  //       }
-  //     }
-  //   }, 2000); // Check every 2 seconds
-  //   
-  //   return () => clearInterval(checkInterval);
-  // }, [isMapLoaded, order?.deliveryState?.currentPhase, order?.deliveryState?.status, restaurantCoords, bikeLogo]);
+
 
   // Cleanup animation controller on unmount
   useEffect(() => {

@@ -21,7 +21,6 @@ import { getGoogleMapsApiKey } from '@/lib/utils/googleMapsApiKey';
  *   routeDestination={{ lat: restaurantLat, lng: restaurantLng }}
  *   destinationName="Restaurant Name"
  *   onRouteInfoUpdate={(info) => {
- *     console.log('Distance:', info.distance, 'Duration:', info.duration)
  *   }}
  *   lastUpdate={new Date()}
  * />
@@ -396,7 +395,6 @@ export default function GoogleMapsTracking({
             }, delay);
           });
         } else {
-          console.error('❌ Directions request failed:', status, { origin, destination });
           setRouteInfo(null);
           // Fallback to straight line if route fails
           if (status === 'ZERO_RESULTS') {

@@ -11,7 +11,6 @@ export function ProfileProvider({ children }) {
       try {
         return JSON.parse(userStr)
       } catch (e) {
-        console.error("Error parsing user_user from localStorage:", e)
       }
     }
 
@@ -21,7 +20,6 @@ export function ProfileProvider({ children }) {
       try {
         return JSON.parse(saved)
       } catch (e) {
-        console.error("Error parsing userProfile from localStorage:", e)
       }
     }
 
@@ -251,7 +249,7 @@ export function ProfileProvider({ children }) {
 
         // Migrate Restaurants if DB is empty but local is not
         if (localFavs.length > 0 && (!dbCollData || !dbCollData.restaurants || dbCollData.restaurants.length === 0)) {
-          console.log("Migrating local restaurant favorites to database...");
+
           for (const rf of localFavs) {
             await addFavorite(rf);
           }
@@ -261,7 +259,7 @@ export function ProfileProvider({ children }) {
 
         // Migrate Dishes if DB is empty but local is not
         if (localDishFavs.length > 0 && (!dbCollData || !dbCollData.dishes || dbCollData.dishes.length === 0)) {
-          console.log("Migrating local dish favorites to database...");
+
           for (const df of localDishFavs) {
             await addDishFavorite(df);
           }
@@ -431,11 +429,8 @@ export function ProfileProvider({ children }) {
     // Backend sync
     try {
       const restaurantId = restaurant.restaurantId || restaurant._id || restaurant.id;
-      console.log('📡 [FRONTEND] Sending toggleFavorite for ID:', restaurantId, 'Name:', restaurant.name);
-
       if (restaurantId) {
         const response = await userAPI.toggleRestaurantFavorite(restaurantId);
-        console.log('✅ [FRONTEND] toggleFavorite SUCCESS:', response.data?.message);
 
         // Ensure we always sync with server state if returned
         if (response.data?.success && response.data.data?.collections) {
@@ -462,10 +457,8 @@ export function ProfileProvider({ children }) {
           }
         }
       } else {
-        console.error('❌ [FRONTEND] No restaurantId found to sync!');
       }
     } catch (error) {
-      console.error("❌ [FRONTEND] Error syncing restaurant favorite to DB:", error.response?.data || error.message);
       // Revert optimistic update if needed or just let it be (re-fetch will happen later)
     }
   }, [])
@@ -487,11 +480,8 @@ export function ProfileProvider({ children }) {
     // Backend sync
     try {
       const restaurantId = itemToRemove?.restaurantId || itemToRemove?._id || itemToRemove?.id;
-      console.log('📡 [FRONTEND] Sending remove toggle for ID:', restaurantId);
-
       if (restaurantId) {
         const response = await userAPI.toggleRestaurantFavorite(restaurantId);
-        console.log('✅ [FRONTEND] remove toggle SUCCESS:', response.data?.message);
 
         // Ensure we always sync with server state if returned
         if (response.data?.success && response.data.data?.collections) {
@@ -519,13 +509,11 @@ export function ProfileProvider({ children }) {
         }
       }
     } catch (error) {
-      console.error("❌ [FRONTEND] Error removing restaurant favorite from DB:", error.response?.data || error.message);
     }
   }, [favorites])
 
   const isFavorite = useCallback((slug) => {
     const isFav = favorites.some(fav => fav.slug === slug)
-    // console.log(`🔍 [isFavorite] Checking ${slug}: ${isFav ? 'YES' : 'NO'}`);
     return isFav;
   }, [favorites])
 

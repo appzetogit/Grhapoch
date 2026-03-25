@@ -584,11 +584,11 @@ export default function Home() {
   try {
     profileContext = useProfile();
   } catch (error) {
-    console.warn("ProfileProvider not available, using fallback:", error.message);
+
     // Fallback values when ProfileProvider is not available
     profileContext = {
-      addFavorite: () => console.warn("ProfileProvider not available"),
-      removeFavorite: () => console.warn("ProfileProvider not available"),
+      addFavorite: () => {},
+      removeFavorite: () => {},
       isFavorite: () => false,
       getFavorites: () => []
     };
@@ -754,7 +754,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
 
 
       if (restaurantsArray.length === 0) {
-        console.warn('No restaurants found in API response');
+
         setRestaurantsData([]);
         setLoadingRestaurants(false);
         return;
@@ -888,12 +888,10 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
 
       setRestaurantsData(transformedRestaurants);
     } else {
-      console.warn('Invalid API response structure:', response.data);
       setRestaurantsData([]);
     }
   } catch (error) {
     console.error('Error fetching restaurants:', error);
-    console.error('Error details:', error.response?.data || error.message);
     // Don't set hardcoded data here - let the useMemo fallback handle it
     // This way, if API succeeds later, it will show the real data
     setRestaurantsData([]);

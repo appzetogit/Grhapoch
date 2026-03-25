@@ -157,7 +157,6 @@ export default function EditProfile() {
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setHasMultipleCameras(videoDevices.length > 1);
       } catch (err) {
-        console.error("Error checking cameras:", err);
       }
     };
     checkCameras();
@@ -180,12 +179,10 @@ export default function EditProfile() {
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
     } catch (err) {
-      console.warn(`Failed to start camera with ${facingMode}, trying generic:`, err);
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         setStream(fallbackStream);
       } catch (fallbackErr) {
-        console.error("Critical camera error:", fallbackErr);
         toast.error("Could not access camera. Please check permissions.");
         setActiveCamera(null);
       }
@@ -195,7 +192,7 @@ export default function EditProfile() {
   useEffect(() => {
     if (stream && videoRef.current && !capturedImage) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(e => console.error("Error playing video:", e));
+      videoRef.current.play().catch(e => {});
     }
   }, [stream, capturedImage]);
 
@@ -273,7 +270,6 @@ export default function EditProfile() {
         uploadPromiseRef.current = handleImageSelect({ target: { files: [file] } }, true);
         setCapturedImage(null);
       } catch (error) {
-        console.error("Error using photo:", error);
         toast.error("Failed to process photo");
         // Revert UI on error
         setImagePreview(profileImage);
@@ -291,7 +287,6 @@ export default function EditProfile() {
       
       // Removed toaster as per user request
     } catch (error) {
-      console.error('Error removing image locally:', error);
     }
   };
 

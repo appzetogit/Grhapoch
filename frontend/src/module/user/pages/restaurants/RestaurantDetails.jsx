@@ -114,68 +114,68 @@ export default function RestaurantDetails() {
 
         let response = null;
         let apiRestaurant = null;
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
 
-        // Try dining API first
         try {
-          response = await diningAPI.getRestaurantBySlug(slug);
-          if (response.data && response.data.success && response.data.data) {
-            apiRestaurant = response.data.data;
-
+          // Main attempt depending on slug format
+          if (isObjectId) {
+            response = await restaurantAPI.getRestaurantById(slug);
+            if (response.data && response.data.success && response.data.data) {
+              apiRestaurant = response.data.data;
+            }
+          } else {
+            response = await diningAPI.getRestaurantBySlug(slug);
+            if (response.data && response.data.success && response.data.data) {
+              apiRestaurant = response.data.data;
+            }
           }
-        } catch (diningError) {
-          // If dining API fails with 404, try restaurant API
-          if (diningError.response?.status === 404) {
-
+        } catch (initialError) {
+          if (initialError.response?.status === 404) {
             try {
-              // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
-              // This doesn't require zoneId, so it works even if zone is not detected
               try {
-                response = await restaurantAPI.getRestaurantById(slug);
-                if (response.data && response.data.success && response.data.data) {
-                  apiRestaurant = response.data.data;
-
+                if (isObjectId) {
+                  // Fallback for ObjectId: Try dining API just in case
+                  response = await diningAPI.getRestaurantBySlug(slug);
+                  if (response.data && response.data.success && response.data.data) {
+                    apiRestaurant = response.data.data;
+                  }
+                } else {
+                  // Fallback for Slug: Try delivery restaurant API
+                  response = await restaurantAPI.getRestaurantById(slug);
+                  if (response.data && response.data.success && response.data.data) {
+                    apiRestaurant = response.data.data;
+                  }
                 }
               } catch (directLookupError) {
-                // If direct lookup fails, try searching by name (requires zoneId)
-
-
-                // Only search if zoneId is available (zoneId is required by backend for search)
+                // If direct fallback fails, try searching by name (requires zoneId)
                 if (!zoneId) {
-                  console.warn('⚠️ User zone not available, cannot search restaurants. Restaurant may not be found.');
-                  // Don't throw error - let it fall through to show "Restaurant not found" message
+                  // Fall through
                 } else {
-                  // Include zoneId for zone-based filtering
                   const searchParams = { limit: 100, zoneId: zoneId };
                   const searchResponse = await restaurantAPI.getRestaurants(searchParams);
                   const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
-
-                  // Try to find by slug match or name match
                   const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
                   const matchingRestaurant = restaurants.find((r) =>
                     r.slug === slug ||
                     r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
                     r.name?.toLowerCase() === restaurantName.toLowerCase()
                   );
-
                   if (matchingRestaurant) {
-                    // Get full restaurant details by ID
                     const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
                     if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
                       apiRestaurant = fullResponse.data.data;
-
                     }
                   }
                 }
               }
             } catch (restaurantError) {
-              console.error('❌ Restaurant not found in restaurant API either:', restaurantError);
-              // Only throw if we haven't found the restaurant yet
+              console.error('❌ Restaurant not found in fallback API either:', restaurantError);
               if (!apiRestaurant) {
-                throw diningError; // Throw original error to show "Restaurant not found"
+                throw initialError;
               }
             }
           } else {
-            throw diningError; // Re-throw if it's not a 404
+            throw initialError; // Not a 404 error
           }
         }
 
@@ -331,14 +331,7 @@ export default function RestaurantDetails() {
             }
 
           } else {
-            console.warn('⚠️ Cannot calculate distance - missing coordinates:', {
-              hasUserLocation: !!(userLat && userLng),
-              hasRestaurantLocation: !!(restaurantLat && restaurantLng),
-              userLat,
-              userLng,
-              restaurantLat,
-              restaurantLng
-            });
+
           }
 
           // Transform API data to match expected format with comprehensive fallbacks
@@ -424,11 +417,11 @@ export default function RestaurantDetails() {
           let restaurantIdForMenu = transformedRestaurant.id;
 
           if (!restaurantIdForMenu) {
-            console.warn('⚠️ No restaurant ID available, searching for restaurant by name...');
+
             try {
               // CRITICAL: Only search if zoneId is available (zoneId is required by backend)
               if (!zoneId) {
-                console.warn('⚠️ User zone not available, cannot search restaurants. Menu may not load.');
+                // console.warn('⚠️ User zone not available, cannot search restaurants. Menu may not load.');
                 // Continue without menu - restaurant details are still available
                 return;
               }
@@ -454,7 +447,7 @@ export default function RestaurantDetails() {
                   restaurantId: restaurantIdForMenu
                 }));
               } else {
-                console.warn('⚠️ No matching restaurant found by name');
+                // console.warn('⚠️ No matching restaurant found by name');
               }
             } catch (searchError) {
               console.error('❌ Error searching for restaurant:', searchError);

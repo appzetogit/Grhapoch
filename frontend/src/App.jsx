@@ -126,7 +126,6 @@ export default function App() {
     let unsubscribe = () => { };
     setupForegroundNotificationHandler((payload) => {
       // You can add custom in-app toast logic here if desired
-      console.log('[FCM] Foreground notification:', payload?.notification?.title);
     }).then((unsub) => { unsubscribe = unsub; });
     return () => unsubscribe();
   }, []);

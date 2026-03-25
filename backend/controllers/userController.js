@@ -635,8 +635,8 @@ export const toggleDishFavorite = asyncHandler(async (req, res) => {
   } = req.body;
   const userId = req.user._id;
 
-  console.log(`🚀 [DISH_DEBUG] --- START ---`);
-  console.log(`🚀 [DISH_DEBUG] DishID: ${dishId} | ResID: ${restaurantId} | User: ${userId}`);
+
+
 
   if (!dishId || !restaurantId) {
     return errorResponse(res, 400, 'Dish ID and Restaurant ID are required');
@@ -672,7 +672,7 @@ export const toggleDishFavorite = asyncHandler(async (req, res) => {
 
   if (favoriteIndex > -1) {
     // REMOVE
-    console.log(`🗑️ [DISH_DEBUG] Action: REMOVE`);
+
     updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -688,7 +688,7 @@ export const toggleDishFavorite = asyncHandler(async (req, res) => {
     message = 'Dish removed from favorites';
   } else {
     // ADD
-    console.log(`➕ [DISH_DEBUG] Action: ADD | Name: ${name}`);
+
     const newFav = {
       dishId,
       restaurantId: internalId,
@@ -709,7 +709,7 @@ export const toggleDishFavorite = asyncHandler(async (req, res) => {
     message = 'Dish added to favorites';
   }
 
-  console.log(`🚀 [DISH_DEBUG] --- END ---\n`);
+
 
   return successResponse(res, 200, message, {
     collections: updatedUser ? updatedUser.collections : user.collections

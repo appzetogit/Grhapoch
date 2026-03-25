@@ -174,10 +174,8 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   // Initialize Autocomplete Service
   useEffect(() => {
     if (mapsLoaded && window.google && window.google.maps && window.google.maps.places) {
-      if (!autocompleteServiceRef.current) {
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+      if (!sessionTokenRef.current) {
         sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-
       }
     }
   }, [mapsLoaded]);
@@ -199,14 +197,9 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     const fetchPredictions = async () => {
       setIsSearching(true);
       try {
-        if (!autocompleteServiceRef.current) {
-          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-        }
         if (!sessionTokenRef.current) {
           sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
         }
-
-        const service = autocompleteServiceRef.current;
 
         // Use timeout to prevent infinite loading if Google service hangs
         const timeout = setTimeout(() => {
@@ -216,38 +209,50 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
           }
         }, 5000);
 
-
-
-        service.getPlacePredictions(
-          {
+        try {
+          const request = {
             input: searchValue.trim(),
-            componentRestrictions: { country: 'in' },
-            types: ['geocode', 'establishment'],
+            includedRegionCodes: ['in'],
             sessionToken: sessionTokenRef.current
-          },
-          (results, status) => {
-            clearTimeout(timeout);
-            if (!isMounted) return;
+          };
 
+          const response = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+          const suggestions = response.suggestions;
 
+          clearTimeout(timeout);
+          if (!isMounted) return;
 
-            if (status === "OK" && results) {
-              setPredictions(results);
-            } else {
-              setPredictions([]);
-              if (status === "ZERO_RESULTS") {
-
-              } else {
-                console.error("❌ Autocomplete error status:", status);
-                // If denied, it might be due to API key restrictions or quota
-                if (status === "REQUEST_DENIED") {
-                  toast.error("Google Search looks restricted. Please check API Key settings.");
-                }
-              }
-            }
-            setIsSearching(false);
+          if (suggestions && suggestions.length > 0) {
+            const results = suggestions
+              .filter(s => s.placePrediction)
+              .map(s => {
+                const place = s.placePrediction;
+                return {
+                  description: place.text.text,
+                  place_id: place.placeId,
+                  structured_formatting: {
+                    main_text: place.structuredFormat?.mainText?.text || place.text.text,
+                    secondary_text: place.structuredFormat?.secondaryText?.text || ""
+                  }
+                };
+              });
+            setPredictions(results);
+          } else {
+            setPredictions([]);
           }
-        );
+          setIsSearching(false);
+        } catch (apiError) {
+          clearTimeout(timeout);
+          if (!isMounted) return;
+          
+          console.error("❌ Autocomplete error:", apiError);
+          setPredictions([]);
+          setIsSearching(false);
+          
+          if (apiError.message?.includes("REQUEST_DENIED") || apiError.code === 'REQUEST_DENIED') {
+            toast.error("Google Search looks restricted. Please check API Key settings.");
+          }
+        }
       } catch (error) {
         console.error("❌ Error in fetchPredictions:", error);
         if (isMounted) setIsSearching(false);

@@ -119,7 +119,6 @@ export default function ProfileDetails() {
         const videoDevices = devices.filter(device => device.kind === 'videoinput')
         setHasMultipleCameras(videoDevices.length > 1)
       } catch (err) {
-        console.error("Error checking cameras:", err)
       }
     }
     checkCameras()
@@ -142,7 +141,6 @@ export default function ProfileDetails() {
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
       setStream(mediaStream)
     } catch (err) {
-      console.warn(`Camera error:`, err)
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         setStream(fallbackStream)
@@ -162,7 +160,7 @@ export default function ProfileDetails() {
   useEffect(() => {
     if (stream && videoRef.current && !capturedImage) {
       videoRef.current.srcObject = stream
-      videoRef.current.play().catch(e => console.error("Error playing video:", e))
+      videoRef.current.play().catch(e => {})
     }
   }, [stream, capturedImage])
 
@@ -255,7 +253,6 @@ export default function ProfileDetails() {
       }))
       toast.success("QR code uploaded")
     } catch (error) {
-      console.error("Error uploading QR code:", error)
       toast.error(error?.response?.data?.message || error.message || "Failed to upload QR code")
     } finally {
       setQrUploading(false)
@@ -278,7 +275,6 @@ export default function ProfileDetails() {
         setProfile(response.data.data.profile)
       }
     } catch (error) {
-      console.error("Error updating payout details:", error)
       toast.error(error?.response?.data?.message || "Failed to update payout details")
     } finally {
       setIsUpdatingPayoutDetails(false)
@@ -346,7 +342,6 @@ export default function ProfileDetails() {
       setTempPhotoFile(null)
       setTempPhotoPreview(null)
     } catch (error) {
-      console.error("Error uploading photo:", error)
       toast.error("Failed to save photo. Restoring original...", { id: toastId })
       
       // Rollback to original profile if upload failed

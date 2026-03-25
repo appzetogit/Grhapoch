@@ -61,8 +61,8 @@ import {
   "../utils/liveTrackingPolyline";
 import referralBonusBg from "../../../assets/referralbonuscardbg.png";
 // import dropLocationBanner from "../../../assets/droplocationbanner.png" // File not found - commented out
-import alertSound from "../../../assets/audio/alert.mp3";
-import originalSound from "../../../assets/audio/original.mp3";
+const alertSound = "/assets/audio/alert.mp3";
+const originalSound = "/assets/audio/original.mp3";
 import bikeLogo from "../../../assets/bikelogo.png";
 
 // Ola Maps API Key removed
@@ -788,7 +788,6 @@ export default function DeliveryHome() {
           return prev;
         });
       } catch (error) {
-        console.error('[DeliveryHome] Error reading online status:', error);
       }
     };
 
@@ -4928,12 +4927,12 @@ export default function DeliveryHome() {
         let attempts = 0;
         const maxAttempts = 50; // 5 seconds max wait
 
-        while ((!window.google || !window.google.maps) && attempts < maxAttempts) {
+        while ((!window.google || !window.google.maps || !window.google.maps.Map) && attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 100));
           attempts++;
         }
 
-        if (window.google && window.google.maps) {
+        if (window.google && window.google.maps && window.google.maps.Map) {
           await initializeGoogleMap();
           return;
         }
@@ -7426,10 +7425,12 @@ export default function DeliveryHome() {
       // ALWAYS ensure marker is on the map (prevent it from disappearing)
       const currentMap = bikeMarkerRef.current.getMap();
       if (currentMap === null || currentMap !== map) {
+        /*
         console.warn('⚠️ Bike marker not on correct map, re-adding...', {
           currentMap: currentMap,
           expectedMap: map
         });
+        */
         bikeMarkerRef.current.setMap(map);
       }
 
@@ -9196,7 +9197,7 @@ export default function DeliveryHome() {
                         strokeDasharray="450"
                         initial={{ strokeDashoffset: 0 }}
                         animate={{
-                          strokeDashoffset: `${450 * (1 - countdownSeconds / 300)}`
+                          strokeDashoffset: 450 * (1 - countdownSeconds / 300)
                         }}
                         transition={{ duration: 1, ease: "linear" }} />
 
@@ -10239,8 +10240,8 @@ export default function DeliveryHome() {
                 <button
                   onClick={handleSelectCashPayment}
                   className={`px-4 py-3 rounded-lg font-semibold border transition-colors ${codPaymentOption === 'cash'
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                    ? 'bg-green-600 text-white border-green-600'
+                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                     }`}
                 >
                   Collect Cash
@@ -10249,8 +10250,8 @@ export default function DeliveryHome() {
                   onClick={handleGenerateQrPayment}
                   disabled={qrPaymentState.loading}
                   className={`px-4 py-3 rounded-lg font-semibold transition-colors ${qrPaymentState.loading
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                 >
                   {qrPaymentState.loading ? 'Generating...' : 'Generate QR Payment'}

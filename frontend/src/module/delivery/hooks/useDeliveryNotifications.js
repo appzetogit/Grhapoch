@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import io from 'socket.io-client';
 import { API_BASE_URL } from '@/lib/api/config';
 import { deliveryAPI } from '@/lib/api';
-import alertSound from '@/assets/audio/alert.mp3';
-import originalSound from '@/assets/audio/original.mp3';
+const alertSound = "/assets/audio/alert.mp3";
+const originalSound = "/assets/audio/original.mp3";
 
 export const useDeliveryNotifications = () => {
   // CRITICAL: All hooks must be called unconditionally and in the same order every render

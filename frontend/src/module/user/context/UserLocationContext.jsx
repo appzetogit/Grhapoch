@@ -224,12 +224,10 @@ export const UserLocationProvider = ({ children }) => {
               label: "Current Location"
             }, true);
           } catch (err) {
-            console.warn("Watcher geocode error:", err);
           }
         }, 2000);
       },
       (err) => {
-        console.warn("Location watch error:", err.message);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
@@ -303,7 +301,6 @@ export const UserLocationProvider = ({ children }) => {
             return;
           }
         } catch (e) {
-          console.warn("Failed to parse stored location");
         }
       }
 
@@ -311,7 +308,6 @@ export const UserLocationProvider = ({ children }) => {
       try {
         await requestLocation(false);
       } catch (err) {
-        console.warn("Initial location detection failed:", err.message);
         setLoading(false);
       }
     };

@@ -141,12 +141,14 @@ export const getRestaurantOrders = asyncHandler(async (req, res) => {
 
     // If no orders found, log a warning with more details
     if (orders.length === 0 && total === 0) {
+      /* 
       console.warn('⚠️ No orders found for restaurant:', {
         restaurantId: restaurantIdString,
         restaurant_id: restaurant._id?.toString(),
         variationsTried: restaurantIdVariations,
         query: JSON.stringify(query)
       });
+      */
 
       // Try to find ANY orders in database for debugging
       const allOrdersCount = await Order.countDocuments({});

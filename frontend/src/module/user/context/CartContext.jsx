@@ -9,18 +9,12 @@ const defaultCartContext = {
   itemCount: 0,
   total: 0,
   cartConflict: null,
-  resolveCartConflict: () => {
-    console.warn('CartProvider not available - resolveCartConflict called');
-  },
+  resolveCartConflict: () => {},
   getCartCount: () => 0,
   isInCart: () => false,
   getCartItem: () => null,
-  clearCart: () => {
-    console.warn('CartProvider not available - clearCart called');
-  },
-  cleanCartForRestaurant: () => {
-    console.warn('CartProvider not available - cleanCartForRestaurant called');
-  },
+  clearCart: () => {},
+  cleanCartForRestaurant: () => {},
 }
 
 const CartContext = createContext(defaultCartContext)
@@ -272,11 +266,6 @@ export function CartProvider({ children }) {
       });
 
       if (cleanedCart.length !== prev.length) {
-        console.warn('🧹 Cleaned cart: Removed items from different restaurants', {
-          before: prev.length,
-          after: cleanedCart.length,
-          removed: prev.length - cleanedCart.length
-        });
       }
 
       return cleanedCart;
@@ -301,10 +290,6 @@ export function CartProvider({ children }) {
 
     // Check if cart has items from multiple restaurants
     if (uniqueRestaurantIds.length > 1 || uniqueRestaurantNamesSet.size > 1) {
-      console.warn('⚠️ Cart contains items from multiple restaurants. Cleaning cart...', {
-        restaurantIds: uniqueRestaurantIds,
-        restaurantNames: uniqueRestaurantNames
-      });
 
       // Keep items from the first restaurant (most recent or first in cart)
       const firstRestaurantId = uniqueRestaurantIds[0];
@@ -389,11 +374,6 @@ export function useCart() {
   const context = useContext(CartContext)
   // Check if context is from the actual provider by checking the _isProvider flag
   if (!context || context._isProvider !== true) {
-    // In development, log a warning but don't throw to prevent crashes
-    if (import.meta.env.MODE === 'development') {
-      console.warn('⚠️ useCart called outside CartProvider. Using default values.');
-      console.warn('💡 Make sure the component is rendered inside UserLayout which provides CartProvider.');
-    }
     // Return default context instead of throwing
     return defaultCartContext
   }

@@ -109,7 +109,7 @@ const restaurantSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ['Point'],
-        default: 'Point'
+        required: function() { return !!this.coordinates; }
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
@@ -563,6 +563,9 @@ restaurantSchema.pre('save', async function (next) {
         type: 'Point',
         coordinates: [lng, lat]
       };
+    } else {
+      // If no valid coordinates, ensure geoLocation is undefined to prevent index errors
+      this.geoLocation = undefined;
     }
   }
 

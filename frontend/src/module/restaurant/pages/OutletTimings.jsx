@@ -178,7 +178,7 @@ export default function OutletTimings() {
 
   const handleTimeChange = (day, timeType, newTime) => {
     if (!newTime) {
-      console.warn('⚠️ No time value received in handleTimeChange');
+      // console.warn('⚠️ No time value received in handleTimeChange');
       return;
     }
 
@@ -187,7 +187,7 @@ export default function OutletTimings() {
 
     // Validate time string format
     if (!timeString || !timeString.includes(":")) {
-      console.warn('⚠️ Invalid time string generated:', timeString);
+      // console.warn('⚠️ Invalid time string generated:', timeString);
       return;
     }
 

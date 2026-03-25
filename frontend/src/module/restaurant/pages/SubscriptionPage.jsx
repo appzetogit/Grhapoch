@@ -325,7 +325,7 @@ export default function SubscriptionPage() {
                 subscription_id: subscriptionId, // Changed from order_id to subscription_id
                 handler: async function (response) {
                     // 3. Verify Payment on Backend
-                    console.log('Razorpay payment response:', response);
+                    // console.log('Razorpay payment response:', response);
 
                     if (!response.razorpay_signature) {
                         toast.error('Payment signature missing. Please contact support.');

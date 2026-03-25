@@ -574,7 +574,7 @@ export default function RestaurantOnboarding() {
     const restaurantUser = JSON.parse(localStorage.getItem("restaurant_user") || "{}");
     const isGoogleAuth = restaurantUser?.signupMethod === "google";
 
-    console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
+    // console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
 
     if (token) {
       // Already authenticated from OTP screen; treat as full account (single-OTP flow)
@@ -589,7 +589,7 @@ export default function RestaurantOnboarding() {
     } else if (pending) {
       // Legacy pending data (older flow). Still allow but mark as prospect.
       const data = JSON.parse(pending);
-      console.log("Prospect identified - name:", data.name);
+      // console.log("Prospect identified - name:", data.name);
       setIsProspect(true);
       setPendingData(data);
       setStep1(prev => ({
@@ -601,7 +601,7 @@ export default function RestaurantOnboarding() {
         primaryContactNumber: stripCountryCode(prev.primaryContactNumber || data.phone || "")
       }));
     } else {
-      console.log("No auth token - redirecting to login");
+      // console.log("No auth token - redirecting to login");
       navigate("/restaurant/login", { replace: true });
     }
   }, [navigate]);
@@ -907,7 +907,7 @@ export default function RestaurantOnboarding() {
                   (err?.response?.data?.message?.includes("already completed") || 
                    err?.response?.data?.error?.includes("already completed"))) {
           // If backend says already completed, don't stay here
-          console.log("Onboarding already completed (403), redirecting to hub...");
+          // console.log("Onboarding already completed (403), redirecting to hub...");
           navigate("/restaurant/to-hub", { replace: true });
         } else {
           console.error("Error fetching onboarding data:", err);

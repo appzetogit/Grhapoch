@@ -138,6 +138,12 @@ router.post('/dining-activation/enable-free', authenticate, enableDiningWithoutP
 router.post('/dining-activation/create-order', authenticate, createDiningActivationOrder);
 router.post('/dining-activation/verify-payment', authenticate, verifyDiningActivationPayment);
 
+// Notification routes
+router.get('/notifications', authenticate, getNotifications);
+router.put('/notifications/mark-all-read', authenticate, markAllAsRead);
+router.put('/notifications/:id/mark-read', authenticate, markAsRead);
+router.delete('/notifications/:id', authenticate, deleteNotification);
+
 router.get('/:id', getRestaurantById);
 router.put('/profile', authenticate, updateRestaurantProfile);
 router.delete('/profile', authenticate, deleteRestaurantAccount);
@@ -147,11 +153,7 @@ router.post('/profile/menu-image', authenticate, uploadMiddleware.single('file')
 // Delivery status route (authenticated - for restaurant module)
 router.put('/delivery-status', authenticate, updateDeliveryStatus);
 
-// Notification routes
-router.get('/notifications', authenticate, getNotifications);
-router.put('/notifications/mark-all-read', authenticate, markAllAsRead);
-router.put('/notifications/:id/mark-read', authenticate, markAsRead);
-router.delete('/notifications/:id', authenticate, deleteNotification);
+
 
 // Outlet Timings routes
 router.use('/', outletTimingsRoutes);

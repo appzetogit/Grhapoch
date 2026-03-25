@@ -82,6 +82,7 @@ import uploadModuleRoutes from './routes/upload.index.js';
 import locationRoutes from './routes/location.routes.js';
 import heroBannerRoutes from './routes/heroBanner.index.js';
 import diningRoutes from './routes/diningRoutes.js';
+import { getNearbyRestaurants } from './controllers/restaurantController.js';
 
 
 // Validate required environment variables
@@ -410,6 +411,8 @@ app.get('/health', (req, res) => {
 app.use('/api', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/restaurant', restaurantRoutes);
+// Backward-compatible alias (plural) for nearby restaurants
+app.post('/api/restaurants/nearby', getNearbyRestaurants);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/payment', paymentRoutes);

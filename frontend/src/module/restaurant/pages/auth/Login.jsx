@@ -199,7 +199,11 @@ export default function RestaurantLogin() {
       setIsSending(true)
 
       // Call backend to send OTP for login
-      await restaurantAPI.sendOTP(fullPhone, "login")
+      const otpResponse = await restaurantAPI.sendOTP(fullPhone, "login")
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null
+      const otpGeneratedAt = Date.now()
 
       // Store auth data in sessionStorage for OTP page
       const authData = {
@@ -207,8 +211,28 @@ export default function RestaurantLogin() {
         phone: fullPhone,
         isSignUp: false,
         module: "restaurant",
+        otpGeneratedAt,
+        otpExpiresIn: otpExpiresIn || undefined,
+        otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+
+      // If a pending prospect record exists, enrich it with OTP expiry
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw)
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          }
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged))
+        } catch {
+          // Ignore storage errors
+        }
+      }
 
       // Navigate to OTP page
       navigate("/restaurant/otp")
@@ -279,7 +303,11 @@ export default function RestaurantLogin() {
       setIsSending(true)
 
       // Call backend API to send OTP via email
-      await restaurantAPI.sendOTP(null, "login", formData.email)
+      const otpResponse = await restaurantAPI.sendOTP(null, "login", formData.email)
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null
+      const otpGeneratedAt = Date.now()
 
       // Store auth data in sessionStorage for OTP page
       const authData = {
@@ -287,8 +315,28 @@ export default function RestaurantLogin() {
         email: formData.email,
         isSignUp: false,
         module: "restaurant",
+        otpGeneratedAt,
+        otpExpiresIn: otpExpiresIn || undefined,
+        otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+
+      // If a pending prospect record exists, enrich it with OTP expiry
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw)
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          }
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged))
+        } catch {
+          // Ignore storage errors
+        }
+      }
 
       // Navigate to OTP page
       navigate("/restaurant/otp")

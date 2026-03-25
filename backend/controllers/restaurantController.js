@@ -1,6 +1,6 @@
 import Restaurant from '../models/Restaurant.js';
 import Menu from '../models/Menu.js';
-import Zone from '../models/Zone.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinaryService.js';
 import { initializeCloudinary } from '../config/cloudinary.js';
@@ -9,90 +9,111 @@ import mongoose from 'mongoose';
 import { checkSubscriptionExpiry } from './subscriptionController.js';
 import BusinessSettings from '../models/BusinessSettings.js';
 
-/**
- * Check if a point is within a zone polygon using ray casting algorithm
- * @param {number} lat - Latitude
- * @param {number} lng - Longitude
- * @param {Array} zoneCoordinates - Zone coordinates array
- * @returns {boolean}
- */
-function isPointInZone(lat, lng, zoneCoordinates) {
-  if (!zoneCoordinates || zoneCoordinates.length < 3) return false;
+const parseNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
 
-  let inside = false;
-  for (let i = 0, j = zoneCoordinates.length - 1; i < zoneCoordinates.length; j = i++) {
-    const coordI = zoneCoordinates[i];
-    const coordJ = zoneCoordinates[j];
+const isValidLatitude = (lat) => Number.isFinite(lat) && lat >= -90 && lat <= 90;
+const isValidLongitude = (lng) => Number.isFinite(lng) && lng >= -180 && lng <= 180;
 
-    const xi = typeof coordI === 'object' ? coordI.latitude || coordI.lat : null;
-    const yi = typeof coordI === 'object' ? coordI.longitude || coordI.lng : null;
-    const xj = typeof coordJ === 'object' ? coordJ.latitude || coordJ.lat : null;
-    const yj = typeof coordJ === 'object' ? coordJ.longitude || coordJ.lng : null;
+const getGeoCoordinates = (payload) => {
+  const lat = parseNumber(payload?.lat ?? payload?.latitude);
+  const lng = parseNumber(payload?.lng ?? payload?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+};
 
-    if (xi === null || yi === null || xj === null || yj === null) continue;
+const resolveLngLatFromLocation = (location) => {
+  if (!location) return null;
 
-    const intersect = yi > lng !== yj > lng &&
-      lat < (xj - xi) * (lng - yi) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-/**
- * Check if a restaurant's location (pin) is within any active zone
- * @param {number} restaurantLat - Restaurant latitude
- * @param {number} restaurantLng - Restaurant longitude
- * @param {Array} activeZones - Array of active zones (cached)
- * @returns {boolean}
- */
-function isRestaurantInAnyZone(restaurantLat, restaurantLng, activeZones) {
-  if (!restaurantLat || !restaurantLng) return false;
-
-  for (const zone of activeZones) {
-    if (!zone.coordinates || zone.coordinates.length < 3) continue;
-
-    let isInZone = false;
-    if (typeof zone.containsPoint === 'function') {
-      isInZone = zone.containsPoint(restaurantLat, restaurantLng);
-    } else {
-      isInZone = isPointInZone(restaurantLat, restaurantLng, zone.coordinates);
-    }
-
-    if (isInZone) {
-      return true;
-    }
+  const lat = parseNumber(location.latitude ?? location.lat);
+  const lng = parseNumber(location.longitude ?? location.lng);
+  if (isValidLatitude(lat) && isValidLongitude(lng)) {
+    return [lng, lat];
   }
 
-  return false;
-}
-
-/**
- * Get restaurant's zoneId based on location
- * @param {number} restaurantLat - Restaurant latitude
- * @param {number} restaurantLng - Restaurant longitude
- * @param {Array} activeZones - Array of active zones
- * @returns {string|null} Zone ID or null
- */
-function getRestaurantZoneId(restaurantLat, restaurantLng, activeZones) {
-  if (!restaurantLat || !restaurantLng) return null;
-
-  for (const zone of activeZones) {
-    if (!zone.coordinates || zone.coordinates.length < 3) continue;
-
-    let isInZone = false;
-    if (typeof zone.containsPoint === 'function') {
-      isInZone = zone.containsPoint(restaurantLat, restaurantLng);
-    } else {
-      isInZone = isPointInZone(restaurantLat, restaurantLng, zone.coordinates);
+  const coords = location.coordinates;
+  if (Array.isArray(coords) && coords.length >= 2) {
+    const a = parseNumber(coords[0]);
+    const b = parseNumber(coords[1]);
+    if (isValidLongitude(a) && isValidLatitude(b)) {
+      return [a, b];
     }
-
-    if (isInZone) {
-      return zone._id.toString();
+    if (isValidLongitude(b) && isValidLatitude(a)) {
+      return [b, a];
     }
   }
 
   return null;
-}
+};
+
+const backfillGeoLocationForRestaurants = async (limit = 200) => {
+  const candidates = await Restaurant.find({
+    isActive: true,
+    $and: [
+      {
+        $or: [
+          { geoLocation: { $exists: false } },
+          { 'geoLocation.coordinates': { $exists: false } },
+          { 'geoLocation.coordinates.0': { $exists: false } }
+        ]
+      },
+      {
+        $or: [
+          { 'location.latitude': { $exists: true } },
+          { 'location.longitude': { $exists: true } },
+          { 'location.coordinates.0': { $exists: true } }
+        ]
+      }
+    ]
+  })
+    .select('_id location geoLocation')
+    .limit(limit)
+    .lean();
+
+  if (!candidates.length) return 0;
+
+  const ops = [];
+  for (const candidate of candidates) {
+    const coords = resolveLngLatFromLocation(candidate.location);
+    if (!coords) continue;
+
+    ops.push({
+      updateOne: {
+        filter: { _id: candidate._id },
+        update: {
+          $set: {
+            geoLocation: {
+              type: 'Point',
+              coordinates: coords
+            },
+            'location.longitude': coords[0],
+            'location.latitude': coords[1],
+            'location.coordinates': coords
+          }
+        }
+      }
+    });
+  }
+
+  if (!ops.length) return 0;
+  await Restaurant.bulkWrite(ops, { ordered: false });
+  return ops.length;
+};
+
+const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 // Get all restaurants (for user module)
 export const getRestaurants = async (req, res) => {
@@ -108,18 +129,9 @@ export const getRestaurants = async (req, res) => {
       maxPrice,
       hasOffers,
       isVeg,
-      zoneId // User's zone ID (optional - if provided, filters by zone)
+      lat,
+      lng
     } = req.query;
-
-    // Optional: Zone-based filtering - if zoneId is provided, validate and filter by zone
-    let userZone = null;
-    if (zoneId) {
-      // Validate zone exists and is active
-      userZone = await Zone.findById(zoneId).lean();
-      if (!userZone || !userZone.isActive) {
-        return errorResponse(res, 400, 'Invalid or inactive zone. Please detect your zone again.');
-      }
-    }
 
     // Build query
     const query = { isActive: true };
@@ -199,16 +211,34 @@ export const getRestaurants = async (req, res) => {
       }
     }
 
-    // Fetch restaurants - Show ALL restaurants regardless of zone
-    let restaurants = await Restaurant.find(query).
-      select('-owner -createdAt -updatedAt -password').
-      sort(sortObj).
-      limit(parseInt(limit)).
-      skip(parseInt(offset)).
-      lean();
+    const coords = getGeoCoordinates({ ...req.query, ...req.body, lat, lng });
+    if (coords) {
+      await backfillGeoLocationForRestaurants();
+      const settings = await ServiceSettings.getSettings();
+      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+      query.geoLocation = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [coords.lng, coords.lat]
+          },
+          $maxDistance: serviceRadiusKm * 1000
+        }
+      };
+    }
 
-    // Note: We show all restaurants regardless of zone. Zone-based filtering is removed.
-    // Users in any zone will see all restaurants.
+    // Fetch restaurants - zone dependency removed, optional nearby filtering by coordinates
+    let restaurantQuery = Restaurant.find(query)
+      .select('-owner -createdAt -updatedAt -password')
+      .limit(parseInt(limit))
+      .skip(parseInt(offset));
+
+    // If using geo-near and no explicit sortBy, keep natural distance sort
+    if (!coords || sortBy) {
+      restaurantQuery = restaurantQuery.sort(sortObj);
+    }
+
+    let restaurants = await restaurantQuery.lean();
 
     // Apply string-based filters that can't be done in MongoDB query
     if (maxDeliveryTime) {
@@ -229,15 +259,7 @@ export const getRestaurants = async (req, res) => {
       });
     }
 
-    // Get total count (before filtering by string fields)
-    const totalQuery = { ...query };
-    delete totalQuery.$or; // Remove $or for count
-    const total = await Restaurant.countDocuments(totalQuery);
-
-
-
-
-
+    // Note: total count not used in response to keep payload light
 
 
 
@@ -260,6 +282,149 @@ export const getRestaurants = async (req, res) => {
   } catch (error) {
     console.error('Error fetching restaurants:', error);
     return errorResponse(res, 500, 'Failed to fetch restaurants');
+  }
+};
+
+/**
+ * Get nearby restaurants based on coordinates
+ * POST /api/restaurant/nearby
+ * Body: { lat, lng }
+ */
+export const getNearbyRestaurants = async (req, res) => {
+  try {
+    const payload = { ...req.query, ...req.body };
+    const {
+      limit = 10000,
+      offset = 0,
+      sortBy,
+      cuisine,
+      minRating,
+      maxDeliveryTime,
+      maxDistance,
+      maxPrice,
+      hasOffers,
+      isVeg
+    } = payload;
+
+    const coords = getGeoCoordinates(payload);
+    if (!coords) {
+      return errorResponse(res, 400, 'Valid lat and lng are required');
+    }
+
+    await backfillGeoLocationForRestaurants();
+    const settings = await ServiceSettings.getSettings();
+    const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+
+    const query = { isActive: true };
+
+    if (cuisine) {
+      query.cuisines = { $in: [new RegExp(cuisine, 'i')] };
+    }
+
+    if (minRating) {
+      query.rating = { $gte: parseFloat(minRating) };
+    }
+
+    if (payload.topRated === 'true') {
+      query.rating = { $gte: 4.5 };
+    } else if (payload.trusted === 'true') {
+      query.rating = { $gte: 4.0 };
+      query.totalRatings = { $gte: 100 };
+    }
+
+    if (maxPrice) {
+      const priceMap = { 200: ['$'], 500: ['$', '$$'] };
+      if (priceMap[maxPrice]) {
+        query.priceRange = { $in: priceMap[maxPrice] };
+      }
+    }
+
+    if (hasOffers === 'true') {
+      if (!query.$or) {
+        query.$or = [];
+      }
+      query.$or.push(
+        { offer: { $exists: true, $ne: null, $ne: '' } },
+        { featuredPrice: { $exists: true } }
+      );
+    }
+
+    if (isVeg === 'true') {
+      query.$or = query.$or || [];
+      query.$or.push({ isVeg: true }, { isPureVeg: true });
+    }
+
+    // Nearby filter
+    query.geoLocation = {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [coords.lng, coords.lat]
+        },
+        $maxDistance: serviceRadiusKm * 1000
+      }
+    };
+
+    // Sort preference (distance is default with $near)
+    let sortObj = null;
+    if (sortBy) {
+      switch (sortBy) {
+        case 'price-low':
+          sortObj = { priceRange: 1, rating: -1 };
+          break;
+        case 'price-high':
+          sortObj = { priceRange: -1, rating: -1 };
+          break;
+        case 'rating-high':
+          sortObj = { rating: -1, totalRatings: -1 };
+          break;
+        case 'rating-low':
+          sortObj = { rating: 1, totalRatings: -1 };
+          break;
+        case 'relevance':
+        default:
+          sortObj = { rating: -1, totalRatings: -1, createdAt: -1 };
+          break;
+      }
+    }
+
+    let restaurantQuery = Restaurant.find(query)
+      .select('-owner -createdAt -updatedAt -password')
+      .limit(parseInt(limit))
+      .skip(parseInt(offset));
+
+    if (sortObj) {
+      restaurantQuery = restaurantQuery.sort(sortObj);
+    }
+
+    let restaurants = await restaurantQuery.lean();
+
+    if (maxDeliveryTime) {
+      const maxTime = parseInt(maxDeliveryTime);
+      restaurants = restaurants.filter((r) => {
+        if (!r.estimatedDeliveryTime) return false;
+        const timeMatch = r.estimatedDeliveryTime.match(/(\d+)/);
+        return timeMatch && parseInt(timeMatch[1]) <= maxTime;
+      });
+    }
+
+    if (maxDistance) {
+      const maxDist = parseFloat(maxDistance);
+      restaurants = restaurants.filter((r) => {
+        if (!r.distance) return false;
+        const distMatch = r.distance.match(/(\d+\.?\d*)/);
+        return distMatch && parseFloat(distMatch[1]) <= maxDist;
+      });
+    }
+
+    return successResponse(res, 200, 'Nearby restaurants retrieved successfully', {
+      restaurants,
+      total: restaurants.length,
+      serviceRadiusKm
+    });
+  } catch (error) {
+    console.error('Error fetching nearby restaurants:', error);
+    return errorResponse(res, 500, 'Failed to fetch nearby restaurants');
   }
 };
 
@@ -898,7 +1063,7 @@ export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
  */
 export const getRestaurantsWithDishesUnder250 = async (req, res) => {
   try {
-    const { zoneId } = req.query;
+    const { lat, lng } = req.query;
 
     const MAX_PRICE = 250;
 
@@ -991,10 +1156,27 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
       }
     };
 
-    let restaurants = await Restaurant.find({ isActive: true }).
-      select('-owner -createdAt -updatedAt').
-      lean().
-      limit(100);
+    const coords = getGeoCoordinates({ ...req.query, ...req.body, lat, lng });
+    const restaurantQuery = { isActive: true };
+    if (coords) {
+      await backfillGeoLocationForRestaurants();
+      const settings = await ServiceSettings.getSettings();
+      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+      restaurantQuery.geoLocation = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [coords.lng, coords.lat]
+          },
+          $maxDistance: serviceRadiusKm * 1000
+        }
+      };
+    }
+
+    let restaurants = await Restaurant.find(restaurantQuery)
+      .select('-owner -createdAt -updatedAt')
+      .lean()
+      .limit(100);
 
     const batchSize = 10;
     const restaurantsWithDishes = [];

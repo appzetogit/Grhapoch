@@ -8,7 +8,6 @@ import FoodTypeIcon from "../components/FoodTypeIcon";
 import StickyCartCard from "../components/StickyCartCard";
 import { useProfile } from "../context/ProfileContext";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 import { restaurantAPI, adminAPI } from "@/lib/api";
 
 // Import shared food images - prevents duplication
@@ -30,7 +29,7 @@ export default function SearchResults() {
   const query = searchParams.get("q") || "";
   const navigate = useNavigate();
   const { location } = useLocation();
-  const { zoneId, isOutOfService } = useZone(location);
+  const isOutOfService = false;
   const [searchQuery, setSearchQuery] = useState(query);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeFilters, setActiveFilters] = useState(new Set());
@@ -168,10 +167,10 @@ export default function SearchResults() {
       try {
         setLoadingRestaurants(true);
 
-        // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
         const params = {};
-        if (zoneId) {
-          params.zoneId = zoneId;
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude;
+          params.lng = location.longitude;
         }
         const response = await restaurantAPI.getRestaurants(params);
 
@@ -396,7 +395,7 @@ export default function SearchResults() {
     };
 
     fetchRestaurants();
-  }, [zoneId, isOutOfService]);
+  }, [location?.latitude, location?.longitude]);
 
   // Update search query when URL changes
   useEffect(() => {
@@ -654,7 +653,7 @@ export default function SearchResults() {
   }, [query, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories]);
 
   // Check if should show grayscale (user out of service)
-  const shouldShowGrayscale = isOutOfService;
+  const shouldShowGrayscale = false;
 
   return (
     <div className={`min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>

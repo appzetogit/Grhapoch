@@ -266,7 +266,43 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
 
-      await restaurantAPI.sendOTP(phone, purpose, email);
+      const otpResponse = await restaurantAPI.sendOTP(phone, purpose, email);
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn;
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null;
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null;
+      const otpGeneratedAt = Date.now();
+
+      const storedAuth = sessionStorage.getItem("restaurantAuthData");
+      if (storedAuth) {
+        try {
+          const parsed = JSON.parse(storedAuth);
+          const merged = {
+            ...parsed,
+            otpGeneratedAt,
+            otpExpiresIn: otpExpiresIn || parsed.otpExpiresIn,
+            otpExpiresInMs: otpExpiresInMs || parsed.otpExpiresInMs
+          };
+          sessionStorage.setItem("restaurantAuthData", JSON.stringify(merged));
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration");
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw);
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          };
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged));
+        } catch {
+          // Ignore storage errors
+        }
+      }
     } catch (err) {
       const message =
         err?.response?.data?.message ||

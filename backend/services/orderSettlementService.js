@@ -1,7 +1,6 @@
 import Order from '../models/Order.js';
 import OrderSettlement from '../models/OrderSettlement.js';
 import RestaurantCommission from '../models/RestaurantCommission.js';
-import DeliveryBoyCommission from '../models/DeliveryBoyCommission.js';
 import FeeSettings from '../models/FeeSettings.js';
 import Restaurant from '../models/Restaurant.js';
 import mongoose from 'mongoose';
@@ -137,33 +136,17 @@ export const calculateOrderSettlement = async (orderId) => {
     const distance = assignmentDistance ?? routeDistance;
 
     if (order.deliveryPartnerId && distance !== undefined && distance !== null) {
-      const deliveryCommission = await DeliveryBoyCommission.calculateCommission(distance);
-      const ruleCommission = deliveryCommission.commission || 0;
-      const ruleBreakdown = deliveryCommission.breakdown;
-
-      // Single source of truth:
-      // If customer delivery fee is captured at order-time, keep rider base+distance payout locked to it.
-      // Fallback to rule calculation only for legacy orders with missing deliveryFee.
-      const orderTimeDeliveryFee = Number(userPayment.deliveryFee) || 0;
-      const finalTotalBaseAndDist = orderTimeDeliveryFee > 0 ? orderTimeDeliveryFee : ruleCommission;
-      const ruleBasePayout = Number(ruleBreakdown.basePayout) || 0;
-      const finalBasePayout = Math.min(ruleBasePayout, finalTotalBaseAndDist);
-      const finalDistanceCommission = Math.max(0, finalTotalBaseAndDist - finalBasePayout);
-
-      // Get surge multiplier
-      const surgeMultiplier = order.assignmentInfo?.surgeMultiplier || 1;
-      const surgeAmount = 0; // Can be added here if surge logic is implemented
-
-      // Total Earning = finalTotalBaseAndDist + Surge + Tip
-      const deliveryPartnerTotal = finalTotalBaseAndDist + surgeAmount + userPayment.tip;
+      // Pay the rider exactly what the user paid for delivery (no base/distance split), plus tip.
+      const orderTimeDeliveryFee = Math.max(0, Number(userPayment.deliveryFee) || 0);
+      const deliveryPartnerTotal = orderTimeDeliveryFee + userPayment.tip;
 
       deliveryPartnerEarning = {
-        basePayout: Math.round(finalBasePayout * 100) / 100,
+        basePayout: Math.round(orderTimeDeliveryFee * 100) / 100,
         distance: distance,
-        commissionPerKm: ruleBreakdown.commissionPerKm,
-        distanceCommission: Math.round(finalDistanceCommission * 100) / 100,
-        surgeMultiplier: surgeMultiplier,
-        surgeAmount: surgeAmount,
+        commissionPerKm: null,
+        distanceCommission: 0,
+        surgeMultiplier: 1,
+        surgeAmount: 0,
         tip: userPayment.tip,
         totalEarning: Math.round(deliveryPartnerTotal * 100) / 100,
         status: 'pending'
@@ -180,12 +163,11 @@ export const calculateOrderSettlement = async (orderId) => {
 
     // Delivery Margin Calculation:
     // Admin collects: userPayment.deliveryFee
-    // Admin pays partner: (userPayment.deliveryFee + distanceCommission + surge)
-    // Margin = Collected - Paid = - (distanceCommission + surge)
-    // Note: This logic implies Admin subsidizes distance commission and surge.
+    // Admin pays partner: userPayment.deliveryFee (tip passes through)
+    // Margin on delivery fee = 0
 
     const deliveryPartnerBaseEarning = deliveryPartnerEarning.totalEarning - userPayment.tip;
-    const deliveryMargin = userPayment.deliveryFee - deliveryPartnerBaseEarning;
+    const deliveryMargin = 0;
 
     const adminCommission = Math.round(restaurantEarning.commission * 100) / 100;
     const adminPlatformFee = Math.round(userPayment.platformFee * 100) / 100;

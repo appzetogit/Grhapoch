@@ -508,12 +508,25 @@ export const restaurantAPI = {
 
   // Get all restaurants (for user module)
   getRestaurants: (params = {}) => {
+    const lat = Number(params?.lat ?? params?.latitude);
+    const lng = Number(params?.lng ?? params?.longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    if (hasCoords) {
+      const payload = { ...params, lat, lng };
+      return apiClient.post(API_ENDPOINTS.RESTAURANT.NEARBY, payload);
+    }
     return apiClient.get(API_ENDPOINTS.RESTAURANT.LIST, { params });
+  },
+  // Explicit nearby endpoint
+  getNearbyRestaurants: (payload = {}) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.NEARBY, payload);
   },
 
   // Get restaurants with dishes under ₹250
-  getRestaurantsUnder250: (zoneId) => {
-    const params = zoneId ? { zoneId } : {};
+  getRestaurantsUnder250: (params = {}) => {
+    if (typeof params !== 'object' || Array.isArray(params)) {
+      params = {};
+    }
     return apiClient.get(API_ENDPOINTS.RESTAURANT.UNDER_250, { params });
   },
 
@@ -1301,6 +1314,15 @@ export const adminAPI = {
 
   getPublicBusinessSettings: () => {
     return apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS + '/public');
+  },
+
+  // Service Area Settings
+  getServiceSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.SERVICE_SETTINGS);
+  },
+
+  updateServiceSettings: (data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.SERVICE_SETTINGS, data);
   },
 
   updateBusinessSettings: (data, files = {}) => {

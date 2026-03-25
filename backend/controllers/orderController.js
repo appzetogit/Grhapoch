@@ -2,7 +2,7 @@ import Order from '../models/Order.js';
 import Payment from '../models/Payment.js';
 import { createOrder as createRazorpayOrder, verifyPayment } from '../services/razorpayService.js';
 import Restaurant from '../models/Restaurant.js';
-import Zone from '../models/Zone.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
 import { calculateOrderPricing, normalizeCoordinates } from '../services/orderCalculationService.js';
@@ -36,6 +36,18 @@ const logger = winston.createLogger({
 const ACTIVE_ORDERS_RT_ROOT = 'active_orders';
 const ORDERS_TRACKING_RT_ROOT = 'orders';
 const sanitizeFirebaseKey = (value) => String(value || '').replace(/[.#$/\[\]]/g, '_');
+
+const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 const getOrderRealtimeTracking = async (order) => {
   const db = getFirebaseRealtimeDb();
@@ -215,7 +227,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // CRITICAL: Validate that restaurant's location (pin) is within an active zone
+    // Validate restaurant location is available
     const restaurantLat = restaurant.location?.latitude || restaurant.location?.coordinates?.[1];
     const restaurantLng = restaurant.location?.longitude || restaurant.location?.coordinates?.[0];
 
@@ -230,89 +242,39 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Check if restaurant is within any active zone
-    const activeZones = await Zone.find({ isActive: true }).lean();
-    let restaurantInZone = false;
-    let restaurantZone = null;
+    const userLat = address?.location?.latitude || address?.location?.coordinates?.[1];
+    const userLng = address?.location?.longitude || address?.location?.coordinates?.[0];
 
-    for (const zone of activeZones) {
-      if (!zone.coordinates || zone.coordinates.length < 3) continue;
+    if (Number.isFinite(Number(userLat)) && Number.isFinite(Number(userLng))) {
+      const settings = await ServiceSettings.getSettings();
+      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+      const distanceKm = calculateDistanceKm(Number(userLat), Number(userLng), restaurantLat, restaurantLng);
 
-      let isInZone = false;
-      if (typeof zone.containsPoint === 'function') {
-        isInZone = zone.containsPoint(restaurantLat, restaurantLng);
-      } else {
-        // Ray casting algorithm
-        let inside = false;
-        for (let i = 0, j = zone.coordinates.length - 1; i < zone.coordinates.length; j = i++) {
-          const coordI = zone.coordinates[i];
-          const coordJ = zone.coordinates[j];
-          const xi = typeof coordI === 'object' ? (coordI.latitude || coordI.lat) : null;
-          const yi = typeof coordI === 'object' ? (coordI.longitude || coordI.lng) : null;
-          const xj = typeof coordJ === 'object' ? (coordJ.latitude || coordJ.lat) : null;
-          const yj = typeof coordJ === 'object' ? (coordJ.longitude || coordJ.lng) : null;
-
-          if (xi === null || yi === null || xj === null || yj === null) continue;
-
-          const intersect = ((yi > restaurantLng) !== (yj > restaurantLng)) &&
-            (restaurantLat < (xj - xi) * (restaurantLng - yi) / (yj - yi) + xi);
-          if (intersect) inside = !inside;
-        }
-        isInZone = inside;
-      }
-
-      if (isInZone) {
-        restaurantInZone = true;
-        restaurantZone = zone;
-        break;
-      }
-    }
-
-    if (!restaurantInZone) {
-      logger.warn('⚠️ Restaurant location is not within any active zone:', {
-        restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-        restaurantName: restaurant.name,
-        restaurantLat,
-        restaurantLng
-      });
-      return res.status(403).json({
-        success: false,
-        message: 'This restaurant is not available in your area. Only restaurants within active delivery zones can receive orders.'
-      });
-    }
-
-    logger.info('✅ Restaurant validated - location is within active zone:', {
-      restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-      restaurantName: restaurant.name,
-      zoneId: restaurantZone?._id?.toString(),
-      zoneName: restaurantZone?.name || restaurantZone?.zoneName
-    });
-
-    // CRITICAL: Validate user's zone matches restaurant's zone (strict zone matching)
-    const { zoneId: userZoneId } = req.body; // User's zone ID from frontend
-
-    if (userZoneId) {
-      const restaurantZoneId = restaurantZone._id.toString();
-
-      if (restaurantZoneId !== userZoneId) {
-        logger.warn('⚠️ Zone mismatch - user and restaurant are in different zones:', {
-          userZoneId,
-          restaurantZoneId,
+      if (distanceKm > serviceRadiusKm) {
+        logger.warn('⚠️ Restaurant is outside service radius:', {
           restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-          restaurantName: restaurant.name
+          restaurantName: restaurant.name,
+          restaurantLat,
+          restaurantLng,
+          userLat,
+          userLng,
+          distanceKm,
+          serviceRadiusKm
         });
         return res.status(403).json({
           success: false,
-          message: 'This restaurant is not available in your zone. Please select a restaurant from your current delivery zone.'
+          message: 'This restaurant is not available in your area. Please select a restaurant within the service radius.'
         });
       }
 
-      logger.info('✅ Zone match validated - user and restaurant are in the same zone:', {
-        zoneId: userZoneId,
-        restaurantId: restaurant._id?.toString() || restaurant.restaurantId
+      logger.info('✅ Restaurant validated - within service radius:', {
+        restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
+        restaurantName: restaurant.name,
+        distanceKm,
+        serviceRadiusKm
       });
     } else {
-      logger.warn('⚠️ User zoneId not provided in order request - zone validation skipped');
+      logger.warn('⚠️ User delivery location missing - service radius validation skipped');
     }
 
     assignedRestaurantId = restaurant._id?.toString() || restaurant.restaurantId;

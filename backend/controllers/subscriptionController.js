@@ -289,9 +289,12 @@ export const activateSubscriptionTx = async ({
 
   const now = new Date(paymentDate || Date.now());
   const { startDate, endDate, isRenewing } = buildSubscriptionDates({ restaurant, plan, now });
-  // Require admin approval before restaurant becomes active
-  const requiresAdminApproval = true;
-  const nextSubscriptionStatus = 'pending_approval';
+  // Auto-approve only if restaurant is still awaiting onboarding approval
+  const shouldAutoApprove =
+    restaurant.isActive === false &&
+    !restaurant.rejectionReason &&
+    restaurant.onboarding?.status === 'pending_admin_approval';
+  const nextSubscriptionStatus = shouldAutoApprove ? 'active' : 'pending_approval';
 
   if (isRenewing) {
     appendRenewedHistory({ restaurant, now });
@@ -312,7 +315,13 @@ export const activateSubscriptionTx = async ({
     autoRenew: true
   };
   restaurant.businessModel = 'Subscription Base';
-  // Do not force deactivate here; keep current activation state.
+  if (shouldAutoApprove) {
+    restaurant.isActive = true;
+    if (restaurant.onboarding) {
+      restaurant.onboarding.status = 'approved';
+    }
+  }
+  // Do not force deactivate here; keep current activation state otherwise.
 
   // CRITICAL FIX: Normalize invalid accountType enum values that might prevent saving
   if (restaurant.onboarding?.step3?.bank?.accountType) {

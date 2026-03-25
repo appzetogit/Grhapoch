@@ -7,7 +7,6 @@ import { API_BASE_URL } from "@/lib/api/config";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "../../hooks/useLocation";
-import { useZone } from "../../hooks/useZone";
 import {
   ArrowLeft,
   Search,
@@ -56,7 +55,7 @@ export default function RestaurantDetails() {
   const { addToCart, updateQuantity, removeFromCart, getCartItem, cart } = useCart();
   const { vegMode, addDishFavorite, removeDishFavorite, isDishFavorite, getDishFavorites, getFavorites, addFavorite, removeFavorite, isFavorite } = useProfile();
   const { location: userLocation } = useLocation(); // Get user's current location
-  const { zoneId, zone, loading: loadingZone, isOutOfService } = useZone(userLocation); // Get user's zone for zone-based filtering
+  const isOutOfService = false;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [quantities, setQuantities] = useState({});
@@ -97,14 +96,9 @@ export default function RestaurantDetails() {
     const fetchRestaurant = async () => {
       if (!slug) return;
 
-      // Prevent re-fetching if we've already fetched for this slug and zoneId hasn't changed meaningfully
-      // Only re-fetch if slug changed or if we're waiting for zoneId and it just became available
+      // Prevent re-fetching if we've already fetched for this slug
       if (fetchedRestaurantRef.current && restaurant && restaurant.slug === slug) {
-        // Only re-fetch if zoneId changed from null to a value (zone just detected)
-        if (zoneId && !loadingZone) {
-          // Zone is available, but we already have restaurant data - don't re-fetch
-          return;
-        }
+        return;
       }
 
       try {
@@ -132,6 +126,8 @@ export default function RestaurantDetails() {
         } catch (initialError) {
           if (initialError.response?.status === 404) {
             try {
+              // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
+              // This doesn't require a zone, so it works even if location isn't detected
               try {
                 if (isObjectId) {
                   // Fallback for ObjectId: Try dining API just in case
@@ -147,24 +143,28 @@ export default function RestaurantDetails() {
                   }
                 }
               } catch (directLookupError) {
-                // If direct fallback fails, try searching by name (requires zoneId)
-                if (!zoneId) {
-                  // Fall through
-                } else {
-                  const searchParams = { limit: 100, zoneId: zoneId };
-                  const searchResponse = await restaurantAPI.getRestaurants(searchParams);
-                  const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
-                  const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-                  const matchingRestaurant = restaurants.find((r) =>
-                    r.slug === slug ||
-                    r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
-                    r.name?.toLowerCase() === restaurantName.toLowerCase()
-                  );
-                  if (matchingRestaurant) {
-                    const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
-                    if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
-                      apiRestaurant = fullResponse.data.data;
-                    }
+                // If direct lookup fails, try searching by name
+                const searchParams = { limit: 100 };
+                if (userLocation?.latitude && userLocation?.longitude) {
+                  searchParams.lat = userLocation.latitude;
+                  searchParams.lng = userLocation.longitude;
+                }
+                const searchResponse = await restaurantAPI.getRestaurants(searchParams);
+                const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
+
+                // Try to find by slug match or name match
+                const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+                const matchingRestaurant = restaurants.find((r) =>
+                  r.slug === slug ||
+                  r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
+                  r.name?.toLowerCase() === restaurantName.toLowerCase()
+                );
+
+                if (matchingRestaurant) {
+                  // Get full restaurant details by ID
+                  const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
+                  if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
+                    apiRestaurant = fullResponse.data.data;
                   }
                 }
               }
@@ -417,17 +417,12 @@ export default function RestaurantDetails() {
           let restaurantIdForMenu = transformedRestaurant.id;
 
           if (!restaurantIdForMenu) {
-
             try {
-              // CRITICAL: Only search if zoneId is available (zoneId is required by backend)
-              if (!zoneId) {
-                // console.warn('⚠️ User zone not available, cannot search restaurants. Menu may not load.');
-                // Continue without menu - restaurant details are still available
-                return;
+              const searchParams = { limit: 100 };
+              if (userLocation?.latitude && userLocation?.longitude) {
+                searchParams.lat = userLocation.latitude;
+                searchParams.lng = userLocation.longitude;
               }
-
-              // Include zoneId for zone-based filtering
-              const searchParams = { limit: 100, zoneId: zoneId };
               const searchResponse = await restaurantAPI.getRestaurants(searchParams);
               const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
 
@@ -439,15 +434,12 @@ export default function RestaurantDetails() {
               if (matchingRestaurant) {
                 restaurantIdForMenu = matchingRestaurant._id || matchingRestaurant.restaurantId || matchingRestaurant.id;
 
-
                 // Update the restaurant ID in state
                 setRestaurant((prev) => ({
                   ...prev,
                   id: restaurantIdForMenu,
                   restaurantId: restaurantIdForMenu
                 }));
-              } else {
-                // console.warn('⚠️ No matching restaurant found by name');
               }
             } catch (searchError) {
               console.error('❌ Error searching for restaurant:', searchError);
@@ -455,188 +447,181 @@ export default function RestaurantDetails() {
           }
 
           if (restaurantIdForMenu) {
-            try {
-              const [menuRes, invRes] = await Promise.allSettled([
-                restaurantAPI.getMenuByRestaurantId(restaurantIdForMenu),
-                restaurantAPI.getInventoryByRestaurantId(restaurantIdForMenu)
-              ]);
+              try {
+                const [menuRes, invRes] = await Promise.allSettled([
+                  restaurantAPI.getMenuByRestaurantId(restaurantIdForMenu),
+                  restaurantAPI.getInventoryByRestaurantId(restaurantIdForMenu)
+                ]);
 
-              // Handle Menu Response
-              if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
-                const menuSections = menuRes.value.data.data.menu.sections || [];
-                const uniqueRecommended = [];
-                const recommendedIds = new Set();
-                const seenGlobalIds = new Set();
+                // Handle Menu Response
+                if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
+                  const menuSections = menuRes.value.data.data.menu.sections || [];
+                  const uniqueRecommended = [];
+                  const recommendedIds = new Set();
+                  const seenGlobalIds = new Set();
 
-                // 1. Extract and deduplicate Recommended items first
-                menuSections.forEach((section) => {
-                  if (section.items && Array.isArray(section.items)) {
-                    section.items.forEach((item) => {
-                      if (item.isRecommended === true && item.isAvailable !== false) {
-                        const id = item.id || item._id;
-                        if (id && !recommendedIds.has(id)) {
-                          uniqueRecommended.push(item);
-                          recommendedIds.add(id);
-                        }
-                      }
-                    });
-                  }
-                  if (section.subsections && Array.isArray(section.subsections)) {
-                    section.subsections.forEach((subsection) => {
-                      if (subsection.items && Array.isArray(subsection.items)) {
-                        subsection.items.forEach((item) => {
-                          if (item.isRecommended === true && item.isAvailable !== false) {
-                            const id = item.id || item._id;
-                            if (id && !recommendedIds.has(id)) {
-                              uniqueRecommended.push(item);
-                              recommendedIds.add(id);
-                            }
+                  // 1. Extract and deduplicate Recommended items first
+                  menuSections.forEach((section) => {
+                    if (section.items && Array.isArray(section.items)) {
+                      section.items.forEach((item) => {
+                        if (item.isRecommended === true && item.isAvailable !== false) {
+                          const id = item.id || item._id;
+                          if (id && !recommendedIds.has(id)) {
+                            uniqueRecommended.push(item);
+                            recommendedIds.add(id);
                           }
-                        });
-                      }
-                    });
-                  }
-                });
+                        }
+                      });
+                    }
+                    if (section.subsections && Array.isArray(section.subsections)) {
+                      section.subsections.forEach((subsection) => {
+                        if (subsection.items && Array.isArray(subsection.items)) {
+                          subsection.items.forEach((item) => {
+                            if (item.isRecommended === true && item.isAvailable !== false) {
+                              const id = item.id || item._id;
+                              if (id && !recommendedIds.has(id)) {
+                                uniqueRecommended.push(item);
+                                recommendedIds.add(id);
+                              }
+                            }
+                          });
+                        }
+                      });
+                    }
+                  });
 
-                // 2. Map and deduplicate remaining items in sections, excluding those already seen (in Recommended or previous sections)
-                const finalMenuSections = menuSections.map(section => {
-                  const uniqueItems = [];
-                  
-                  if (section.items && Array.isArray(section.items)) {
-                    section.items.forEach(item => {
-                      const id = item.id || item._id;
-                      // Ensure unique across the ENTIRE menu
-                      if (id && !seenGlobalIds.has(id)) {
-                        uniqueItems.push(item);
-                        seenGlobalIds.add(id);
-                      }
-                    });
-                  }
+                  // 2. Map and deduplicate remaining items in sections, excluding those already seen (in Recommended or previous sections)
+                  const finalMenuSections = menuSections.map(section => {
+                    const uniqueItems = [];
 
-                  const updatedSubsections = (section.subsections || []).map(sub => {
-                    const uniqueSubItems = [];
-                    if (sub.items && Array.isArray(sub.items)) {
-                      sub.items.forEach(item => {
+                    if (section.items && Array.isArray(section.items)) {
+                      section.items.forEach(item => {
                         const id = item.id || item._id;
+                        // Ensure unique across the ENTIRE menu
                         if (id && !seenGlobalIds.has(id)) {
-                          uniqueSubItems.push(item);
+                          uniqueItems.push(item);
                           seenGlobalIds.add(id);
                         }
                       });
                     }
-                    return { ...sub, items: uniqueSubItems };
-                  });
 
-                  return {
-                    ...section,
-                    // Explicit flag to mark regular sections (used later to avoid relying on index === 0)
-                    isRecommendedSection: section.isRecommendedSection === true ? true : false,
-                    items: uniqueItems,
-                    subsections: updatedSubsections
-                  };
-                }).filter(section => 
-                  (section.items && section.items.length > 0) || 
-                  (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
-                );
+                    const updatedSubsections = (section.subsections || []).map(sub => {
+                      const uniqueSubItems = [];
+                      if (sub.items && Array.isArray(sub.items)) {
+                        sub.items.forEach(item => {
+                          const id = item.id || item._id;
+                          if (id && !seenGlobalIds.has(id)) {
+                            uniqueSubItems.push(item);
+                            seenGlobalIds.add(id);
+                          }
+                        });
+                      }
+                      return { ...sub, items: uniqueSubItems };
+                    });
 
-                const finalMenuWithRecommended = [];
-                
-                // Add Recommended section if it has items
-                if (uniqueRecommended.length > 0) {
-                  finalMenuWithRecommended.push({ 
-                    name: "Recommended for you", 
-                    items: uniqueRecommended, 
-                    subsections: [],
-                    isRecommendedSection: true
-                  });
+                    return {
+                      ...section,
+                      // Explicit flag to mark regular sections (used later to avoid relying on index === 0)
+                      isRecommendedSection: section.isRecommendedSection === true ? true : false,
+                      items: uniqueItems,
+                      subsections: updatedSubsections
+                    };
+                  }).filter(section =>
+                    (section.items && section.items.length > 0) ||
+                    (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
+                  );
+
+                  const finalMenuWithRecommended = [];
+
+                  // Add Recommended section if it has items
+                  if (uniqueRecommended.length > 0) {
+                    finalMenuWithRecommended.push({
+                      name: "Recommended for you",
+                      items: uniqueRecommended,
+                      subsections: [],
+                      isRecommendedSection: true
+                    });
+                  }
+
+                  // Add regular sections
+                  finalMenuWithRecommended.push(...finalMenuSections);
+
+                  setRestaurant((prev) => ({ ...prev, menuSections: finalMenuWithRecommended }));
+                  setExpandedSections(new Set([0, 1, 2]));
                 }
-                
-                // Add regular sections
-                finalMenuWithRecommended.push(...finalMenuSections);
 
-                setRestaurant((prev) => ({ ...prev, menuSections: finalMenuWithRecommended }));
-                setExpandedSections(new Set([0, 1, 2]));
+                // Handle Inventory Response
+                if (invRes.status === 'fulfilled' && invRes.value.data?.success && invRes.value.data?.data?.inventory) {
+                  const inventoryCategories = invRes.value.data.data.inventory.categories || [];
+                  const normalizedInventory = inventoryCategories.map((category, index) => ({
+                    id: category.id || `category-${index}`,
+                    name: category.name || "Unnamed Category",
+                    description: category.description || "",
+                    itemCount: category.itemCount ?? (category.items?.length || 0),
+                    inStock: category.inStock !== undefined ? category.inStock : true,
+                    items: Array.isArray(category.items) ? category.items.map((item) => ({
+                      id: String(item.id || Date.now() + Math.random()),
+                      name: item.name || "Unnamed Item",
+                      inStock: item.inStock !== undefined ? item.inStock : true,
+                      isVeg: item.isVeg !== undefined ? item.isVeg : true,
+                      stockQuantity: item.stockQuantity || "Unlimited",
+                      unit: item.unit || "piece",
+                      expiryDate: item.expiryDate || null,
+                      lastRestocked: item.lastRestocked || null
+                    })) : [],
+                    order: category.order !== undefined ? category.order : index
+                  }));
+
+                  setRestaurant((prev) => ({ ...prev, inventory: normalizedInventory }));
+                }
+              } catch (innerError) {
+                console.error('❌ Error fetching restaurant details (menu/inventory):', innerError);
               }
-
-              // Handle Inventory Response
-              if (invRes.status === 'fulfilled' && invRes.value.data?.success && invRes.value.data?.data?.inventory) {
-                const inventoryCategories = invRes.value.data.data.inventory.categories || [];
-                const normalizedInventory = inventoryCategories.map((category, index) => ({
-                  id: category.id || `category-${index}`,
-                  name: category.name || "Unnamed Category",
-                  description: category.description || "",
-                  itemCount: category.itemCount ?? (category.items?.length || 0),
-                  inStock: category.inStock !== undefined ? category.inStock : true,
-                  items: Array.isArray(category.items) ? category.items.map((item) => ({
-                    id: String(item.id || Date.now() + Math.random()),
-                    name: item.name || "Unnamed Item",
-                    inStock: item.inStock !== undefined ? item.inStock : true,
-                    isVeg: item.isVeg !== undefined ? item.isVeg : true,
-                    stockQuantity: item.stockQuantity || "Unlimited",
-                    unit: item.unit || "piece",
-                    expiryDate: item.expiryDate || null,
-                    lastRestocked: item.lastRestocked || null
-                  })) : [],
-                  order: category.order !== undefined ? category.order : index
-                }));
-
-                setRestaurant((prev) => ({ ...prev, inventory: normalizedInventory }));
-              }
-            } catch (innerError) {
-              console.error('❌ Error fetching restaurant details (menu/inventory):', innerError);
             }
+          } else {
+            console.error('❌ No restaurant data found in API response');
+            console.error('❌ Response:', response);
+            console.error('❌ apiRestaurant:', apiRestaurant);
+            setRestaurantError('Restaurant not found');
+            setRestaurant(null);
           }
-        } else {
-          console.error('❌ No restaurant data found in API response');
-          console.error('❌ Response:', response);
-          console.error('❌ apiRestaurant:', apiRestaurant);
-          setRestaurantError('Restaurant not found');
-          setRestaurant(null);
+        } catch (error) {
+          // Check if it's a network error (backend not running)
+          const isNetworkError = error.code === 'ERR_NETWORK' || error.message === 'Network Error';
+
+          // Check if it's a 404 error (restaurant doesn't exist)
+          const is404Error = error.response?.status === 404;
+
+          if (isNetworkError) {
+            // Network error - backend is not running
+            // Don't show "Restaurant not found" for network errors
+            // The axios interceptor will show a toast notification
+            console.error('Network error fetching restaurant (backend may not be running):', error);
+            setRestaurantError('Backend server is not connected. Please make sure the backend is running.');
+            setRestaurant(null);
+          } else if (is404Error) {
+            // 404 error - restaurant doesn't exist in database
+
+            setRestaurantError('Restaurant not found');
+            setRestaurant(null);
+          } else {
+            // Other errors
+            console.error('Error fetching restaurant:', error);
+            setRestaurantError(error.message || 'Failed to load restaurant');
+            setRestaurant(null);
+          }
+        } finally {
+          setLoadingRestaurant(false);
         }
-      } catch (error) {
-        // Check if it's a network error (backend not running)
-        const isNetworkError = error.code === 'ERR_NETWORK' || error.message === 'Network Error';
+      };
 
-        // Check if it's a 404 error (restaurant doesn't exist)
-        const is404Error = error.response?.status === 404;
-
-        if (isNetworkError) {
-          // Network error - backend is not running
-          // Don't show "Restaurant not found" for network errors
-          // The axios interceptor will show a toast notification
-          console.error('Network error fetching restaurant (backend may not be running):', error);
-          setRestaurantError('Backend server is not connected. Please make sure the backend is running.');
-          setRestaurant(null);
-        } else if (is404Error) {
-          // 404 error - restaurant doesn't exist in database
-
-          setRestaurantError('Restaurant not found');
-          setRestaurant(null);
-        } else {
-          // Other errors
-          console.error('Error fetching restaurant:', error);
-          setRestaurantError(error.message || 'Failed to load restaurant');
-          setRestaurant(null);
-        }
-      } finally {
-        setLoadingRestaurant(false);
+      // Reset fetched flag when slug changes
+      if (fetchedRestaurantRef.current && restaurant?.slug !== slug) {
+        fetchedRestaurantRef.current = false;
       }
-    };
 
-    // Reset fetched flag when slug changes
-    if (fetchedRestaurantRef.current && restaurant?.slug !== slug) {
-      fetchedRestaurantRef.current = false;
-    }
-
-    // Wait for zone to load before fetching (if zone-based search might be needed)
-    // But don't block if we're fetching by direct ID
-    if (loadingZone) {
-
-      return;
-    }
-
-    fetchRestaurant();
-  }, [slug, zoneId, loadingZone, restaurant?.slug]);
+      fetchRestaurant();
+    }, [slug, restaurant?.slug]);
 
   // Track previous values to prevent unnecessary recalculations
   const prevCoordsRef = useRef({ userLat: null, userLng: null, restaurantLat: null, restaurantLng: null });
@@ -975,10 +960,10 @@ export default function RestaurantDetails() {
     }) :
     [];
 
-  const [confirmModal, setConfirmModal] = useState({ 
-    isOpen: false, 
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
     type: null, // "restaurant" or "dish"
-    data: null 
+    data: null
   });
 
   const handleConfirmRemoval = () => {
@@ -3280,7 +3265,7 @@ export default function RestaurantDetails() {
         onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         onConfirm={handleConfirmRemoval}
         title={confirmModal.type === "restaurant" ? "Remove from favorites?" : "Remove from favorites?"}
-        message={confirmModal.type === "restaurant" 
+        message={confirmModal.type === "restaurant"
           ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"} from your favorites?`
           : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
         }

@@ -8,12 +8,14 @@ import TextReveal from "../../components/TextReveal"
 import { Card, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useProfile } from "../../context/ProfileContext"
+import { useLocation } from "../../hooks/useLocation"
 import { restaurantAPI } from "@/lib/api"
 import { toast } from "sonner"
 import ConfirmationModal from "../../components/ConfirmationModal"
 
 export default function Restaurants() {
   const { addFavorite, removeFavorite, isFavorite } = useProfile()
+  const { location } = useLocation()
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmModal, setConfirmModal] = useState({
@@ -24,7 +26,12 @@ export default function Restaurants() {
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await restaurantAPI.getRestaurants()
+        const params = {}
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude
+          params.lng = location.longitude
+        }
+        const response = await restaurantAPI.getRestaurants(params)
         if (response.data?.success) {
           // The API returns { success: true, data: { restaurants: [...], total: ... } }
           setRestaurants(response.data.data.restaurants || [])
@@ -37,7 +44,7 @@ export default function Restaurants() {
       }
     }
     fetchRestaurants()
-  }, [])
+  }, [location?.latitude, location?.longitude])
 
   const handleConfirmRemoval = () => {
     if (confirmModal.data) {

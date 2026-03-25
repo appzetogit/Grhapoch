@@ -33,6 +33,10 @@ import {
   updateBusinessSettings
 } from '../controllers/businessSettingsController.js';
 import {
+  getServiceSettings,
+  updateServiceSettings
+} from '../controllers/serviceSettingsController.js';
+import {
   getCategories,
   getCategoryById,
   createCategory,
@@ -498,6 +502,9 @@ router.put('/business-settings', uploadMiddleware.fields([
   { name: 'logo', maxCount: 1 },
   { name: 'favicon', maxCount: 1 }
 ]), updateBusinessSettings);
+// Service Radius Settings
+router.get('/service-settings', getServiceSettings);
+router.put('/service-settings', updateServiceSettings);
 router.get('/donations', getAllDonations);
 router.get('/tips', getAllTips);
 

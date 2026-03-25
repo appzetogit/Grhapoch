@@ -106,6 +106,11 @@ console.error = (...args) => {
     return; // Suppress browser extension errors
   }
 
+  // Suppress Google Maps Marker deprecation error if it logs as error
+  if (errorStr.includes('google.maps.Marker is deprecated')) {
+    return;
+  }
+
 
   // Suppress geolocation errors (non-critical, will retry or use fallback)
   if (
@@ -189,6 +194,21 @@ console.error = (...args) => {
   }
 
   originalError.apply(console, args);
+};
+
+// Suppress specific console.warns
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  const warnStr = args.join(' ');
+  // Suppress Google Maps Marker deprecation warning
+  if (warnStr.includes('google.maps.Marker is deprecated')) {
+    return;
+  }
+  // Suppress Google Maps performance warning
+  if (warnStr.includes('Google Maps JavaScript API has been loaded directly without loading=async')) {
+    return;
+  }
+  originalWarn.apply(console, args);
 };
 
 // Handle unhandled promise rejections

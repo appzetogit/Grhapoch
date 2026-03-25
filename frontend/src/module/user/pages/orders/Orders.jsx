@@ -357,8 +357,12 @@ export default function Orders() {
   // Handle reorder
   const handleReorder = (order) => {
     // Navigate to restaurant page or cart
-    if (order.restaurantId) {
-      navigate(`/user/restaurants/${order.restaurantId}`);
+    const resId = typeof order.restaurantId === 'object' && order.restaurantId !== null 
+      ? (order.restaurantId._id || order.restaurantId.id || order.restaurantId.restaurantId) 
+      : order.restaurantId;
+
+    if (resId) {
+      navigate(`/user/restaurants/${resId}`);
     } else {
       toast.info('Restaurant information not available');
     }

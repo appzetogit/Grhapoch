@@ -317,10 +317,12 @@ export default function Cart() {
             }
 
             if (!restaurantNameMatches) {
+              /* 
               console.warn('⚠️ WARNING: Restaurant name mismatch:', {
                 cartRestaurantName: cartRestaurantName,
                 fetchedRestaurantName: fetchedRestaurantName
               });
+              */
               // Still proceed but log warning
             }
 
@@ -336,7 +338,7 @@ export default function Cart() {
             return;
           }
         } catch (error) {
-          console.warn("⚠️ Failed to fetch by cart restaurantId, trying fallback...", error);
+          // console.warn("⚠️ Failed to fetch by cart restaurantId, trying fallback...", error);
         }
       }
 
@@ -393,13 +395,10 @@ export default function Cart() {
             setLoadingRestaurant(false);
             return;
           } else {
-            console.warn("⚠️ Restaurant not found even by name search. Searched in", restaurants.length, "restaurants");
-
-
-
+            // console.warn("⚠️ Restaurant not found even by name search. Searched in", restaurants.length, "restaurants");
           }
         } catch (searchError) {
-          console.warn("⚠️ Error searching restaurants by name:", searchError);
+          // console.warn("⚠️ Error searching restaurants by name:", searchError);
         }
       }
 
@@ -455,7 +454,7 @@ export default function Cart() {
 
 
         if (data.length === 0) {
-          console.warn("⚠️ No addons returned from API. Response:", response?.data);
+          // Addons empty is normal for many restaurants, no need to warn
         } else {
 
         }
@@ -497,7 +496,6 @@ export default function Cart() {
 
       // Must have restaurantData to fetch addons
       if (!restaurantData) {
-        console.warn("⚠️ No restaurantData available for addons fetch");
         setAddons([]);
         return;
       }

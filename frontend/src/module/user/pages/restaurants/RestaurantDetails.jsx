@@ -108,31 +108,42 @@ export default function RestaurantDetails() {
 
         let response = null;
         let apiRestaurant = null;
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
 
-        // Try dining API first
         try {
-          response = await diningAPI.getRestaurantBySlug(slug);
-          if (response.data && response.data.success && response.data.data) {
-            apiRestaurant = response.data.data;
-
+          // Main attempt depending on slug format
+          if (isObjectId) {
+            response = await restaurantAPI.getRestaurantById(slug);
+            if (response.data && response.data.success && response.data.data) {
+              apiRestaurant = response.data.data;
+            }
+          } else {
+            response = await diningAPI.getRestaurantBySlug(slug);
+            if (response.data && response.data.success && response.data.data) {
+              apiRestaurant = response.data.data;
+            }
           }
-        } catch (diningError) {
-          // If dining API fails with 404, try restaurant API
-          if (diningError.response?.status === 404) {
-
+        } catch (initialError) {
+          if (initialError.response?.status === 404) {
             try {
               // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
               // This doesn't require a zone, so it works even if location isn't detected
               try {
-                response = await restaurantAPI.getRestaurantById(slug);
-                if (response.data && response.data.success && response.data.data) {
-                  apiRestaurant = response.data.data;
-
+                if (isObjectId) {
+                  // Fallback for ObjectId: Try dining API just in case
+                  response = await diningAPI.getRestaurantBySlug(slug);
+                  if (response.data && response.data.success && response.data.data) {
+                    apiRestaurant = response.data.data;
+                  }
+                } else {
+                  // Fallback for Slug: Try delivery restaurant API
+                  response = await restaurantAPI.getRestaurantById(slug);
+                  if (response.data && response.data.success && response.data.data) {
+                    apiRestaurant = response.data.data;
+                  }
                 }
               } catch (directLookupError) {
                 // If direct lookup fails, try searching by name
-
-
                 const searchParams = { limit: 100 };
                 if (userLocation?.latitude && userLocation?.longitude) {
                   searchParams.lat = userLocation.latitude;
@@ -154,19 +165,17 @@ export default function RestaurantDetails() {
                   const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
                   if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
                     apiRestaurant = fullResponse.data.data;
-
                   }
                 }
               }
             } catch (restaurantError) {
-              console.error('❌ Restaurant not found in restaurant API either:', restaurantError);
-              // Only throw if we haven't found the restaurant yet
+              console.error('❌ Restaurant not found in fallback API either:', restaurantError);
               if (!apiRestaurant) {
-                throw diningError; // Throw original error to show "Restaurant not found"
+                throw initialError;
               }
             }
           } else {
-            throw diningError; // Re-throw if it's not a 404
+            throw initialError; // Not a 404 error
           }
         }
 
@@ -322,14 +331,7 @@ export default function RestaurantDetails() {
             }
 
           } else {
-            console.warn('⚠️ Cannot calculate distance - missing coordinates:', {
-              hasUserLocation: !!(userLat && userLng),
-              hasRestaurantLocation: !!(restaurantLat && restaurantLng),
-              userLat,
-              userLng,
-              restaurantLat,
-              restaurantLng
-            });
+
           }
 
           // Transform API data to match expected format with comprehensive fallbacks
@@ -415,7 +417,6 @@ export default function RestaurantDetails() {
           let restaurantIdForMenu = transformedRestaurant.id;
 
           if (!restaurantIdForMenu) {
-            console.warn('⚠️ No restaurant ID available, searching for restaurant by name...');
             try {
               const searchParams = { limit: 100 };
               if (userLocation?.latitude && userLocation?.longitude) {
@@ -433,15 +434,12 @@ export default function RestaurantDetails() {
               if (matchingRestaurant) {
                 restaurantIdForMenu = matchingRestaurant._id || matchingRestaurant.restaurantId || matchingRestaurant.id;
 
-
                 // Update the restaurant ID in state
                 setRestaurant((prev) => ({
                   ...prev,
                   id: restaurantIdForMenu,
                   restaurantId: restaurantIdForMenu
                 }));
-              } else {
-                console.warn('⚠️ No matching restaurant found by name');
               }
             } catch (searchError) {
               console.error('❌ Error searching for restaurant:', searchError);
@@ -449,181 +447,181 @@ export default function RestaurantDetails() {
           }
 
           if (restaurantIdForMenu) {
-            try {
-              const [menuRes, invRes] = await Promise.allSettled([
-                restaurantAPI.getMenuByRestaurantId(restaurantIdForMenu),
-                restaurantAPI.getInventoryByRestaurantId(restaurantIdForMenu)
-              ]);
+              try {
+                const [menuRes, invRes] = await Promise.allSettled([
+                  restaurantAPI.getMenuByRestaurantId(restaurantIdForMenu),
+                  restaurantAPI.getInventoryByRestaurantId(restaurantIdForMenu)
+                ]);
 
-              // Handle Menu Response
-              if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
-                const menuSections = menuRes.value.data.data.menu.sections || [];
-                const uniqueRecommended = [];
-                const recommendedIds = new Set();
-                const seenGlobalIds = new Set();
+                // Handle Menu Response
+                if (menuRes.status === 'fulfilled' && menuRes.value.data?.success && menuRes.value.data?.data?.menu) {
+                  const menuSections = menuRes.value.data.data.menu.sections || [];
+                  const uniqueRecommended = [];
+                  const recommendedIds = new Set();
+                  const seenGlobalIds = new Set();
 
-                // 1. Extract and deduplicate Recommended items first
-                menuSections.forEach((section) => {
-                  if (section.items && Array.isArray(section.items)) {
-                    section.items.forEach((item) => {
-                      if (item.isRecommended === true && item.isAvailable !== false) {
-                        const id = item.id || item._id;
-                        if (id && !recommendedIds.has(id)) {
-                          uniqueRecommended.push(item);
-                          recommendedIds.add(id);
-                        }
-                      }
-                    });
-                  }
-                  if (section.subsections && Array.isArray(section.subsections)) {
-                    section.subsections.forEach((subsection) => {
-                      if (subsection.items && Array.isArray(subsection.items)) {
-                        subsection.items.forEach((item) => {
-                          if (item.isRecommended === true && item.isAvailable !== false) {
-                            const id = item.id || item._id;
-                            if (id && !recommendedIds.has(id)) {
-                              uniqueRecommended.push(item);
-                              recommendedIds.add(id);
-                            }
+                  // 1. Extract and deduplicate Recommended items first
+                  menuSections.forEach((section) => {
+                    if (section.items && Array.isArray(section.items)) {
+                      section.items.forEach((item) => {
+                        if (item.isRecommended === true && item.isAvailable !== false) {
+                          const id = item.id || item._id;
+                          if (id && !recommendedIds.has(id)) {
+                            uniqueRecommended.push(item);
+                            recommendedIds.add(id);
                           }
-                        });
-                      }
-                    });
-                  }
-                });
+                        }
+                      });
+                    }
+                    if (section.subsections && Array.isArray(section.subsections)) {
+                      section.subsections.forEach((subsection) => {
+                        if (subsection.items && Array.isArray(subsection.items)) {
+                          subsection.items.forEach((item) => {
+                            if (item.isRecommended === true && item.isAvailable !== false) {
+                              const id = item.id || item._id;
+                              if (id && !recommendedIds.has(id)) {
+                                uniqueRecommended.push(item);
+                                recommendedIds.add(id);
+                              }
+                            }
+                          });
+                        }
+                      });
+                    }
+                  });
 
-                // 2. Map and deduplicate remaining items in sections, excluding those already seen (in Recommended or previous sections)
-                const finalMenuSections = menuSections.map(section => {
-                  const uniqueItems = [];
-                  
-                  if (section.items && Array.isArray(section.items)) {
-                    section.items.forEach(item => {
-                      const id = item.id || item._id;
-                      // Ensure unique across the ENTIRE menu
-                      if (id && !seenGlobalIds.has(id)) {
-                        uniqueItems.push(item);
-                        seenGlobalIds.add(id);
-                      }
-                    });
-                  }
+                  // 2. Map and deduplicate remaining items in sections, excluding those already seen (in Recommended or previous sections)
+                  const finalMenuSections = menuSections.map(section => {
+                    const uniqueItems = [];
 
-                  const updatedSubsections = (section.subsections || []).map(sub => {
-                    const uniqueSubItems = [];
-                    if (sub.items && Array.isArray(sub.items)) {
-                      sub.items.forEach(item => {
+                    if (section.items && Array.isArray(section.items)) {
+                      section.items.forEach(item => {
                         const id = item.id || item._id;
+                        // Ensure unique across the ENTIRE menu
                         if (id && !seenGlobalIds.has(id)) {
-                          uniqueSubItems.push(item);
+                          uniqueItems.push(item);
                           seenGlobalIds.add(id);
                         }
                       });
                     }
-                    return { ...sub, items: uniqueSubItems };
-                  });
 
-                  return {
-                    ...section,
-                    // Explicit flag to mark regular sections (used later to avoid relying on index === 0)
-                    isRecommendedSection: section.isRecommendedSection === true ? true : false,
-                    items: uniqueItems,
-                    subsections: updatedSubsections
-                  };
-                }).filter(section => 
-                  (section.items && section.items.length > 0) || 
-                  (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
-                );
+                    const updatedSubsections = (section.subsections || []).map(sub => {
+                      const uniqueSubItems = [];
+                      if (sub.items && Array.isArray(sub.items)) {
+                        sub.items.forEach(item => {
+                          const id = item.id || item._id;
+                          if (id && !seenGlobalIds.has(id)) {
+                            uniqueSubItems.push(item);
+                            seenGlobalIds.add(id);
+                          }
+                        });
+                      }
+                      return { ...sub, items: uniqueSubItems };
+                    });
 
-                const finalMenuWithRecommended = [];
-                
-                // Add Recommended section if it has items
-                if (uniqueRecommended.length > 0) {
-                  finalMenuWithRecommended.push({ 
-                    name: "Recommended for you", 
-                    items: uniqueRecommended, 
-                    subsections: [],
-                    isRecommendedSection: true
-                  });
+                    return {
+                      ...section,
+                      // Explicit flag to mark regular sections (used later to avoid relying on index === 0)
+                      isRecommendedSection: section.isRecommendedSection === true ? true : false,
+                      items: uniqueItems,
+                      subsections: updatedSubsections
+                    };
+                  }).filter(section =>
+                    (section.items && section.items.length > 0) ||
+                    (section.subsections && section.subsections.some(sub => sub.items && sub.items.length > 0))
+                  );
+
+                  const finalMenuWithRecommended = [];
+
+                  // Add Recommended section if it has items
+                  if (uniqueRecommended.length > 0) {
+                    finalMenuWithRecommended.push({
+                      name: "Recommended for you",
+                      items: uniqueRecommended,
+                      subsections: [],
+                      isRecommendedSection: true
+                    });
+                  }
+
+                  // Add regular sections
+                  finalMenuWithRecommended.push(...finalMenuSections);
+
+                  setRestaurant((prev) => ({ ...prev, menuSections: finalMenuWithRecommended }));
+                  setExpandedSections(new Set([0, 1, 2]));
                 }
-                
-                // Add regular sections
-                finalMenuWithRecommended.push(...finalMenuSections);
 
-                setRestaurant((prev) => ({ ...prev, menuSections: finalMenuWithRecommended }));
-                setExpandedSections(new Set([0, 1, 2]));
+                // Handle Inventory Response
+                if (invRes.status === 'fulfilled' && invRes.value.data?.success && invRes.value.data?.data?.inventory) {
+                  const inventoryCategories = invRes.value.data.data.inventory.categories || [];
+                  const normalizedInventory = inventoryCategories.map((category, index) => ({
+                    id: category.id || `category-${index}`,
+                    name: category.name || "Unnamed Category",
+                    description: category.description || "",
+                    itemCount: category.itemCount ?? (category.items?.length || 0),
+                    inStock: category.inStock !== undefined ? category.inStock : true,
+                    items: Array.isArray(category.items) ? category.items.map((item) => ({
+                      id: String(item.id || Date.now() + Math.random()),
+                      name: item.name || "Unnamed Item",
+                      inStock: item.inStock !== undefined ? item.inStock : true,
+                      isVeg: item.isVeg !== undefined ? item.isVeg : true,
+                      stockQuantity: item.stockQuantity || "Unlimited",
+                      unit: item.unit || "piece",
+                      expiryDate: item.expiryDate || null,
+                      lastRestocked: item.lastRestocked || null
+                    })) : [],
+                    order: category.order !== undefined ? category.order : index
+                  }));
+
+                  setRestaurant((prev) => ({ ...prev, inventory: normalizedInventory }));
+                }
+              } catch (innerError) {
+                console.error('❌ Error fetching restaurant details (menu/inventory):', innerError);
               }
-
-              // Handle Inventory Response
-              if (invRes.status === 'fulfilled' && invRes.value.data?.success && invRes.value.data?.data?.inventory) {
-                const inventoryCategories = invRes.value.data.data.inventory.categories || [];
-                const normalizedInventory = inventoryCategories.map((category, index) => ({
-                  id: category.id || `category-${index}`,
-                  name: category.name || "Unnamed Category",
-                  description: category.description || "",
-                  itemCount: category.itemCount ?? (category.items?.length || 0),
-                  inStock: category.inStock !== undefined ? category.inStock : true,
-                  items: Array.isArray(category.items) ? category.items.map((item) => ({
-                    id: String(item.id || Date.now() + Math.random()),
-                    name: item.name || "Unnamed Item",
-                    inStock: item.inStock !== undefined ? item.inStock : true,
-                    isVeg: item.isVeg !== undefined ? item.isVeg : true,
-                    stockQuantity: item.stockQuantity || "Unlimited",
-                    unit: item.unit || "piece",
-                    expiryDate: item.expiryDate || null,
-                    lastRestocked: item.lastRestocked || null
-                  })) : [],
-                  order: category.order !== undefined ? category.order : index
-                }));
-
-                setRestaurant((prev) => ({ ...prev, inventory: normalizedInventory }));
-              }
-            } catch (innerError) {
-              console.error('❌ Error fetching restaurant details (menu/inventory):', innerError);
             }
+          } else {
+            console.error('❌ No restaurant data found in API response');
+            console.error('❌ Response:', response);
+            console.error('❌ apiRestaurant:', apiRestaurant);
+            setRestaurantError('Restaurant not found');
+            setRestaurant(null);
           }
-        } else {
-          console.error('❌ No restaurant data found in API response');
-          console.error('❌ Response:', response);
-          console.error('❌ apiRestaurant:', apiRestaurant);
-          setRestaurantError('Restaurant not found');
-          setRestaurant(null);
+        } catch (error) {
+          // Check if it's a network error (backend not running)
+          const isNetworkError = error.code === 'ERR_NETWORK' || error.message === 'Network Error';
+
+          // Check if it's a 404 error (restaurant doesn't exist)
+          const is404Error = error.response?.status === 404;
+
+          if (isNetworkError) {
+            // Network error - backend is not running
+            // Don't show "Restaurant not found" for network errors
+            // The axios interceptor will show a toast notification
+            console.error('Network error fetching restaurant (backend may not be running):', error);
+            setRestaurantError('Backend server is not connected. Please make sure the backend is running.');
+            setRestaurant(null);
+          } else if (is404Error) {
+            // 404 error - restaurant doesn't exist in database
+
+            setRestaurantError('Restaurant not found');
+            setRestaurant(null);
+          } else {
+            // Other errors
+            console.error('Error fetching restaurant:', error);
+            setRestaurantError(error.message || 'Failed to load restaurant');
+            setRestaurant(null);
+          }
+        } finally {
+          setLoadingRestaurant(false);
         }
-      } catch (error) {
-        // Check if it's a network error (backend not running)
-        const isNetworkError = error.code === 'ERR_NETWORK' || error.message === 'Network Error';
+      };
 
-        // Check if it's a 404 error (restaurant doesn't exist)
-        const is404Error = error.response?.status === 404;
-
-        if (isNetworkError) {
-          // Network error - backend is not running
-          // Don't show "Restaurant not found" for network errors
-          // The axios interceptor will show a toast notification
-          console.error('Network error fetching restaurant (backend may not be running):', error);
-          setRestaurantError('Backend server is not connected. Please make sure the backend is running.');
-          setRestaurant(null);
-        } else if (is404Error) {
-          // 404 error - restaurant doesn't exist in database
-
-          setRestaurantError('Restaurant not found');
-          setRestaurant(null);
-        } else {
-          // Other errors
-          console.error('Error fetching restaurant:', error);
-          setRestaurantError(error.message || 'Failed to load restaurant');
-          setRestaurant(null);
-        }
-      } finally {
-        setLoadingRestaurant(false);
+      // Reset fetched flag when slug changes
+      if (fetchedRestaurantRef.current && restaurant?.slug !== slug) {
+        fetchedRestaurantRef.current = false;
       }
-    };
 
-    // Reset fetched flag when slug changes
-    if (fetchedRestaurantRef.current && restaurant?.slug !== slug) {
-      fetchedRestaurantRef.current = false;
-    }
-
-    fetchRestaurant();
-  }, [slug, restaurant?.slug]);
+      fetchRestaurant();
+    }, [slug, restaurant?.slug]);
 
   // Track previous values to prevent unnecessary recalculations
   const prevCoordsRef = useRef({ userLat: null, userLng: null, restaurantLat: null, restaurantLng: null });
@@ -962,10 +960,10 @@ export default function RestaurantDetails() {
     }) :
     [];
 
-  const [confirmModal, setConfirmModal] = useState({ 
-    isOpen: false, 
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
     type: null, // "restaurant" or "dish"
-    data: null 
+    data: null
   });
 
   const handleConfirmRemoval = () => {
@@ -3267,7 +3265,7 @@ export default function RestaurantDetails() {
         onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         onConfirm={handleConfirmRemoval}
         title={confirmModal.type === "restaurant" ? "Remove from favorites?" : "Remove from favorites?"}
-        message={confirmModal.type === "restaurant" 
+        message={confirmModal.type === "restaurant"
           ? `Are you sure you want to remove ${confirmModal.data?.name || "this restaurant"} from your favorites?`
           : `Are you sure you want to remove ${confirmModal.data?.name || "this dish"} from your favorites?`
         }

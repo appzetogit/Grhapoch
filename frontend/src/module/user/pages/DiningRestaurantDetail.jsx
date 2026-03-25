@@ -235,7 +235,7 @@ export default function DiningRestaurantDetail() {
         toast.success("Your table booking request has been sent to the restaurant");
       }
     } catch (error) {
-      console.error(error);
+
       toast.error(error.response?.data?.message || "Failed to confirm booking.");
     } finally {
       setBookingLoading(false);

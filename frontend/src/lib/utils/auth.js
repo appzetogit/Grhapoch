@@ -235,9 +235,10 @@ export function setAuthData(module, token, user) {
     if (module === 'user' || module === 'delivery' || module === 'restaurant') {
       import('../pushNotificationService.js')
         .then(({ registerFCMToken }) => registerFCMToken(module, true))
-        .catch((err) => console.warn('[FCM] Post-login token registration failed (non-critical):', err.message));
+        .catch((err) => { 
+          // console.warn('[FCM] Post-login token registration failed (non-critical):', err.message)
+        });
     }
-
   } catch (error) {
     // If quota exceeded, try to clear some space
     if (error.name === 'QuotaExceededError' || error.code === 22) {

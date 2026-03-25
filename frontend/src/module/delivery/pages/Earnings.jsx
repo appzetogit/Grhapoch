@@ -254,7 +254,6 @@ export default function Earnings() {
             updateTodayEarnings(summary.totalEarnings || 0)
           }
         } else {
-          console.error('Failed to fetch earnings:', response.data)
           toast.error('Failed to fetch earnings')
           // Set zero data on error
           setEarningsData({
@@ -268,7 +267,6 @@ export default function Earnings() {
           })
         }
       } catch (error) {
-        console.error('Error fetching earnings:', error)
         toast.error(error.response?.data?.message || 'Failed to fetch earnings')
         // Set zero data on error
         setEarningsData({

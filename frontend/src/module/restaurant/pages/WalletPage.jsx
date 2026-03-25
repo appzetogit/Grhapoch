@@ -26,6 +26,7 @@ import {
   fetchWalletData,
   calculateBalances,
   createWithdrawRequest,
+  getBalanceAdjusted,
 } from "../utils/walletState"
 import { formatCurrency } from "../utils/currency"
 

@@ -213,13 +213,6 @@ export default function PocketPage() {
         }
       } catch (error) {
         if (error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
-          if (error.code === 'ERR_NETWORK') {
-            console.warn('Active offers: network error. Ensure backend is running and CORS allows /api/delivery.');
-          } else if (error.response) {
-            console.warn('Active offers fetch failed:', error.response.status, error.response?.data?.message || error.response?.data);
-          } else {
-            console.warn('Active offers fetch failed:', error.message);
-          }
         }
         setActiveEarningAddon(null);
       } finally {

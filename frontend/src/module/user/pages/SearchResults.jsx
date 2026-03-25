@@ -382,13 +382,7 @@ export default function SearchResults() {
 
           setRestaurantsData(transformedRestaurants);
         } else {
-          console.warn('⚠️ No restaurants in API response. Response structure:', {
-            hasData: !!response.data,
-            hasSuccess: response.data?.success,
-            hasDataField: !!response.data?.data,
-            hasRestaurants: !!response.data?.data?.restaurants,
-            fullResponse: response.data
-          });
+          // No restaurants found in API response
           setRestaurantsData([]);
         }
       } catch (error) {

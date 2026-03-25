@@ -161,7 +161,7 @@ export async function registerFCMToken(role, forceUpdate = false) {
         // Skip if already registered this session (unless forced)
         const cached = localStorage.getItem(storageKey);
         if (cached && !forceUpdate) {
-            console.log(`[FCM] Token already registered for ${role}`);
+            // console.log(`[FCM] Token already registered for ${role}`);
             return cached;
         }
 
@@ -184,7 +184,6 @@ export async function registerFCMToken(role, forceUpdate = false) {
 
         // 4. Skip backend call if token hasn't changed
         if (token === cached && !forceUpdate) {
-            console.log('[FCM] FCM token unchanged – no backend update needed');
             return token;
         }
 
@@ -192,7 +191,7 @@ export async function registerFCMToken(role, forceUpdate = false) {
         const saved = await saveTokenToBackend(role, token);
         if (saved) {
             localStorage.setItem(storageKey, token);
-            console.log(`[FCM] Token registered for ${role}`);
+            // console.log(`[FCM] Token registered for ${role}`);
         }
 
         return token;
@@ -229,7 +228,7 @@ export async function removeFCMToken(role) {
         }
 
         localStorage.removeItem(storageKey);
-        console.log(`[FCM] Token removed for ${role}`);
+        // console.log(`[FCM] Token removed for ${role}`);
     } catch (error) {
         console.warn('[FCM] removeFCMToken error (non-critical):', error.message);
     }
@@ -250,15 +249,12 @@ export async function setupForegroundNotificationHandler(onNotification) {
 
         const { onMessage } = await import('firebase/messaging');
         const unsubscribe = onMessage(messaging, (payload) => {
-            console.log('[FCM] Foreground message received:', payload);
-
             const data = payload.data || {};
             const notification = payload.notification || {};
             const tag = data.tag || `fg_${Date.now()}`;
 
             // Suppress duplicates (same tag within TTL window)
             if (isForegroundDuplicate(tag)) {
-                console.log('[FCM] Foreground duplicate suppressed, tag:', tag);
                 return;
             }
 

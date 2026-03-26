@@ -75,6 +75,16 @@ const buildSubscriptionDates = ({ restaurant, plan, now = new Date() }) => {
   return { startDate, endDate, isRenewing };
 };
 
+const enableDiningForSubscription = (restaurant, now = new Date()) => {
+  if (!restaurant || restaurant.diningEnabled) return;
+  restaurant.diningRequested = true;
+  restaurant.diningStatus = 'Payment Successful';
+  restaurant.diningEnabled = true;
+  restaurant.diningActivationPaid = false;
+  restaurant.diningActivationAmount = 0;
+  restaurant.diningActivationDate = now;
+};
+
 const appendRenewedHistory = ({ restaurant, now }) => {
   if (!restaurant.subscription) return;
   if (!restaurant.subscriptionHistory) {
@@ -315,6 +325,9 @@ export const activateSubscriptionTx = async ({
     autoRenew: true
   };
   restaurant.businessModel = 'Subscription Base';
+  if (nextSubscriptionStatus === 'active') {
+    enableDiningForSubscription(restaurant, now);
+  }
   if (shouldAutoApprove) {
     restaurant.isActive = true;
     if (restaurant.onboarding) {
@@ -1344,6 +1357,12 @@ export const updateSubscriptionStatus = async (req, res) => {
       // Admin-only path: activating subscription can flip isActive on
       // Admin manual update can activate; leave isActive untouched unless explicitly set
       updateFields['businessModel'] = 'Subscription Base';
+      updateFields['diningEnabled'] = true;
+      updateFields['diningRequested'] = true;
+      updateFields['diningStatus'] = 'Payment Successful';
+      updateFields['diningActivationPaid'] = false;
+      updateFields['diningActivationAmount'] = 0;
+      updateFields['diningActivationDate'] = new Date();
 
     } else if (status === 'inactive' || status === 'expired') {
       updateFields['businessModel'] = 'Commission Base';

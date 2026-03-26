@@ -290,72 +290,71 @@ export default function Dining() {
 
   return (
     <AnimatedPage className="bg-white dark:bg-[#0a0a0a]" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
-      {/* Unified Navbar & Hero Section */}
-      <div
-        className="relative w-full overflow-hidden min-h-[39vh] lg:min-h-[50vh] md:pt-16 cursor-pointer"
-        onClick={() => navigate('/user/dining/restaurants')}
-      >
-        {/* Background with dining banner */}
-        <div className="absolute top-0 left-0 right-0 bottom-0 z-0">
-          {diningHeroBanner && (
-            <OptimizedImage
-              src={diningHeroBanner}
-              alt="Dining Banner"
-              className="w-full h-full"
-              objectFit="cover"
-              priority={true}
-              sizes="100vw"
-            />
-          )}
-        </div>
-
+      {/* Fixed Header (Location + Search) */}
+      <div className="bg-white dark:bg-[#0a0a0a] pb-4 sticky top-0 z-40">
         {/* Navbar */}
         <div className="relative z-20 pt-2 sm:pt-3 lg:pt-4 md:hidden">
           <PageNavbar
-            textColor="white"
+            textColor="black"
             zIndex={20}
             onNavClick={(e) => e.stopPropagation()}
           />
         </div>
 
-        {/* Hero Section with Search */}
-        <section
-          className="relative z-20 w-full py-4 sm:py-6 md:py-8"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="relative z-20 w-full px-3 sm:px-6 lg:px-8">
-            {/* Search Bar Container */}
-            <div className="z-20">
-              {/* Enhanced Search Bar Trigger */}
-              <motion.div
-                className="w-full relative max-w-4xl mx-auto cursor-pointer focus:outline-none"
-                whileHover={{ scale: 1.01 }}
-                onClick={() => openSearch()}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              >
-                <div className="relative bg-white dark:bg-[#1a1a1a] rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-1 sm:p-1.5 transition-all duration-300 hover:shadow-xl">
-                  <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 h-8 sm:h-9 lg:h-11">
-                    <Search className="h-4 w-4 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-green-500 flex-shrink-0 ml-2 sm:ml-3 lg:ml-4" strokeWidth={2.5} />
-                    <div className="flex-1 relative h-full flex items-center">
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={placeholderIndex}
-                          initial={{ y: 16, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          exit={{ y: -16, opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="text-sm sm:text-base lg:text-lg font-semibold text-gray-400 dark:text-gray-500 inline-block pointer-events-none"
-                        >
-                          {activePlaceholders[placeholderIndex]}
-                        </motion.span>
-                      </AnimatePresence>
-                    </div>
+        {/* Search Bar */}
+        <div className="relative z-20 w-full pt-3 sm:pt-4 pb-2">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+            <motion.div
+              className="w-full relative cursor-pointer focus:outline-none"
+              whileHover={{ scale: 1.01 }}
+              onClick={() => openSearch()}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+              <div className="relative bg-gray-100 dark:bg-[#1a1a1a] rounded-xl lg:rounded-2xl border border-transparent hover:border-gray-300 dark:hover:border-gray-700 hover:bg-white dark:hover:bg-black p-1 sm:p-1.5 lg:p-2 transition-all duration-300">
+                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 h-8 sm:h-9 lg:h-11">
+                  <Search className="h-4 w-4 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-gray-500 flex-shrink-0 ml-2 sm:ml-3 lg:ml-4" strokeWidth={2.5} />
+                  <div className="flex-1 relative h-full flex items-center">
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={placeholderIndex}
+                        initial={{ y: 16, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -16, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="text-sm sm:text-base lg:text-lg font-semibold text-gray-400 dark:text-gray-500 inline-block pointer-events-none"
+                      >
+                        {activePlaceholders[placeholderIndex]}
+                      </motion.span>
+                    </AnimatePresence>
                   </div>
                 </div>
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
-      </section>
+      </div>
+
+      {/* Dining Banner (Aligned after header) */}
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 mt-4 sm:mt-6">
+        <div
+          className="relative w-full overflow-hidden min-h-[30vh] lg:min-h-[40vh] rounded-2xl sm:rounded-3xl shadow-sm ring-1 ring-black/5 cursor-pointer"
+          onClick={() => navigate('/user/dining/restaurants')}
+        >
+          {/* Background with dining banner */}
+          <div className="absolute top-0 left-0 right-0 bottom-0 z-0">
+            {diningHeroBanner && (
+              <OptimizedImage
+                src={diningHeroBanner}
+                alt="Dining Banner"
+                className="w-full h-full"
+                objectFit="cover"
+                priority={true}
+                sizes="100vw"
+              />
+            )}
+          </div>
+          <div className="relative z-10 w-full h-full" />
+        </div>
       </div>
 
       {/* Content */}

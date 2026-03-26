@@ -546,27 +546,32 @@ restaurantSchema.pre('save', async function (next) {
     }
   }
 
-  // Sync geoLocation from location coordinates if available
-  if (this.location) {
-    const lng = Number.isFinite(Number(this.location.longitude)) ?
-      Number(this.location.longitude) :
-      Number(this.location.coordinates?.[0]);
-    const lat = Number.isFinite(Number(this.location.latitude)) ?
-      Number(this.location.latitude) :
-      Number(this.location.coordinates?.[1]);
+  // Sync geoLocation from location coordinates if available.
+  // If neither location nor geoLocation has valid coordinates, unset geoLocation
+  // so 2dsphere index does not error on empty Point.
+  const locationLng = this.location && Number.isFinite(Number(this.location.longitude)) ?
+    Number(this.location.longitude) :
+    Number(this.location?.coordinates?.[0]);
+  const locationLat = this.location && Number.isFinite(Number(this.location.latitude)) ?
+    Number(this.location.latitude) :
+    Number(this.location?.coordinates?.[1]);
+  const hasValidLocationCoords = Number.isFinite(locationLat) && Number.isFinite(locationLng);
 
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      if (!this.location.coordinates || this.location.coordinates.length < 2) {
-        this.location.coordinates = [lng, lat];
-      }
-      this.geoLocation = {
-        type: 'Point',
-        coordinates: [lng, lat]
-      };
-    } else {
-      // If no valid coordinates, ensure geoLocation is undefined to prevent index errors
-      this.geoLocation = undefined;
+  const geoCoords = this.geoLocation?.coordinates;
+  const geoLng = Number.isFinite(Number(geoCoords?.[0])) ? Number(geoCoords[0]) : null;
+  const geoLat = Number.isFinite(Number(geoCoords?.[1])) ? Number(geoCoords[1]) : null;
+  const hasValidGeoCoords = Number.isFinite(geoLng) && Number.isFinite(geoLat);
+
+  if (hasValidLocationCoords) {
+    if (!this.location.coordinates || this.location.coordinates.length < 2) {
+      this.location.coordinates = [locationLng, locationLat];
     }
+    this.geoLocation = {
+      type: 'Point',
+      coordinates: [locationLng, locationLat]
+    };
+  } else if (!hasValidGeoCoords) {
+    this.geoLocation = undefined;
   }
 
   next();

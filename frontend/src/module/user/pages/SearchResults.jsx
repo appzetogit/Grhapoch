@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, Loader2, Utensils } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -692,6 +692,7 @@ export default function SearchResults() {
             
           {categories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
+              const isAllCategory = cat.id === "all";
               return (
                 <button
                   key={cat.id}
@@ -700,7 +701,13 @@ export default function SearchResults() {
                   isSelected ? 'border-b-2 border-green-600' : ''}`
                   }>
                   
-                {cat.image ?
+                {isAllCategory ? (
+                  <div className={`w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 transition-all ${
+                  isSelected ? 'border-green-600 dark:border-green-500 shadow-lg bg-green-50 dark:bg-green-900/20' : 'border-transparent'}` 
+                  }>
+                    <Utensils className={`h-7 w-7 ${isSelected ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                  </div>
+                ) : cat.image ?
                   <div className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${
                   isSelected ? 'border-green-600 dark:border-green-500 shadow-lg' : 'border-transparent'}`
                   }>

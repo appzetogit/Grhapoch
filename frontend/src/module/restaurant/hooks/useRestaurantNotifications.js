@@ -116,6 +116,7 @@ export const useRestaurantNotifications = () => {
         suggestedBackendUrl = `${frontendProtocol}//api.${frontendHost}/api`;
       }
 
+      /*
       console.error('❌ CRITICAL: BLOCKING Socket.IO connection to localhost!');
       console.error('💡 This means VITE_API_BASE_URL was not set during build time');
       console.error('💡 Current backendUrl:', backendUrl);
@@ -135,6 +136,7 @@ export const useRestaurantNotifications = () => {
       }
       console.error('💡 Note: Vite environment variables are embedded at BUILD TIME, not runtime');
       console.error('💡 You must rebuild and redeploy the frontend with correct VITE_API_BASE_URL');
+      */
 
       // Clean up any existing socket connection
       if (socketRef.current) {
@@ -150,9 +152,7 @@ export const useRestaurantNotifications = () => {
 
     // Validate backend URL format
     if (!backendUrl || !backendUrl.startsWith('http')) {
-      console.error('❌ CRITICAL: Invalid backend URL format:', backendUrl);
-      console.error('💡 API_BASE_URL:', API_BASE_URL);
-      console.error('💡 Expected format: https://your-domain.com or http://localhost:5000');
+      // console.error('❌ CRITICAL: Invalid backend URL format:', backendUrl);
       setIsConnected(false);
       return; // Don't try to connect with invalid URL
     }
@@ -172,10 +172,7 @@ export const useRestaurantNotifications = () => {
         return;
       }
     } catch (urlError) {
-      console.error('❌ CRITICAL: Invalid Socket.IO URL:', socketUrl);
-      console.error('💡 URL validation error:', urlError.message);
-      console.error('💡 Backend URL:', backendUrl);
-      console.error('💡 API_BASE_URL:', API_BASE_URL);
+      // console.error('❌ CRITICAL: Invalid Socket.IO URL:', socketUrl);
       setIsConnected(false);
       return; // Don't try to connect with invalid URL
     }
@@ -228,7 +225,7 @@ export const useRestaurantNotifications = () => {
 
         joinRoom();
       } else {
-        console.warn('⚠️ Cannot join restaurant room: restaurantId is missing');
+        // console.warn('⚠️ Cannot join restaurant room: restaurantId is missing');
       }
     });
 

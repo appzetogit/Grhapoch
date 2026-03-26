@@ -172,7 +172,7 @@ export default function EditRestaurantAddress() {
 
               }
             } catch (error) {
-              console.warn("⚠️ Failed to fetch formattedAddress, using existing:", error);
+              // console.warn("⚠️ Failed to fetch formattedAddress, using existing:", error);
             }
           }
 

@@ -169,11 +169,14 @@ export default function EditOwner() {
       };
 
       // If profile image was uploaded, include it
-
-
-
-
-
+      if (profileImageFile && formData.photo) {
+        // formData.photo was updated with the object from imageData in the previous step
+        // However, looking at the code above, it only stores imageData.url in formData.photo
+        // Let's make sure it's an object if possible, or just pass the URL
+        updatePayload.profileImage = {
+          url: formData.photo
+        };
+      }
 
       const response = await restaurantAPI.updateProfile(updatePayload);
 

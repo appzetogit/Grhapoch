@@ -759,8 +759,11 @@ export const updateRestaurantProfile = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error updating restaurant profile:', error);
-    return errorResponse(res, 500, 'Failed to update restaurant profile');
+    console.error('❌ Error updating restaurant profile:', error);
+    if (error.name === 'ValidationError') {
+      return errorResponse(res, 400, Object.values(error.errors).map(e => e.message).join(', '));
+    }
+    return errorResponse(res, 500, 'Failed to update restaurant profile: ' + error.message);
   }
 });
 
@@ -769,7 +772,7 @@ export const updateRestaurantProfile = asyncHandler(async (req, res) => {
  * PUT /api/restaurant/payout-details
  */
 export const updatePayoutDetails = asyncHandler(async (req, res) => {
-  console.log('🚀 [CONTROLLER] updatePayoutDetails called');
+  // console.log('🚀 [CONTROLLER] updatePayoutDetails called');
   try {
     const restaurantId = req.restaurant._id;
     const { bank, upiId, qrCode } = req.body;
@@ -1009,17 +1012,17 @@ export const updateDeliveryStatus = asyncHandler(async (req, res) => {
 export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
   try {
     const restaurantId = req.restaurant._id;
+    /*
     console.info('[Restaurant Delete] Request received', {
       restaurantId: restaurantId?.toString?.() || restaurantId,
       path: req.originalUrl,
       method: req.method
     });
+    */
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!restaurant) {
-      console.warn('[Restaurant Delete] Restaurant not found', {
-        restaurantId: restaurantId?.toString?.() || restaurantId
-      });
+      // console.warn('[Restaurant Delete] Restaurant not found');
       return errorResponse(res, 404, 'Restaurant not found');
     }
 

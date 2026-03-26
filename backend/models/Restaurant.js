@@ -109,7 +109,7 @@ const restaurantSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ['Point'],
-        default: 'Point'
+        required: function() { return !!this.coordinates; }
       },
       coordinates: {
         type: [Number], // [longitude, latitude]

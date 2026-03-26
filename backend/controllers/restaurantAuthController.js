@@ -104,7 +104,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
     }
 
     const result = await otpService.generateAndSendOTP(normalizedPhone || null, purpose, email || null);
-    console.log("my otp log",result);
+    // console.log("my otp log",result);
     
     return successResponse(res, 200, result.message, {
       expiresIn: result.expiresIn,

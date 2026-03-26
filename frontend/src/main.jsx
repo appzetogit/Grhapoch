@@ -193,6 +193,10 @@ console.error = (...args) => {
     return;
   }
 
+  if (errorStr.includes('width(-1)') || errorStr.includes('height(-1)') || errorStr.includes('greater than 0')) {
+    return;
+  }
+
   originalError.apply(console, args);
 };
 
@@ -205,7 +209,11 @@ console.warn = (...args) => {
     return;
   }
   // Suppress Google Maps performance warning
-  if (warnStr.includes('Google Maps JavaScript API has been loaded directly without loading=async')) {
+  if (warnStr.includes('Google Maps JavaScript API') || warnStr.includes('loading=async')) {
+    return;
+  }
+  // Suppress Recharts width/height warnings during transitions
+  if (warnStr.includes('width(-1)') || warnStr.includes('height(-1)') || warnStr.includes('greater than 0')) {
     return;
   }
   originalWarn.apply(console, args);

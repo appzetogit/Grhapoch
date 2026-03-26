@@ -4188,7 +4188,7 @@ export default function DeliveryHome() {
       }
 
       const paymentMethodFromOrder = newOrder.paymentMethod || newOrder.payment?.method || newOrder.payment || '';
-      const orderTotal = newOrder.total ?? newOrder.pricing?.total ?? 0;
+      const orderTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const cashLimitStatus = getCashLimitStatus(orderTotal, paymentMethodFromOrder);
       if (cashLimitStatus.blocked) {
         if (!cashLimitBlockedOrderIdsRef.current.has(orderId)) {
@@ -4227,8 +4227,8 @@ export default function DeliveryHome() {
         }
       }
 
-      // Use calculated earnings if available, otherwise fallback to deliveryFee
-      const effectiveEarnings = earnedValue > 0 ? earned : deliveryFee > 0 ? deliveryFee : 0;
+      // Prefer order-time delivery fee (current flow), fallback to calculated earnings
+      const effectiveEarnings = deliveryFee > 0 ? deliveryFee : earnedValue > 0 ? earned : 0;
 
 
       // Calculate pickup distance if not provided
@@ -4259,6 +4259,7 @@ export default function DeliveryHome() {
         pickupDistance = 'Calculating...';
       }
 
+      const normalizedTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const restaurantData = {
         id: newOrder.orderMongoId || newOrder.orderId,
         orderId: newOrder.orderId,
@@ -4279,7 +4280,8 @@ export default function DeliveryHome() {
         customerLat: newOrder.customerLocation?.latitude,
         customerLng: newOrder.customerLocation?.longitude,
         items: newOrder.items || [],
-        total: newOrder.total || 0
+        total: normalizedTotal || 0,
+        pricing: { total: normalizedTotal || 0 }
       };
 
       setSelectedRestaurant(restaurantData);
@@ -9319,12 +9321,14 @@ export default function DeliveryHome() {
                     <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
+                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
                         const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                        const fallback = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
                         let value = 0;
 
 
-                        if (earnings) {
+                        if (Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
+                          value = Number(deliveryFee);
+                        } else if (earnings) {
                           if (typeof earnings === 'object') {
                             // Handle earnings object
                             if (earnings.totalEarning != null) {
@@ -9338,18 +9342,15 @@ export default function DeliveryHome() {
                           }
                         }
 
-                        // If value is still 0, try fallback
-                        if (value <= 0 && fallback > 0) {
-                          value = Number(fallback);
-                        }
-
                         return value > 0 ? value.toFixed(2) : '0.00';
                       })()}
                     </p>
                     {/* Earnings Breakdown */}
                     {(() => {
+                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
+                      const hasDeliveryFee = Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0;
                       const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                      if (typeof earnings === 'object' && earnings.breakdown) {
+                      if (!hasDeliveryFee && typeof earnings === 'object' && earnings.breakdown) {
                         return (
                           <div className="bg-green-50 rounded-lg p-3 mb-2">
                             <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>

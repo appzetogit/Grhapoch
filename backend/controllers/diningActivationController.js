@@ -113,6 +113,21 @@ export const requestDiningEnable = asyncHandler(async (req, res) => {
         });
     }
 
+    // Auto-approve and enable for active subscription restaurants
+    if (hasActiveSubscription(restaurant)) {
+        restaurant.diningRequested = true;
+        restaurant.diningStatus = DINING_STATUSES.PAYMENT_SUCCESSFUL;
+        restaurant.diningEnabled = true;
+        restaurant.diningActivationPaid = false;
+        restaurant.diningActivationAmount = 0;
+        restaurant.diningActivationDate = new Date();
+        await restaurant.save();
+
+        return successResponse(res, 200, 'Dining enabled successfully for subscription restaurant', {
+            ...buildDiningActivationStatus(restaurant, activationFeeAmount)
+        });
+    }
+
     const currentStatus = getEffectiveDiningStatus(restaurant);
     if (
         currentStatus === DINING_STATUSES.REQUESTED ||

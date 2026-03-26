@@ -657,20 +657,28 @@ export default function Category() {
                       <span className="text-sm font-medium text-slate-700">{category.sl || index + 1}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
-                        <img
-                          src={category.image}
-                          alt={category.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                        <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
-                           {category.name?.charAt(0) || 'C'}
-                        </div>
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white shadow-inner flex-shrink-0">
+                        {category.image ? (
+                          <>
+                            <img
+                              src={category.image}
+                              alt={category.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
+                               {category.name?.charAt(0) || 'C'}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full uppercase text-xl font-bold">
+                             {category.name?.charAt(0) || 'C'}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1114,19 +1122,28 @@ export default function Category() {
                         {(imagePreview || formData.image) &&
                     <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-slate-300">
                             <div className="w-full h-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner">
+                        { (imagePreview || formData.image) ? (
+                            <>
                               <img
                                 src={imagePreview || formData.image}
-                                alt="Category preview"
+                                alt={formData.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.onerror = null;
                                   e.target.style.display = 'none';
                                   e.target.nextSibling.style.display = 'flex';
-                                }} />
+                                }}
+                              />
                               <div className="hidden items-center justify-center w-full h-full uppercase text-6xl font-extrabold">
                                  {formData.name?.charAt(0) || 'C'}
                               </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center justify-center w-full h-full uppercase text-6xl font-extrabold">
+                               {formData.name?.charAt(0) || 'C'}
                             </div>
+                          )}
+                              </div>
                             {imagePreview &&
                       <button
                         type="button"

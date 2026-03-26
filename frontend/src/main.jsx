@@ -255,10 +255,10 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster position="top-center" richColors offset="80px" />
-    </BrowserRouter>
-  </StrictMode>
+  // <StrictMode>
+  <BrowserRouter>
+    <App />
+    <Toaster position="top-center" richColors offset="80px" />
+  </BrowserRouter>
+  // </StrictMode>
 );

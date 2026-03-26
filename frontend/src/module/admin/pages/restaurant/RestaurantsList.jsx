@@ -594,19 +594,27 @@ export default function RestaurantsList() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
-                              <img
-                                src={restaurant.logo}
-                                alt={restaurant.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }} />
-                              <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
-                                 {restaurant.name?.charAt(0) || 'R'}
-                              </div>
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-blue-700 flex items-center justify-center text-white shadow-inner flex-shrink-0">
+                              {restaurant.logo ? (
+                                <>
+                                  <img
+                                    src={restaurant.logo}
+                                    alt={restaurant.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }} />
+                                  <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
+                                     {restaurant.name?.charAt(0) || 'R'}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-center justify-center w-full h-full uppercase text-xl font-bold">
+                                   {restaurant.name?.charAt(0) || 'R'}
+                                </div>
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-medium text-slate-900">{restaurant.name}</span>

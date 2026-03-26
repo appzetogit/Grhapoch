@@ -344,20 +344,28 @@ export default function FoodsList() {
                       <span className="text-sm font-medium text-slate-700">{index + 1}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-inner">
-                        <img
-                          src={food.image}
-                          alt={food.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                        <div className="hidden items-center justify-center w-full h-full uppercase text-lg font-bold">
-                          {food.name?.charAt(0) || 'F'}
-                        </div>
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white shadow-inner flex-shrink-0">
+                        {food.image ? (
+                          <>
+                            <img
+                              src={food.image}
+                              alt={food.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <div className="hidden items-center justify-center w-full h-full uppercase text-lg font-bold">
+                              {food.name?.charAt(0) || 'F'}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full uppercase text-lg font-bold">
+                            {food.name?.charAt(0) || 'F'}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

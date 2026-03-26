@@ -79,7 +79,7 @@ export default function EarningAddonHistory() {
         setHistory(historyData);
         if (historyData.length === 0) {
 
-          toast.info("No earning addon history found. History will appear when delivery boys complete offers.");
+          toast.info("No earning addon history found. History will appear when delivery boys complete offers.", { id: "no-history-found" });
         } else {
 
         }

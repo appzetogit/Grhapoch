@@ -204,6 +204,7 @@ export default function AdminNavbar({ onMenuClick }) {
                     className="w-24 h-10 object-contain"
                     loading="lazy"
                     onError={(e) => {
+                      e.target.onerror = null;
                       e.target.style.display = 'none';
                     }}
                   />

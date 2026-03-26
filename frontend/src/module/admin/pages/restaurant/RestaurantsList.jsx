@@ -82,6 +82,13 @@ export default function RestaurantsList() {
 
           response = await restaurantAPI.getRestaurants();
         }
+        // Safe image URL filter to avoid via.placeholder.com requests from backend
+        const getSafeImage = (url) => {
+          if (!url || typeof url !== 'string' || url.includes('via.placeholder.com')) {
+            return null;
+          }
+          return url;
+        };
 
         if (response.data && response.data.success && response.data.data) {
           // Map backend data to frontend format
@@ -99,7 +106,7 @@ export default function RestaurantsList() {
             restaurant.cuisine || "N/A",
             status: restaurant.isActive !== false, // Default to true if not set
             rating: restaurant.ratings?.average || restaurant.rating || 0,
-            logo: restaurant.profileImage?.url || restaurant.logo || "https://via.placeholder.com/40",
+            logo: getSafeImage(restaurant.profileImage?.url) || getSafeImage(restaurant.logo) || null,
             // Preserve original restaurant data for details modal
             originalData: restaurant
           }));
@@ -587,15 +594,19 @@ export default function RestaurantsList() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
                               <img
-                          src={restaurant.logo}
-                          alt={restaurant.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40";
-                          }} />
-                        
+                                src={restaurant.logo}
+                                alt={restaurant.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }} />
+                              <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
+                                 {restaurant.name?.charAt(0) || 'R'}
+                              </div>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-medium text-slate-900">{restaurant.name}</span>
@@ -693,15 +704,19 @@ export default function RestaurantsList() {
             <div className="space-y-6">
                   {/* Restaurant Basic Info */}
                   <div className="flex items-start gap-6 pb-6 border-b border-slate-200">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-slate-700 to-slate-900 border-2 border-slate-200 flex-shrink-0 flex items-center justify-center text-white text-3xl font-bold shadow-xl">
                       <img
-                    src={restaurantDetails?.profileImage?.url || restaurantDetails?.logo || selectedRestaurant?.logo || selectedRestaurant?.originalData?.profileImage?.url || "https://via.placeholder.com/96"}
-                    alt={restaurantDetails?.name || selectedRestaurant?.name || "Restaurant"}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/96";
-                    }} />
-                  
+                        src={restaurantDetails?.profileImage?.url || restaurantDetails?.logo || selectedRestaurant?.logo || selectedRestaurant?.originalData?.profileImage?.url}
+                        alt={restaurantDetails?.name || selectedRestaurant?.name || "Restaurant"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }} />
+                      <div className="hidden items-center justify-center w-full h-full uppercase text-6xl font-black">
+                         { (restaurantDetails?.name || selectedRestaurant?.name || "R").charAt(0) }
+                      </div>
                     </div>
                     <div className="flex-1">
                       <h3 className="text-2xl font-bold text-slate-900 mb-2">
@@ -1210,14 +1225,20 @@ export default function RestaurantsList() {
                       rel="noopener noreferrer"
                       className="inline-block">
                       
-                              <img
-                        src={restaurantDetails.onboarding.step2.profileImageUrl.url}
-                        alt="Profile"
-                        className="w-32 h-32 rounded-lg object-cover border border-slate-200 hover:border-blue-500 transition-colors"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/128";
-                        }} />
-                      
+                              <div className="w-32 h-32 rounded-lg overflow-hidden bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner border border-slate-200 hover:border-blue-500 transition-colors">
+                                <img
+                                  src={restaurantDetails.onboarding.step2.profileImageUrl.url}
+                                  alt="Profile"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }} />
+                                <div className="hidden items-center justify-center w-full h-full uppercase">
+                                   {restaurantDetails.name?.charAt(0) || 'R'}
+                                </div>
+                              </div>
                             </a>
                           </div>
                   }

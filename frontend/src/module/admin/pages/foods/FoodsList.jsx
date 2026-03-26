@@ -15,28 +15,35 @@ export default function FoodsList() {
     const fetchAllFoods = async () => {
       try {
         setLoading(true)
-        
+
         // First, fetch all restaurants
         const restaurantsResponse = await adminAPI.getRestaurants({ limit: 1000 })
-        const restaurants = restaurantsResponse?.data?.data?.restaurants || 
-                          restaurantsResponse?.data?.restaurants || 
-                          []
-        
+        const restaurants = restaurantsResponse?.data?.data?.restaurants ||
+          restaurantsResponse?.data?.restaurants ||
+          []
+
         if (restaurants.length === 0) {
           setFoods([])
           setLoading(false)
           return
         }
 
-        // Fetch menu for each restaurant and extract all food items
+        // Fetch menu for each restaurant and extract all food items        // Safe image URL filter to avoid via.placeholder.com requests from backend
+        const getSafeImage = (url) => {
+          if (!url || typeof url !== 'string' || url.includes('via.placeholder.com')) {
+            return null;
+          }
+          return url;
+        };
+
         const allFoods = []
-        
+
         for (const restaurant of restaurants) {
           try {
             const restaurantId = restaurant._id || restaurant.id
             const menuResponse = await restaurantAPI.getMenuByRestaurantId(restaurantId)
             const menu = menuResponse?.data?.data?.menu || menuResponse?.data?.menu
-            
+
             if (menu && menu.sections) {
               // Extract items from sections and subsections
               menu.sections.forEach((section) => {
@@ -47,7 +54,7 @@ export default function FoodsList() {
                       id: item.id || `${restaurantId}-${section.id}-${item.name}`,
                       _id: item._id,
                       name: item.name || "Unnamed Item",
-                      image: item.image || item.images?.[0] || "https://via.placeholder.com/40",
+                      image: getSafeImage(item.image) || getSafeImage(item.images?.[0]) || null,
                       priority: "Normal", // Default priority
                       status: item.isAvailable !== false && item.approvalStatus !== 'rejected',
                       restaurantId: restaurantId,
@@ -60,7 +67,7 @@ export default function FoodsList() {
                     })
                   })
                 }
-                
+
                 // Items in subsections
                 if (section.subsections && Array.isArray(section.subsections)) {
                   section.subsections.forEach((subsection) => {
@@ -70,7 +77,7 @@ export default function FoodsList() {
                           id: item.id || `${restaurantId}-${section.id}-${subsection.id}-${item.name}`,
                           _id: item._id,
                           name: item.name || "Unnamed Item",
-                          image: item.image || item.images?.[0] || "https://via.placeholder.com/40",
+                          image: getSafeImage(item.image) || getSafeImage(item.images?.[0]) || null,
                           priority: "Normal", // Default priority
                           status: item.isAvailable !== false && item.approvalStatus !== 'rejected',
                           restaurantId: restaurantId,
@@ -90,10 +97,10 @@ export default function FoodsList() {
             }
           } catch (error) {
             // Silently skip restaurants that don't have menus or have errors
-            console.warn(`Failed to fetch menu for restaurant ${restaurant._id || restaurant.id}:`, error.message)
+            // Browser will still show its native 404 if it happens
           }
         }
-        
+
         setFoods(allFoods)
       } catch (error) {
         console.error("Error fetching foods:", error)
@@ -110,13 +117,13 @@ export default function FoodsList() {
   // Format ID to FOOD format (e.g., FOOD519399)
   const formatFoodId = (id) => {
     if (!id) return "FOOD000000"
-    
+
     const idString = String(id)
     // Extract last 6 digits from the ID
     // Handle formats like "1768285554154-0.703896654519399" or "item-1768285554154-0.703896654519399"
     const parts = idString.split(/[-.]/)
     let lastDigits = ""
-    
+
     // Get the last part and extract digits
     if (parts.length > 0) {
       const lastPart = parts[parts.length - 1]
@@ -128,7 +135,7 @@ export default function FoodsList() {
         lastDigits = allDigits.slice(-6).padStart(6, "0")
       }
     }
-    
+
     // If no digits found, use a hash of the ID
     if (!lastDigits) {
       const hash = idString.split("").reduce((acc, char) => {
@@ -136,13 +143,13 @@ export default function FoodsList() {
       }, 0)
       lastDigits = Math.abs(hash).toString().slice(-6).padStart(6, "0")
     }
-    
+
     return `FOOD${lastDigits}`
   }
 
   const filteredFoods = useMemo(() => {
     let result = [...foods]
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
       result = result.filter(food =>
@@ -165,11 +172,11 @@ export default function FoodsList() {
 
     try {
       setDeleting(true)
-      
+
       // Get the restaurant's menu
       const menuResponse = await restaurantAPI.getMenuByRestaurantId(food.restaurantId)
       const menu = menuResponse?.data?.data?.menu || menuResponse?.data?.menu
-      
+
       if (!menu || !menu.sections) {
         throw new Error("Menu not found")
       }
@@ -179,8 +186,8 @@ export default function FoodsList() {
       const updatedSections = menu.sections.map(section => {
         // Check items in section
         if (section.items && Array.isArray(section.items)) {
-          const itemIndex = section.items.findIndex(item => 
-            String(item.id) === String(food.id) || 
+          const itemIndex = section.items.findIndex(item =>
+            String(item.id) === String(food.id) ||
             String(item.id) === String(food.originalItem?.id)
           )
           if (itemIndex !== -1) {
@@ -188,13 +195,13 @@ export default function FoodsList() {
             itemRemoved = true
           }
         }
-        
+
         // Check items in subsections
         if (section.subsections && Array.isArray(section.subsections)) {
           section.subsections = section.subsections.map(subsection => {
             if (subsection.items && Array.isArray(subsection.items)) {
-              const itemIndex = subsection.items.findIndex(item => 
-                String(item.id) === String(food.id) || 
+              const itemIndex = subsection.items.findIndex(item =>
+                String(item.id) === String(food.id) ||
                 String(item.id) === String(food.originalItem?.id)
               )
               if (itemIndex !== -1) {
@@ -205,7 +212,7 @@ export default function FoodsList() {
             return subsection
           })
         }
-        
+
         return section
       })
 
@@ -225,7 +232,7 @@ export default function FoodsList() {
           `/restaurant/menu`,
           { sections: updatedSections }
         )
-        
+
         if (!response.data || !response.data.success) {
           throw new Error(response.data?.message || "Failed to update menu")
         }
@@ -337,15 +344,20 @@ export default function FoodsList() {
                       <span className="text-sm font-medium text-slate-700">{index + 1}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-inner">
                         <img
                           src={food.image}
                           alt={food.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40"
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
                           }}
                         />
+                        <div className="hidden items-center justify-center w-full h-full uppercase text-lg font-bold">
+                          {food.name?.charAt(0) || 'F'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

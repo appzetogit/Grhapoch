@@ -415,15 +415,19 @@ export default function JoiningRequest() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
                             <img
-                          src={request.restaurantImage}
-                          alt={request.restaurantName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40";
-                          }} />
-                        
+                              src={request.restaurantImage}
+                              alt={request.restaurantName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }} />
+                            <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
+                               {request.restaurantName?.charAt(0) || 'R'}
+                            </div>
                           </div>
                           <span className="text-sm font-medium text-slate-900">{request.restaurantName}</span>
                         </div>
@@ -690,15 +694,19 @@ export default function JoiningRequest() {
             <div className="space-y-6">
                   {/* Restaurant Basic Info */}
                   <div className="flex items-start gap-6 pb-6 border-b border-slate-200">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-slate-700 to-slate-900 border-2 border-slate-200 flex-shrink-0 flex items-center justify-center text-white text-3xl font-bold shadow-xl">
                       <img
-                    src={restaurantDetails?.profileImage?.url || restaurantDetails?.profileImageUrl?.url || selectedRequest?.restaurantImage || "https://via.placeholder.com/96"}
-                    alt={restaurantDetails?.name || selectedRequest?.restaurantName || "Restaurant"}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/96";
-                    }} />
-                  
+                        src={restaurantDetails?.profileImage?.url || restaurantDetails?.profileImageUrl?.url || selectedRequest?.restaurantImage}
+                        alt={restaurantDetails?.name || selectedRequest?.restaurantName || "Restaurant"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }} />
+                      <div className="hidden items-center justify-center w-full h-full uppercase text-6xl font-black">
+                         { (restaurantDetails?.name || selectedRequest?.restaurantName || "R").charAt(0) }
+                      </div>
                     </div>
                     <div className="flex-1">
                       <h3 className="text-2xl font-bold text-slate-900 mb-2">
@@ -1072,14 +1080,20 @@ export default function JoiningRequest() {
                       rel="noopener noreferrer"
                       className="rounded-lg overflow-hidden border border-slate-200 hover:border-blue-500 transition-colors">
                       
-                              <img
-                        src={imgUrl}
-                        alt={`Menu ${idx + 1}`}
-                        className="w-full h-32 object-cover"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/200";
-                        }} />
-                      
+                              <div className="w-full h-32 rounded-lg overflow-hidden bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner border border-slate-200 hover:border-blue-500 transition-colors">
+                                <img
+                                  src={imgUrl}
+                                  alt={`Menu ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }} />
+                                <div className="hidden items-center justify-center w-full h-full uppercase">
+                                   M
+                                </div>
+                              </div>
                             </a> :
                     null;
                   })}

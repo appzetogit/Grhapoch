@@ -110,15 +110,17 @@ router.get('/withdrawal/requests', authenticate, getRestaurantWithdrawalRequests
 // Subscription routes (authenticated - for restaurant module)
 router.use('/subscription', subscriptionRoutes);
 
-// Restaurant routes (public - for user module)
+// Public Restaurant routes
+router.get('/:id/menu', getMenuByRestaurantId);
+router.get('/:id/addons', getAddonsByRestaurantId);
+router.get('/:id/inventory', getInventoryByRestaurantId);
+
+// Other public routes (for user module)
 router.get('/list', getRestaurants);
 router.post('/nearby', getNearbyRestaurants);
 router.get('/under-250', getRestaurantsWithDishesUnder250);
 router.get('/:restaurantId/offers/item/:itemId/coupons', getCouponsByItemIdPublic);
 router.get('/:restaurantId/outlet-timings', getOutletTimingsByRestaurantId);
-router.get('/:id/menu', getMenuByRestaurantId);
-router.get('/:id/addons', getAddonsByRestaurantId);
-router.get('/:id/inventory', getInventoryByRestaurantId);
 router.get('/owner/me', authenticate, getRestaurantByOwner);
 
 // Payout details route (authenticated - for restaurant module)

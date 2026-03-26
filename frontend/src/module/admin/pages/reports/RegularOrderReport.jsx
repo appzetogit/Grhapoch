@@ -322,7 +322,7 @@ export default function RegularOrderReport() {
                 onChange={(e) => handleFilterChange("zone", e.target.value)}
                 className="w-full px-2.5 py-1.5 pr-5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs appearance-none cursor-pointer"
               >
-                <option value="All Zones">All Zones</option>
+                <option key="all-zones" value="All Zones">All Zones</option>
                 {zones.map((zone) => (
                   <option key={zone._id} value={zone.name}>
                     {zone.name}
@@ -338,7 +338,7 @@ export default function RegularOrderReport() {
                 onChange={(e) => handleFilterChange("restaurant", e.target.value)}
                 className="w-full px-2.5 py-1.5 pr-5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs appearance-none cursor-pointer"
               >
-                <option value="All restaurants">All restaurants</option>
+                <option key="all-restaurants" value="All restaurants">All restaurants</option>
                 {restaurants.map((restaurant) => (
                   <option key={restaurant._id} value={restaurant.name}>
                     {restaurant.name}
@@ -354,7 +354,7 @@ export default function RegularOrderReport() {
                 onChange={(e) => handleFilterChange("customer", e.target.value)}
                 className="w-full px-2.5 py-1.5 pr-5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs appearance-none cursor-pointer"
               >
-                <option value="All customers">All customers</option>
+                <option key="all-customers" value="All customers">All customers</option>
                 {customers.map((customer) => (
                   <option key={customer._id} value={customer.name}>
                     {customer.name}

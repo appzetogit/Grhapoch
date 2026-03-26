@@ -74,7 +74,7 @@ export default function DiningList() {
                     zone: restaurant.location?.area || restaurant.location?.city || restaurant.zone || "N/A",
                     status: restaurant.isActive !== false ? "Active" : "Inactive",
                     rating: restaurant.rating || restaurant.ratings?.average || 0,
-                    logo: restaurant.profileImage?.url || restaurant.logo || "https://via.placeholder.com/40",
+                    logo: restaurant.profileImage?.url || restaurant.logo || null,
                     // Using default values for now since these fields might not be fully integrated into Restaurant model yet
                     diningEnabled: restaurant.diningEnabled || false, // Use database value or false
                     guests: restaurant.diningGuests || 15, // Use database value or 15
@@ -259,8 +259,20 @@ export default function DiningList() {
                                             <tr key={restaurant._id} className="bg-white border-b border-gray-50 hover:bg-gray-50/50">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3 w-48 truncate">
-                                                        <div className="h-10 w-10 overflow-hidden rounded-full shadow-sm bg-gray-100 flex-shrink-0">
-                                                            <img src={restaurant.logo} alt={restaurant.name} className="h-full w-full object-cover" onError={(e) => e.target.src = "https://via.placeholder.com/40"} />
+                                                        <div className="h-10 w-10 overflow-hidden rounded-full shadow-inner bg-gradient-to-br from-indigo-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold font-mono uppercase">
+                                                            <img
+                                                                src={restaurant.logo}
+                                                                alt={restaurant.name}
+                                                                className="h-full w-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }}
+                                                            />
+                                                            <div className="hidden items-center justify-center w-full h-full">
+                                                                {restaurant.name?.charAt(0) || 'R'}
+                                                            </div>
                                                         </div>
                                                         <div className="truncate">
                                                             <p className="font-bold text-gray-900 truncate">{restaurant.name}</p>

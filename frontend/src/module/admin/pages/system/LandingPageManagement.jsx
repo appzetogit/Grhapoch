@@ -94,10 +94,10 @@ export default function LandingPageManagement() {
     const lowerMessage = errorMessage.toLowerCase();
     // Don't show token/unauthorized/auth errors
     if (lowerMessage.includes('token') ||
-    lowerMessage.includes('unauthorized') ||
-    lowerMessage.includes('no token') ||
-    lowerMessage.includes('authentication') ||
-    lowerMessage.includes('session expired')) {
+      lowerMessage.includes('unauthorized') ||
+      lowerMessage.includes('no token') ||
+      lowerMessage.includes('authentication') ||
+      lowerMessage.includes('session expired')) {
       setError(null);
     } else {
       setError(errorMessage);
@@ -244,7 +244,7 @@ export default function LandingPageManagement() {
         } else if (successCount > 0) {
           setSuccess(`${successCount} banner${successCount > 1 ? 's' : ''} uploaded, ${failCount} failed.`);
           setErrorSafely(errors.join(', '));
-          setTimeout(() => {setSuccess(null);setError(null);}, 5000);
+          setTimeout(() => { setSuccess(null); setError(null); }, 5000);
         } else {
           setErrorSafely(`Failed to upload banners. ${errors.join(', ')}`);
         }
@@ -369,7 +369,7 @@ export default function LandingPageManagement() {
     if (!restaurantSearchQuery.trim()) return true;
     const query = restaurantSearchQuery.toLowerCase();
     return restaurant.name?.toLowerCase().includes(query) ||
-    restaurant.restaurantId?.toLowerCase().includes(query);
+      restaurant.restaurantId?.toLowerCase().includes(query);
   });
 
   // ==================== CATEGORIES ====================
@@ -401,27 +401,27 @@ export default function LandingPageManagement() {
     if (!files.length) return;
 
     const newItems = files.
-    filter((file) => {
-      if (!file.type.startsWith('image/')) {
-        setError('Only image files are allowed for categories');
-        return false;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Each image must be smaller than 5MB');
-        return false;
-      }
-      return true;
-    }).
-    map((file, index) => {
-      const baseName = file.name.replace(/\.[^/.]+$/, '');
-      const prettyName = baseName.replace(/[-_]+/g, ' ').trim();
-      return {
-        id: `${Date.now()}-${index}`,
-        file,
-        label: prettyName || '',
-        previewUrl: URL.createObjectURL(file)
-      };
-    });
+      filter((file) => {
+        if (!file.type.startsWith('image/')) {
+          setError('Only image files are allowed for categories');
+          return false;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          setError('Each image must be smaller than 5MB');
+          return false;
+        }
+        return true;
+      }).
+      map((file, index) => {
+        const baseName = file.name.replace(/\.[^/.]+$/, '');
+        const prettyName = baseName.replace(/[-_]+/g, ' ').trim();
+        return {
+          id: `${Date.now()}-${index}`,
+          file,
+          label: prettyName || '',
+          previewUrl: URL.createObjectURL(file)
+        };
+      });
 
     if (!newItems.length) return;
 
@@ -434,7 +434,7 @@ export default function LandingPageManagement() {
 
   const handlePendingCategoryLabelChange = (id, newLabel) => {
     setPendingCategories((prev) =>
-    prev.map((item) => item.id === id ? { ...item, label: newLabel } : item)
+      prev.map((item) => item.id === id ? { ...item, label: newLabel } : item)
     );
   };
 
@@ -1219,15 +1219,15 @@ export default function LandingPageManagement() {
 
   // ==================== RENDER ====================
   const tabs = [
-  { id: 'banners', label: 'Hero Banners', icon: ImageIcon },
-  { id: 'under-250', label: '250 Banner', icon: Tag },
-  { id: 'dining', label: 'Dining', icon: UtensilsCrossed },
-  { id: 'explore-more', label: 'Explore More', icon: Layout }];
+    { id: 'banners', label: 'Hero Banners', icon: ImageIcon },
+    { id: 'under-250', label: '250 Banner', icon: Tag },
+    { id: 'dining', label: 'Dining', icon: UtensilsCrossed },
+    { id: 'explore-more', label: 'Explore More', icon: Layout }];
 
 
   const exploreMoreTabs = [
-  { id: 'top-10', label: 'Top 10', icon: Trophy },
-  { id: 'gourmet', label: 'Gourmet', icon: ChefHat }];
+    { id: 'top-10', label: 'Top 10', icon: Trophy },
+    { id: 'gourmet', label: 'Gourmet', icon: ChefHat }];
 
 
   return (
@@ -1256,10 +1256,10 @@ export default function LandingPageManagement() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ?
-                  'bg-blue-500 text-white' :
-                  'text-slate-600 hover:bg-slate-100'}`
+                    'bg-blue-500 text-white' :
+                    'text-slate-600 hover:bg-slate-100'}`
                   }>
-                  
+
                   <Icon className="w-4 h-4" />
                   {tab.label}
                 </button>);
@@ -1270,14 +1270,14 @@ export default function LandingPageManagement() {
 
         {/* Success/Error Messages */}
         {success &&
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5" />
             <span>{success}</span>
           </div>
         }
 
         {error &&
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
           </div>
@@ -1285,64 +1285,64 @@ export default function LandingPageManagement() {
 
         {/* Hero Banners Tab */}
         {activeTab === 'banners' &&
-        <>
+          <>
             {/* Upload Section */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Upload New Banner(s)</h2>
               <div
-              className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
-              onDragOver={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDragLeave={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const files = Array.from(e.dataTransfer.files);
-                if (files.length > 0) handleBannerFileSelect({ files });
-              }}
-              onClick={() => bannersFileInputRef.current?.click()}>
-              
+                className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files.length > 0) handleBannerFileSelect({ files });
+                }}
+                onClick={() => bannersFileInputRef.current?.click()}>
+
                 <input
-                ref={bannersFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleBannerFileSelect}
-                className="hidden"
-                disabled={bannersUploading} />
-              
+                  ref={bannersFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleBannerFileSelect}
+                  className="hidden"
+                  disabled={bannersUploading} />
+
                 {bannersUploading ?
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                     <p className="text-blue-600 font-medium">
                       Uploading image {bannersUploadProgress.current} of {bannersUploadProgress.total}...
                     </p>
                     {bannersUploadProgress.total > 0 &&
-                <div className="w-full max-w-xs">
+                      <div className="w-full max-w-xs">
                         <div className="w-full bg-blue-200 rounded-full h-2">
                           <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${bannersUploadProgress.current / bannersUploadProgress.total * 100}%` }} />
-                    
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${bannersUploadProgress.current / bannersUploadProgress.total * 100}%` }} />
+
                         </div>
                       </div>
-                }
+                    }
                   </div> :
 
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Upload className="w-8 h-8 text-blue-600" />
                     <div>
                       <button
-                    type="button"
-                    onClick={(e) => {e.stopPropagation();bannersFileInputRef.current?.click();}}
-                    className="text-blue-600 font-medium hover:text-blue-700 underline">
-                    
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); bannersFileInputRef.current?.click(); }}
+                        className="text-blue-600 font-medium hover:text-blue-700 underline">
+
                         Click to upload
                       </button>
                       <span className="text-slate-600"> or drag and drop</span>
                     </div>
                     <p className="text-xs text-slate-500">PNG, JPG, WEBP up to 5MB each (Max 5 images at once)</p>
                   </div>
-              }
+                }
               </div>
             </div>
 
@@ -1350,145 +1350,145 @@ export default function LandingPageManagement() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Banner List ({banners.length})</h2>
               {bannersLoading ?
-            <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                 </div> :
-            banners.length === 0 ?
-            <div className="text-center py-12 text-slate-500">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p>No banners uploaded yet.</p>
-                </div> :
+                banners.length === 0 ?
+                  <div className="text-center py-12 text-slate-500">
+                    <ImageIcon className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                    <p>No banners uploaded yet.</p>
+                  </div> :
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {banners.map((banner, index) =>
-              <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="relative aspect-video bg-slate-100">
-                        <img src={banner.imageUrl} alt={`Hero Banner ${index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute top-2 right-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {banner.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                        <div className="absolute top-2 left-2">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-white">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleBannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowUp className="w-4 h-4 text-slate-600" />
-                            </button>
-                            <button onClick={() => handleBannerOrderChange(banner._id, 'down')} disabled={index === banners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowDown className="w-4 h-4 text-slate-600" />
-                            </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {banners.map((banner, index) =>
+                      <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="relative aspect-video bg-slate-100">
+                          <img src={banner.imageUrl} alt={`Hero Banner ${index + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {banner.isActive ? 'Active' : 'Inactive'}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                        onClick={() => {
-                          setSelectedBannerId(banner._id);
-                          setSelectedRestaurantIds(banner.linkedRestaurants?.map((r) => r._id || r) || []);
-                          setShowRestaurantModal(true);
-                        }}
-                        className="px-3 py-1.5 rounded text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 flex items-center gap-1">
-                        
-                              <Megaphone className="w-4 h-4" />
-                              Advertise
-                            </button>
-                            <button onClick={() => handleToggleBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                              {banner.isActive ? 'Deactivate' : 'Activate'}
-                            </button>
-                            <button onClick={() => handleDeleteBanner(banner._id)} disabled={bannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
-                              {bannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            </button>
+                          <div className="absolute top-2 left-2">
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
                           </div>
                         </div>
-                        {banner.linkedRestaurants && banner.linkedRestaurants.length > 0 &&
-                  <div className="mt-2 pt-2 border-t border-slate-200">
-                            <p className="text-xs text-slate-600 mb-1">Linked Restaurants ({banner.linkedRestaurants.length}):</p>
-                            <div className="flex flex-wrap gap-1">
-                              {banner.linkedRestaurants.slice(0, 3).map((restaurant) =>
-                      <span key={restaurant._id || restaurant} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
-                                  {restaurant.name || 'Restaurant'}
-                                </span>
-                      )}
-                              {banner.linkedRestaurants.length > 3 &&
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">
-                                  +{banner.linkedRestaurants.length - 3} more
-                                </span>
-                      }
+                        <div className="p-4 bg-white">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleBannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowUp className="w-4 h-4 text-slate-600" />
+                              </button>
+                              <button onClick={() => handleBannerOrderChange(banner._id, 'down')} disabled={index === banners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowDown className="w-4 h-4 text-slate-600" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => {
+                                  setSelectedBannerId(banner._id);
+                                  setSelectedRestaurantIds(banner.linkedRestaurants?.map((r) => r._id || r) || []);
+                                  setShowRestaurantModal(true);
+                                }}
+                                className="px-3 py-1.5 rounded text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 flex items-center gap-1">
+
+                                <Megaphone className="w-4 h-4" />
+                                Advertise
+                              </button>
+                              <button onClick={() => handleToggleBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                {banner.isActive ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button onClick={() => handleDeleteBanner(banner._id)} disabled={bannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                                {bannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
                             </div>
                           </div>
-                  }
+                          {banner.linkedRestaurants && banner.linkedRestaurants.length > 0 &&
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <p className="text-xs text-slate-600 mb-1">Linked Restaurants ({banner.linkedRestaurants.length}):</p>
+                              <div className="flex flex-wrap gap-1">
+                                {banner.linkedRestaurants.slice(0, 3).map((restaurant) =>
+                                  <span key={restaurant._id || restaurant} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                                    {restaurant.name || 'Restaurant'}
+                                  </span>
+                                )}
+                                {banner.linkedRestaurants.length > 3 &&
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">
+                                    +{banner.linkedRestaurants.length - 3} more
+                                  </span>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
                       </div>
-                    </div>
-              )}
-                </div>
-            }
+                    )}
+                  </div>
+              }
             </div>
           </>
         }
 
         {/* Under 250 Banner Tab */}
         {activeTab === 'under-250' &&
-        <>
+          <>
             {/* Upload Section */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Upload New Banner(s)</h2>
               <div
-              className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
-              onDragOver={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDragLeave={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const files = Array.from(e.dataTransfer.files);
-                if (files.length > 0) handleUnder250BannerFileSelect({ files });
-              }}
-              onClick={() => under250BannersFileInputRef.current?.click()}>
-              
+                className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files.length > 0) handleUnder250BannerFileSelect({ files });
+                }}
+                onClick={() => under250BannersFileInputRef.current?.click()}>
+
                 <input
-                ref={under250BannersFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleUnder250BannerFileSelect}
-                className="hidden"
-                disabled={under250BannersUploading} />
-              
+                  ref={under250BannersFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleUnder250BannerFileSelect}
+                  className="hidden"
+                  disabled={under250BannersUploading} />
+
                 {under250BannersUploading ?
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                     <p className="text-blue-600 font-medium">
                       Uploading image {under250BannersUploadProgress.current} of {under250BannersUploadProgress.total}...
                     </p>
                     {under250BannersUploadProgress.total > 0 &&
-                <div className="w-full max-w-xs">
+                      <div className="w-full max-w-xs">
                         <div className="w-full bg-blue-200 rounded-full h-2">
                           <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${under250BannersUploadProgress.current / under250BannersUploadProgress.total * 100}%` }} />
-                    
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${under250BannersUploadProgress.current / under250BannersUploadProgress.total * 100}%` }} />
+
                         </div>
                       </div>
-                }
+                    }
                   </div> :
 
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Upload className="w-8 h-8 text-blue-600" />
                     <div>
                       <button
-                    type="button"
-                    onClick={(e) => {e.stopPropagation();under250BannersFileInputRef.current?.click();}}
-                    className="text-blue-600 font-medium hover:text-blue-700 underline">
-                    
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); under250BannersFileInputRef.current?.click(); }}
+                        className="text-blue-600 font-medium hover:text-blue-700 underline">
+
                         Click to upload
                       </button>
                       <span className="text-slate-600"> or drag and drop</span>
                     </div>
                     <p className="text-xs text-slate-500">PNG, JPG, WEBP up to 5MB each (Max 5 images at once)</p>
                   </div>
-              }
+                }
               </div>
             </div>
 
@@ -1496,115 +1496,115 @@ export default function LandingPageManagement() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Banner List ({under250Banners.length})</h2>
               {under250BannersLoading ?
-            <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                 </div> :
-            under250Banners.length === 0 ?
-            <div className="text-center py-12 text-slate-500">
-                  <Tag className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p>No under 250 banners uploaded yet.</p>
-                </div> :
+                under250Banners.length === 0 ?
+                  <div className="text-center py-12 text-slate-500">
+                    <Tag className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                    <p>No under 250 banners uploaded yet.</p>
+                  </div> :
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {under250Banners.map((banner, index) =>
-              <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="relative aspect-video bg-slate-100">
-                        <img src={banner.imageUrl} alt={`Under 250 Banner ${index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute top-2 right-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {banner.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {under250Banners.map((banner, index) =>
+                      <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="relative aspect-video bg-slate-100">
+                          <img src={banner.imageUrl} alt={`Under 250 Banner ${index + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {banner.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="absolute top-2 left-2">
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
+                          </div>
                         </div>
-                        <div className="absolute top-2 left-2">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-white">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleUnder250BannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowUp className="w-4 h-4 text-slate-600" />
+                        <div className="p-4 bg-white">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleUnder250BannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowUp className="w-4 h-4 text-slate-600" />
+                              </button>
+                              <button onClick={() => handleUnder250BannerOrderChange(banner._id, 'down')} disabled={index === under250Banners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowDown className="w-4 h-4 text-slate-600" />
+                              </button>
+                            </div>
+                            <button onClick={() => handleToggleUnder250BannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                              {banner.isActive ? 'Deactivate' : 'Activate'}
                             </button>
-                            <button onClick={() => handleUnder250BannerOrderChange(banner._id, 'down')} disabled={index === under250Banners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowDown className="w-4 h-4 text-slate-600" />
+                            <button onClick={() => handleDeleteUnder250Banner(banner._id)} disabled={under250BannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                              {under250BannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           </div>
-                          <button onClick={() => handleToggleUnder250BannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                            {banner.isActive ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <button onClick={() => handleDeleteUnder250Banner(banner._id)} disabled={under250BannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
-                            {under250BannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          </button>
                         </div>
                       </div>
-                    </div>
-              )}
-                </div>
-            }
+                    )}
+                  </div>
+              }
             </div>
           </>
         }
 
         {/* Dining Banner Tab */}
         {activeTab === 'dining' &&
-        <>
+          <>
             {/* Upload Section */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Upload New Dining Banner(s)</h2>
               <div
-              className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
-              onDragOver={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDragLeave={(e) => {e.preventDefault();e.stopPropagation();}}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const files = Array.from(e.dataTransfer.files);
-                if (files.length > 0) handleDiningBannerFileSelect({ files });
-              }}
-              onClick={() => diningBannersFileInputRef.current?.click()}>
-              
+                className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files.length > 0) handleDiningBannerFileSelect({ files });
+                }}
+                onClick={() => diningBannersFileInputRef.current?.click()}>
+
                 <input
-                ref={diningBannersFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleDiningBannerFileSelect}
-                className="hidden"
-                disabled={diningBannersUploading} />
-              
+                  ref={diningBannersFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleDiningBannerFileSelect}
+                  className="hidden"
+                  disabled={diningBannersUploading} />
+
                 {diningBannersUploading ?
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                     <p className="text-blue-600 font-medium">
                       Uploading image {diningBannersUploadProgress.current} of {diningBannersUploadProgress.total}...
                     </p>
                     {diningBannersUploadProgress.total > 0 &&
-                <div className="w-full max-w-xs">
+                      <div className="w-full max-w-xs">
                         <div className="w-full bg-blue-200 rounded-full h-2">
                           <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${diningBannersUploadProgress.current / diningBannersUploadProgress.total * 100}%` }} />
-                    
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${diningBannersUploadProgress.current / diningBannersUploadProgress.total * 100}%` }} />
+
                         </div>
                       </div>
-                }
+                    }
                   </div> :
 
-              <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-3">
                     <Upload className="w-8 h-8 text-blue-600" />
                     <div>
                       <button
-                    type="button"
-                    onClick={(e) => {e.stopPropagation();diningBannersFileInputRef.current?.click();}}
-                    className="text-blue-600 font-medium hover:text-blue-700 underline">
-                    
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); diningBannersFileInputRef.current?.click(); }}
+                        className="text-blue-600 font-medium hover:text-blue-700 underline">
+
                         Click to upload
                       </button>
                       <span className="text-slate-600"> or drag and drop</span>
                     </div>
                     <p className="text-xs text-slate-500">PNG, JPG, WEBP up to 5MB each (Max 5 images at once)</p>
                   </div>
-              }
+                }
               </div>
             </div>
 
@@ -1612,124 +1612,123 @@ export default function LandingPageManagement() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Banner List ({diningBanners.length})</h2>
               {diningBannersLoading ?
-            <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                 </div> :
-            diningBanners.length === 0 ?
-            <div className="text-center py-12 text-slate-500">
-                  <UtensilsCrossed className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p>No dining banners uploaded yet.</p>
-                </div> :
+                diningBanners.length === 0 ?
+                  <div className="text-center py-12 text-slate-500">
+                    <UtensilsCrossed className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                    <p>No dining banners uploaded yet.</p>
+                  </div> :
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {diningBanners.map((banner, index) =>
-              <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="relative aspect-video bg-slate-100">
-                        <img src={banner.imageUrl} alt={`Dining Banner ${index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute top-2 right-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {banner.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {diningBanners.map((banner, index) =>
+                      <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="relative aspect-video bg-slate-100">
+                          <img src={banner.imageUrl} alt={`Dining Banner ${index + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {banner.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="absolute top-2 left-2">
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
+                          </div>
                         </div>
-                        <div className="absolute top-2 left-2">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-white">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleDiningBannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowUp className="w-4 h-4 text-slate-600" />
+                        <div className="p-4 bg-white">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleDiningBannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowUp className="w-4 h-4 text-slate-600" />
+                              </button>
+                              <button onClick={() => handleDiningBannerOrderChange(banner._id, 'down')} disabled={index === diningBanners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                <ArrowDown className="w-4 h-4 text-slate-600" />
+                              </button>
+                            </div>
+                            <button onClick={() => handleToggleDiningBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                              {banner.isActive ? 'Deactivate' : 'Activate'}
                             </button>
-                            <button onClick={() => handleDiningBannerOrderChange(banner._id, 'down')} disabled={index === diningBanners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                              <ArrowDown className="w-4 h-4 text-slate-600" />
+                            <button onClick={() => handleDeleteDiningBanner(banner._id)} disabled={diningBannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                              {diningBannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           </div>
-                          <button onClick={() => handleToggleDiningBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                            {banner.isActive ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <button onClick={() => handleDeleteDiningBanner(banner._id)} disabled={diningBannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
-                            {diningBannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          </button>
                         </div>
                       </div>
-                    </div>
-              )}
-                </div>
-            }
+                    )}
+                  </div>
+              }
             </div>
           </>
         }
 
         {/* Explore More Tab */}
         {activeTab === 'explore-more' &&
-        <>
+          <>
             {/* Sub-tabs for Explore More */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2 mb-6">
               <div className="flex gap-2 overflow-x-auto">
                 {exploreMoreTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === 'explore-more' && (tab.id === 'top-10' ? top10Restaurants.length > 0 : tab.id === 'gourmet' ? gourmetRestaurants.length > 0 : false);
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setExploreMoreSubTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                    exploreMoreSubTab === tab.id ?
-                    'bg-blue-500 text-white' :
-                    'text-slate-600 hover:bg-slate-100'}`
-                    }>
-                    
+                  const Icon = tab.icon;
+                  const isActive = activeTab === 'explore-more' && (tab.id === 'top-10' ? top10Restaurants.length > 0 : tab.id === 'gourmet' ? gourmetRestaurants.length > 0 : false);
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setExploreMoreSubTab(tab.id)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${exploreMoreSubTab === tab.id ?
+                          'bg-blue-500 text-white' :
+                          'text-slate-600 hover:bg-slate-100'}`
+                      }>
+
                       <Icon className="w-4 h-4" />
                       {tab.label}
                     </button>);
 
-              })}
+                })}
               </div>
             </div>
 
             {/* Top 10 Tab Content */}
             {exploreMoreSubTab === 'top-10' &&
-          <>
+              <>
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                   <h2 className="text-lg font-bold text-slate-900 mb-4">Add Restaurant to Top 10</h2>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="restaurant-top10">Select Restaurant</Label>
                       <select
-                    id="restaurant-top10"
-                    value={selectedRestaurantTop10}
-                    onChange={(e) => setSelectedRestaurantTop10(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={restaurantsLoading}>
-                    
+                        id="restaurant-top10"
+                        value={selectedRestaurantTop10}
+                        onChange={(e) => setSelectedRestaurantTop10(e.target.value)}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={restaurantsLoading}>
+
                         <option value="">Select a restaurant...</option>
                         {allRestaurants.
-                    filter((r) => !top10Restaurants.some((tr) => tr.restaurant?._id === r._id)).
-                    map((restaurant) =>
-                    <option key={restaurant._id} value={restaurant._id}>
+                          filter((r) => !top10Restaurants.some((tr) => tr.restaurant?._id === r._id)).
+                          map((restaurant) =>
+                            <option key={restaurant._id} value={restaurant._id}>
                               {restaurant.name}
                             </option>
-                    )}
+                          )}
                       </select>
                     </div>
                     <div>
                       <Label htmlFor="rank">Rank (1-10)</Label>
                       <Input
-                    id="rank"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={selectedRank}
-                    onChange={(e) => setSelectedRank(e.target.value)}
-                    className="mt-1" />
-                  
+                        id="rank"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={selectedRank}
+                        onChange={(e) => setSelectedRank(e.target.value)}
+                        className="mt-1" />
+
                     </div>
                     <Button
-                  onClick={handleAddTop10Restaurant}
-                  disabled={!selectedRestaurantTop10 || !selectedRank}
-                  className="bg-blue-500 hover:bg-blue-600 text-white">
-                  
+                      onClick={handleAddTop10Restaurant}
+                      disabled={!selectedRestaurantTop10 || !selectedRank}
+                      className="bg-blue-500 hover:bg-blue-600 text-white">
+
                       Add to Top 10
                     </Button>
                   </div>
@@ -1738,95 +1737,95 @@ export default function LandingPageManagement() {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-lg font-bold text-slate-900 mb-4">Top 10 Restaurants ({top10Restaurants.length})</h2>
                   {top10Loading ?
-              <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                     </div> :
-              top10Restaurants.length === 0 ?
-              <div className="text-center py-12 text-slate-500">
-                      <Trophy className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                      <p>No restaurants added to Top 10 yet.</p>
-                    </div> :
+                    top10Restaurants.length === 0 ?
+                      <div className="text-center py-12 text-slate-500">
+                        <Trophy className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                        <p>No restaurants added to Top 10 yet.</p>
+                      </div> :
 
-              <div className="space-y-4">
-                      {top10Restaurants.
-                sort((a, b) => a.rank - b.rank).
-                map((item, index) =>
-                <div key={item._id} className="border border-slate-200 rounded-lg p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-4 flex-1">
-                              <div className="w-12 h-12 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-lg">
-                                {item.rank}
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-slate-900">{item.restaurant?.name || 'N/A'}</h3>
-                                <p className="text-xs text-slate-500">Rating: {item.restaurant?.rating || 0}★</p>
+                      <div className="space-y-4">
+                        {top10Restaurants.
+                          sort((a, b) => a.rank - b.rank).
+                          map((item, index) =>
+                            <div key={item._id} className="border border-slate-200 rounded-lg p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-4 flex-1">
+                                <div className="w-12 h-12 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-lg">
+                                  {item.rank}
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-slate-900">{item.restaurant?.name || 'N/A'}</h3>
+                                  <p className="text-xs text-slate-500">Rating: {item.restaurant?.rating || 0}â˜…</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs">Rank:</Label>
+                                  <select
+                                    value={item.rank}
+                                    onChange={(e) => handleTop10RankChange(item._id, e.target.value)}
+                                    className="px-2 py-1 border border-slate-300 rounded text-sm">
+
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) =>
+                                      <option key={r} value={r}>{r}</option>
+                                    )}
+                                  </select>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs">Rank:</Label>
-                                <select
-                        value={item.rank}
-                        onChange={(e) => handleTop10RankChange(item._id, e.target.value)}
-                        className="px-2 py-1 border border-slate-300 rounded text-sm">
-                        
-                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) =>
-                        <option key={r} value={r}>{r}</option>
-                        )}
-                                </select>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => handleTop10OrderChange(item._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                                  <ArrowUp className="w-4 h-4 text-slate-600" />
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => handleTop10OrderChange(item._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                    <ArrowUp className="w-4 h-4 text-slate-600" />
+                                  </button>
+                                  <button onClick={() => handleTop10OrderChange(item._id, 'down')} disabled={index === top10Restaurants.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                                    <ArrowDown className="w-4 h-4 text-slate-600" />
+                                  </button>
+                                </div>
+                                <button onClick={() => handleToggleTop10Status(item._id, item.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${item.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                  {item.isActive ? 'Deactivate' : 'Activate'}
                                 </button>
-                                <button onClick={() => handleTop10OrderChange(item._id, 'down')} disabled={index === top10Restaurants.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
-                                  <ArrowDown className="w-4 h-4 text-slate-600" />
+                                <button onClick={() => handleDeleteTop10Restaurant(item._id)} disabled={top10Deleting === item._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                                  {top10Deleting === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                 </button>
                               </div>
-                              <button onClick={() => handleToggleTop10Status(item._id, item.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${item.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                {item.isActive ? 'Deactivate' : 'Activate'}
-                              </button>
-                              <button onClick={() => handleDeleteTop10Restaurant(item._id)} disabled={top10Deleting === item._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
-                                {top10Deleting === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                              </button>
                             </div>
-                          </div>
-                )}
-                    </div>
-              }
+                          )}
+                      </div>
+                  }
                 </div>
               </>
-          }
+            }
 
             {/* Gourmet Tab Content */}
             {exploreMoreSubTab === 'gourmet' &&
-          <>
+              <>
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                   <h2 className="text-lg font-bold text-slate-900 mb-4">Add Restaurant to Gourmet</h2>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="restaurant-gourmet">Select Restaurant</Label>
                       <select
-                    id="restaurant-gourmet"
-                    value={selectedRestaurantGourmet}
-                    onChange={(e) => setSelectedRestaurantGourmet(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={restaurantsLoading}>
-                    
+                        id="restaurant-gourmet"
+                        value={selectedRestaurantGourmet}
+                        onChange={(e) => setSelectedRestaurantGourmet(e.target.value)}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={restaurantsLoading}>
+
                         <option value="">Select a restaurant...</option>
                         {allRestaurants.
-                    filter((r) => !gourmetRestaurants.some((gr) => gr.restaurant?._id === r._id)).
-                    map((restaurant) =>
-                    <option key={restaurant._id} value={restaurant._id}>
+                          filter((r) => !gourmetRestaurants.some((gr) => gr.restaurant?._id === r._id)).
+                          map((restaurant) =>
+                            <option key={restaurant._id} value={restaurant._id}>
                               {restaurant.name}
                             </option>
-                    )}
+                          )}
                       </select>
                     </div>
                     <Button
-                  onClick={handleAddGourmetRestaurant}
-                  disabled={!selectedRestaurantGourmet}
-                  className="bg-blue-500 hover:bg-blue-600 text-white">
-                  
+                      onClick={handleAddGourmetRestaurant}
+                      disabled={!selectedRestaurantGourmet}
+                      className="bg-blue-500 hover:bg-blue-600 text-white">
+
                       Add to Gourmet
                     </Button>
                   </div>
@@ -1835,72 +1834,72 @@ export default function LandingPageManagement() {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h2 className="text-lg font-bold text-slate-900 mb-4">Gourmet Restaurants ({gourmetRestaurants.length})</h2>
                   {gourmetLoading ?
-              <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                     </div> :
-              gourmetRestaurants.length === 0 ?
-              <div className="text-center py-12 text-slate-500">
-                      <ChefHat className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                      <p>No restaurants added to Gourmet yet.</p>
-                    </div> :
+                    gourmetRestaurants.length === 0 ?
+                      <div className="text-center py-12 text-slate-500">
+                        <ChefHat className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                        <p>No restaurants added to Gourmet yet.</p>
+                      </div> :
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                      {gourmetRestaurants.
-                sort((a, b) => a.order - b.order).
-                map((item, index) => {
-                  // Get restaurant cover image with priority: coverImages > menuImages > profileImage
-                  const coverImages = item.restaurant?.coverImages && item.restaurant.coverImages.length > 0 ?
-                  item.restaurant.coverImages.map((img) => img.url || img).filter(Boolean) :
-                  [];
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {gourmetRestaurants.
+                          sort((a, b) => a.order - b.order).
+                          map((item, index) => {
+                            // Get restaurant cover image with priority: coverImages > menuImages > profileImage
+                            const coverImages = item.restaurant?.coverImages && item.restaurant.coverImages.length > 0 ?
+                              item.restaurant.coverImages.map((img) => img.url || img).filter(Boolean) :
+                              [];
 
-                  const menuImages = item.restaurant?.menuImages && item.restaurant.menuImages.length > 0 ?
-                  item.restaurant.menuImages.map((img) => img.url || img).filter(Boolean) :
-                  [];
+                            const menuImages = item.restaurant?.menuImages && item.restaurant.menuImages.length > 0 ?
+                              item.restaurant.menuImages.map((img) => img.url || img).filter(Boolean) :
+                              [];
 
-                  const restaurantImage = coverImages.length > 0 ?
-                  coverImages[0] :
-                  menuImages.length > 0 ?
-                  menuImages[0] :
-                  item.restaurant?.profileImage?.url || "https://via.placeholder.com/400";
+                            const restaurantImage = coverImages.length > 0 ?
+                              coverImages[0] :
+                              menuImages.length > 0 ?
+                                menuImages[0] :
+                                item.restaurant?.profileImage?.url || null;
 
-                  return (
-                    <div key={item._id} className="border border-slate-200 rounded-lg overflow-hidden">
-                              <div className="relative h-32 bg-slate-100">
-                                <img src={restaurantImage} alt={item.restaurant?.name} className="w-full h-full object-cover" />
-                                <div className="absolute top-1 right-1">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                    {item.isActive ? 'Active' : 'Inactive'}
-                                  </span>
+                            return (
+                              <div key={item._id} className="border border-slate-200 rounded-lg overflow-hidden">
+                                <div className="relative h-32 bg-slate-100">
+                                  <img src={restaurantImage} alt={item.restaurant?.name} className="w-full h-full object-cover" />
+                                  <div className="absolute top-1 right-1">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                      {item.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="p-2">
-                                <h3 className="font-semibold text-slate-900 mb-0.5 text-sm line-clamp-1">{item.restaurant?.name || 'N/A'}</h3>
-                                <p className="text-[10px] text-slate-500 mb-2">Rating: {item.restaurant?.rating || 0}★</p>
-                                <div className="flex items-center justify-between gap-1">
-                                  <div className="flex items-center gap-0.5">
-                                    <button onClick={() => handleGourmetOrderChange(item._id, 'up')} disabled={index === 0} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
-                                      <ArrowUp className="w-3 h-3 text-slate-600" />
+                                <div className="p-2">
+                                  <h3 className="font-semibold text-slate-900 mb-0.5 text-sm line-clamp-1">{item.restaurant?.name || 'N/A'}</h3>
+                                  <p className="text-[10px] text-slate-500 mb-2">Rating: {item.restaurant?.rating || 0}â˜…</p>
+                                  <div className="flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <button onClick={() => handleGourmetOrderChange(item._id, 'up')} disabled={index === 0} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
+                                        <ArrowUp className="w-3 h-3 text-slate-600" />
+                                      </button>
+                                      <button onClick={() => handleGourmetOrderChange(item._id, 'down')} disabled={index === gourmetRestaurants.length - 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
+                                        <ArrowDown className="w-3 h-3 text-slate-600" />
+                                      </button>
+                                    </div>
+                                    <button onClick={() => handleToggleGourmetStatus(item._id, item.isActive)} className={`px-2 py-1 rounded text-[10px] font-medium ${item.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                      {item.isActive ? 'Deactivate' : 'Activate'}
                                     </button>
-                                    <button onClick={() => handleGourmetOrderChange(item._id, 'down')} disabled={index === gourmetRestaurants.length - 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
-                                      <ArrowDown className="w-3 h-3 text-slate-600" />
+                                    <button onClick={() => handleDeleteGourmetRestaurant(item._id)} disabled={gourmetDeleting === item._id} className="p-1 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                                      {gourmetDeleting === item._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                                     </button>
                                   </div>
-                                  <button onClick={() => handleToggleGourmetStatus(item._id, item.isActive)} className={`px-2 py-1 rounded text-[10px] font-medium ${item.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                    {item.isActive ? 'Deactivate' : 'Activate'}
-                                  </button>
-                                  <button onClick={() => handleDeleteGourmetRestaurant(item._id)} disabled={gourmetDeleting === item._id} className="p-1 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
-                                    {gourmetDeleting === item._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                  </button>
                                 </div>
-                              </div>
-                            </div>);
+                              </div>);
 
-                })}
-                    </div>
-              }
+                          })}
+                      </div>
+                  }
                 </div>
               </>
-          }
+            }
           </>
         }
 
@@ -1913,7 +1912,7 @@ export default function LandingPageManagement() {
                 Select restaurants that will be linked to this banner. When users click on this banner, they will be redirected to the selected restaurants.
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="flex-1 overflow-hidden flex flex-col">
               {/* Search Bar and Selected Count */}
               <div className="px-6 pt-4 pb-3 space-y-3 bg-slate-50 border-b border-slate-200">
@@ -1925,19 +1924,19 @@ export default function LandingPageManagement() {
                     value={restaurantSearchQuery}
                     onChange={(e) => setRestaurantSearchQuery(e.target.value)}
                     className="pl-10 h-11 bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
-                  
+
                 </div>
                 {selectedRestaurantIds.length > 0 &&
-                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <div className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
                       {selectedRestaurantIds.length} restaurant{selectedRestaurantIds.length > 1 ? 's' : ''} selected
                     </div>
                     <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedRestaurantIds([])}
-                    className="text-xs text-slate-600 hover:text-slate-900">
-                    
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedRestaurantIds([])}
+                      className="text-xs text-slate-600 hover:text-slate-900">
+
                       Clear selection
                     </Button>
                   </div>
@@ -1947,97 +1946,95 @@ export default function LandingPageManagement() {
               {/* Restaurant List */}
               <div className="flex-1 overflow-y-auto bg-white">
                 {restaurantsLoading ?
-                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="flex flex-col items-center justify-center py-16">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
                     <p className="text-slate-500">Loading restaurants...</p>
                   </div> :
-                filteredRestaurantsForModal.length === 0 ?
-                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                    <ImageIcon className="w-16 h-16 text-slate-300 mb-4" />
-                    <p className="text-slate-600 font-medium mb-1">No restaurants found</p>
-                    <p className="text-sm text-slate-500">
-                      {restaurantSearchQuery ? 'Try a different search term' : 'No restaurants available'}
-                    </p>
-                  </div> :
+                  filteredRestaurantsForModal.length === 0 ?
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                      <ImageIcon className="w-16 h-16 text-slate-300 mb-4" />
+                      <p className="text-slate-600 font-medium mb-1">No restaurants found</p>
+                      <p className="text-sm text-slate-500">
+                        {restaurantSearchQuery ? 'Try a different search term' : 'No restaurants available'}
+                      </p>
+                    </div> :
 
-                <div className="divide-y divide-slate-100">
-                    {filteredRestaurantsForModal.map((restaurant) => {
-                    const isSelected = selectedRestaurantIds.includes(restaurant._id);
-                    const profileImageUrl = restaurant.profileImage?.url || restaurant.profileImage || null;
+                    <div className="divide-y divide-slate-100">
+                      {filteredRestaurantsForModal.map((restaurant) => {
+                        const isSelected = selectedRestaurantIds.includes(restaurant._id);
+                        const profileImageUrl = restaurant.profileImage?.url || restaurant.profileImage || null;
 
-                    return (
-                      <div
-                        key={restaurant._id}
-                        className={`px-6 py-4 transition-all cursor-pointer ${
-                        isSelected ?
-                        'bg-blue-50 border-l-4 border-l-blue-500' :
-                        'hover:bg-slate-50'}`
-                        }
-                        onClick={() => toggleRestaurantSelection(restaurant._id)}>
-                        
-                          <div className="flex items-center gap-4">
-                            <div className="flex-shrink-0">
-                              <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleRestaurantSelection(restaurant._id)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-5 h-5" />
-                            
-                            </div>
-                            
-                            {/* Restaurant Image */}
-                            <div className="flex-shrink-0">
-                              {profileImageUrl ?
-                            <img
-                              src={profileImageUrl}
-                              alt={restaurant.name}
-                              className="w-16 h-16 rounded-xl object-cover border-2 border-slate-200"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }} /> :
-
-                            null}
-                              <div
-                              className={`w-16 h-16 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg ${
-                              profileImageUrl ? 'hidden' : 'flex'}`
-                              }>
-                              
-                                {restaurant.name?.charAt(0)?.toUpperCase() || 'R'}
-                              </div>
-                            </div>
-                            
-                            {/* Restaurant Info */}
-                            <div className="flex-1 min-w-0">
-                              <h3 className={`font-semibold text-base mb-1 ${
-                            isSelected ? 'text-blue-900' : 'text-slate-900'}`
-                            }>
-                                {restaurant.name || 'Unnamed Restaurant'}
-                              </h3>
-                              <p className="text-sm text-slate-500 truncate">
-                                ID: {restaurant.restaurantId || restaurant._id}
-                              </p>
-                              {restaurant.rating &&
-                            <div className="flex items-center gap-1 mt-1">
-                                  <span className="text-xs text-slate-400">★</span>
-                                  <span className="text-xs text-slate-600">{restaurant.rating}</span>
-                                </div>
+                        return (
+                          <div
+                            key={restaurant._id}
+                            className={`px-6 py-4 transition-all cursor-pointer ${isSelected ?
+                                'bg-blue-50 border-l-4 border-l-blue-500' :
+                                'hover:bg-slate-50'}`
                             }
-                            </div>
-                            
-                            {/* Selected Indicator */}
-                            {isSelected &&
-                          <div className="flex-shrink-0">
-                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                                  <CheckCircle2 className="w-5 h-5 text-white" />
+                            onClick={() => toggleRestaurantSelection(restaurant._id)}>
+
+                            <div className="flex items-center gap-4">
+                              <div className="flex-shrink-0">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleRestaurantSelection(restaurant._id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-5 h-5" />
+
+                              </div>
+
+                              {/* Restaurant Image */}
+                              <div className="flex-shrink-0">
+                                {profileImageUrl ?
+                                  <img
+                                    src={profileImageUrl}
+                                    alt={restaurant.name}
+                                    className="w-16 h-16 rounded-xl object-cover border-2 border-slate-200"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }} /> :
+
+                                  null}
+                                <div
+                                  className={`w-16 h-16 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg ${profileImageUrl ? 'hidden' : 'flex'}`
+                                  }>
+
+                                  {restaurant.name?.charAt(0)?.toUpperCase() || 'R'}
                                 </div>
                               </div>
-                          }
-                          </div>
-                        </div>);
 
-                  })}
-                  </div>
+                              {/* Restaurant Info */}
+                              <div className="flex-1 min-w-0">
+                                <h3 className={`font-semibold text-base mb-1 ${isSelected ? 'text-blue-900' : 'text-slate-900'}`
+                                }>
+                                  {restaurant.name || 'Unnamed Restaurant'}
+                                </h3>
+                                <p className="text-sm text-slate-500 truncate">
+                                  ID: {restaurant.restaurantId || restaurant._id}
+                                </p>
+                                {restaurant.rating &&
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <span className="text-xs text-slate-400">★</span>
+                                    <span className="text-xs text-slate-600">{restaurant.rating}</span>
+                                  </div>
+                                }
+                              </div>
+
+                              {/* Selected Indicator */}
+                              {isSelected &&
+                                <div className="flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                    <CheckCircle2 className="w-5 h-5 text-white" />
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          </div>);
+
+                      })}
+                    </div>
                 }
               </div>
 
@@ -2056,21 +2053,21 @@ export default function LandingPageManagement() {
                       setRestaurantSearchQuery("");
                     }}
                     className="px-6">
-                    
+
                     Cancel
                   </Button>
                   <Button
                     onClick={handleLinkRestaurants}
                     disabled={linkingRestaurants || selectedRestaurantIds.length === 0}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 min-w-[140px]">
-                    
+
                     {linkingRestaurants ?
-                    <>
+                      <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Linking...
                       </> :
 
-                    <>
+                      <>
                         <Megaphone className="w-4 h-4 mr-2" />
                         Link {selectedRestaurantIds.length > 0 ? `(${selectedRestaurantIds.length})` : ''} Restaurant{selectedRestaurantIds.length !== 1 ? 's' : ''}
                       </>

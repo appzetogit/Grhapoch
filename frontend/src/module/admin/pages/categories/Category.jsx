@@ -23,7 +23,7 @@ export default function Category() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
-    image: "https://via.placeholder.com/40",
+    image: null,
     status: true,
     type: ""
   });
@@ -224,15 +224,24 @@ export default function Category() {
   };
 
   const handleEdit = (category) => {
+    // Safe image URL filter to avoid via.placeholder.com requests from backend
+    const getSafeImage = (url) => {
+      if (!url || typeof url !== 'string' || url.includes('via.placeholder.com')) {
+        return null;
+      }
+      return url;
+    };
+
     setEditingCategory(category);
+    const safeImage = getSafeImage(category.image);
     setFormData({
       name: category.name || "",
-      image: category.image || "https://via.placeholder.com/40",
+      image: safeImage || null,
       status: category.status !== undefined ? category.status : true,
       type: category.type || ""
     });
     setSelectedImageFile(null);
-    setImagePreview(category.image || null);
+    setImagePreview(safeImage || null);
     setIsModalOpen(true);
   };
 
@@ -240,7 +249,7 @@ export default function Category() {
     setEditingCategory(null);
     setFormData({
       name: "",
-      image: "https://via.placeholder.com/40",
+      image: null,
       status: true,
       type: ""
     });
@@ -380,7 +389,7 @@ export default function Category() {
     setImagePreview(null);
     setFormData({
       name: "",
-      image: "https://via.placeholder.com/40",
+      image: null,
       status: true,
       type: ""
     });
@@ -403,7 +412,7 @@ export default function Category() {
       // Add image file if selected, otherwise use existing image URL
       if (selectedImageFile) {
         formDataToSend.append('image', selectedImageFile);
-      } else if (formData.image && formData.image !== 'https://via.placeholder.com/40') {
+      } else if (formData.image) {
         // If no new file but existing image URL, send it as string
         formDataToSend.append('image', formData.image);
       }
@@ -648,15 +657,20 @@ export default function Category() {
                       <span className="text-sm font-medium text-slate-700">{category.sl || index + 1}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
                         <img
-                      src={category.image}
-                      alt={category.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/40";
-                      }} />
-                    
+                          src={category.image}
+                          alt={category.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        <div className="hidden items-center justify-center w-full h-full uppercase text-xl font-bold">
+                           {category.name?.charAt(0) || 'C'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1099,14 +1113,20 @@ export default function Category() {
                         {/* Image Preview */}
                         {(imagePreview || formData.image) &&
                     <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-slate-300">
-                            <img
-                        src={imagePreview || formData.image}
-                        alt="Category preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/128";
-                        }} />
-                      
+                            <div className="w-full h-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner">
+                              <img
+                                src={imagePreview || formData.image}
+                                alt="Category preview"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }} />
+                              <div className="hidden items-center justify-center w-full h-full uppercase text-6xl font-extrabold">
+                                 {formData.name?.charAt(0) || 'C'}
+                              </div>
+                            </div>
                             {imagePreview &&
                       <button
                         type="button"

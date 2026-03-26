@@ -335,13 +335,18 @@ apiClient.interceptors.request.use(
     // We check normalizedRequestUrl (the API endpoint) rather than path (the browser URL)
     const isApiDeliveryRoute = normalizedRequestUrl.startsWith('/delivery') || normalizedRequestUrl.includes('/api/delivery');
 
+    const isPublicAdminPath = path.startsWith('/admin/login') || 
+      path.startsWith('/admin/signup') || 
+      path.startsWith('/admin/otp') || 
+      path.startsWith('/admin/forgot-password');
+
     const isPublicRestaurantPath = path.startsWith('/restaurant/login') || 
       path.startsWith('/restaurant/signup') || 
       path.startsWith('/restaurant/otp') || 
       path.startsWith('/restaurant/forgot-password') ||
       path.startsWith('/restaurant/welcome');
 
-    const isAuthenticatedRoute = (path.startsWith('/admin') ||
+    const isAuthenticatedRoute = ((path.startsWith('/admin') && !isPublicAdminPath) ||
       (path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !isPublicRestaurantPath && !isPublicRestaurantRoute) ||
       isApiDeliveryRoute && !isPublicDeliveryRoute) && !isPublicRestaurantRoute;
 

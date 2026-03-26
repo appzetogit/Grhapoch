@@ -160,6 +160,21 @@ export default function SignIn() {
     setApiError("");
 
     try {
+      if (!user) {
+        throw new Error("Google user not available");
+      }
+
+      // Get Firebase ID token for backend verification.
+      const idToken = await user.getIdToken();
+      console.info("[UserGoogle] token_extracted", {
+        hasIdToken: !!idToken,
+        idTokenLength: idToken ? String(idToken).length : 0,
+        source
+      });
+      if (!idToken) {
+        throw new Error("Failed to get Firebase ID token");
+      }
+
       const response = await authAPI.firebaseGoogleLogin(idToken, "user");
       const data = response?.data?.data || {};
 

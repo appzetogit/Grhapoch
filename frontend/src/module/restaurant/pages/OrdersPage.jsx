@@ -23,7 +23,7 @@ import { restaurantAPI } from "@/lib/api";
 
 export default function OrdersPage() {
   const navigate = useNavigate();
-  // Default to "all" to show all orders (active + history)
+  // Default to "all" to show all orders (active + historye)
   const [activeFilterTab, setActiveFilterTab] = useState("all");
   const [showMenu, setShowMenu] = useState(false);
   const [orders, setOrders] = useState([]);

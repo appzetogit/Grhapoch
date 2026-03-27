@@ -290,8 +290,9 @@ export const activateSubscriptionTx = async ({
   const now = new Date(paymentDate || Date.now());
   const { startDate, endDate, isRenewing } = buildSubscriptionDates({ restaurant, plan, now });
   // Activate immediately once payment is verified
-  const requiresAdminApproval = false;
-  const nextSubscriptionStatus = 'active';
+  // Keep new/renewed subscriptions in pending state until an admin approves the restaurant
+  const requiresAdminApproval = true;
+  const nextSubscriptionStatus = requiresAdminApproval ? 'pending_approval' : 'active';
 
   if (isRenewing) {
     appendRenewedHistory({ restaurant, now });
@@ -325,7 +326,7 @@ export const activateSubscriptionTx = async ({
     }
   }
 
-  restaurant.isActive = true;
+  // Do not auto-activate; admin must approve the restaurant
   restaurant.onboardingCompleted = true;
   if (!restaurant.onboarding) restaurant.onboarding = {};
   restaurant.onboarding.completedSteps = Math.max(Number(restaurant.onboarding.completedSteps || 0), 5);

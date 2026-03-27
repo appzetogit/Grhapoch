@@ -34,7 +34,6 @@ import {
 } from
   "@/components/ui/dropdown-menu";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 
 import offerImage from "@/assets/offerimage.png";
 import api, { restaurantAPI, campaignAPI, userAdvertisementAPI, analyticsAPI } from "@/lib/api";
@@ -584,11 +583,11 @@ export default function Home() {
   try {
     profileContext = useProfile();
   } catch (error) {
-    console.warn("ProfileProvider not available, using fallback:", error.message);
+
     // Fallback values when ProfileProvider is not available
     profileContext = {
-      addFavorite: () => console.warn("ProfileProvider not available"),
-      removeFavorite: () => console.warn("ProfileProvider not available"),
+      addFavorite: () => {},
+      removeFavorite: () => {},
       isFavorite: () => false,
       getFavorites: () => []
     };
@@ -597,7 +596,7 @@ export default function Home() {
   const { addFavorite, removeFavorite, isFavorite, getFavorites } = profileContext;
   const { addToCart, cart } = useCart();
   const { location, loading, requestLocation } = useLocation();
-  const { zoneId, zoneStatus, isInService, isOutOfService, loading: zoneLoading } = useZone(location);
+  const isOutOfService = false;
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState(null);
@@ -739,11 +738,11 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
       params.isVeg = 'true';
     }
 
-    // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
-    if (zoneId) {
-      params.zoneId = zoneId;
+    // Add user coordinates for nearby fetch when available
+    if (location?.latitude && location?.longitude) {
+      params.lat = location.latitude;
+      params.lng = location.longitude;
     }
-    // Note: We show all restaurants regardless of zone, but apply grayscale styling if user is out of service
 
 
     const response = await restaurantAPI.getRestaurants(params);
@@ -754,7 +753,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
 
 
       if (restaurantsArray.length === 0) {
-        console.warn('No restaurants found in API response');
+
         setRestaurantsData([]);
         setLoadingRestaurants(false);
         return;
@@ -845,7 +844,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
           id: restaurant.restaurantId || restaurant._id,
           name: restaurant.name,
           cuisine: cuisine,
-          rating: restaurant.rating || 4.5,
+          rating: restaurant.rating || 0,
           deliveryTime: deliveryTime,
           distance: distance,
           distanceInKm: distanceInKm, // Store numeric distance for sorting
@@ -888,12 +887,10 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
 
       setRestaurantsData(transformedRestaurants);
     } else {
-      console.warn('Invalid API response structure:', response.data);
       setRestaurantsData([]);
     }
   } catch (error) {
     console.error('Error fetching restaurants:', error);
-    console.error('Error details:', error.response?.data || error.message);
     // Don't set hardcoded data here - let the useMemo fallback handle it
     // This way, if API succeeds later, it will show the real data
     setRestaurantsData([]);
@@ -901,7 +898,7 @@ const fetchRestaurants = useCallback(async (filters = {}) => {
     setLoadingRestaurants(false);
 
   }
-  }, [zoneId, vegMode, location?.latitude, location?.longitude]);
+  }, [vegMode, location?.latitude, location?.longitude]);
 
 // Fetch restaurants when appliedFilters change
 useEffect(() => {

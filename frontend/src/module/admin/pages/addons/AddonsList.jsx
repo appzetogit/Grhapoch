@@ -45,7 +45,7 @@ export default function AddonsList() {
                 id: addon.id || `${restaurantId}-${addon.name}`,
                 _id: addon._id,
                 name: addon.name || "Unnamed Addon",
-                image: addon.image || addon.images?.[0] || "https://via.placeholder.com/40",
+                image: addon.image || addon.images?.[0] || null,
                 price: addon.price || 0,
                 description: addon.description || "",
                 isAvailable: addon.isAvailable !== false,
@@ -284,15 +284,20 @@ export default function AddonsList() {
                       <span className="text-sm font-medium text-slate-700">{index + 1}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white text-xs font-bold shadow-inner flex-shrink-0">
                         <img
                           src={addon.image}
                           alt={addon.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40"
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
                           }}
                         />
+                        <div className="hidden items-center justify-center w-full h-full uppercase">
+                           {addon.name?.charAt(0) || 'A'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

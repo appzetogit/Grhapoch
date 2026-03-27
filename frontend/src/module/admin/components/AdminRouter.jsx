@@ -51,7 +51,6 @@ import Bonus from "../pages/wallet/Bonus";
 import LoyaltyPointReport from "../pages/loyalty-point/Report";
 import SubscribedMailList from "../pages/SubscribedMailList";
 // Deliveryman Management
-import DeliveryBoyCommission from "../pages/DeliveryBoyCommission";
 import DeliveryCashLimit from "../pages/DeliveryCashLimit";
 import CashLimitSettlement from "../pages/CashLimitSettlement";
 import DeliveryWithdrawal from "../pages/DeliveryWithdrawal";
@@ -102,6 +101,7 @@ import ShippingPolicy from "../pages/settings/ShippingPolicy";
 import CancellationPolicy from "../pages/settings/CancellationPolicy";
 import ReactRegistration from "../pages/settings/ReactRegistration";
 import DonationManagement from "../pages/settings/DonationManagement";
+import ServiceAreaSettings from "../pages/settings/ServiceAreaSettings";
 // System Settings
 import ThirdParty from "../pages/system/ThirdParty";
 import FirebaseNotification from "../pages/system/FirebaseNotification";
@@ -226,7 +226,7 @@ export default function AdminRouter() {
         <Route path="subscribed-mail-list" element={<SubscribedMailList />} />
 
         {/* DELIVERYMAN MANAGEMENT */}
-        <Route path="delivery-boy-commission" element={<DeliveryBoyCommission />} />
+        <Route path="delivery-boy-commission" element={<Navigate to="/admin/service-area" replace />} />
         <Route path="delivery-cash-limit" element={<DeliveryCashLimit />} />
         <Route path="cash-limit-settlement" element={<CashLimitSettlement />} />
         <Route path="delivery-withdrawal" element={<DeliveryWithdrawal />} />
@@ -291,6 +291,7 @@ export default function AdminRouter() {
         <Route path="pages-social-media/cancellation" element={<CancellationPolicy />} />
         <Route path="pages-social-media/react-registration" element={<ReactRegistration />} />
         <Route path="donation-management" element={<DonationManagement />} />
+        <Route path="service-area" element={<ServiceAreaSettings />} />
 
         {/* SYSTEM SETTINGS */}
         {/* 3rd Party & Configurations */}

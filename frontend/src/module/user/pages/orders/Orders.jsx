@@ -357,8 +357,12 @@ export default function Orders() {
   // Handle reorder
   const handleReorder = (order) => {
     // Navigate to restaurant page or cart
-    if (order.restaurantId) {
-      navigate(`/user/restaurants/${order.restaurantId}`);
+    const resId = typeof order.restaurantId === 'object' && order.restaurantId !== null 
+      ? (order.restaurantId._id || order.restaurantId.id || order.restaurantId.restaurantId) 
+      : order.restaurantId;
+
+    if (resId) {
+      navigate(`/user/restaurants/${resId}`);
     } else {
       toast.info('Restaurant information not available');
     }
@@ -402,7 +406,7 @@ Order again from this restaurant in the GrhaPoch app.`;
 
   const handleViewOrderDetails = (order) => {
     setActiveMenuOrderId(null);
-    navigate(`/user/orders/${order.id}/details`);
+    navigate(`/user/orders/${order.orderId || order._id || order.id}`);
   };
 
   // Open rating modal for an order
@@ -777,7 +781,7 @@ Order again from this restaurant in the GrhaPoch app.`;
                     }
                   </div>
                   <div className="flex items-center ml-4">
-                    <Link to={`/user/orders/${order.id}`}>
+                    <Link to={`/user/orders/${order.orderId || order._id || order.id}`}>
                       <button className="text-xs text-red-500 font-medium hover:text-red-600 flex items-center gap-1">
                         View Details
                         <ChevronRight className="w-4 h-4" />

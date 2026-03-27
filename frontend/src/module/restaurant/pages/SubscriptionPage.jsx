@@ -52,6 +52,7 @@ export default function SubscriptionPage() {
     const [subscriptionMeta, setSubscriptionMeta] = useState({ daysRemaining: null, showWarning: false, warningDays: 5 });
     const [subscriptionHistory, setSubscriptionHistory] = useState([]);
     const [businessModel, setBusinessModel] = useState(null);
+    const [statusLoaded, setStatusLoaded] = useState(false);
     const [historyPage, setHistoryPage] = useState(1);
     const [cancelling, setCancelling] = useState(false);
 
@@ -89,6 +90,8 @@ export default function SubscriptionPage() {
             }
         } catch (error) {
             console.error('Failed to fetch subscription status', error);
+        } finally {
+            setStatusLoaded(true);
         }
     };
 
@@ -133,11 +136,14 @@ export default function SubscriptionPage() {
             const isProspect = !!localStorage.getItem("pending_subscription_onboarding");
             
             setLoading(true);
+            setStatusLoaded(false);
             
             // Only fetch status if authenticated and not a prospect
             // (Prospects don't have a token yet, it will be null or "null")
             if (token && token !== 'null' && token !== 'undefined' && !isProspect) {
                 await fetchStatus();
+            } else {
+                setStatusLoaded(true);
             }
             
             await fetchPlans();
@@ -223,6 +229,22 @@ export default function SubscriptionPage() {
                 
                 // If it's a prospect, register first
                 if (onboardingData.pendingRegistrationData) {
+                    const otpAgeMs = Date.now() - (onboardingData.pendingRegistrationData?.otpGeneratedAt || 0);
+                    const otpExpiresInMs = Number(onboardingData.pendingRegistrationData?.otpExpiresInMs);
+                    const otpExpiresInSeconds = Number(onboardingData.pendingRegistrationData?.otpExpiresIn);
+                    const maxOtpAgeMs =
+                        Number.isFinite(otpExpiresInMs) && otpExpiresInMs > 0
+                            ? otpExpiresInMs
+                            : Number.isFinite(otpExpiresInSeconds) && otpExpiresInSeconds > 0
+                                ? otpExpiresInSeconds * 1000
+                                : 5 * 60 * 1000;
+                    if (!onboardingData.pendingRegistrationData?.otpCode || otpAgeMs > maxOtpAgeMs) {
+                        toast.error("Your OTP has expired. Please request a new OTP to continue.");
+                        setSubmittingPlanId(null);
+                        navigate("/restaurant/otp", { replace: true });
+                        return;
+                    }
+
                     toast.info("Setting up your account...");
                     const regData = onboardingData.pendingRegistrationData;
                     const regResponse = await restaurantAPI.verifyOTP(
@@ -303,7 +325,7 @@ export default function SubscriptionPage() {
                 subscription_id: subscriptionId, // Changed from order_id to subscription_id
                 handler: async function (response) {
                     // 3. Verify Payment on Backend
-                    console.log('Razorpay payment response:', response);
+                    // console.log('Razorpay payment response:', response);
 
                     if (!response.razorpay_signature) {
                         toast.error('Payment signature missing. Please contact support.');
@@ -453,21 +475,22 @@ export default function SubscriptionPage() {
                 </div>
             </div>
 
+
             <div className="max-w-7xl mx-auto px-4 py-10 pb-20">
                 {/* Hero Section */}
                 <div className="text-center mb-10 space-y-4">
                     {/* Active Plan Indicator for Commission Base */}
                     {/* Active Plan Indicator for Commission Base */}
-                    {(!currentSubscription || currentSubscription.status !== 'active') && !loading && (
+                    {statusLoaded && (!currentSubscription || currentSubscription.status !== 'active') && !loading && (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 px-4 py-2 rounded-lg border border-amber-200"
-                        >
-                            <span className="font-semibold">Current Plan:</span> Commission Base
-                        </motion.div>
-                    )}
+                    className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 px-4 py-2 rounded-lg border border-amber-200"
+                >
+                    <span className="font-semibold">Current Plan:</span> Commission Base
+                </motion.div>
+            )}
 
                     <motion.h2
                         initial={{ opacity: 0, y: 10 }}

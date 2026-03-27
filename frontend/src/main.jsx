@@ -57,10 +57,11 @@ window.__googleMapsLoaded = window.__googleMapsLoaded || false;
     const googleMapsApiKey = await getGoogleMapsApiKey();
     if (googleMapsApiKey) {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing&loading=async`;
+      // Use standard (non-async) loader so legacy globals like google.maps.Map are available immediately.
+      // The Delivery panel relies on new google.maps.Map; the async modular loader leaves Map undefined until importLibrary is called.
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing`;
       script.async = true;
       script.defer = true;
-      script.loading = 'async'; // Add this for modern browsers
       script.onload = () => {
 
         window.__googleMapsLoaded = true;
@@ -103,6 +104,11 @@ console.error = (...args) => {
       args[0].includes('_$onReInit') ||
       args[0].includes('_$bindListeners'))) {
     return; // Suppress browser extension errors
+  }
+
+  // Suppress Google Maps Marker deprecation error if it logs as error
+  if (errorStr.includes('google.maps.Marker is deprecated')) {
+    return;
   }
 
 
@@ -187,7 +193,30 @@ console.error = (...args) => {
     return;
   }
 
+  if (errorStr.includes('width(-1)') || errorStr.includes('height(-1)') || errorStr.includes('greater than 0')) {
+    return;
+  }
+
   originalError.apply(console, args);
+};
+
+// Suppress specific console.warns
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  const warnStr = args.join(' ');
+  // Suppress Google Maps Marker deprecation warning
+  if (warnStr.includes('google.maps.Marker is deprecated')) {
+    return;
+  }
+  // Suppress Google Maps performance warning
+  if (warnStr.includes('Google Maps JavaScript API') || warnStr.includes('loading=async')) {
+    return;
+  }
+  // Suppress Recharts width/height warnings during transitions
+  if (warnStr.includes('width(-1)') || warnStr.includes('height(-1)') || warnStr.includes('greater than 0')) {
+    return;
+  }
+  originalWarn.apply(console, args);
 };
 
 // Handle unhandled promise rejections
@@ -226,10 +255,10 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster position="top-center" richColors offset="80px" />
-    </BrowserRouter>
-  </StrictMode>
+  // <StrictMode>
+  <BrowserRouter>
+    <App />
+    <Toaster position="top-center" richColors offset="80px" />
+  </BrowserRouter>
+  // </StrictMode>
 );

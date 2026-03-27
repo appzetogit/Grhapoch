@@ -126,16 +126,15 @@ export default function App() {
     let unsubscribe = () => { };
     setupForegroundNotificationHandler((payload) => {
       // You can add custom in-app toast logic here if desired
-      console.log('[FCM] Foreground notification:', payload?.notification?.title);
     }).then((unsub) => { unsubscribe = unsub; });
     return () => unsubscribe();
   }, []);
 
   return (
     <Routes>
-      <Route path="/user" element={<Navigate to="/" replace />} />
-      <Route path="/user/*" element={<UserPathRedirect />} />
-      {/* Removed /routes route - Home should be accessed through UserRouter */}
+      {/* User routes (public + protected) */}
+      <Route path="/user/*" element={<UserRouter />} />
+      <Route path="/*" element={<UserRouter />} />
 
       {/* Restaurant Public Routes */}
       <Route path="/restaurant/welcome" element={<RestaurantWelcomeRedirect />} />

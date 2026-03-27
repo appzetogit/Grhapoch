@@ -1,6 +1,7 @@
 import express from 'express';
 import { 
   getOrders, 
+  getAvailableOrders,
   getOrderDetails, 
   acceptOrder, 
   confirmReachedPickup, 
@@ -19,6 +20,7 @@ router.use(authenticate);
 
 // Orders routes
 router.get('/orders', getOrders);
+router.get('/orders/available', getAvailableOrders);
 router.get('/orders/:orderId', getOrderDetails);
 router.patch('/orders/:orderId/accept', acceptOrder);
 router.patch('/orders/:orderId/reached-pickup', confirmReachedPickup);

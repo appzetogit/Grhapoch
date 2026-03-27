@@ -13,7 +13,7 @@ import { getRazorpayKeyId } from "@/lib/utils/razorpayKey";
 import { mergeDiningBookings, normalizeDiningBooking, readDiningBookings, writeDiningBookings } from "../utils/diningBookings";
 
 export default function DiningRestaurantDetail() {
-  const { userProfile } = useProfile();
+  const { userProfile, addFavorite, removeFavorite, isFavorite } = useProfile();
   const { category, slug } = useParams();
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState(null);
@@ -33,6 +33,99 @@ export default function DiningRestaurantDetail() {
   const [showMyBookings, setShowMyBookings] = useState(false);
   const [myBookings, setMyBookings] = useState([]);
   const [platformFee, setPlatformFee] = useState(0);
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Link copied to clipboard");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleShareRestaurant = async () => {
+    const restaurantSlug = restaurant?.slug || slug || "";
+    const restaurantName = restaurant?.name || "this restaurant";
+    const shareUrl = `${window.location.origin}/user/dining/${category || 'all'}/${restaurantSlug}`;
+    const shareText = `Check out ${restaurantName} on GrhaPoch! ${shareUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: restaurantName,
+          text: shareText,
+          url: shareUrl
+        });
+        toast.success("Restaurant shared successfully");
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          await copyToClipboard(shareUrl);
+        }
+      }
+    } else {
+      await copyToClipboard(shareUrl);
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    const restaurantSlug = restaurant?.slug || slug || "";
+    if (!restaurantSlug) return;
+
+    const alreadyFavorite = isFavorite(restaurantSlug);
+    if (alreadyFavorite) {
+      removeFavorite(restaurantSlug);
+      toast.success("Removed from favorites");
+    } else {
+      addFavorite({
+        id: restaurant?.id || restaurant?.restaurantId || restaurant?._id,
+        slug: restaurantSlug,
+        name: restaurant?.name || "",
+        cuisine: restaurant?.cuisine || "",
+        rating: restaurant?.rating || 0,
+        deliveryTime: restaurant?.deliveryTime || restaurant?.estimatedDeliveryTime || "",
+        distance: restaurant?.distance || "",
+        priceRange: restaurant?.priceRange || "",
+        image: restaurant?.profileImage?.url || restaurant?.image || ""
+      });
+      toast.success("Saved to favorites");
+    }
+  };
+
+  const handleCallRestaurant = () => {
+    const phone =
+      restaurant?.phone ||
+      restaurant?.ownerPhone ||
+      restaurant?.contact ||
+      restaurant?.contactNumber ||
+      restaurant?.mobile;
+
+    if (!phone) {
+      toast.error("Phone number not available");
+      return;
+    }
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleOpenMap = () => {
+    const coords = restaurant?.coordinates || restaurant?.location?.coordinates;
+    const lat = coords?.latitude || (Array.isArray(coords) ? coords[1] : null) || restaurant?.location?.latitude;
+    const lng = coords?.longitude || (Array.isArray(coords) ? coords[0] : null) || restaurant?.location?.longitude;
+
+    if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const address = restaurant?.location || restaurant?.address || restaurant?.zone;
+    if (address) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    toast.error("Location not available");
+  };
 
   const syncMyBookings = async () => {
     const cachedBookings = readDiningBookings();
@@ -235,7 +328,7 @@ export default function DiningRestaurantDetail() {
         toast.success("Your table booking request has been sent to the restaurant");
       }
     } catch (error) {
-      console.error(error);
+
       toast.error(error.response?.data?.message || "Failed to confirm booking.");
     } finally {
       setBookingLoading(false);
@@ -293,6 +386,8 @@ export default function DiningRestaurantDetail() {
   }
 
   const bgImage = restaurant.image || restaurant.profileImage?.url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop";
+  const restaurantSlug = restaurant?.slug || slug || "";
+  const isSaved = restaurantSlug ? isFavorite(restaurantSlug) : false;
 
   if (showMyBookings) {
     return (
@@ -363,13 +458,15 @@ export default function DiningRestaurantDetail() {
                         <Button
               variant="ghost"
               size="icon"
+              onClick={handleToggleFavorite}
               className="h-10 w-10 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50">
               
-                            <Bookmark className="h-5 w-5" />
+                            <Bookmark className={`h-5 w-5 ${isSaved ? "fill-white text-white" : ""}`} />
                         </Button>
                         <Button
               variant="ghost"
               size="icon"
+              onClick={handleShareRestaurant}
               className="h-10 w-10 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50">
               
                             <Share2 className="h-5 w-5" />
@@ -411,7 +508,7 @@ export default function DiningRestaurantDetail() {
 
                         <div className="bg-green-600 text-white px-2 py-1 rounded-lg flex flex-col items-center shadow-lg border border-green-500/30">
                             <div className="flex items-center gap-1 font-bold text-sm">
-                                <span>{restaurant.rating || "0.0"}</span>
+                                <span>{restaurant.rating || 0}</span>
                                 <Star className="w-3 h-3 fill-white" />
                             </div>
                             <span className="text-[9px] font-medium opacity-90 uppercase tracking-wider">{restaurant.totalRatings || "0"} Reviews</span>
@@ -431,10 +528,20 @@ export default function DiningRestaurantDetail() {
             
                         Book a table
                     </Button>
-                    <Button variant="outline" size="icon" className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+                    <Button
+          variant="outline"
+          size="icon"
+          onClick={handleOpenMap}
+          className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+          
                         <Navigation className="h-5 w-5" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+                    <Button
+          variant="outline"
+          size="icon"
+          onClick={handleCallRestaurant}
+          className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+          
                         <Phone className="h-5 w-5" />
                     </Button>
                 </div>

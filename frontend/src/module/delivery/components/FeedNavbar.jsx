@@ -138,10 +138,6 @@ export default function FeedNavbar({ className = "" }) {
               const mightBeSwapped = lat >= 68 && lat <= 98 && lng >= 8 && lng <= 38;
 
               if (mightBeSwapped) {
-                console.warn('⚠️ Saved coordinates might be swapped in FeedNavbar - correcting:', {
-                  original: [lat, lng],
-                  corrected: [lng, lat]
-                });
                 [latitude, longitude] = [lng, lat];
               } else {
                 [latitude, longitude] = [lat, lng];
@@ -150,7 +146,6 @@ export default function FeedNavbar({ className = "" }) {
           }
         }
       } catch (err) {
-        console.warn('Error reading location from localStorage:', err);
       }
 
       // If no saved location, try to get current location
@@ -169,12 +164,10 @@ export default function FeedNavbar({ className = "" }) {
           // Validate coordinates
           if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
           latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            console.warn('⚠️ Invalid coordinates from geolocation:', { latitude, longitude });
             latitude = null;
             longitude = null;
           }
         } catch (geoError) {
-          console.warn('Could not get current location:', geoError);
         }
       }
 
@@ -257,7 +250,6 @@ export default function FeedNavbar({ className = "" }) {
         }
       } catch (error) {
         // Silently fail - use default empty numbers
-        console.error("Error fetching emergency help:", error);
       }
     };
 
@@ -344,7 +336,6 @@ export default function FeedNavbar({ className = "" }) {
         error.code !== 'ERR_NETWORK' &&
         error.message !== 'Network Error' &&
         !error.message?.includes('timeout')) {
-          console.error("Error fetching profile image for navbar:", error);
         }
       }
     };

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, CheckCircle, Pencil, ArrowLeft, X } from "lucide-react";
+import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, CheckCircle, ArrowLeft, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -239,7 +239,6 @@ export default function RestaurantOnboarding() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [hasLoadedLocal, setHasLoadedLocal] = useState(false);
   const [formErrors, setFormErrors] = useState({});
@@ -250,7 +249,31 @@ export default function RestaurantOnboarding() {
   const filePickedRef = useRef(false);
 
   const handleExit = () => {
-    navigate("/restaurant/login", { replace: true });
+    const cleanupAndRedirect = () => {
+      localStorage.removeItem("restaurant_accessToken");
+      localStorage.removeItem("restaurant_authenticated");
+      localStorage.removeItem("restaurant_user");
+      localStorage.removeItem("restaurant");
+      localStorage.removeItem("restaurant_onboarding_data");
+      localStorage.removeItem("pending_subscription_onboarding");
+      localStorage.removeItem("pendingRestaurantRegistration");
+      sessionStorage.removeItem("restaurantAuthData");
+      navigate("/restaurant/login", { replace: true });
+    };
+
+    const token = localStorage.getItem("restaurant_accessToken");
+    if (!token) {
+      cleanupAndRedirect();
+      return;
+    }
+
+    api.delete("/restaurant/profile", { skipErrorToast: true })
+      .catch((err) => {
+        console.warn("Failed to delete restaurant account on onboarding exit:", err);
+      })
+      .finally(() => {
+        cleanupAndRedirect();
+      });
   };
 
   // Helper to clear file input native value (fixes "file name still showing" bug)
@@ -548,36 +571,37 @@ export default function RestaurantOnboarding() {
   useEffect(() => {
     const pending = localStorage.getItem("pendingRestaurantRegistration");
     const token = localStorage.getItem("restaurant_accessToken");
+    const restaurantUser = JSON.parse(localStorage.getItem("restaurant_user") || "{}");
+    const isGoogleAuth = restaurantUser?.signupMethod === "google";
 
-    console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
+    // console.log("Onboarding Prospect Check - pending:", !!pending, "token:", !!token);
 
-    if (pending) {
-      const data = JSON.parse(pending);
-      console.log("Prospect identified - name:", data.name);
-
-      // Clear old tokens to prevent interference
-      if (token) {
-        console.warn("Clearing old session token");
-        localStorage.removeItem("restaurant_accessToken");
-        localStorage.removeItem("restaurant_authenticated");
-        localStorage.removeItem("restaurant_user");
-      }
-
-      setIsProspect(true);
-      setPendingData(data);
-
-      // Use functional update to merge with existing step1 values (from local storage)
-      // but favor pending registration values if those are empty.
+    if (token) {
+      // Already authenticated from OTP screen; treat as full account (single-OTP flow)
+      setIsProspect(false);
+      setPendingData(null);
       setStep1(prev => ({
         ...prev,
-        // Prioritize data.name from pending registration to ensure latest input is used
-        restaurantName: data.name || prev.restaurantName || "",
+        restaurantName: prev.restaurantName || "",
+        ownerName: prev.ownerName || (isGoogleAuth ? (restaurantUser?.name || "") : ""),
+        ownerEmail: prev.ownerEmail || (isGoogleAuth ? (restaurantUser?.email || "") : "")
+      }));
+    } else if (pending) {
+      // Legacy pending data (older flow). Still allow but mark as prospect.
+      const data = JSON.parse(pending);
+      // console.log("Prospect identified - name:", data.name);
+      setIsProspect(true);
+      setPendingData(data);
+      setStep1(prev => ({
+        ...prev,
+        restaurantName: prev.restaurantName || "",
+        ownerName: prev.ownerName || (isGoogleAuth ? (restaurantUser?.name || "") : ""),
         ownerPhone: stripCountryCode(prev.ownerPhone || data.phone || ""),
-        ownerEmail: prev.ownerEmail || data.email || "",
+        ownerEmail: prev.ownerEmail || (isGoogleAuth ? (restaurantUser?.email || "") : ""),
         primaryContactNumber: stripCountryCode(prev.primaryContactNumber || data.phone || "")
       }));
-    } else if (!token) {
-      console.log("No auth and no prospect data - redirecting to login");
+    } else {
+      // console.log("No auth token - redirecting to login");
       navigate("/restaurant/login", { replace: true });
     }
   }, [navigate]);
@@ -645,9 +669,9 @@ export default function RestaurantOnboarding() {
           setStep1(prev => ({
             ...prev,
             // Use nullish coalescing (??) so that intentionally cleared fields (empty "") are respected
-            restaurantName: localData.step1.restaurantName ?? prev.restaurantName ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").name ?? "",
-            ownerName: localData.step1.ownerName ?? prev.ownerName ?? "",
-            ownerEmail: localData.step1.ownerEmail ?? prev.ownerEmail ?? "",
+            restaurantName: localData.step1.restaurantName ?? prev.restaurantName ?? "",
+            ownerName: localData.step1.ownerName ?? prev.ownerName ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").name ?? "",
+            ownerEmail: localData.step1.ownerEmail ?? prev.ownerEmail ?? JSON.parse(localStorage.getItem("restaurant_user") || "{}").email ?? "",
             ownerPhone: stripCountryCode(localData.step1.ownerPhone ?? prev.ownerPhone ?? ""),
             primaryContactNumber: stripCountryCode(localData.step1.primaryContactNumber ?? prev.primaryContactNumber ?? ""),
             location: {
@@ -799,9 +823,9 @@ export default function RestaurantOnboarding() {
             setStep1((prev) => ({
               ...prev,
               // Use ?? to treat an empty string as a deliberate clear ??? never overwrite with server data
-              restaurantName: prev.restaurantName !== undefined ? prev.restaurantName : (data.step1.restaurantName || JSON.parse(localStorage.getItem("restaurant_user") || "{}").name || ""),
-              ownerName: prev.ownerName !== undefined ? prev.ownerName : (data.step1.ownerName || ""),
-              ownerEmail: prev.ownerEmail !== undefined ? prev.ownerEmail : (data.step1.ownerEmail || ""),
+              restaurantName: prev.restaurantName !== undefined ? prev.restaurantName : (data.step1.restaurantName || ""),
+              ownerName: prev.ownerName !== undefined ? prev.ownerName : (data.step1.ownerName || JSON.parse(localStorage.getItem("restaurant_user") || "{}").name || ""),
+              ownerEmail: prev.ownerEmail !== undefined ? prev.ownerEmail : (data.step1.ownerEmail || JSON.parse(localStorage.getItem("restaurant_user") || "{}").email || ""),
               ownerPhone: stripCountryCode(prev.ownerPhone !== undefined ? prev.ownerPhone : (data.step1.ownerPhone || "")),
               primaryContactNumber: stripCountryCode(prev.primaryContactNumber !== undefined ? prev.primaryContactNumber : (data.step1.primaryContactNumber || "")),
               location: {
@@ -883,7 +907,7 @@ export default function RestaurantOnboarding() {
                   (err?.response?.data?.message?.includes("already completed") || 
                    err?.response?.data?.error?.includes("already completed"))) {
           // If backend says already completed, don't stay here
-          console.log("Onboarding already completed (403), redirecting to hub...");
+          // console.log("Onboarding already completed (403), redirecting to hub...");
           navigate("/restaurant/to-hub", { replace: true });
         } else {
           console.error("Error fetching onboarding data:", err);
@@ -1526,30 +1550,8 @@ export default function RestaurantOnboarding() {
         }
         setStep(5);
       } else if (step === 5) {
-        // 1. Final Account Creation for Prospects
-        // If Subscription based, we delay registration until SubscriptionPage (to avoid creating doc prematurely)
-        if (isProspect && pendingData && step5.businessModel === "Commission Base") {
-          const regResponse = await restaurantAPI.verifyOTP(
-            pendingData.phone,
-            pendingData.otpCode,
-            "register",
-            step1.restaurantName,
-            pendingData.email,
-            step5.businessModel
-          );
-
-          const regData = regResponse?.data?.data || regResponse?.data;
-          if (!regData?.accessToken) {
-            throw new Error("Registration failed. Please try again.");
-          }
-
-          // Authenticate the user
-          setRestaurantAuthData("restaurant", regData.accessToken, regData.restaurant);
-          localStorage.setItem("restaurant_accessToken", regData.accessToken);
-          localStorage.setItem("restaurant_authenticated", "true");
-        }
-
-        // 2. Perform necessary uploads for EVERYONE
+        // Single-OTP flow: registration already done on OTP screen.
+        // Perform necessary uploads for EVERYONE
         // If Subscription based prospect, we skip uploads for now (no auth yet)
         let menuUploads = [];
         let profileUpload = step2.profileImage;
@@ -1644,7 +1646,18 @@ export default function RestaurantOnboarding() {
         if (step5.businessModel === "Subscription Base") {
           // Include registration data for prospects to allow "late registration"
           if (isProspect && pendingData) {
-            finalPayload.pendingRegistrationData = pendingData;
+            const normalizedPending = { ...pendingData };
+            if (!normalizedPending.otpExpiresIn && normalizedPending.expiresIn) {
+              normalizedPending.otpExpiresIn = normalizedPending.expiresIn;
+            }
+            if (!normalizedPending.otpExpiresInMs && normalizedPending.expiresInMs) {
+              normalizedPending.otpExpiresInMs = normalizedPending.expiresInMs;
+            }
+            const expiresInNumber = Number(normalizedPending.otpExpiresIn);
+            if (!normalizedPending.otpExpiresInMs && Number.isFinite(expiresInNumber)) {
+              normalizedPending.otpExpiresInMs = expiresInNumber * 1000;
+            }
+            finalPayload.pendingRegistrationData = normalizedPending;
           }
           localStorage.setItem("pending_subscription_onboarding", JSON.stringify(finalPayload));
         } else {
@@ -1654,12 +1667,10 @@ export default function RestaurantOnboarding() {
           await api.put("/restaurant/onboarding", finalPayload);
         }
 
-        // 4. Cleanup for Prospects
-        if (isProspect && step5.businessModel === "Commission Base") {
-          localStorage.removeItem("pendingRestaurantRegistration");
-          setIsProspect(false);
-          setPendingData(null);
-        }
+        // 4. Cleanup for legacy prospect data if any remained
+        localStorage.removeItem("pendingRestaurantRegistration");
+        setIsProspect(false);
+        setPendingData(null);
 
         // Wait a moment to ensure data is saved, then navigate
         setTimeout(() => {
@@ -1724,33 +1735,19 @@ export default function RestaurantOnboarding() {
         <div className="space-y-3">
           <div>
             <Label className="text-xs text-gray-700">Restaurant name<span className="text-red-500">*</span></Label>
-            <div className="relative flex items-center">
-              <Input
-                value={step1.restaurantName || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStep1({ ...step1, restaurantName: val });
-                  // Immediate feedback: clear error if now valid
-                  validateField('restaurantName', val);
-                }}
-                onFocus={() => setFormErrors(prev => ({ ...prev, restaurantName: null }))}
-                onBlur={() => isEditingName && validateField('restaurantName')}
-                disabled={!isEditingName}
-                className={`mt-1 bg-white text-sm text-black placeholder-black pr-10 ${!isEditingName ? "bg-gray-50" : ""
-                  } ${formErrors.restaurantName ? "border-red-500" : "border-gray-200"}`}
-                placeholder="Customers will see this name"
-              />
-              <button
-                type="button"
-                onClick={() => setIsEditingName(!isEditingName)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 mt-1"
-                title={isEditingName ? "Lock field" : "Edit name"}
-              >
-                <Pencil
-                  className={`h-4 w-4 ${isEditingName ? "text-blue-600" : "text-gray-400"}`}
-                />
-              </button>
-            </div>
+            <Input
+              value={step1.restaurantName || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStep1({ ...step1, restaurantName: val });
+                // Immediate feedback: clear error if now valid
+                validateField('restaurantName', val);
+              }}
+              onFocus={() => setFormErrors(prev => ({ ...prev, restaurantName: null }))}
+              onBlur={() => validateField('restaurantName')}
+              className={`mt-1 bg-white text-sm text-black placeholder-black ${formErrors.restaurantName ? "border-red-500" : "border-gray-200"}`}
+              placeholder="Enter Restaurant Name"
+            />
             {formErrors.restaurantName && <p className="text-red-500 text-[10px] mt-1">{formErrors.restaurantName}</p>}
           </div>
         </div>
@@ -1805,7 +1802,7 @@ export default function RestaurantOnboarding() {
               onFocus={() => setFormErrors(prev => ({ ...prev, ownerPhone: null }))}
               onBlur={() => validateField('ownerPhone')}
               className={`mt-1 bg-white text-sm text-black placeholder-black ${formErrors.ownerPhone ? "border-red-500" : "border-gray-200"}`}
-              placeholder="9876543210" />
+              placeholder="Enter your phone number" />
             {formErrors.ownerPhone && <p className="text-red-500 text-[10px] mt-1">{formErrors.ownerPhone}</p>}
           </div>
         </div>
@@ -1825,7 +1822,7 @@ export default function RestaurantOnboarding() {
             onFocus={() => setFormErrors(prev => ({ ...prev, primaryContactNumber: null }))}
             onBlur={() => validateField('primaryContactNumber')}
             className={`mt-1 bg-white text-sm text-black placeholder-black ${formErrors.primaryContactNumber ? "border-red-500" : "border-gray-200"}`}
-            placeholder="Alternate contact number" />
+            placeholder="Restaurant Contact Number" />
           {formErrors.primaryContactNumber && <p className="text-red-500 text-[10px] mt-1">{formErrors.primaryContactNumber}</p>}
           <p className="text-[11px] text-gray-500 mt-1">
             Customers, delivery partners and Appzeto may call on this number for order

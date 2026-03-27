@@ -93,21 +93,7 @@ const OptimizedImage = ({
     }
   }, [priority, isInView])
 
-  // Preload critical images
-  useEffect(() => {
-    if (priority && src && !src.startsWith('data:')) {
-      const link = document.createElement('link')
-      link.rel = 'preload'
-      link.as = 'image'
-      link.href = src
-      link.fetchPriority = 'high'
-      document.head.appendChild(link)
 
-      return () => {
-        document.head.removeChild(link)
-      }
-    }
-  }, [priority, src])
 
   const handleLoad = (e) => {
     setIsLoaded(true)

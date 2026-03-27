@@ -12,7 +12,7 @@ import { useOrders } from "../../context/OrdersContext";
 import { useLocation as useUserLocation } from "../../hooks/useLocation";
 import { useZone } from "../../hooks/useZone";
 import { useLocationSelector } from "../../components/UserLayout";
-import { orderAPI, restaurantAPI, adminAPI, publicAPI, userAPI, API_ENDPOINTS } from "@/lib/api";
+import { orderAPI, restaurantAPI, publicAPI, userAPI, API_ENDPOINTS } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api/config";
 import { initRazorpayPayment } from "@/lib/utils/razorpay";
 import { toast } from "sonner";
@@ -178,15 +178,6 @@ export default function Cart() {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
 
-  // Fee settings from database (used as fallback if pricing not available)
-  const [feeSettings, setFeeSettings] = useState({
-    deliveryFee: 25,
-    freeDeliveryThreshold: 149,
-    platformFee: 5,
-    gstRate: 5
-  });
-
-
   const cartCount = getCartCount();
   const savedAddress = getDefaultAddress();
   // Priority: Use live location if available, otherwise use saved address
@@ -326,10 +317,12 @@ export default function Cart() {
             }
 
             if (!restaurantNameMatches) {
+              /* 
               console.warn('⚠️ WARNING: Restaurant name mismatch:', {
                 cartRestaurantName: cartRestaurantName,
                 fetchedRestaurantName: fetchedRestaurantName
               });
+              */
               // Still proceed but log warning
             }
 
@@ -345,7 +338,7 @@ export default function Cart() {
             return;
           }
         } catch (error) {
-          console.warn("⚠️ Failed to fetch by cart restaurantId, trying fallback...", error);
+          // console.warn("⚠️ Failed to fetch by cart restaurantId, trying fallback...", error);
         }
       }
 
@@ -402,13 +395,10 @@ export default function Cart() {
             setLoadingRestaurant(false);
             return;
           } else {
-            console.warn("⚠️ Restaurant not found even by name search. Searched in", restaurants.length, "restaurants");
-
-
-
+            // console.warn("⚠️ Restaurant not found even by name search. Searched in", restaurants.length, "restaurants");
           }
         } catch (searchError) {
-          console.warn("⚠️ Error searching restaurants by name:", searchError);
+          // console.warn("⚠️ Error searching restaurants by name:", searchError);
         }
       }
 
@@ -464,7 +454,7 @@ export default function Cart() {
 
 
         if (data.length === 0) {
-          console.warn("⚠️ No addons returned from API. Response:", response?.data);
+          // Addons empty is normal for many restaurants, no need to warn
         } else {
 
         }
@@ -506,7 +496,6 @@ export default function Cart() {
 
       // Must have restaurantData to fetch addons
       if (!restaurantData) {
-        console.warn("⚠️ No restaurantData available for addons fetch");
         setAddons([]);
         return;
       }
@@ -652,27 +641,6 @@ export default function Cart() {
     fetchWalletBalance();
   }, []);
 
-  // Fetch fee settings on mount
-  useEffect(() => {
-    const fetchFeeSettings = async () => {
-      try {
-        const response = await adminAPI.getPublicFeeSettings();
-        if (response.data.success && response.data.data.feeSettings) {
-          setFeeSettings({
-            deliveryFee: response.data.data.feeSettings.deliveryFee ?? 25,
-            freeDeliveryThreshold: response.data.data.feeSettings.freeDeliveryThreshold ?? 149,
-            platformFee: response.data.data.feeSettings.platformFee ?? 5,
-            gstRate: response.data.data.feeSettings.gstRate ?? 5
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching fee settings:', error);
-        // Keep default values on error
-      }
-    };
-    fetchFeeSettings();
-  }, []);
-
   // Fetch tip/donation presets and keep them in sync without manual page reload.
   useEffect(() => {
     const fetchTipAndDonationSettings = async () => {
@@ -723,18 +691,16 @@ export default function Cart() {
   const safeTipAmount = sanitizeAdditionalAmount(tipAmount);
   const safeDonationAmount = sanitizeAdditionalAmount(donationAmount);
 
-  // Use backend pricing if available, otherwise fallback to database settings
-  const subtotal = pricing?.subtotal || cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const deliveryFee = pricing?.deliveryFee ?? (appliedCoupon?.freeDelivery ? 0 : feeSettings.deliveryFee);
-  const platformFee = pricing?.platformFee || feeSettings.platformFee;
-  const discount = pricing?.discount || (appliedCoupon ? Math.min(appliedCoupon.discount, subtotal * 0.5) : 0);
-  const fallbackGstRate = Number(feeSettings?.gstRate) || 0;
-  const fallbackTaxableAmount = Math.max(0, Number(subtotal) - Number(discount));
-  const fallbackGstCharges = Math.round((fallbackTaxableAmount * fallbackGstRate / 100) * 100) / 100;
-  const gstCharges = pricing?.tax ?? fallbackGstCharges;
-  const totalBeforeDiscount = subtotal + deliveryFee + platformFee + gstCharges + safeTipAmount + safeDonationAmount;
-  const total = pricing?.total || totalBeforeDiscount - discount;
-  const savings = pricing?.savings || discount + (subtotal > 500 ? 32 : 0);
+  // Use backend pricing only (no fallback)
+  const hasPricing = Boolean(pricing && Number.isFinite(pricing.total));
+  const subtotal = pricing?.subtotal ?? cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const deliveryFee = hasPricing ? pricing.deliveryFee : null;
+  const platformFee = hasPricing ? pricing.platformFee : null;
+  const discount = hasPricing ? pricing.discount : 0;
+  const gstCharges = hasPricing ? pricing.tax : null;
+  const total = hasPricing ? pricing.total : null;
+  const savings = hasPricing ? pricing.savings : 0;
+  const walletInsufficient = hasPricing && selectedPaymentMethod === "wallet" && walletBalance < total;
 
   // Restaurant name from data or cart
   const restaurantName = restaurantData?.name || cart[0]?.restaurant || "Restaurant";
@@ -883,6 +849,11 @@ export default function Cart() {
 
     if (cart.length === 0) {
       alert("Your cart is empty");
+      return;
+    }
+
+    if (!hasPricing) {
+      toast.error("Calculating pricing, please wait...");
       return;
     }
 
@@ -1431,7 +1402,7 @@ export default function Cart() {
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-32">
         {/* Savings Banner */}
-        {savings > 0 &&
+        {hasPricing && savings > 0 &&
           <div className="bg-blue-100 dark:bg-blue-900/20 px-4 md:px-6 py-2 md:py-3 flex-shrink-0">
             <div className="max-w-7xl mx-auto">
               <p className="text-sm md:text-base font-medium text-blue-800 dark:text-blue-200">
@@ -1621,7 +1592,10 @@ export default function Cart() {
                       <Tag className="h-4 w-4 md:h-5 md:w-5 text-red-600 dark:text-red-400" />
                       <div>
                         <p className="text-sm md:text-base font-medium text-red-700 dark:text-red-300">'{appliedCoupon.code}' applied</p>
-                        <p className="text-xs md:text-sm text-red-600 dark:text-red-400">You saved ₹{discount}</p>
+                        {hasPricing ?
+                          <p className="text-xs md:text-sm text-red-600 dark:text-red-400">You saved ₹{discount}</p> :
+                          <p className="text-xs md:text-sm text-red-600 dark:text-red-400">Calculating...</p>
+                        }
                       </div>
                     </div>
                     <button onClick={handleRemoveCoupon} className="text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium">Remove</button>
@@ -1906,17 +1880,17 @@ export default function Cart() {
                   </div>
                   <div className="flex justify-between text-sm md:text-base">
                     <span className="text-gray-600 dark:text-gray-400">Delivery Fee {pricing?.distanceStr && <span className="text-[10px] opacity-70">(For {pricing.distanceStr})</span>}</span>
-                    <span className={loadingPricing && !pricing ? "text-gray-500 dark:text-gray-400" : deliveryFee === 0 ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200"}>
-                      {loadingPricing && !pricing ? "Calculating..." : deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
+                    <span className={!hasPricing ? "text-gray-500 dark:text-gray-400" : deliveryFee === 0 ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200"}>
+                      {!hasPricing ? "Calculating..." : deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm md:text-base">
                     <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
-                    <span className="text-gray-800 dark:text-gray-200">₹{platformFee}</span>
+                    <span className="text-gray-800 dark:text-gray-200">{hasPricing ? `₹${platformFee}` : "Calculating..."}</span>
                   </div>
                   <div className="flex justify-between text-sm md:text-base">
                     <span className="text-gray-600 dark:text-gray-400">GST and Restaurant Charges</span>
-                    <span className="text-gray-800 dark:text-gray-200">₹{gstCharges}</span>
+                    <span className="text-gray-800 dark:text-gray-200">{hasPricing ? `₹${gstCharges}` : "Calculating..."}</span>
                   </div>
                   {tipAmount > 0 &&
                     <div className="flex justify-between text-sm md:text-base">
@@ -1930,20 +1904,20 @@ export default function Cart() {
                       <span className="text-gray-800 dark:text-gray-200">₹{donationAmount}</span>
                     </div>
                   }
-                  {discount > 0 &&
+                  {hasPricing && discount > 0 &&
                     <div className="flex justify-between text-sm md:text-base text-red-600 dark:text-red-400">
                       <span>Coupon Discount</span>
                       <span>-₹{discount}</span>
                     </div>
                   }
-                  {savings > 0 &&
+                  {hasPricing && savings > 0 &&
                     <div className="flex justify-end">
                       <span className="text-xs md:text-sm bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-medium">You saved ₹{savings}</span>
                     </div>
                   }
                   <div className="flex justify-between text-base md:text-lg font-bold pt-3 md:pt-4 border-t dark:border-gray-700">
                     <span>Total</span>
-                    <span className="text-green-600 dark:text-green-400">₹{total.toFixed(0)}</span>
+                    <span className="text-green-600 dark:text-green-400">{hasPricing ? `₹${total.toFixed(0)}` : "Calculating..."}</span>
                   </div>
                 </div>
               </div>
@@ -1994,12 +1968,12 @@ export default function Cart() {
               <Button
                 size="lg"
                 onClick={handlePlaceOrder}
-                disabled={isPlacingOrder || selectedPaymentMethod === "wallet" && walletBalance < total}
+                disabled={!hasPricing || isPlacingOrder || walletInsufficient}
                 className="w-full bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 md:px-10 h-14 md:h-16 rounded-lg md:rounded-xl text-base md:text-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
 
                 {(selectedPaymentMethod === "razorpay" || selectedPaymentMethod === "wallet") &&
                   <div className="text-left mr-3 md:mr-4">
-                    <p className="text-sm md:text-base opacity-90">₹{total.toFixed(0)}</p>
+                    <p className="text-sm md:text-base opacity-90">{hasPricing ? `₹${total.toFixed(0)}` : "Calculating..."}</p>
                     <p className="text-xs md:text-sm opacity-75">TOTAL</p>
                   </div>
                 }
@@ -2009,9 +1983,10 @@ export default function Cart() {
                     selectedPaymentMethod === "razorpay" ?
                       "Select Payment" :
                       selectedPaymentMethod === "wallet" ?
-                        walletBalance >= total ?
-                          "Place Order" :
-                          "Insufficient Balance" :
+                        (!hasPricing ? "Calculating..." :
+                          walletBalance >= total ?
+                            "Place Order" :
+                            "Insufficient Balance") :
                         "Place Order"}
                 </span>
                 <ChevronRight className="h-5 w-5 md:h-6 md:w-6 ml-2" />

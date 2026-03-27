@@ -167,10 +167,7 @@ export default function CreatePercentageDiscount() {
 
           }
         } catch (error) {
-          console.error(`[COUPONS] ❌ Error fetching coupons for item "${item.id}":`, error);
-          console.error(`[COUPONS] Error response:`, error?.response);
-          console.error(`[COUPONS] Error response.data:`, error?.response?.data);
-          console.error(`[COUPONS] Error message:`, error?.message);
+          console.error(`[COUPONS] ❌ Error fetching coupons for item "${item.id}":`, error.message);
           couponsMap[item.id] = [];
         }
       }
@@ -207,12 +204,10 @@ export default function CreatePercentageDiscount() {
 
             setRunningOffers(offers);
           } else {
-            console.error(`[RUNNING-OFFERS] ❌ API Error:`, response?.data);
             setRunningOffers([]);
           }
         } catch (error) {
-          console.error("[RUNNING-OFFERS] ❌ Error fetching running offers:", error);
-          console.error("[RUNNING-OFFERS] Error details:", error?.response?.data || error?.message);
+          console.error("[RUNNING-OFFERS] ❌ Error fetching running offers:", error.message);
           setRunningOffers([]);
         } finally {
           setLoadingOffers(false);
@@ -526,7 +521,7 @@ export default function CreatePercentageDiscount() {
             setRunningOffers(refreshedOffers);
           }
         } catch (refreshError) {
-          console.error(`[OFFER-CREATE] Error refreshing offers:`, refreshError);
+          // console.error(`[OFFER-CREATE] Error refreshing offers:`, refreshError);
         }
       } else {
         throw new Error(response?.data?.message || "Failed to save offer");

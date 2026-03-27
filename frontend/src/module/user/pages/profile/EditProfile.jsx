@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -156,7 +157,6 @@ export default function EditProfile() {
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setHasMultipleCameras(videoDevices.length > 1);
       } catch (err) {
-        console.error("Error checking cameras:", err);
       }
     };
     checkCameras();
@@ -179,12 +179,10 @@ export default function EditProfile() {
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
     } catch (err) {
-      console.warn(`Failed to start camera with ${facingMode}, trying generic:`, err);
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         setStream(fallbackStream);
       } catch (fallbackErr) {
-        console.error("Critical camera error:", fallbackErr);
         toast.error("Could not access camera. Please check permissions.");
         setActiveCamera(null);
       }
@@ -194,7 +192,7 @@ export default function EditProfile() {
   useEffect(() => {
     if (stream && videoRef.current && !capturedImage) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(e => console.error("Error playing video:", e));
+      videoRef.current.play().catch(e => {});
     }
   }, [stream, capturedImage]);
 
@@ -272,7 +270,6 @@ export default function EditProfile() {
         uploadPromiseRef.current = handleImageSelect({ target: { files: [file] } }, true);
         setCapturedImage(null);
       } catch (error) {
-        console.error("Error using photo:", error);
         toast.error("Failed to process photo");
         // Revert UI on error
         setImagePreview(profileImage);
@@ -290,7 +287,6 @@ export default function EditProfile() {
       
       // Removed toaster as per user request
     } catch (error) {
-      console.error('Error removing image locally:', error);
     }
   };
 
@@ -332,6 +328,9 @@ export default function EditProfile() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Close the popup immediately when a file is selected
+    setIsSourcePopupOpen(false);
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file');
@@ -367,7 +366,6 @@ export default function EditProfile() {
         setImagePreview(profileImage);
       } finally {
         setIsUploadingImage(false);
-        setIsSourcePopupOpen(false);
       }
     };
 
@@ -463,7 +461,7 @@ export default function EditProfile() {
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 sm:py-8 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
+      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 pt-6 pb-24 sm:pt-8 sm:pb-32 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
         {/* Avatar Section */}
         <div className="flex justify-center">
           <div className="relative">
@@ -611,6 +609,9 @@ export default function EditProfile() {
               <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white text-center">
                 Change Profile Photo
               </DialogTitle>
+              <DialogDescription className="text-center text-sm text-gray-500 dark:text-gray-400">
+                Choose camera, gallery, or remove your current picture.
+              </DialogDescription>
             </DialogHeader>
             <div className="p-6 pt-2 space-y-4">
               <button
@@ -676,12 +677,14 @@ export default function EditProfile() {
               <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto text-red-600">
                 <Trash2 className="h-8 w-8" />
               </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Discard Changes?</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+              <DialogHeader className="space-y-2 text-center sm:text-center">
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+                  Discard Changes?
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
                   You have unsaved changes. Are you sure you want to discard them and go back?
-                </p>
-              </div>
+                </DialogDescription>
+              </DialogHeader>
               <div className="grid grid-cols-2 gap-3 pt-4">
                 <Button 
                   variant="outline" 

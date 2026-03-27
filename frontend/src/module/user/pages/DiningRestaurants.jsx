@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { MapPin, ChevronDown, Search, Mic, Wallet, SlidersHorizontal, Star, Compass, X, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,96 +10,10 @@ import { useSearchOverlay, useLocationSelector } from "../components/UserLayout"
 import { useLocation as useLocationHook } from "../hooks/useLocation"
 import { useProfile } from "../context/ProfileContext"
 import { FaLocationDot } from "react-icons/fa6"
+import { diningAPI } from "@/lib/api"
 
 // Using placeholder for dining restaurant banner
 const diningBanner = "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=400&fit=crop"
-
-const popularRestaurants = [
-  {
-    id: 1,
-    name: "IRIS",
-    rating: 4.3,
-    location: "Press Complex, Indore",
-    distance: "2.9 km",
-    cuisine: "Continental",
-    price: "₹1500 for two",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop",
-    offer: "Flat 30% OFF + 3 more",
-    deliveryTime: "30-35 mins",
-    featuredDish: "Pasta",
-    featuredPrice: 450,
-  },
-  {
-    id: 2,
-    name: "Skyline Rooftop",
-    rating: 4.5,
-    location: "MG Road, Indore",
-    distance: "3.2 km",
-    cuisine: "Multi-cuisine",
-    price: "₹2000 for two",
-    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=600&fit=crop",
-    offer: "Flat 25% OFF + 2 more",
-    deliveryTime: "35-40 mins",
-    featuredDish: "Grilled Chicken",
-    featuredPrice: 550,
-  },
-  {
-    id: 3,
-    name: "The Grand Bistro",
-    rating: 4.7,
-    location: "Vijay Nagar, Indore",
-    distance: "1.8 km",
-    cuisine: "Continental",
-    price: "₹1800 for two",
-    image: "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=800&h=600&fit=crop",
-    offer: "Flat 35% OFF + 4 more",
-    deliveryTime: "25-30 mins",
-    featuredDish: "Risotto",
-    featuredPrice: 650,
-  },
-  {
-    id: 4,
-    name: "Coastal Kitchen",
-    rating: 4.4,
-    location: "Palasia, Indore",
-    distance: "2.1 km",
-    cuisine: "Seafood",
-    price: "₹1600 for two",
-    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=600&fit=crop",
-    offer: "Flat 20% OFF + 2 more",
-    deliveryTime: "28-33 mins",
-    featuredDish: "Fish Curry",
-    featuredPrice: 480,
-  },
-  {
-    id: 5,
-    name: "Garden Terrace",
-    rating: 4.6,
-    location: "Scheme 54, Indore",
-    distance: "4.5 km",
-    cuisine: "North Indian",
-    price: "₹1200 for two",
-    image: "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=800&h=600&fit=crop",
-    offer: "Flat 30% OFF + 3 more",
-    deliveryTime: "40-45 mins",
-    featuredDish: "Butter Chicken",
-    featuredPrice: 380,
-  },
-  {
-    id: 6,
-    name: "Midnight Lounge",
-    rating: 4.2,
-    location: "Bhawarkua, Indore",
-    distance: "3.8 km",
-    cuisine: "Continental",
-    price: "₹2200 for two",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop",
-    offer: "Flat 25% OFF + 2 more",
-    deliveryTime: "35-40 mins",
-    featuredDish: "Steak",
-    featuredPrice: 750,
-  },
-]
 
 export default function DiningRestaurants() {
   const navigate = useNavigate()
@@ -114,9 +28,50 @@ export default function DiningRestaurants() {
   const { openSearch, closeSearch, setSearchValue } = useSearchOverlay()
   const { openLocationSelector } = useLocationSelector()
   const { location, loading } = useLocationHook()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = searchParams.get("q") || ""
   const { addFavorite, removeFavorite, isFavorite } = useProfile()
   const cityName = location?.city || "Select"
   const stateName = location?.state || "Location"
+  const [restaurantList, setRestaurantList] = useState([])
+  const [loadingRestaurants, setLoadingRestaurants] = useState(true)
+
+  // Initialize hero search from URL query
+  useEffect(() => {
+    if (query && !heroSearch) {
+      setHeroSearch(query)
+    }
+  }, [query])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchRestaurants = async () => {
+      try {
+        setLoadingRestaurants(true)
+        const params = location?.city ? { city: location.city } : {}
+        const response = await diningAPI.getRestaurants(params)
+        const data = response?.data?.data || []
+        if (isMounted) {
+          setRestaurantList(Array.isArray(data) ? data : [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch dining restaurants", error)
+        if (isMounted) {
+          setRestaurantList([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingRestaurants(false)
+        }
+      }
+    }
+
+    fetchRestaurants()
+    return () => {
+      isMounted = false
+    }
+  }, [location?.city])
 
   const toggleFilter = (filterId) => {
     setActiveFilters(prev => {
@@ -131,7 +86,7 @@ export default function DiningRestaurants() {
   }
 
   const filteredRestaurants = useMemo(() => {
-    let filtered = [...popularRestaurants]
+    let filtered = [...restaurantList]
 
     if (activeFilters.has('delivery-under-30')) {
       filtered = filtered.filter(r => {
@@ -179,8 +134,18 @@ export default function DiningRestaurants() {
       filtered.sort((a, b) => a.rating - b.rating)
     }
 
+    // Apply search query filter
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase()
+      filtered = filtered.filter(r => 
+        r.name.toLowerCase().includes(lowerQuery) || 
+        r.cuisine.toLowerCase().includes(lowerQuery) ||
+        (r.featuredDish && r.featuredDish.toLowerCase().includes(lowerQuery))
+      )
+    }
+
     return filtered
-  }, [activeFilters, selectedCuisine, sortBy])
+  }, [activeFilters, selectedCuisine, sortBy, query, restaurantList])
 
   const handleLocationClick = useCallback(() => {
     openLocationSelector()
@@ -256,9 +221,8 @@ export default function DiningRestaurants() {
                 onFocus={handleSearchFocus}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && heroSearch.trim()) {
-                    navigate(`/user/search?q=${encodeURIComponent(heroSearch.trim())}`)
+                    setSearchParams({ q: heroSearch.trim() })
                     closeSearch()
-                    setHeroSearch("")
                   }
                 }}
                 placeholder="Search for restaurants, cuisines, dishes..."
@@ -340,112 +304,123 @@ export default function DiningRestaurants() {
             </section>
 
             {/* Restaurant Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-              {filteredRestaurants.map((restaurant, index) => {
-                const restaurantSlug = restaurant.name.toLowerCase().replace(/\s+/g, "-")
-                const favorite = isFavorite(restaurantSlug)
+            {loadingRestaurants ? (
+              <div className="py-8 text-center text-sm text-gray-500">Loading restaurants...</div>
+            ) : filteredRestaurants.length === 0 ? (
+              <div className="py-10 text-center text-sm text-gray-500">No dining restaurants found.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+                {filteredRestaurants.map((restaurant) => {
+                  const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/\s+/g, "-")
+                  const favorite = isFavorite(restaurantSlug)
+                  const featuredLabel = restaurant.featuredDish ?
+                    `${restaurant.featuredDish}${restaurant.featuredPrice ? ` · ₹${restaurant.featuredPrice}` : ""}` :
+                    null
 
-                const handleToggleFavorite = (e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (favorite) {
-                    removeFavorite(restaurantSlug)
-                  } else {
-                    addFavorite({
-                      slug: restaurantSlug,
-                      name: restaurant.name,
-                      cuisine: restaurant.cuisine,
-                      rating: restaurant.rating,
-                      deliveryTime: restaurant.deliveryTime,
-                      distance: restaurant.distance,
-                      image: restaurant.image
-                    })
+                  const handleToggleFavorite = (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (favorite) {
+                      removeFavorite(restaurantSlug)
+                    } else {
+                      addFavorite({
+                        slug: restaurantSlug,
+                        name: restaurant.name,
+                        cuisine: restaurant.cuisine,
+                        rating: restaurant.rating,
+                        deliveryTime: restaurant.deliveryTime,
+                        distance: restaurant.distance,
+                        image: restaurant.image
+                      })
+                    }
                   }
-                }
 
-                return (
-                  <Link key={restaurant.id} to={`/user/restaurants/${restaurantSlug}`}>
-                    <Card className="overflow-hidden gap-0 cursor-pointer border-0 group bg-white shadow-md hover:shadow-xl transition-all duration-300 py-0 rounded-2xl">
-                      {/* Image Section */}
-                      <div className="relative h-48 sm:h-56 md:h-60 w-full overflow-hidden rounded-t-2xl">
-                        <img
-                          src={restaurant.image}
-                          alt={restaurant.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => {
-                            e.target.src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"
-                          }}
-                        />
+                  return (
+                    <Link key={restaurant._id || restaurant.id || restaurantSlug} to={`/user/restaurants/${restaurantSlug}`}>
+                      <Card className="overflow-hidden gap-0 cursor-pointer border-0 group bg-white shadow-md hover:shadow-xl transition-all duration-300 py-0 rounded-2xl">
+                        {/* Image Section */}
+                        <div className="relative h-48 sm:h-56 md:h-60 w-full overflow-hidden rounded-t-2xl">
+                          <img
+                            src={restaurant.image}
+                            alt={restaurant.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              e.target.src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"
+                            }}
+                          />
 
-                        {/* Featured Dish Badge - Top Left */}
-                        <div className="absolute top-3 left-3">
-                          <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium">
-                            {restaurant.featuredDish} · ₹{restaurant.featuredPrice}
-                          </div>
-                        </div>
+                          {/* Featured Dish Badge - Top Left */}
+                          {featuredLabel && (
+                            <div className="absolute top-3 left-3">
+                              <div className="bg-gray-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium">
+                                {featuredLabel}
+                              </div>
+                            </div>
+                          )}
 
-                        {/* Bookmark Icon - Top Right */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-3 right-3 h-9 w-9 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-colors"
-                          onClick={handleToggleFavorite}
-                        >
-                          <Bookmark className={`h-5 w-5 ${favorite ? "fill-gray-800 text-gray-800" : "text-gray-600"}`} strokeWidth={2} />
-                        </Button>
+                          {/* Bookmark Icon - Top Right */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-3 right-3 h-9 w-9 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-colors"
+                            onClick={handleToggleFavorite}
+                          >
+                            <Bookmark className={`h-5 w-5 ${favorite ? "fill-gray-800 text-gray-800" : "text-gray-600"}`} strokeWidth={2} />
+                          </Button>
 
-                        {/* Blue Section - Bottom 40% */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-transparent" style={{ height: '40%' }}>
-                          <div className="h-full flex flex-col justify-end">
-                            <div className="pl-4 sm:pl-5 pb-4 sm:pb-5">
-                              <p className="text-white text-xs sm:text-sm font-medium uppercase tracking-wide mb-1">
-                                PRE-BOOK TABLE
-                              </p>
-                              <div className="h-px bg-white/30 mb-2 w-24"></div>
-                              <p className="text-white text-base sm:text-lg font-bold">
-                                {restaurant.offer}
-                              </p>
+                          {/* Blue Section - Bottom 40% */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-transparent" style={{ height: '40%' }}>
+                            <div className="h-full flex flex-col justify-end">
+                              <div className="pl-4 sm:pl-5 pb-4 sm:pb-5">
+                                <p className="text-white text-xs sm:text-sm font-medium uppercase tracking-wide mb-1">
+                                  PRE-BOOK TABLE
+                                </p>
+                                <div className="h-px bg-white/30 mb-2 w-24"></div>
+                                <p className="text-white text-base sm:text-lg font-bold">
+                                  {restaurant.offer || "Book a table now"}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Content Section */}
-                      <CardContent className="p-3 sm:p-4 pt-3 sm:pt-4">
-                        {/* Restaurant Name & Rating */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 line-clamp-1">
-                              {restaurant.name}
-                            </h3>
+                        {/* Content Section */}
+                        <CardContent className="p-3 sm:p-4 pt-3 sm:pt-4">
+                          {/* Restaurant Name & Rating */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 line-clamp-1">
+                                {restaurant.name}
+                              </h3>
+                            </div>
+                            <div className="flex-shrink-0 bg-green-600 text-white px-2 py-1 rounded-lg flex items-center gap-1">
+                              <span className="text-sm font-bold">{Number(restaurant.rating || 0).toFixed(1)}</span>
+                              <Star className="h-3 w-3 fill-white text-white" />
+                            </div>
                           </div>
-                          <div className="flex-shrink-0 bg-green-600 text-white px-2 py-1 rounded-lg flex items-center gap-1">
-                            <span className="text-sm font-bold">{restaurant.rating}</span>
-                            <Star className="h-3 w-3 fill-white text-white" />
-                          </div>
-                        </div>
 
-                        {/* Delivery Time & Distance */}
-                        <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
-                          <Clock className="h-4 w-4" strokeWidth={1.5} />
-                          <span className="font-medium">{restaurant.deliveryTime}</span>
-                          <span className="mx-1">|</span>
-                          <span className="font-medium">{restaurant.distance}</span>
-                        </div>
-
-                        {/* Offer Badge */}
-                        {restaurant.offer && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <BadgePercent className="h-4 w-4 text-blue-600" strokeWidth={2} />
-                            <span className="text-gray-700 font-medium">{restaurant.offer}</span>
+                          {/* Delivery Time & Distance */}
+                          <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
+                            <Clock className="h-4 w-4" strokeWidth={1.5} />
+                            <span className="font-medium">{restaurant.deliveryTime || "30-45 mins"}</span>
+                            <span className="mx-1">|</span>
+                            <span className="font-medium">{restaurant.distance || "1.2 km"}</span>
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Link>
-                )
-              })}
-            </div>
+
+                          {/* Offer Badge */}
+                          {restaurant.offer && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <BadgePercent className="h-4 w-4 text-blue-600" strokeWidth={2} />
+                              <span className="text-gray-700 font-medium">{restaurant.offer}</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

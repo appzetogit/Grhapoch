@@ -10,6 +10,7 @@ import { checkSubscriptionExpiry } from './subscriptionController.js';
 import SubscriptionPlan from '../models/SubscriptionPlan.js';
 import RestaurantCommission from '../models/RestaurantCommission.js';
 import BusinessSettings from '../models/BusinessSettings.js';
+import { log } from 'console';
 
 /**
  * Build phone query that searches in multiple formats (with/without country code)
@@ -87,7 +88,24 @@ export const sendOTP = asyncHandler(async (req, res) => {
   }
 
   try {
-    const result = await otpService.generateAndSendOTP(phone || null, purpose, email || null);
+    // Normalize phone once for consistency in send + verify
+    const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+
+    // Log original vs normalized phone for OTP send/resend (no other behavior change)
+    logger.info('[RESTAURANT][OTP][SEND]', {
+      phoneOriginal: phone || null,
+      phoneNormalized: normalizedPhone || null,
+      email: email || null,
+      purpose
+    });
+
+    if (phone && !normalizedPhone) {
+      return errorResponse(res, 400, 'Invalid phone number format');
+    }
+
+    const result = await otpService.generateAndSendOTP(normalizedPhone || null, purpose, email || null);
+    // console.log("my otp log",result);
+    
     return successResponse(res, 200, result.message, {
       expiresIn: result.expiresIn,
       identifierType: result.identifierType
@@ -104,7 +122,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
  */
 export const verifyOTP = asyncHandler(async (req, res) => {
   const { phone, email, otp, purpose = 'login', name, password, businessModel } = req.body;
-
+// log("my verify otp log", otp);
   // Validate that either phone or email is provided
   if ((!phone && !email) || !otp) {
     return errorResponse(res, 400, 'Either phone number or email, and OTP are required');
@@ -112,7 +130,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
   try {
     let restaurant;
-    // Normalize phone number if provided
+    // Normalize phone number if provided (use for OTP match and creation)
     const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
     if (phone && !normalizedPhone) {
       return errorResponse(res, 400, 'Invalid phone number format');
@@ -140,13 +158,15 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       }
 
       // Verify OTP (phone or email) before creating restaurant
-      await otpService.verifyOTP(phone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, email || null);
 
       const restaurantData = {
         name,
         signupMethod: normalizedPhone ? 'phone' : 'email',
         businessModel: normalizeBusinessModel(businessModel)
       };
+
+      
 
       if (normalizedPhone) {
         restaurantData.phone = normalizedPhone;
@@ -345,7 +365,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
       // Fix: Verify OTP first before checking if restaurant needs to provide a name
       // This ensures that wrong OTP results in an error instead of "needsName: true"
-      await otpService.verifyOTP(phone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, email || null);
 
       if (!restaurant && !name) {
         // OTP has been verified. Now check if we need restaurant name to proceed with auto-registration.
@@ -808,7 +828,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
     const restaurant = await Restaurant.findById(decoded.userId).select('-password');
 
     if (!restaurant) {
-      return errorResponse(res, 401, 'Restaurant not found');
+      return errorResponse(res, 401, 'Restaurant not found or inactive');
     }
 
     // Allow inactive restaurants to refresh tokens - they need access to complete onboarding
@@ -1117,10 +1137,13 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       }
     }
 
-    // Ensure restaurant is active
+    // Keep Google login behavior consistent with OTP login:
+    // inactive restaurants can still authenticate and will see pending-approval UI in dashboard.
     if (!restaurant.isActive) {
-      logger.warn('Inactive restaurant attempted login', { restaurantId: restaurant._id, email });
-      return errorResponse(res, 403, 'Your restaurant account has been deactivated. Please contact support.');
+      logger.info('Inactive restaurant authenticated via Google; pending approval flow', {
+        restaurantId: restaurant._id,
+        email
+      });
     }
 
     // Generate JWT tokens for our app (email may be null for phone signups)
@@ -1138,7 +1161,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    return successResponse(res, 200, 'Firebase Google authentication successful', {
+    return successResponse(res, 200, 'Authentication successful', {
       accessToken: tokens.accessToken,
       restaurant: {
         id: restaurant._id,

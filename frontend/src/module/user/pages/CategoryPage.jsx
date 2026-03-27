@@ -7,32 +7,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FoodTypeIcon from "../components/FoodTypeIcon";
-
-// Import shared food images - prevents duplication
-import { foodImages } from "@/constants/images";
 import api from "@/lib/api";
 import { restaurantAPI, adminAPI } from "@/lib/api";
 import { useProfile } from "../context/ProfileContext";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
-
-// Filter options
-const filterOptions = [
-{ id: 'under-30-mins', label: 'Under 30 mins' },
-{ id: 'price-match', label: 'Price Match', hasIcon: true },
-{ id: 'flat-50-off', label: 'Flat 50% OFF', hasIcon: true },
-{ id: 'under-250', label: 'Under ₹250' },
-{ id: 'rating-4-plus', label: 'Rating 4.0+' }];
-
-
-// Mock data removed - using backend data only
 
 export default function CategoryPage() {
   const { category } = useParams();
   const navigate = useNavigate();
   const { vegMode } = useProfile();
   const { location } = useLocation();
-  const { zoneId, isOutOfService } = useZone(location);
+  const isOutOfService = false;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(category?.toLowerCase() || 'all');
   const [activeFilters, setActiveFilters] = useState(new Set());
@@ -55,6 +40,7 @@ export default function CategoryPage() {
   const [restaurantsData, setRestaurantsData] = useState([]);
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [categoryKeywords, setCategoryKeywords] = useState({});
+  const [availableCuisines, setAvailableCuisines] = useState([]);
 
   // Fetch categories from admin API
   useEffect(() => {
@@ -68,11 +54,11 @@ export default function CategoryPage() {
 
           // Transform API categories to match expected format
           const transformedCategories = [
-          { id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' },
+          { id: 'all', name: "All", image: null, slug: 'all' },
           ...categoriesArray.map((cat) => ({
             id: cat.slug || cat.id,
             name: cat.name,
-            image: cat.image || foodImages[0],
+            image: cat.image || null,
             slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
             type: cat.type
           }))];
@@ -82,29 +68,48 @@ export default function CategoryPage() {
 
           // Generate category keywords dynamically from category names
           const keywordsMap = {};
+          const genericKeywords = new Set([
+            "food",
+            "foods",
+            "dish",
+            "dishes",
+            "item",
+            "items",
+            "menu",
+            "category",
+            "categories",
+            "cuisine",
+            "cuisines",
+            "all"
+          ]);
+          const normalizeKeyword = (value) => String(value || "").toLowerCase().trim();
+          const slugify = (value) => normalizeKeyword(value).replace(/\s+/g, "-");
+
           categoriesArray.forEach((cat) => {
             const categoryId = cat.slug || cat.id;
             const categoryName = cat.name.toLowerCase();
 
             // Generate keywords from category name
             const words = categoryName.split(/[\s-]+/).filter((w) => w.length > 0);
-            keywordsMap[categoryId] = [categoryName, ...words];
+            const baseKeywords = [categoryName, slugify(categoryName), ...words];
 
-            // Add category type as a keyword if it exists
-            if (cat.type) {
-              keywordsMap[categoryId].push(cat.type.toLowerCase());
-            }
+            const cleanedKeywords = Array.from(new Set(
+              baseKeywords
+                .map(normalizeKeyword)
+                .filter((keyword) => keyword && keyword.length >= 3 && !genericKeywords.has(keyword))
+            ));
+            keywordsMap[categoryId] = cleanedKeywords;
           });
 
           setCategoryKeywords(keywordsMap);
         } else {
           // Keep default "All" category on error
-          setCategories([{ id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' }]);
+          setCategories([{ id: 'all', name: "All", image: null, slug: 'all' }]);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
         // Keep default "All" category on error
-        setCategories([{ id: 'all', name: "All", image: foodImages[7] || foodImages[0], slug: 'all' }]);
+        setCategories([{ id: 'all', name: "All", image: null, slug: 'all' }]);
       } finally {
         setLoadingCategories(false);
       }
@@ -112,6 +117,33 @@ export default function CategoryPage() {
 
     fetchCategories();
   }, []);
+
+  const matchesCategoryKeywords = (item, keywords) => {
+    if (!keywords || keywords.length === 0) return false;
+    const normalizeKeyword = (value) => String(value || "").toLowerCase().trim();
+    const slugify = (value) => normalizeKeyword(value).replace(/\s+/g, "-");
+
+    const keywordSet = new Set(
+      keywords
+        .map(normalizeKeyword)
+        .filter(Boolean)
+        .flatMap((keyword) => [keyword, slugify(keyword)])
+    );
+
+    const candidates = [];
+    if (item.category) candidates.push(item.category);
+    if (item.subCategory) candidates.push(item.subCategory);
+    if (Array.isArray(item.tags)) {
+      item.tags.forEach((tag) => candidates.push(tag));
+    }
+
+    return candidates.some((candidate) => {
+      const normalized = normalizeKeyword(candidate);
+      if (!normalized) return false;
+      const slug = slugify(normalized);
+      return keywordSet.has(normalized) || keywordSet.has(slug);
+    });
+  };
 
   // Helper function to check if menu has dishes matching category keywords
   const checkCategoryInMenu = (menu, categoryId) => {
@@ -125,19 +157,9 @@ export default function CategoryPage() {
     }
 
     for (const section of menu.sections) {
-      const sectionNameLower = (section.name || '').toLowerCase();
-      if (keywords.some((keyword) => sectionNameLower.includes(keyword))) {
-        return true;
-      }
-
       if (section.items && Array.isArray(section.items)) {
         for (const item of section.items) {
-          const itemNameLower = (item.name || '').toLowerCase();
-          const itemCategoryLower = (item.category || '').toLowerCase();
-
-          if (keywords.some((keyword) =>
-          itemNameLower.includes(keyword) || itemCategoryLower.includes(keyword)
-          )) {
+          if (matchesCategoryKeywords(item, keywords)) {
             return true;
           }
         }
@@ -161,17 +183,9 @@ export default function CategoryPage() {
     const matchingDishes = [];
 
     for (const section of menu.sections) {
-      const sectionNameLower = (section.name || '').toLowerCase();
-      const isSectionMatch = keywords.some((keyword) => sectionNameLower.includes(keyword));
-
       if (section.items && Array.isArray(section.items)) {
         for (const item of section.items) {
-          const itemNameLower = (item.name || '').toLowerCase();
-          const itemCategoryLower = (item.category || '').toLowerCase();
-
-          if (isSectionMatch || keywords.some((keyword) =>
-          itemNameLower.includes(keyword) || itemCategoryLower.includes(keyword)
-          )) {
+          if (matchesCategoryKeywords(item, keywords)) {
             // Calculate final price considering discounts
             const originalPrice = item.originalPrice || item.price || 0;
             const discountPercent = item.discountPercent || 0;
@@ -209,10 +223,10 @@ export default function CategoryPage() {
     const fetchRestaurants = async () => {
       try {
         setLoadingRestaurants(true);
-        // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
         const params = {};
-        if (zoneId) {
-          params.zoneId = zoneId;
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude;
+          params.lng = location.longitude;
         }
         const response = await restaurantAPI.getRestaurants(params);
 
@@ -296,6 +310,7 @@ export default function CategoryPage() {
               id: restaurantId,
               name: restaurant.name,
               cuisine: cuisine,
+              cuisines: restaurant.cuisines || [],
               rating: restaurant.rating || null,
               deliveryTime: deliveryTime,
               distance: distance,
@@ -368,19 +383,35 @@ export default function CategoryPage() {
 
           const transformedRestaurants = await Promise.all(menuPromises);
           setRestaurantsData(transformedRestaurants);
+
+          // Derive cuisines dynamically from restaurant data
+          const cuisinesSet = new Set();
+          transformedRestaurants.forEach((r) => {
+            if (Array.isArray(r.cuisines)) {
+              r.cuisines.forEach((c) => c && cuisinesSet.add(c.trim()));
+            } else if (typeof r.cuisine === 'string') {
+              r.cuisine.split(',').forEach((c) => {
+                const val = c.trim();
+                if (val) cuisinesSet.add(val);
+              });
+            }
+          });
+          setAvailableCuisines(Array.from(cuisinesSet).sort((a, b) => a.localeCompare(b)));
         } else {
           setRestaurantsData([]);
+          setAvailableCuisines([]);
         }
       } catch (error) {
         console.error('Error fetching restaurants:', error);
         setRestaurantsData([]);
+        setAvailableCuisines([]);
       } finally {
         setLoadingRestaurants(false);
       }
     };
 
     fetchRestaurants();
-  }, [zoneId, isOutOfService]);
+  }, [location?.latitude, location?.longitude]);
 
   // Update selected category when URL changes
   useEffect(() => {
@@ -470,55 +501,21 @@ export default function CategoryPage() {
       const expandedDishes = [];
 
       filtered.forEach((r) => {
-        // Prepare keywords for this category
-        const keywords = categoryKeywords[selectedCategory] || [selectedCategory.toLowerCase()];
-
-        // Check if restaurant itself matches the category (name, cuisine, or featured dish)
-        const nameLower = (r.name || '').toLowerCase();
-        const cuisineLower = (r.cuisine || '').toLowerCase();
-        const featuredDishLower = (r.featuredDish || '').toLowerCase();
-
-        const isRestaurantMatch = keywords.some((keyword) =>
-        nameLower.includes(keyword) ||
-        cuisineLower.includes(keyword) ||
-        featuredDishLower.includes(keyword)
-        );
-
         if (r.menu) {
-          const hasCategoryItem = checkCategoryInMenu(r.menu, selectedCategory);
-
-          if (hasCategoryItem || isRestaurantMatch) {
-            // Get matching dishes for this category
-            const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
-
-            if (categoryDishes.length > 0) {
-              // Create one card per matching dish
-              categoryDishes.forEach((dish, index) => {
-                expandedDishes.push({
-                  ...r,
-                  id: `${r.id}-dish-${dish.itemId || index}`,
-                  dishId: dish.itemId || `${r.id}-dish-${index}`,
-                  categoryDish: dish,
-                  categoryDishName: dish.name,
-                  categoryDishPrice: dish.price,
-                  categoryDishImage: dish.image
-                });
-              });
-            } else if (isRestaurantMatch) {
-              // If restaurant matches but no specific dish matches keywords, 
-              // show the featured dish or the restaurant itself as a single card
+          // Strict dish-only match: only show items that match category keywords
+          const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
+          if (categoryDishes.length > 0) {
+            categoryDishes.forEach((dish, index) => {
               expandedDishes.push({
                 ...r,
-                categoryDishName: r.featuredDish,
-                categoryDishPrice: r.featuredPrice,
-                categoryDishImage: r.image
+                id: `${r.id}-dish-${dish.itemId || index}`,
+                dishId: dish.itemId || `${r.id}-dish-${index}`,
+                categoryDish: dish,
+                categoryDishName: dish.name,
+                categoryDishPrice: dish.price,
+                categoryDishImage: dish.image
               });
-            }
-          }
-        } else {
-          // No menu - check other criteria (already handled by isRestaurantMatch)
-          if (r.category === selectedCategory || selectedCategory === 'paneer-tikka' && r.hasPaneer || isRestaurantMatch) {
-            expandedDishes.push(r);
+            });
           }
         }
       });
@@ -547,7 +544,8 @@ export default function CategoryPage() {
       filtered = filtered.filter((r) =>
       r.name?.toLowerCase().includes(query) ||
       r.cuisine?.toLowerCase().includes(query) ||
-      r.featuredDish?.toLowerCase().includes(query)
+      r.featuredDish?.toLowerCase().includes(query) ||
+      r.categoryDishName?.toLowerCase().includes(query)
       );
     }
 
@@ -564,63 +562,25 @@ export default function CategoryPage() {
       const expandedDishes = [];
 
       filtered.forEach((r) => {
-        // Prepare keywords for this category
-        const keywords = categoryKeywords[selectedCategory] || [selectedCategory.toLowerCase()];
-
-        // Check if restaurant itself matches the category (name, cuisine, or featured dish)
-        const nameLower = (r.name || '').toLowerCase();
-        const cuisineLower = (r.cuisine || '').toLowerCase();
-        const featuredDishLower = (r.featuredDish || '').toLowerCase();
-
-        const isRestaurantMatch = keywords.some((keyword) =>
-        nameLower.includes(keyword) ||
-        cuisineLower.includes(keyword) ||
-        featuredDishLower.includes(keyword)
-        );
-
         if (r.menu) {
-          const hasCategoryItem = checkCategoryInMenu(r.menu, selectedCategory);
-
-          if (hasCategoryItem || isRestaurantMatch) {
-            // Get matching dishes for this category
-            const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
-
-            if (categoryDishes.length > 0) {
-              // Create one card per matching dish
-              categoryDishes.forEach((dish, index) => {
-                // Filter by vegMode if enabled
-                if (vegMode && dish.foodType !== "Veg") {
-                  return; // Skip non-veg dishes when vegMode is ON
-                }
-
-                expandedDishes.push({
-                  ...r,
-                  // Unique ID for each dish card
-                  id: `${r.id}-dish-${dish.itemId || index}`,
-                  dishId: dish.itemId || `${r.id}-dish-${index}`,
-                  // Category dish info for this specific dish
-                  categoryDish: dish,
-                  categoryDishName: dish.name,
-                  categoryDishPrice: dish.price,
-                  categoryDishImage: dish.image
-                });
-              });
-            } else if (isRestaurantMatch) {
-              // If restaurant matches but no specific dish matches keywords, 
-              // show the featured dish or the restaurant itself as a single card
+          // Strict dish-only match: only show items that match category keywords
+          const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
+          if (categoryDishes.length > 0) {
+            categoryDishes.forEach((dish, index) => {
+              if (vegMode && dish.foodType !== "Veg") {
+                return;
+              }
               expandedDishes.push({
                 ...r,
-                categoryDishName: r.featuredDish,
-                categoryDishPrice: r.featuredPrice,
-                categoryDishImage: r.image
+                id: `${r.id}-dish-${dish.itemId || index}`,
+                dishId: dish.itemId || `${r.id}-dish-${index}`,
+                categoryDish: dish,
+                categoryDishName: dish.name,
+                categoryDishPrice: dish.price,
+                categoryDishImage: dish.image
+                });
               });
             }
-          }
-        } else {
-          // No menu - check other criteria
-          if (r.category === selectedCategory || selectedCategory === 'paneer-tikka' && r.hasPaneer || isRestaurantMatch) {
-            expandedDishes.push(r);
-          }
         }
       });
 
@@ -651,7 +611,8 @@ export default function CategoryPage() {
       filtered = filtered.filter((r) =>
       r.name?.toLowerCase().includes(query) ||
       r.cuisine?.toLowerCase().includes(query) ||
-      r.featuredDish?.toLowerCase().includes(query)
+      r.featuredDish?.toLowerCase().includes(query) ||
+      r.categoryDishName?.toLowerCase().includes(query)
       );
     }
 
@@ -670,7 +631,7 @@ export default function CategoryPage() {
   };
 
   // Check if should show grayscale (user out of service)
-  const shouldShowGrayscale = isOutOfService;
+  const shouldShowGrayscale = false;
 
   return (
     <div className={`min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
@@ -727,12 +688,12 @@ export default function CategoryPage() {
                   }>
                         <img
                       src={cat.image}
-                      alt={cat.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Fallback to default image if category image fails to load
-                        e.target.src = foodImages[0] || 'https://via.placeholder.com/100';
-                      }} />
+                  alt={cat.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Hide broken images to avoid showing static placeholders
+                    e.target.style.display = 'none';
+                  }} />
                     
                       </div> :
 
@@ -1343,6 +1304,7 @@ export default function CategoryPage() {
                       </div>
 
                       {/* Cuisine Tab */}
+                      {availableCuisines.length > 0 &&
                       <div
                     ref={(el) => filterSectionRefs.current['cuisine'] = el}
                     data-section-id="cuisine"
@@ -1350,7 +1312,7 @@ export default function CategoryPage() {
                     
                         <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-4">Cuisine</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                          {['Chinese', 'American', 'Japanese', 'Italian', 'Mexican', 'Indian', 'Asian', 'Seafood', 'Desserts', 'Cafe', 'Healthy'].map((cuisine) =>
+                          {availableCuisines.map((cuisine) =>
                       <button
                         key={cuisine}
                         onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
@@ -1366,6 +1328,7 @@ export default function CategoryPage() {
                       )}
                         </div>
                       </div>
+                      }
 
                       {/* Offers Tab */}
                       <div

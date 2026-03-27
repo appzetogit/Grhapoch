@@ -45,6 +45,7 @@ export default function ToHub() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
   const [isKptVideoOpen, setIsKptVideoOpen] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
 
   // Check for expired subscription on mount
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function ToHub() {
         const data = response?.data?.data?.restaurant || response?.data?.restaurant;
         if (data) {
           setRestaurantData(data);
+          if (data?.isActive === false) setShowPendingModal(true);
         }
       } catch (error) {
         // Only log error if it's not a network/timeout error (backend might be down/slow)
@@ -1142,7 +1144,7 @@ export default function ToHub() {
   outline: none!important;
 }
 `}</style>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
               <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1254,7 +1256,7 @@ export default function ToHub() {
                 <span>{section.value}</span>
               </div>
               <div className="h-16 chart-shell-mini">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
                   <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id={`mini - ${section.dataKey} `} x1="0" y1="0" x2="0" y2="1">
@@ -1645,7 +1647,7 @@ export default function ToHub() {
                   <span>{section.value}</span>
                 </div>
                 <div className="h-16 chart-shell-mini">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
                     <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id={`mini - ${section.dataKey} `} x1="0" y1="0" x2="0" y2="1">
@@ -1719,7 +1721,7 @@ export default function ToHub() {
             </div>
 
             <div className="h-64 chart-shell -mx-2">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={150}>
                 <AreaChart
                   data={chartData}
                   margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
@@ -1832,7 +1834,7 @@ export default function ToHub() {
             </div>
 
             <div className="h-64 chart-shell -mx-2">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={150}>
                 <AreaChart
                   data={aovData}
                   margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
@@ -1940,6 +1942,38 @@ export default function ToHub() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Pending approval overlay */}
+      <AnimatePresence>
+        {showPendingModal && (
+          <motion.div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-[90%] p-6 text-center"
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-700 mx-auto mb-4">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Approval Pending</h2>
+              <p className="text-sm text-gray-600 mt-2">
+                Your restaurant is awaiting admin approval. You can browse, but actions are disabled until approval.
+              </p>
+              <button
+                className="mt-5 w-full bg-gray-900 text-white rounded-lg py-2.5 font-semibold hover:bg-gray-800 transition"
+                onClick={() => setShowPendingModal(false)}
+              >
+                Okay
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <style>{`
   .chart - shell *, .chart - shell, .chart - shell - mini *, .chart - shell - mini,
         .recharts - wrapper: focus, .recharts - surface: focus, .recharts - responsive - container:focus {
@@ -2038,7 +2072,7 @@ export default function ToHub() {
       </div>
 
       {/* Subscription Banner based on Business Model */}
-      {restaurantData?.businessModel !== 'Subscription Base' ?
+      {restaurantData?.subscription?.status !== 'active' ?
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

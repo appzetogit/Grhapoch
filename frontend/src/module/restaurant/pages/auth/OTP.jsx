@@ -63,6 +63,12 @@ export default function RestaurantOTP() {
   }, [navigate]);
 
   useEffect(() => {
+    // Focus first input on mount with a small delay to ensure page transition is complete
+    const timer = setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
     const timer = setTimeout(() => {
       inputRefs.current[0]?.focus();
     }, 100);
@@ -173,6 +179,7 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
       const purpose = authData.isSignUp ? "register" : "login";
+      const nameToSend = (authData?.name && authData.name.trim()) || "Restaurant";
       const nameToSend = (
         authData?.name ||
         authData?.restaurantName ||
@@ -191,6 +198,28 @@ export default function RestaurantOTP() {
       );
 
       const data = response?.data?.data || response?.data;
+
+      // If backend still asks for name, retry quickly with fallback name
+      if (data?.needsName) {
+        const retry = await restaurantAPI.verifyOTP(
+          phone,
+          code,
+          "register",
+          nameToSend,
+          email,
+          authData?.businessModel || "Commission Base"
+        );
+        const retryData = retry?.data?.data || retry?.data;
+        const accessTokenRetry = retryData?.accessToken;
+        const restaurantRetry = retryData?.restaurant;
+        if (accessTokenRetry && restaurantRetry) {
+          data.accessToken = accessTokenRetry;
+          data.restaurant = restaurantRetry;
+        } else {
+          throw new Error("Restaurant name missing. Please restart signup.");
+        }
+      }
+
       const accessToken = data?.accessToken;
       const restaurant = data?.restaurant;
 
@@ -245,13 +274,49 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
 
-      await restaurantAPI.sendOTP(phone, purpose, email);
+      const otpResponse = await restaurantAPI.sendOTP(phone, purpose, email);
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn;
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null;
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null;
+      const otpGeneratedAt = Date.now();
+
+      const storedAuth = sessionStorage.getItem("restaurantAuthData");
+      if (storedAuth) {
+        try {
+          const parsed = JSON.parse(storedAuth);
+          const merged = {
+            ...parsed,
+            otpGeneratedAt,
+            otpExpiresIn: otpExpiresIn || parsed.otpExpiresIn,
+            otpExpiresInMs: otpExpiresInMs || parsed.otpExpiresInMs
+          };
+          sessionStorage.setItem("restaurantAuthData", JSON.stringify(merged));
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration");
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw);
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          };
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged));
+        } catch {
+          // Ignore storage errors
+        }
+      }
     } catch (err) {
       const message =
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      err?.message ||
-      "Failed to resend OTP. Please try again.";
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to resend OTP. Please try again.";
       setError(message);
     }
 
@@ -333,20 +398,20 @@ export default function RestaurantOTP() {
 
           {/* Resend OTP Timer */}
           <div className="text-center">
-            {resendTimer > 0 ?
-            <p className="text-sm text-gray-900">
+            {resendTimer > 0 ? (
+              <p className="text-sm text-gray-900">
                 Resend OTP in <span className="font-semibold">{resendTimer} secs</span>
-              </p> :
-
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={isLoading}
-              className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50">
-              
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isLoading}
+                className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50"
+              >
                 Resend OTP
               </button>
-            }
+            )}
           </div>
         </div>
       </div>

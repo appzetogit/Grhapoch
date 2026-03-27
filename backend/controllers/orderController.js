@@ -2,10 +2,10 @@ import Order from '../models/Order.js';
 import Payment from '../models/Payment.js';
 import { createOrder as createRazorpayOrder, verifyPayment } from '../services/razorpayService.js';
 import Restaurant from '../models/Restaurant.js';
-import Zone from '../models/Zone.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
-import { calculateOrderPricing, normalizeCoordinates } from '../services/orderCalculationService.js';
+import { calculateOrderPricing, normalizeCoordinates, calculateDeliveryDistance } from '../services/orderCalculationService.js';
 import { getRazorpayCredentials } from '../utils/envService.js';
 import { notifyRestaurantNewOrder } from '../services/restaurantNotificationService.js';
 import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
@@ -215,7 +215,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // CRITICAL: Validate that restaurant's location (pin) is within an active zone
+    // Validate restaurant location is available
     const restaurantLat = restaurant.location?.latitude || restaurant.location?.coordinates?.[1];
     const restaurantLng = restaurant.location?.longitude || restaurant.location?.coordinates?.[0];
 
@@ -230,89 +230,49 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Check if restaurant is within any active zone
-    const activeZones = await Zone.find({ isActive: true }).lean();
-    let restaurantInZone = false;
-    let restaurantZone = null;
+    const userCoords = normalizeCoordinates(address?.location || address);
+    const userLat = Array.isArray(userCoords) ? userCoords[1] : null;
+    const userLng = Array.isArray(userCoords) ? userCoords[0] : null;
 
-    for (const zone of activeZones) {
-      if (!zone.coordinates || zone.coordinates.length < 3) continue;
-
-      let isInZone = false;
-      if (typeof zone.containsPoint === 'function') {
-        isInZone = zone.containsPoint(restaurantLat, restaurantLng);
-      } else {
-        // Ray casting algorithm
-        let inside = false;
-        for (let i = 0, j = zone.coordinates.length - 1; i < zone.coordinates.length; j = i++) {
-          const coordI = zone.coordinates[i];
-          const coordJ = zone.coordinates[j];
-          const xi = typeof coordI === 'object' ? (coordI.latitude || coordI.lat) : null;
-          const yi = typeof coordI === 'object' ? (coordI.longitude || coordI.lng) : null;
-          const xj = typeof coordJ === 'object' ? (coordJ.latitude || coordJ.lat) : null;
-          const yj = typeof coordJ === 'object' ? (coordJ.longitude || coordJ.lng) : null;
-
-          if (xi === null || yi === null || xj === null || yj === null) continue;
-
-          const intersect = ((yi > restaurantLng) !== (yj > restaurantLng)) &&
-            (restaurantLat < (xj - xi) * (restaurantLng - yi) / (yj - yi) + xi);
-          if (intersect) inside = !inside;
-        }
-        isInZone = inside;
-      }
-
-      if (isInZone) {
-        restaurantInZone = true;
-        restaurantZone = zone;
-        break;
-      }
-    }
-
-    if (!restaurantInZone) {
-      logger.warn('⚠️ Restaurant location is not within any active zone:', {
-        restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-        restaurantName: restaurant.name,
-        restaurantLat,
-        restaurantLng
+    if (!Number.isFinite(Number(userLat)) || !Number.isFinite(Number(userLng))) {
+      logger.warn('⚠️ User delivery location missing - order blocked', {
+        userId,
+        addressProvided: !!address
       });
-      return res.status(403).json({
+      return res.status(400).json({
         success: false,
-        message: 'This restaurant is not available in your area. Only restaurants within active delivery zones can receive orders.'
+        message: 'Delivery location coordinates are required. Please select a precise location.'
       });
     }
 
-    logger.info('✅ Restaurant validated - location is within active zone:', {
-      restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-      restaurantName: restaurant.name,
-      zoneId: restaurantZone?._id?.toString(),
-      zoneName: restaurantZone?.name || restaurantZone?.zoneName
-    });
+    if (Number.isFinite(Number(userLat)) && Number.isFinite(Number(userLng))) {
+      const settings = await ServiceSettings.getSettings();
+      const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+      const distanceKm = await calculateDeliveryDistance(restaurant, address);
 
-    // CRITICAL: Validate user's zone matches restaurant's zone (strict zone matching)
-    const { zoneId: userZoneId } = req.body; // User's zone ID from frontend
-
-    if (userZoneId) {
-      const restaurantZoneId = restaurantZone._id.toString();
-
-      if (restaurantZoneId !== userZoneId) {
-        logger.warn('⚠️ Zone mismatch - user and restaurant are in different zones:', {
-          userZoneId,
-          restaurantZoneId,
+      if (distanceKm > serviceRadiusKm) {
+        logger.warn('⚠️ Restaurant is outside service radius:', {
           restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
-          restaurantName: restaurant.name
+          restaurantName: restaurant.name,
+          restaurantLat,
+          restaurantLng,
+          userLat,
+          userLng,
+          distanceKm,
+          serviceRadiusKm
         });
         return res.status(403).json({
           success: false,
-          message: 'This restaurant is not available in your zone. Please select a restaurant from your current delivery zone.'
+          message: 'This restaurant is not available in your area. Please select a restaurant within the service radius.'
         });
       }
 
-      logger.info('✅ Zone match validated - user and restaurant are in the same zone:', {
-        zoneId: userZoneId,
-        restaurantId: restaurant._id?.toString() || restaurant.restaurantId
+      logger.info('✅ Restaurant validated - within service radius:', {
+        restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
+        restaurantName: restaurant.name,
+        distanceKm,
+        serviceRadiusKm
       });
-    } else {
-      logger.warn('⚠️ User zoneId not provided in order request - zone validation skipped');
     }
 
     assignedRestaurantId = restaurant._id?.toString() || restaurant.restaurantId;
@@ -983,7 +943,6 @@ export const verifyOrderPayment = async (req, res) => {
     let order;
     try {
       // Try to find by MongoDB ObjectId first
-      const mongoose = (await import('mongoose')).default;
       if (mongoose.Types.ObjectId.isValid(orderId)) {
         order = await Order.findOne({
           _id: orderId,
@@ -1199,7 +1158,6 @@ export const createOrderPayment = asyncHandler(async (req, res) => {
 
     // Find order by MongoDB _id or orderId
     let order;
-    const mongoose = (await import('mongoose')).default;
     if (mongoose.Types.ObjectId.isValid(id)) {
       order = await Order.findOne({ _id: id, userId });
     }
@@ -1294,7 +1252,6 @@ export const getUserOrders = async (req, res) => {
 
     // Build query - MongoDB should handle string/ObjectId conversion automatically
     // But we'll try both formats to be safe
-    const mongoose = (await import('mongoose')).default;
     const query = { userId };
 
     // If userId is a string that looks like ObjectId, also try ObjectId format
@@ -1363,7 +1320,10 @@ export const getUserOrders = async (req, res) => {
  */
 export const getOrderDetails = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?._id;
+    const userIdObj = (typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId))
+      ? new mongoose.Types.ObjectId(userId)
+      : (userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null);
     const { id } = req.params;
 
     // Try to find order by MongoDB _id or orderId (custom order ID)
@@ -1373,7 +1333,7 @@ export const getOrderDetails = async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
       order = await Order.findOne({
         _id: id,
-        userId
+        userId: userIdObj ? { $in: [userId, userIdObj] } : userId
       })
         .populate('restaurantId', 'name profileImage address location phone ownerPhone onboarding')
         .populate('deliveryPartnerId', 'name email phone')
@@ -1385,7 +1345,7 @@ export const getOrderDetails = async (req, res) => {
     if (!order) {
       order = await Order.findOne({
         orderId: id,
-        userId
+        userId: userIdObj ? { $in: [userId, userIdObj] } : userId
       })
         .populate('restaurantId', 'name profileImage address location phone ownerPhone onboarding')
         .populate('deliveryPartnerId', 'name email phone')
@@ -1600,6 +1560,16 @@ export const calculateOrder = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Order must have at least one item'
+      });
+    }
+
+    // Validate delivery address coordinates (required for distance-based fees)
+    const deliveryCoords = normalizeCoordinates(deliveryAddress?.location || deliveryAddress);
+    if (!Array.isArray(deliveryCoords) || deliveryCoords.length < 2 ||
+      !Number.isFinite(Number(deliveryCoords[0])) || !Number.isFinite(Number(deliveryCoords[1]))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery location coordinates are required. Please select a precise location.'
       });
     }
 

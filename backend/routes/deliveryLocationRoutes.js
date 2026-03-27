@@ -11,6 +11,7 @@ router.use(authenticate);
 
 // Location routes - validation handled in controller for flexibility
 router.post('/location', updateLocation);
+router.put('/location', updateLocation);
 router.get('/location', getLocation);
 
 // Zones routes

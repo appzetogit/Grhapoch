@@ -688,7 +688,6 @@ export default function UpdatesPage() {
                     autoPlay
                     playsInline
                     onError={(e) => {
-                      console.error("Video load error:", e)
                     }}
                   />
 

@@ -1,9 +1,10 @@
 import Restaurant from '../models/Restaurant.js';
 import Offer from '../models/Offer.js';
 import FeeSettings from '../models/FeeSettings.js';
-import DeliveryBoyCommission from '../models/DeliveryBoyCommission.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
 import { calculateRoute } from './routeCalculationService.js';
+import { calculateDeliveryFee as calculateDeliveryFeeByDistance } from './deliveryFeeService.js';
 
 /**
  * Get active fee settings from database
@@ -149,57 +150,11 @@ export const calculateDeliveryDistance = async (restaurant, deliveryAddress = nu
 };
 
 /**
- * Calculate delivery fee based on order value, distance, and restaurant settings
+ * Calculate delivery fee based on distance and service settings
  */
-export const calculateDeliveryFee = async (orderValue, restaurant, deliveryAddress = null, distanceInKm = null, cachedFeeSettings = null) => {
-  // Get fee settings from database or use cached
-  const feeSettings = cachedFeeSettings || await getFeeSettings();
-
-  // 1. Free delivery threshold check DISABLED
-
-
-  // 2. Dynamic distance-based calculation
-  const distance = distanceInKm ?? await calculateDeliveryDistance(restaurant, deliveryAddress);
-
-  if (distance !== null && Number.isFinite(distance)) {
-    try {
-      const commissionResult = await DeliveryBoyCommission.calculateCommission(distance);
-      if (commissionResult && commissionResult.commission > 0) {
-
-
-
-        return commissionResult.commission;
-      }
-    } catch (error) {
-      console.error('Error calculating dynamic delivery fee:', error);
-    }
-  }
-
-  // 3. Restaurant free delivery DISABLED
-
-
-  // 4. Fallback to order-value based ranges if distance calculation failed
-  if (feeSettings.deliveryFeeRanges && Array.isArray(feeSettings.deliveryFeeRanges) && feeSettings.deliveryFeeRanges.length > 0) {
-    const sortedRanges = [...feeSettings.deliveryFeeRanges].sort((a, b) => a.min - b.min);
-
-    for (let i = 0; i < sortedRanges.length; i++) {
-      const range = sortedRanges[i];
-      const isLastRange = i === sortedRanges.length - 1;
-
-      if (isLastRange) {
-        if (orderValue >= range.min && orderValue <= range.max) {
-          return range.fee;
-        }
-      } else {
-        if (orderValue >= range.min && orderValue < range.max) {
-          return range.fee;
-        }
-      }
-    }
-  }
-
-  // 5. Ultimate fallback
-  return feeSettings.deliveryFee || 25;
+export const calculateDeliveryFee = async (distanceInKm, cachedServiceSettings = null) => {
+  const serviceSettings = cachedServiceSettings || await ServiceSettings.getSettings();
+  return calculateDeliveryFeeByDistance(distanceInKm, serviceSettings);
 };
 
 /**
@@ -301,6 +256,7 @@ export const calculateOrderPricing = async ({
     // Get fee settings
     const feeSettings = await getFeeSettings();
     const fixedFee = feeSettings.fixedFee || 0;
+    const serviceSettings = await ServiceSettings.getSettings();
 
     // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => {
@@ -408,13 +364,7 @@ export const calculateOrderPricing = async ({
     const distanceInKm = await calculateDeliveryDistance(restaurant, deliveryAddress);
 
     // Calculate delivery fee
-    const deliveryFee = await calculateDeliveryFee(
-      subtotal,
-      restaurant,
-      deliveryAddress,
-      distanceInKm,
-      feeSettings
-    );
+    const deliveryFee = await calculateDeliveryFee(distanceInKm, serviceSettings);
 
     // Apply free delivery from coupon
     const finalDeliveryFee = appliedCoupon?.freeDelivery ? 0 : deliveryFee;
@@ -463,6 +413,10 @@ export const calculateOrderPricing = async ({
       }
     };
   } catch (error) {
+    // Pass through specific rule/distance errors for user-friendly messaging
+    if (['DELIVERY_RULE_NOT_FOUND', 'DELIVERY_DISTANCE_EXCEEDS_MAX_RULE', 'DELIVERY_RULE_INVALID'].includes(error.message)) {
+      throw error;
+    }
     throw new Error(`Failed to calculate order pricing: ${error.message}`);
   }
 };

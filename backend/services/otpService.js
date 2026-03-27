@@ -1,6 +1,7 @@
 import Otp from '../models/Otp.js';
 import prpSmsService from './prpSmsService.js';
 import emailService from './emailService.js';
+import { normalizePhoneNumber } from '../utils/phoneUtils.js';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -18,6 +19,16 @@ const parseBooleanEnv = (value, fallback = false) => {
   return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 };
 
+const parseIntEnv = (value, fallback) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+// Configurable OTP validity (defaults to 5 minutes)
+const OTP_EXPIRY_MINUTES = parseIntEnv(process.env.OTP_EXPIRY_MINUTES, 5);
+// Grace window to accept already-verified OTPs (defaults to 5 minutes)
+const OTP_VERIFIED_GRACE_MINUTES = parseIntEnv(process.env.OTP_VERIFIED_GRACE_MINUTES, 5);
+
 const getMockOTPValue = () => {
   const envOtp = process.env.MOCK_OTP_CODE?.trim();
   return envOtp && envOtp.length === 6 ? envOtp : '110211';
@@ -27,6 +38,18 @@ const isGlobalMockOTPEnabled = () => {
   // Safety: never allow global mock OTP in production
   if (process.env.NODE_ENV === 'production') return false;
   return parseBooleanEnv(process.env.ENABLE_MOCK_OTP, false);
+};
+
+const isMockOTPVerifyEnabled = () => {
+  // Safety: never allow mock OTP verify in production
+  if (process.env.NODE_ENV === 'production') return false;
+  return parseBooleanEnv(process.env.ALLOW_MOCK_OTP_VERIFY, false);
+};
+
+const isPrpSmsDisabled = () => {
+  // Allow disabling PRP SMS in dev/test without breaking OTP flow
+  if (process.env.NODE_ENV === 'production') return false;
+  return parseBooleanEnv(process.env.DISABLE_PRP_SMS, false);
 };
 
 /**
@@ -56,8 +79,10 @@ class OTPService {
         throw new Error('Either phone or email must be provided');
       }
 
-      const identifier = phone || email;
-      const identifierType = phone ? 'phone' : 'email';
+      const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+
+      const identifier = normalizedPhone || email;
+      const identifierType = normalizedPhone ? 'phone' : 'email';
 
       // Check rate limiting (max 3 OTPs per identifier per hour) - using MongoDB
       if (process.env.NODE_ENV === 'production') {
@@ -79,18 +104,7 @@ class OTPService {
       if (useMockOTP) {
         otp = getMockOTPValue();
       }
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Build query for invalidating previous OTPs
-      const invalidateQuery = { purpose, verified: false };
-      if (phone) invalidateQuery.phone = phone;
-      if (email) invalidateQuery.email = email;
-
-      // Invalidate previous OTPs for this identifier and purpose
-      await Otp.updateMany(
-        invalidateQuery,
-        { verified: true } // Mark as used
-      );
+      const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
       // Store OTP in database
       const otpData = {
@@ -98,7 +112,7 @@ class OTPService {
         purpose,
         expiresAt
       };
-      if (phone) otpData.phone = phone;
+      if (normalizedPhone) otpData.phone = normalizedPhone;
       if (email) otpData.email = email;
 
       const otpRecord = await Otp.create(otpData);
@@ -107,6 +121,11 @@ class OTPService {
       try {
         if (useMockOTP) {
           logger.info('Mock OTP enabled, skipping send', {
+            identifierType,
+            identifier
+          });
+        } else if (phone && isPrpSmsDisabled()) {
+          logger.info('PRP SMS disabled, skipping send', {
             identifierType,
             identifier
           });
@@ -127,10 +146,11 @@ class OTPService {
         otpId: otpRecord._id
       });
 
+      const expiresInSeconds = OTP_EXPIRY_MINUTES * 60;
       return {
         success: true,
         message: `OTP sent successfully to ${identifierType === 'phone' ? 'phone' : 'email'}`,
-        expiresIn: 300, // 5 minutes in seconds
+        expiresIn: expiresInSeconds,
         identifierType,
         isMockOTP: useMockOTP
       };
@@ -160,11 +180,17 @@ class OTPService {
         throw new Error('Either phone or email must be provided');
       }
 
-      const identifier = phone || email;
-      const identifierType = phone ? 'phone' : 'email';
+      const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+      const rawDigitsPhone = phone ? phone.replace(/\D/g, '') : null;
+      const phoneVariants = Array.from(
+        new Set([normalizedPhone, rawDigitsPhone].filter(Boolean))
+      );
+
+      const identifier = normalizedPhone || email;
+      const identifierType = normalizedPhone ? 'phone' : 'email';
 
       // Allow mock OTP validation when enabled (dev/test only)
-      if (isGlobalMockOTPEnabled() && otp === getMockOTPValue()) {
+      if (isMockOTPVerifyEnabled() && otp === getMockOTPValue()) {
         logger.info('Mock OTP verified', {
           identifierType,
           identifier,
@@ -188,22 +214,22 @@ class OTPService {
           verified: false,
           expiresAt: { $gt: new Date() }
         };
-        if (phone) unverifiedQuery.phone = phone;
+        if (phoneVariants.length) unverifiedQuery.phone = { $in: phoneVariants };
         if (email) unverifiedQuery.email = email;
 
         otpRecord = await Otp.findOne(unverifiedQuery);
 
         // If not found, check for already-verified OTP within last 5 minutes
         if (!otpRecord) {
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const graceWindow = new Date(Date.now() - OTP_VERIFIED_GRACE_MINUTES * 60 * 1000);
           const verifiedQuery = {
             otp,
             purpose,
             verified: true,
             expiresAt: { $gt: new Date() },
-            updatedAt: { $gt: fiveMinutesAgo }
+            updatedAt: { $gt: graceWindow }
           };
-          if (phone) verifiedQuery.phone = phone;
+          if (phoneVariants.length) verifiedQuery.phone = { $in: phoneVariants };
           if (email) verifiedQuery.email = email;
 
           otpRecord = await Otp.findOne(verifiedQuery);

@@ -177,7 +177,9 @@ export default function OrderTrackingCard() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="fixed bottom-20 left-4 right-4 z-[60] md:hidden"
-        onClick={() => navigate(`/user/orders/${activeOrder.id || activeOrder._id}`)}
+        onClick={() =>
+          navigate(`/user/orders/${activeOrder.orderId || activeOrder._id || activeOrder.id}`)
+        }
       >
         <div className="bg-gray-800 rounded-xl p-4 shadow-2xl border border-gray-700">
           <div className="flex items-center gap-3">

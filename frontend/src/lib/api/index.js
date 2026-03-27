@@ -21,6 +21,16 @@
 import apiClient from './axios.js';
 import { API_ENDPOINTS } from './config.js';
 
+// Normalize phone similar to backend: digits only; add 91 for 10-digit Indian numbers.
+const normalizePhone = (phone) => {
+  if (!phone || typeof phone !== 'string') return phone;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith('0')) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+};
+
 // Export the configured axios instance
 export default apiClient;
 
@@ -60,7 +70,7 @@ export const authAPI = {
   // Send OTP (supports both phone and email)
   sendOTP: (phone = null, purpose = 'login', email = null) => {
     const payload = { purpose };
-    if (phone) payload.phone = phone;
+    if (phone) payload.phone = normalizePhone(phone);
     if (email) payload.email = email;
     return apiClient.post(API_ENDPOINTS.AUTH.SEND_OTP, payload);
   },
@@ -73,7 +83,7 @@ export const authAPI = {
       purpose,
       role,
     };
-    if (phone != null) payload.phone = phone;
+    if (phone != null) payload.phone = normalizePhone(phone);
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (password != null) payload.password = password; // don't send null, Joi expects string
@@ -272,7 +282,7 @@ export const restaurantAPI = {
   // Restaurant Authentication
   sendOTP: (phone = null, purpose = 'login', email = null) => {
     const payload = { purpose };
-    if (phone) payload.phone = phone;
+    if (phone) payload.phone = normalizePhone(phone);
     if (email) payload.email = email;
     return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.SEND_OTP, payload);
   },
@@ -282,7 +292,7 @@ export const restaurantAPI = {
       otp,
       purpose,
     };
-    if (phone != null) payload.phone = phone;
+    if (phone != null) payload.phone = normalizePhone(phone);
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (businessModel != null) payload.businessModel = businessModel;
@@ -498,12 +508,25 @@ export const restaurantAPI = {
 
   // Get all restaurants (for user module)
   getRestaurants: (params = {}) => {
+    const lat = Number(params?.lat ?? params?.latitude);
+    const lng = Number(params?.lng ?? params?.longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    if (hasCoords) {
+      const payload = { ...params, lat, lng };
+      return apiClient.post(API_ENDPOINTS.RESTAURANT.NEARBY, payload);
+    }
     return apiClient.get(API_ENDPOINTS.RESTAURANT.LIST, { params });
+  },
+  // Explicit nearby endpoint
+  getNearbyRestaurants: (payload = {}) => {
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.NEARBY, payload);
   },
 
   // Get restaurants with dishes under ₹250
-  getRestaurantsUnder250: (zoneId) => {
-    const params = zoneId ? { zoneId } : {};
+  getRestaurantsUnder250: (params = {}) => {
+    if (typeof params !== 'object' || Array.isArray(params)) {
+      params = {};
+    }
     return apiClient.get(API_ENDPOINTS.RESTAURANT.UNDER_250, { params });
   },
 
@@ -823,6 +846,9 @@ export const deliveryAPI = {
   // Get orders
   getOrders: (params = {}) => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.ORDERS, { params });
+  },
+  getAvailableOrders: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.DELIVERY.ORDERS_AVAILABLE, { params });
   },
   getOrderDetails: (orderId) => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.ORDER_BY_ID.replace(':orderId', orderId));
@@ -1291,6 +1317,15 @@ export const adminAPI = {
 
   getPublicBusinessSettings: () => {
     return apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS + '/public');
+  },
+
+  // Service Area Settings
+  getServiceSettings: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.SERVICE_SETTINGS);
+  },
+
+  updateServiceSettings: (data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.SERVICE_SETTINGS, data);
   },
 
   updateBusinessSettings: (data, files = {}) => {
@@ -1852,7 +1887,11 @@ export const orderAPI = {
 
   // Get order details
   getOrderDetails: (orderId) => {
-    return apiClient.get(API_ENDPOINTS.ORDER.DETAILS.replace(':id', orderId));
+    // Add cache-buster to avoid stale/empty cached 304 responses from the GET dedup layer
+    return apiClient.get(
+      API_ENDPOINTS.ORDER.DETAILS.replace(':id', orderId),
+      { params: { _t: Date.now() } }
+    );
   },
 
   // Cancel order

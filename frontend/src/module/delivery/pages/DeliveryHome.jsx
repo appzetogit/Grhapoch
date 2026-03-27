@@ -61,8 +61,8 @@ import {
   "../utils/liveTrackingPolyline";
 import referralBonusBg from "../../../assets/referralbonuscardbg.png";
 // import dropLocationBanner from "../../../assets/droplocationbanner.png" // File not found - commented out
-import alertSound from "../../../assets/audio/alert.mp3";
-import originalSound from "../../../assets/audio/original.mp3";
+const alertSound = "/assets/audio/alert.mp3";
+const originalSound = "/assets/audio/original.mp3";
 import bikeLogo from "../../../assets/bikelogo.png";
 
 // Ola Maps API Key removed
@@ -385,7 +385,7 @@ export default function DeliveryHome() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(() => getUnreadDeliveryNotificationCount());
 
   // Delivery notifications hook
-  const { newOrder, clearNewOrder, orderReady, clearOrderReady, isConnected } = useDeliveryNotifications();
+  const { newOrder, clearNewOrder, orderReady, clearOrderReady, isConnected, pushNewOrder } = useDeliveryNotifications();
 
   // Default location - will be set from saved location or GPS, not hardcoded
   const [riderLocation, setRiderLocation] = useState(null); // Will be set from GPS or saved location
@@ -788,7 +788,6 @@ export default function DeliveryHome() {
           return prev;
         });
       } catch (error) {
-        console.error('[DeliveryHome] Error reading online status:', error);
       }
     };
 
@@ -2388,7 +2387,11 @@ export default function DeliveryHome() {
                 customerLat: order.address?.location?.coordinates?.[1],
                 customerLng: order.address?.location?.coordinates?.[0],
                 items: order.items || [],
-                total: order.pricing?.total || 0,
+                total: order.pricing?.total ??
+                  order.userPayment?.total ??
+                  order.payment?.amount ??
+                  order.total ??
+                  0,
                 paymentMethod: order.paymentMethod ?? order.payment?.method ?? 'razorpay', // backend-resolved first (COD vs Online)
                 phone: order.restaurantId?.phone || order.restaurantId?.ownerPhone || null, // Restaurant phone number (prefer phone, fallback to ownerPhone)
                 ownerPhone: order.restaurantId?.ownerPhone || null, // Owner phone number (separate field for direct access)
@@ -4185,7 +4188,7 @@ export default function DeliveryHome() {
       }
 
       const paymentMethodFromOrder = newOrder.paymentMethod || newOrder.payment?.method || newOrder.payment || '';
-      const orderTotal = newOrder.total ?? newOrder.pricing?.total ?? 0;
+      const orderTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const cashLimitStatus = getCashLimitStatus(orderTotal, paymentMethodFromOrder);
       if (cashLimitStatus.blocked) {
         if (!cashLimitBlockedOrderIdsRef.current.has(orderId)) {
@@ -4224,8 +4227,8 @@ export default function DeliveryHome() {
         }
       }
 
-      // Use calculated earnings if available, otherwise fallback to deliveryFee
-      const effectiveEarnings = earnedValue > 0 ? earned : deliveryFee > 0 ? deliveryFee : 0;
+      // Prefer order-time delivery fee (current flow), fallback to calculated earnings
+      const effectiveEarnings = deliveryFee > 0 ? deliveryFee : earnedValue > 0 ? earned : 0;
 
 
       // Calculate pickup distance if not provided
@@ -4256,6 +4259,7 @@ export default function DeliveryHome() {
         pickupDistance = 'Calculating...';
       }
 
+      const normalizedTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const restaurantData = {
         id: newOrder.orderMongoId || newOrder.orderId,
         orderId: newOrder.orderId,
@@ -4276,7 +4280,8 @@ export default function DeliveryHome() {
         customerLat: newOrder.customerLocation?.latitude,
         customerLng: newOrder.customerLocation?.longitude,
         items: newOrder.items || [],
-        total: newOrder.total || 0
+        total: normalizedTotal || 0,
+        pricing: { total: normalizedTotal || 0 }
       };
 
       setSelectedRestaurant(restaurantData);
@@ -4362,6 +4367,67 @@ export default function DeliveryHome() {
       fetchAddress();
     }
   }, [selectedRestaurant?.orderId, selectedRestaurant?.id, selectedRestaurant?.address]);
+
+  const buildNotificationFromOrder = useCallback((order) => {
+    if (!order) return null;
+
+    const restaurant = order.restaurantId || {};
+    const restaurantLocation = restaurant.location || {};
+    const restaurantCoords = restaurantLocation.coordinates || [];
+    const restaurantAddress =
+      restaurantLocation.formattedAddress ||
+      restaurant.address ||
+      restaurantLocation.address ||
+      'Restaurant address';
+
+    const customerLocation = order.address?.location || {};
+    const customerCoords = customerLocation.coordinates || [];
+    const customerAddressParts = [order.address?.street, order.address?.city].filter(Boolean);
+    const customerAddress =
+      order.address?.formattedAddress ||
+      customerAddressParts.join(', ') ||
+      'Customer address';
+
+    const deliveryDistanceValue =
+      typeof order.assignmentInfo?.distance === 'number' && Number.isFinite(order.assignmentInfo.distance) ?
+        order.assignmentInfo.distance :
+        null;
+
+    return {
+      orderId: order.orderId,
+      orderMongoId: order._id?.toString?.() || order._id,
+      restaurantId: restaurant._id?.toString?.() || restaurant.restaurantId || order.restaurantId,
+      restaurantName: order.restaurantName || restaurant.name || 'Restaurant',
+      restaurantLocation: restaurantCoords.length >= 2 ? {
+        latitude: restaurantCoords[1],
+        longitude: restaurantCoords[0],
+        address: restaurantAddress
+      } : null,
+      customerLocation: customerCoords.length >= 2 ? {
+        latitude: customerCoords[1],
+        longitude: customerCoords[0],
+        address: customerAddress
+      } : null,
+      items: Array.isArray(order.items) ? order.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      })) : [],
+      total: order.pricing?.total ?? order.total ?? 0,
+      deliveryFee: order.pricing?.deliveryFee ?? 0,
+      paymentMethod: order.payment?.method || 'cash',
+      customerName: order.userId?.name || 'Customer',
+      customerPhone: order.userId?.phone || '',
+      status: order.status,
+      createdAt: order.createdAt,
+      estimatedDeliveryTime: order.estimatedDeliveryTime || 30,
+      note: order.note || '',
+      pickupDistance: null,
+      deliveryDistance: deliveryDistanceValue ? `${deliveryDistanceValue.toFixed(2)} km` : 'Calculating...',
+      deliveryDistanceRaw: deliveryDistanceValue || 0,
+      estimatedEarnings: order.pricing?.deliveryFee ?? 0
+    };
+  }, []);
 
   // Handle online toggle - check for booked gigs
   const handleToggleOnline = () => {
@@ -4693,7 +4759,33 @@ export default function DeliveryHome() {
           setSelectedRestaurant(restaurantData);
           setShowNewOrderPopup(true);
           setCountdownSeconds(300); // Reset countdown to 5 minutes
-        } else {
+        } else if (!newOrder) {
+          try {
+            const availableResponse = await deliveryAPI.getAvailableOrders({
+              limit: 10,
+              page: 1
+            });
+
+            const availableOrders = availableResponse?.data?.data?.orders || [];
+            const nextAvailable = availableOrders.find((order) => {
+              const availableOrderId = order.orderId || order._id?.toString();
+              return availableOrderId && !acceptedOrderIdsRef.current.has(availableOrderId);
+            });
+
+            if (nextAvailable) {
+              const notification = buildNotificationFromOrder(nextAvailable);
+              if (notification) {
+                const notificationId = notification.orderMongoId || notification.orderId;
+                if (notificationId && !acceptedOrderIdsRef.current.has(notificationId)) {
+                  pushNewOrder(notification);
+                }
+              }
+            }
+          } catch (availableError) {
+            if (availableError?.code !== 'ERR_NETWORK') {
+              console.error('Error fetching available orders:', availableError);
+            }
+          }
         }
       } else {
       }
@@ -4701,7 +4793,7 @@ export default function DeliveryHome() {
       console.error('❌ Error fetching assigned orders:', error);
       // Don't show error to user, just log it
     }
-  }, [isOnline, calculateTimeAway, getCashLimitStatus]);
+  }, [isOnline, calculateTimeAway, getCashLimitStatus, newOrder, buildNotificationFromOrder, pushNewOrder]);
 
   // Fetch assigned orders when delivery person goes online
   useEffect(() => {
@@ -4924,12 +5016,12 @@ export default function DeliveryHome() {
         let attempts = 0;
         const maxAttempts = 50; // 5 seconds max wait
 
-        while ((!window.google || !window.google.maps) && attempts < maxAttempts) {
+        while ((!window.google || !window.google.maps || !window.google.maps.Map) && attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 100));
           attempts++;
         }
 
-        if (window.google && window.google.maps) {
+        if (window.google && window.google.maps && window.google.maps.Map) {
           await initializeGoogleMap();
           return;
         }
@@ -7422,10 +7514,12 @@ export default function DeliveryHome() {
       // ALWAYS ensure marker is on the map (prevent it from disappearing)
       const currentMap = bikeMarkerRef.current.getMap();
       if (currentMap === null || currentMap !== map) {
+        /*
         console.warn('⚠️ Bike marker not on correct map, re-adding...', {
           currentMap: currentMap,
           expectedMap: map
         });
+        */
         bikeMarkerRef.current.setMap(map);
       }
 
@@ -8046,7 +8140,14 @@ export default function DeliveryHome() {
     deliveryPaymentMethod === 'cod' ||
     deliveryPaymentMethod === 'cash_on_delivery' ||
     deliveryPaymentMethod === 'cash on delivery';
-  const rawOrderTotal = Number(selectedRestaurant?.total ?? selectedRestaurant?.pricing?.total ?? 0);
+  // Prefer explicit pricing total, then userPayment total, then payment amount, then legacy total
+  const rawOrderTotal = Number(
+    selectedRestaurant?.pricing?.total ??
+    selectedRestaurant?.userPayment?.total ??
+    selectedRestaurant?.payment?.amount ??
+    selectedRestaurant?.total ??
+    0
+  );
   const deliveryOrderTotal = Number.isFinite(rawOrderTotal) ? rawOrderTotal : 0;
 
   // Render normal feed view when offline or no gig booked
@@ -9185,7 +9286,7 @@ export default function DeliveryHome() {
                         strokeDasharray="450"
                         initial={{ strokeDashoffset: 0 }}
                         animate={{
-                          strokeDashoffset: `${450 * (1 - countdownSeconds / 300)}`
+                          strokeDashoffset: 450 * (1 - countdownSeconds / 300)
                         }}
                         transition={{ duration: 1, ease: "linear" }} />
 
@@ -9220,12 +9321,14 @@ export default function DeliveryHome() {
                     <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
+                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
                         const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                        const fallback = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
                         let value = 0;
 
 
-                        if (earnings) {
+                        if (Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
+                          value = Number(deliveryFee);
+                        } else if (earnings) {
                           if (typeof earnings === 'object') {
                             // Handle earnings object
                             if (earnings.totalEarning != null) {
@@ -9239,18 +9342,15 @@ export default function DeliveryHome() {
                           }
                         }
 
-                        // If value is still 0, try fallback
-                        if (value <= 0 && fallback > 0) {
-                          value = Number(fallback);
-                        }
-
                         return value > 0 ? value.toFixed(2) : '0.00';
                       })()}
                     </p>
                     {/* Earnings Breakdown */}
                     {(() => {
+                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
+                      const hasDeliveryFee = Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0;
                       const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                      if (typeof earnings === 'object' && earnings.breakdown) {
+                      if (!hasDeliveryFee && typeof earnings === 'object' && earnings.breakdown) {
                         return (
                           <div className="bg-green-50 rounded-lg p-3 mb-2">
                             <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
@@ -10228,8 +10328,8 @@ export default function DeliveryHome() {
                 <button
                   onClick={handleSelectCashPayment}
                   className={`px-4 py-3 rounded-lg font-semibold border transition-colors ${codPaymentOption === 'cash'
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                    ? 'bg-green-600 text-white border-green-600'
+                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                     }`}
                 >
                   Collect Cash
@@ -10238,8 +10338,8 @@ export default function DeliveryHome() {
                   onClick={handleGenerateQrPayment}
                   disabled={qrPaymentState.loading}
                   className={`px-4 py-3 rounded-lg font-semibold transition-colors ${qrPaymentState.loading
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                 >
                   {qrPaymentState.loading ? 'Generating...' : 'Generate QR Payment'}

@@ -443,15 +443,19 @@ export default function FoodReport() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-inner">
                             <img
-                          src={food.image}
-                          alt={food.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40";
-                          }} />
-                        
+                              src={food.image}
+                              alt={food.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }} />
+                            <div className="hidden items-center justify-center w-full h-full uppercase">
+                                {food.name?.charAt(0) || 'F'}
+                            </div>
                           </div>
                           <span className="text-sm font-medium text-slate-900">{food.name}</span>
                         </div>

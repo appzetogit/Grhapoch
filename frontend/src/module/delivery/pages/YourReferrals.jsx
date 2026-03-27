@@ -24,7 +24,6 @@ export default function YourReferrals() {
           setReferrals(parsedReferrals)
         }
       } catch (error) {
-        console.error("Error parsing referrals from localStorage:", error)
       }
     }
   }

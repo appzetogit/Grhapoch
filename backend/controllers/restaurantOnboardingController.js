@@ -70,63 +70,69 @@ export const upsertOnboarding = async (req, res) => {
 
     // Step3: Update if provided
     if (step3 !== undefined && step3 !== null) {
+      // Support both legacy flat fields and current nested structure
+      const panNumber = step3.pan?.panNumber || step3.panNumber;
+      const nameOnPan = step3.pan?.nameOnPan || step3.nameOnPan;
+      const gstRegistered =
+        step3.gst?.isRegistered !== undefined ? step3.gst?.isRegistered : step3.gstRegistered;
+      const gstNumber = step3.gst?.gstNumber || step3.gstNumber;
+      const gstLegalName = step3.gst?.legalName || step3.gstLegalName;
+      const fssaiNumber = step3.fssai?.registrationNumber || step3.fssaiNumber;
+      const accountNumber = step3.bank?.accountNumber || step3.accountNumber;
+      const confirmAccountNumber = step3.confirmAccountNumber;
+      const ifscCode = step3.bank?.ifscCode || step3.ifscCode;
+      const accountHolderName = step3.bank?.accountHolderName || step3.accountHolderName;
+      const accountType = step3.bank?.accountType || step3.accountType;
+
       // PAN Validation
-      if (step3.panNumber && !PAN_REGEX.test(step3.panNumber)) {
-        if (step3.panNumber.length < 10) {
+      if (panNumber && !PAN_REGEX.test(panNumber)) {
+        if (panNumber.length < 10) {
           return errorResponse(res, 400, 'PAN number must be exactly 10 characters (Format: AAAAA9999A)');
         }
         return errorResponse(res, 400, 'Invalid PAN format. Example: ABCDE1234F');
       }
-      if (step3.nameOnPan && !validateName(step3.nameOnPan)) {
+      if (nameOnPan && !validateName(nameOnPan)) {
         return errorResponse(res, 400, 'Name must contain only letters (3???50 characters).');
       }
 
       // GST Validation
-      if (step3.gstRegistered) {
-        if (step3.gstNumber && !GST_REGEX.test(step3.gstNumber)) {
+      if (gstRegistered) {
+        if (gstNumber && !GST_REGEX.test(gstNumber)) {
           return errorResponse(res, 400, 'Invalid GST number. Example: 22ABCDE1234F1Z5');
         }
-        if (step3.gstLegalName && !validateName(step3.gstLegalName)) {
+        if (gstLegalName && !validateName(gstLegalName)) {
           return errorResponse(res, 400, 'Legal name must contain only letters.');
         }
       }
 
       // FSSAI Validation
-      if (step3.fssaiNumber && (step3.fssaiNumber.length !== 14 || !/^\d+$/.test(step3.fssaiNumber))) {
+      if (fssaiNumber && (fssaiNumber.length !== 14 || !/^\d+$/.test(fssaiNumber))) {
         return errorResponse(res, 400, 'Invalid FSSAI number. It must contain exactly 14 digits.');
       }
 
       // Bank Account Validation
-      if (step3.accountNumber) {
-        if (step3.accountNumber.length < 9 || step3.accountNumber.length > 18 || !/^\d+$/.test(step3.accountNumber)) {
+      if (accountNumber) {
+        if (accountNumber.length < 9 || accountNumber.length > 18 || !/^\d+$/.test(accountNumber)) {
           return errorResponse(res, 400, 'Invalid account number. Only numbers are allowed.');
         }
       }
-      if (step3.confirmAccountNumber && step3.confirmAccountNumber !== step3.accountNumber) {
+      if (confirmAccountNumber && confirmAccountNumber !== accountNumber) {
         return errorResponse(res, 400, 'Account numbers do not match. Please re-enter correctly.');
       }
-      if (step3.ifscCode && !IFSC_REGEX.test(step3.ifscCode)) {
+      if (ifscCode && !IFSC_REGEX.test(ifscCode)) {
         return errorResponse(res, 400, 'Invalid IFSC code. Example: SBIN0001234');
       }
-      if (step3.accountHolderName && !validateName(step3.accountHolderName)) {
+      if (accountHolderName && !validateName(accountHolderName)) {
         return errorResponse(res, 400, 'Name must contain only letters (3???50 characters).');
       }
 
       // Normalize account type to match enum: 'Saving' or 'Current'
-      if (step3.bank && step3.bank.accountType) {
-        const at = step3.bank.accountType.toLowerCase();
-        if (at === 'saving' || at === 'savings') {
-          step3.bank.accountType = 'Saving';
-        } else if (at === 'current') {
-          step3.bank.accountType = 'Current';
-        }
-      } else if (step3.accountType) {
-        // Handle cases where accountType might be at the root of step3 object
-        const at = step3.accountType.toLowerCase();
-        if (at === 'saving' || at === 'savings') {
-          step3.accountType = 'Saving';
-        } else if (at === 'current') {
-          step3.accountType = 'Current';
+      if (accountType) {
+        const at = String(accountType).toLowerCase();
+        const normalized = at === 'saving' || at === 'savings' ? 'Saving' : at === 'current' ? 'Current' : null;
+        if (normalized) {
+          if (!step3.bank) step3.bank = {};
+          step3.bank.accountType = normalized;
         }
       }
 
@@ -194,16 +200,22 @@ export const upsertOnboarding = async (req, res) => {
     if (finalCompletedSteps >= 5 && (step5 || businessModel)) {
 
       const requestedModel = step5?.businessModel || businessModel || onboarding.businessModel;
-      const hasActiveSubscription =
-        existingRestaurant?.subscription?.status === 'active' &&
-        existingRestaurant?.subscription?.endDate &&
-        new Date(existingRestaurant.subscription.endDate) > new Date();
 
-      // Only allow Subscription Base if a paid/active subscription exists
+      // Treat any already-active subscription as the source of truth
+      const hasActiveSubscription = (() => {
+        const sub = restaurant?.subscription || existingRestaurant?.subscription;
+        if (!sub) return false;
+        if (sub.status !== 'active') return false;
+        if (!sub.endDate) return true;
+        return new Date(sub.endDate) > new Date();
+      })();
+
+      // Never downgrade if a subscription is active.
+      // If user picked Subscription Base, keep it so payment flow can proceed.
       const modelToSave =
-        requestedModel === 'Subscription Base' && hasActiveSubscription ?
-        'Subscription Base' :
-        'Commission Base';
+        hasActiveSubscription ? 'Subscription Base'
+          : requestedModel === 'Subscription Base' ? 'Subscription Base'
+            : 'Commission Base';
 
 
 
@@ -244,11 +256,20 @@ export const upsertOnboarding = async (req, res) => {
 
 
       // Return success response with restaurant info
-      // Mark onboarding completed flag
+      // Old flow restoration: ALWAYS require admin approval to activate.
+      // We keep onboarding completed, but keep isActive false and flag pending approval.
+      const finalBusinessModel =
+        (step5 && step5.businessModel) ||
+        onboarding?.step5?.businessModel ||
+        'Commission Base';
+
       await Restaurant.findByIdAndUpdate(restaurantId, {
         $set: {
           onboardingCompleted: true,
-          'onboarding.completedSteps': 5
+          'onboarding.completedSteps': 5,
+          'onboarding.status': 'pending_admin_approval',
+          businessModel: finalBusinessModel,
+          isActive: false
         }
       });
 

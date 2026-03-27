@@ -4,7 +4,7 @@ import { authenticate } from '../middleware/restaurant.auth.js';
 import { uploadMiddleware } from '../utils/cloudinaryService.js';
 import restaurantAuthRoutes from './restaurantAuthRoutes.js';
 import { getOnboarding, upsertOnboarding, createRestaurantFromOnboardingManual } from '../controllers/restaurantOnboardingController.js';
-import { getRestaurants, getRestaurantById, getRestaurantByOwner, updateRestaurantProfile, uploadProfileImage, uploadMenuImage, deleteRestaurantAccount, updateDeliveryStatus, getRestaurantsWithDishesUnder250, updateDiningSettings, updatePayoutDetails } from '../controllers/restaurantController.js';
+import { getRestaurants, getNearbyRestaurants, getRestaurantById, getRestaurantByOwner, updateRestaurantProfile, uploadProfileImage, uploadMenuImage, deleteRestaurantAccount, updateDeliveryStatus, getRestaurantsWithDishesUnder250, updateDiningSettings, updatePayoutDetails } from '../controllers/restaurantController.js';
 import { getRestaurantFinance } from '../controllers/restaurantFinanceController.js';
 import { getWallet, getWalletTransactions, getWalletStats } from '../controllers/restaurantWalletController.js';
 import { createWithdrawalRequest, getRestaurantWithdrawalRequests } from '../controllers/withdrawalController.js';
@@ -110,14 +110,17 @@ router.get('/withdrawal/requests', authenticate, getRestaurantWithdrawalRequests
 // Subscription routes (authenticated - for restaurant module)
 router.use('/subscription', subscriptionRoutes);
 
-// Restaurant routes (public - for user module)
-router.get('/list', getRestaurants);
-router.get('/under-250', getRestaurantsWithDishesUnder250);
-router.get('/:restaurantId/offers/item/:itemId/coupons', getCouponsByItemIdPublic);
-router.get('/:restaurantId/outlet-timings', getOutletTimingsByRestaurantId);
+// Public Restaurant routes
 router.get('/:id/menu', getMenuByRestaurantId);
 router.get('/:id/addons', getAddonsByRestaurantId);
 router.get('/:id/inventory', getInventoryByRestaurantId);
+
+// Other public routes (for user module)
+router.get('/list', getRestaurants);
+router.post('/nearby', getNearbyRestaurants);
+router.get('/under-250', getRestaurantsWithDishesUnder250);
+router.get('/:restaurantId/offers/item/:itemId/coupons', getCouponsByItemIdPublic);
+router.get('/:restaurantId/outlet-timings', getOutletTimingsByRestaurantId);
 router.get('/owner/me', authenticate, getRestaurantByOwner);
 
 // Payout details route (authenticated - for restaurant module)
@@ -137,6 +140,12 @@ router.post('/dining-activation/enable-free', authenticate, enableDiningWithoutP
 router.post('/dining-activation/create-order', authenticate, createDiningActivationOrder);
 router.post('/dining-activation/verify-payment', authenticate, verifyDiningActivationPayment);
 
+// Notification routes
+router.get('/notifications', authenticate, getNotifications);
+router.put('/notifications/mark-all-read', authenticate, markAllAsRead);
+router.put('/notifications/:id/mark-read', authenticate, markAsRead);
+router.delete('/notifications/:id', authenticate, deleteNotification);
+
 router.get('/:id', getRestaurantById);
 router.put('/profile', authenticate, updateRestaurantProfile);
 router.delete('/profile', authenticate, deleteRestaurantAccount);
@@ -146,11 +155,7 @@ router.post('/profile/menu-image', authenticate, uploadMiddleware.single('file')
 // Delivery status route (authenticated - for restaurant module)
 router.put('/delivery-status', authenticate, updateDeliveryStatus);
 
-// Notification routes
-router.get('/notifications', authenticate, getNotifications);
-router.put('/notifications/mark-all-read', authenticate, markAllAsRead);
-router.put('/notifications/:id/mark-read', authenticate, markAsRead);
-router.delete('/notifications/:id', authenticate, deleteNotification);
+
 
 // Outlet Timings routes
 router.use('/', outletTimingsRoutes);

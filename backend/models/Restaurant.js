@@ -104,6 +104,18 @@ const restaurantSchema = new mongoose.Schema(
     },
     primaryContactNumber: String,
     location: locationSchema,
+    // GeoJSON location for spatial queries (used for nearby search)
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        required: function() { return !!this.coordinates; }
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: undefined
+      }
+    },
     profileImage: {
       url: String,
       publicId: String,
@@ -416,14 +428,18 @@ const restaurantSchema = new mongoose.Schema(
       }
     ],
 
-    // FCM push notification tokens
-    fcmTokensWeb: {
-      type: [String],
-      default: []
+    // FCM push notification token (single, per platform)
+    fcmTokenWeb: {
+      type: String,
+      default: ''
     },
-    fcmTokensMobile: {
-      type: [String],
-      default: []
+    fcmTokenAndroid: {
+      type: String,
+      default: ''
+    },
+    fcmTokenIos: {
+      type: String,
+      default: ''
     },
     razorpayCustomerId: {
       type: String,
@@ -441,6 +457,8 @@ const restaurantSchema = new mongoose.Schema(
 restaurantSchema.index({ email: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ phone: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+// Geo index for nearby queries
+restaurantSchema.index({ geoLocation: '2dsphere' });
 
 // Hash password before saving
 restaurantSchema.pre('save', async function (next) {
@@ -526,6 +544,34 @@ restaurantSchema.pre('save', async function (next) {
     } else if (at === 'current') {
       this.onboarding.step3.bank.accountType = 'Current';
     }
+  }
+
+  // Sync geoLocation from location coordinates if available.
+  // If neither location nor geoLocation has valid coordinates, unset geoLocation
+  // so 2dsphere index does not error on empty Point.
+  const locationLng = this.location && Number.isFinite(Number(this.location.longitude)) ?
+    Number(this.location.longitude) :
+    Number(this.location?.coordinates?.[0]);
+  const locationLat = this.location && Number.isFinite(Number(this.location.latitude)) ?
+    Number(this.location.latitude) :
+    Number(this.location?.coordinates?.[1]);
+  const hasValidLocationCoords = Number.isFinite(locationLat) && Number.isFinite(locationLng);
+
+  const geoCoords = this.geoLocation?.coordinates;
+  const geoLng = Number.isFinite(Number(geoCoords?.[0])) ? Number(geoCoords[0]) : null;
+  const geoLat = Number.isFinite(Number(geoCoords?.[1])) ? Number(geoCoords[1]) : null;
+  const hasValidGeoCoords = Number.isFinite(geoLng) && Number.isFinite(geoLat);
+
+  if (hasValidLocationCoords) {
+    if (!this.location.coordinates || this.location.coordinates.length < 2) {
+      this.location.coordinates = [locationLng, locationLat];
+    }
+    this.geoLocation = {
+      type: 'Point',
+      coordinates: [locationLng, locationLat]
+    };
+  } else if (!hasValidGeoCoords) {
+    this.geoLocation = undefined;
   }
 
   next();

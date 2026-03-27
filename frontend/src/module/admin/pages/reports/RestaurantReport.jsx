@@ -382,21 +382,22 @@ export default function RestaurantReport() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white text-[10px] font-bold shadow-inner flex-shrink-0">
                             {restaurant.icon ? (
                               <img
                                 src={restaurant.icon}
                                 alt={restaurant.restaurantName}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.target.src = "https://via.placeholder.com/32"
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
                                 }}
                               />
-                            ) : (
-                              <div className="w-full h-full bg-slate-300 flex items-center justify-center text-xs text-slate-600 font-semibold">
-                                {restaurant.restaurantName.charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                            ) : null}
+                            <div className={`${restaurant.icon ? 'hidden' : 'flex'} items-center justify-center w-full h-full uppercase text-sm font-bold`}>
+                               {restaurant.restaurantName?.charAt(0) || 'R'}
+                            </div>
                           </div>
                           <span className="text-sm font-medium text-slate-900">{restaurant.restaurantName}</span>
                         </div>

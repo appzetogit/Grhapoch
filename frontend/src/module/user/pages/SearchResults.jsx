@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Clock, Search, SlidersHorizontal, ChevronDown, Bookmark, BadgePercent, Loader2, Utensils } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import FoodTypeIcon from "../components/FoodTypeIcon";
 import StickyCartCard from "../components/StickyCartCard";
 import { useProfile } from "../context/ProfileContext";
 import { useLocation } from "../hooks/useLocation";
-import { useZone } from "../hooks/useZone";
 import { restaurantAPI, adminAPI } from "@/lib/api";
 
 // Import shared food images - prevents duplication
@@ -30,7 +29,7 @@ export default function SearchResults() {
   const query = searchParams.get("q") || "";
   const navigate = useNavigate();
   const { location } = useLocation();
-  const { zoneId, isOutOfService } = useZone(location);
+  const isOutOfService = false;
   const [searchQuery, setSearchQuery] = useState(query);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeFilters, setActiveFilters] = useState(new Set());
@@ -168,10 +167,10 @@ export default function SearchResults() {
       try {
         setLoadingRestaurants(true);
 
-        // Optional: Add zoneId if available (for sorting/filtering, but show all restaurants)
         const params = {};
-        if (zoneId) {
-          params.zoneId = zoneId;
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude;
+          params.lng = location.longitude;
         }
         const response = await restaurantAPI.getRestaurants(params);
 
@@ -383,13 +382,7 @@ export default function SearchResults() {
 
           setRestaurantsData(transformedRestaurants);
         } else {
-          console.warn('⚠️ No restaurants in API response. Response structure:', {
-            hasData: !!response.data,
-            hasSuccess: response.data?.success,
-            hasDataField: !!response.data?.data,
-            hasRestaurants: !!response.data?.data?.restaurants,
-            fullResponse: response.data
-          });
+          // No restaurants found in API response
           setRestaurantsData([]);
         }
       } catch (error) {
@@ -402,7 +395,7 @@ export default function SearchResults() {
     };
 
     fetchRestaurants();
-  }, [zoneId, isOutOfService]);
+  }, [location?.latitude, location?.longitude]);
 
   // Update search query when URL changes
   useEffect(() => {
@@ -660,7 +653,7 @@ export default function SearchResults() {
   }, [query, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories]);
 
   // Check if should show grayscale (user out of service)
-  const shouldShowGrayscale = isOutOfService;
+  const shouldShowGrayscale = false;
 
   return (
     <div className={`min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
@@ -699,6 +692,7 @@ export default function SearchResults() {
             
           {categories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
+              const isAllCategory = cat.id === "all";
               return (
                 <button
                   key={cat.id}
@@ -707,7 +701,13 @@ export default function SearchResults() {
                   isSelected ? 'border-b-2 border-green-600' : ''}`
                   }>
                   
-                {cat.image ?
+                {isAllCategory ? (
+                  <div className={`w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 transition-all ${
+                  isSelected ? 'border-green-600 dark:border-green-500 shadow-lg bg-green-50 dark:bg-green-900/20' : 'border-transparent'}` 
+                  }>
+                    <Utensils className={`h-7 w-7 ${isSelected ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                  </div>
+                ) : cat.image ?
                   <div className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${
                   isSelected ? 'border-green-600 dark:border-green-500 shadow-lg' : 'border-transparent'}`
                   }>

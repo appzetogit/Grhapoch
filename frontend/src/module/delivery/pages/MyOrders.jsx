@@ -71,7 +71,6 @@ export default function MyOrders() {
           setOrders(ordersData);
 
         } else {
-          console.warn('⚠️ No orders found - trying getOrders API as fallback...');
           // Fallback to getOrders API
           try {
             const fallbackResponse = await deliveryAPI.getOrders({
@@ -86,24 +85,10 @@ export default function MyOrders() {
               setOrders([]);
             }
           } catch (fallbackError) {
-            console.error('❌ Fallback API also failed:', fallbackError);
             setOrders([]);
           }
         }
       } catch (error) {
-        console.error('❌ ========== ERROR DETAILS ==========');
-        console.error('❌ Error fetching orders:', error);
-        console.error('❌ Error name:', error?.name);
-        console.error('❌ Error message:', error?.message);
-        console.error('❌ Error stack:', error?.stack);
-        console.error('❌ Error response:', error?.response);
-        console.error('❌ Error response data:', error?.response?.data);
-        console.error('❌ Error response status:', error?.response?.status);
-        console.error('❌ Error response statusText:', error?.response?.statusText);
-        console.error('❌ Error response headers:', error?.response?.headers);
-        console.error('❌ Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        console.error('❌ ========== END ERROR DETAILS ==========');
-
         const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load orders';
         toast.error(errorMessage);
         setOrders([]);

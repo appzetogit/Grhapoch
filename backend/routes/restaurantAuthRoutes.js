@@ -14,6 +14,8 @@ import {
 import { authenticate } from '../middleware/restaurant.auth.js';
 import { validate } from '../middleware/validate.js';
 import Joi from 'joi';
+import Restaurant from '../models/Restaurant.js';
+import { extractTokenPayload, getTokenFieldForPlatform } from '../services/fcmTokenPlatformService.js';
 
 const router = express.Router();
 
@@ -87,6 +89,27 @@ router.post('/refresh-token', refreshToken);
 router.post('/logout', logout);
 router.get('/me', authenticate, getCurrentRestaurant);
 router.post('/reverify', authenticate, reverifyRestaurant);
+router.post('/fcm-token', authenticate, async (req, res) => {
+  const { token, platform } = extractTokenPayload(req);
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'Token is required' });
+  }
+
+  const restaurant = await Restaurant.findById(req.restaurant._id);
+  if (!restaurant) {
+    return res.status(404).json({ success: false, message: 'Restaurant not found' });
+  }
+
+  const field = getTokenFieldForPlatform(platform);
+  restaurant[field] = token;
+  await restaurant.save();
+
+  return res.json({
+    success: true,
+    message: `FCM ${platform} token saved`,
+    data: { platform, tokenField: field }
+  });
+});
 
 export default router;
 

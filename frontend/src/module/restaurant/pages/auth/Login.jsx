@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Mail, ChevronDown, Phone, X, Loader2 } from "lucide-react"
+import { ChevronDown, X, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { setAuthData } from "@/lib/utils/auth"
 import {
@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button"
 import { restaurantAPI, authAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
-import { firebaseAuth, googleProvider } from "@/lib/firebase"
+import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase"
+import { FlutterGoogleSignInError, isFlutterInAppWebView, signInWithFlutterGoogle } from "@/lib/flutterGoogleSignIn"
+import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 // Common country codes
 const countryCodes = [
@@ -197,7 +199,11 @@ export default function RestaurantLogin() {
       setIsSending(true)
 
       // Call backend to send OTP for login
-      await restaurantAPI.sendOTP(fullPhone, "login")
+      const otpResponse = await restaurantAPI.sendOTP(fullPhone, "login")
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null
+      const otpGeneratedAt = Date.now()
 
       // Store auth data in sessionStorage for OTP page
       const authData = {
@@ -205,8 +211,28 @@ export default function RestaurantLogin() {
         phone: fullPhone,
         isSignUp: false,
         module: "restaurant",
+        otpGeneratedAt,
+        otpExpiresIn: otpExpiresIn || undefined,
+        otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+
+      // If a pending prospect record exists, enrich it with OTP expiry
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw)
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          }
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged))
+        } catch {
+          // Ignore storage errors
+        }
+      }
 
       // Navigate to OTP page
       navigate("/restaurant/otp")
@@ -257,10 +283,6 @@ export default function RestaurantLogin() {
     setErrors({ ...errors, email: error })
   }
 
-  const handleEmailLogin = () => {
-    setLoginMethod("email")
-  }
-
   const handleSendEmailOTP = async () => {
     // Mark email field as touched
     setTouched({ ...touched, email: true })
@@ -281,7 +303,11 @@ export default function RestaurantLogin() {
       setIsSending(true)
 
       // Call backend API to send OTP via email
-      await restaurantAPI.sendOTP(null, "login", formData.email)
+      const otpResponse = await restaurantAPI.sendOTP(null, "login", formData.email)
+      const expiresInRaw = otpResponse?.data?.data?.expiresIn ?? otpResponse?.data?.expiresIn
+      const otpExpiresIn = Number.isFinite(Number(expiresInRaw)) ? Number(expiresInRaw) : null
+      const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null
+      const otpGeneratedAt = Date.now()
 
       // Store auth data in sessionStorage for OTP page
       const authData = {
@@ -289,8 +315,28 @@ export default function RestaurantLogin() {
         email: formData.email,
         isSignUp: false,
         module: "restaurant",
+        otpGeneratedAt,
+        otpExpiresIn: otpExpiresIn || undefined,
+        otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+
+      // If a pending prospect record exists, enrich it with OTP expiry
+      const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw)
+          const merged = {
+            ...pending,
+            otpGeneratedAt: pending.otpGeneratedAt ?? otpGeneratedAt,
+            otpExpiresIn: pending.otpExpiresIn ?? otpExpiresIn,
+            otpExpiresInMs: pending.otpExpiresInMs ?? otpExpiresInMs
+          }
+          localStorage.setItem("pendingRestaurantRegistration", JSON.stringify(merged))
+        } catch {
+          // Ignore storage errors
+        }
+      }
 
       // Navigate to OTP page
       navigate("/restaurant/otp")
@@ -310,21 +356,57 @@ export default function RestaurantLogin() {
     setIsSending(true)
 
     try {
+      ensureFirebaseInitialized()
       const { signInWithPopup } = await import("firebase/auth")
+      let user = null
+      console.info("[RestaurantGoogle] flow_start", {
+        flutterWebView: isFlutterInAppWebView(),
+        host: window.location.hostname
+      })
 
-      // Sign in with Google using Firebase Auth
-      const result = await signInWithPopup(firebaseAuth, googleProvider)
-      const user = result.user
+      // Flutter in-app webview flow: native sign-in + Firebase credential exchange.
+      if (isFlutterInAppWebView()) {
+        try {
+          console.info("[RestaurantGoogle] bridge_called")
+          user = await signInWithFlutterGoogle(firebaseAuth)
+        } catch (flutterError) {
+          const flutterCode = flutterError?.code || ""
+          console.warn("[RestaurantGoogle] bridge_failed_fallback_popup", {
+            code: flutterCode,
+            message: flutterError?.message || "unknown"
+          })
+          if (flutterCode === "missing_token") {
+            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.")
+          }
+        }
+      }
+
+      // Default browser flow.
+      if (!user) {
+        console.info("[RestaurantGoogle] popup_called")
+        const result = await signInWithPopup(firebaseAuth, googleProvider)
+        user = result?.user || null
+      }
+
+      if (!user) {
+        throw new Error("Google user not available")
+      }
 
       // Get Firebase ID token
       const idToken = await user.getIdToken()
+      console.info("[RestaurantGoogle] token_extracted", {
+        hasIdToken: !!idToken,
+        idTokenLength: idToken ? String(idToken).length : 0
+      })
 
       // Call backend to login/register via Firebase Google
+      console.info("[RestaurantGoogle] backend_call_start")
       const response = await restaurantAPI.firebaseGoogleLogin(idToken)
       const data = response?.data?.data || {}
+      console.info("[RestaurantGoogle] backend_ok")
 
       const accessToken = data.accessToken
-      const restaurant = data.restaurant
+      const restaurant = data.restaurant || data.user
 
       if (!accessToken || !restaurant) {
         throw new Error("Invalid response from server")
@@ -336,11 +418,21 @@ export default function RestaurantLogin() {
       // Notify any listeners that auth state has changed
       window.dispatchEvent(new Event("restaurantAuthChanged"))
 
-      // Navigate to restaurant home
-      navigate("/restaurant")
+      // Keep Google flow consistent with OTP flow:
+      // new/incomplete accounts must go through onboarding, completed go to to-hub.
+      const incompleteStep = await checkOnboardingStatus()
+      if (incompleteStep) {
+        navigate(`/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
+      } else {
+        navigate("/restaurant/to-hub", { replace: true })
+      }
     } catch (error) {
       console.error("Firebase Google login error:", error)
+      console.error("[RestaurantGoogle] error_meta:", { code: error?.code, message: error?.message })
       const message =
+        (error instanceof FlutterGoogleSignInError && error?.code === "missing_token")
+          ? "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga."
+          :
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         error?.message ||
@@ -556,32 +648,15 @@ export default function RestaurantLogin() {
 
           {/* Alternative Login Options */}
           <div className="space-y-3">
-            {/* Login with Email Button */}
-            <Button
-              onClick={() => {
-                if (loginMethod === "phone") {
-                  handleEmailLogin()
-                } else {
-                  setLoginMethod("phone")
-                }
-              }}
-              variant="outline"
-              className="w-full h-12 rounded-lg border border-gray- hover:border-gray-400 hover:bg-gray-50 text-gray-900 font-semibold text-base flex items-center justify-center gap-3"
-            >
-              {loginMethod === "email" ? <Phone className="w-5 h-5 mr-auto text-blue-600" /> : <Mail className="w-5 h-5 mr-auto text-blue-600" />}
-              <span className="mr-auto text-gray-900">
-                {loginMethod === "phone" ? "Login with Email" : "Back to Phone"}
-              </span>
-            </Button>
-
             {/* Login with Google Button */}
             <Button
               onClick={handleGoogleLogin}
               variant="outline"
-              className="w-full h-12 rounded-lg border border-gray- hover:border-gray-400 hover:bg-gray-50 text-gray-900 font-semibold text-base flex items-center justify-center gap-3"
+              className="w-14 h-14 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-50 mx-auto flex items-center justify-center p-0"
+              aria-label="Login with Google"
             >
-              {/* Google Logo SVG */}
-              <svg className="w-5 h-5 mr-auto" viewBox="0 0 24 24">
+              {/* Google "G" icon */}
+              <svg className="w-7 h-7" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -599,7 +674,6 @@ export default function RestaurantLogin() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="mr-auto text-gray-900">Login with Google</span>
             </Button>
           </div>
         </div>

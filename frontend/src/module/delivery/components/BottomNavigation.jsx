@@ -60,7 +60,6 @@ export default function BottomNavigation() {
             error.code !== 'ERR_NETWORK' && 
             error.message !== 'Network Error' &&
             !error.message?.includes('timeout')) {
-          console.error("Error fetching profile image for navigation:", error)
         }
       }
     }

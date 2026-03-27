@@ -16,6 +16,17 @@ const DINING_STATUSES = {
   PAYMENT_SUCCESSFUL: 'Payment Successful'
 };
 
+const isSubscriptionBasedModel = (businessModel = '') =>
+  String(businessModel).toLowerCase().includes('subscription');
+
+const hasActiveSubscription = (restaurant) => {
+  if (!restaurant) return false;
+  if (!isSubscriptionBasedModel(restaurant.businessModel)) return false;
+  if (restaurant.subscription?.status !== 'active') return false;
+  if (!restaurant.subscription?.endDate) return true;
+  return new Date(restaurant.subscription.endDate) > new Date();
+};
+
 const getEffectiveDiningStatus = (restaurant) => {
   if (!restaurant) return null;
   if (restaurant.diningStatus) return restaurant.diningStatus;
@@ -215,15 +226,24 @@ export const updateDiningSettings = async (req, res) => {
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) return errorResponse(res, 404, 'Restaurant not found');
 
-    if (diningEnabled !== undefined) {
-      const nextValue = Boolean(diningEnabled);
+  if (diningEnabled !== undefined) {
+    const nextValue = Boolean(diningEnabled);
 
-      if (nextValue === true) {
-        return errorResponse(res, 400, 'Direct dining enable is disabled. Use request approval flow.');
+    if (nextValue === true) {
+        if (!hasActiveSubscription(restaurant)) {
+          return errorResponse(res, 400, 'Direct dining enable is disabled. Use request approval flow.');
+        }
+
+        restaurant.diningRequested = true;
+        restaurant.diningStatus = DINING_STATUSES.PAYMENT_SUCCESSFUL;
+        restaurant.diningEnabled = true;
+        restaurant.diningActivationPaid = false;
+        restaurant.diningActivationAmount = 0;
+        restaurant.diningActivationDate = new Date();
+      } else {
+        restaurant.diningEnabled = false;
       }
-
-      restaurant.diningEnabled = false;
-    }
+  }
     if (guests !== undefined) restaurant.diningGuests = guests;
     if (cuisine !== undefined) restaurant.diningCategory = cuisine;
 

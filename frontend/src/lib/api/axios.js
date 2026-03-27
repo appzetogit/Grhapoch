@@ -13,6 +13,110 @@ const networkErrorState = {
   TOAST_COOLDOWN_PERIOD: 60000 // 60 seconds cooldown for toast notifications
 };
 
+// Error toast deduplication to prevent toast spam for repeated failures
+const errorToastState = {
+  lastShownAt: new Map(),
+  DEFAULT_COOLDOWN_MS: 8000
+};
+let forcedUserLogoutInProgress = false;
+let forcedRestaurantLogoutInProgress = false;
+
+function getToastKey(message, scope = 'api') {
+  const normalized = String(message || 'unknown-error')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '')
+    .slice(0, 80);
+  return `${scope}-${normalized || 'unknown-error'}`;
+}
+
+function shouldShowErrorToast(key, cooldownMs = errorToastState.DEFAULT_COOLDOWN_MS) {
+  const now = Date.now();
+  const lastAt = errorToastState.lastShownAt.get(key) || 0;
+  if (now - lastAt < cooldownMs) return false;
+  errorToastState.lastShownAt.set(key, now);
+  return true;
+}
+
+function isUserNotFoundOrInactiveError(error) {
+  const responseMessage =
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.response?.data?.data?.message ||
+    '';
+  const fallbackMessage = error?.message || '';
+  const msg = `${responseMessage} ${fallbackMessage}`.toLowerCase();
+  return (
+    msg.includes('user not found') ||
+    msg.includes('user not found or inactive') ||
+    msg.includes('account is inactive') ||
+    msg.includes('inactive user')
+  );
+}
+
+function forceUserLogoutAndRedirect() {
+  if (forcedUserLogoutInProgress) return;
+  forcedUserLogoutInProgress = true;
+
+  localStorage.removeItem('user_accessToken');
+  localStorage.removeItem('user_authenticated');
+  localStorage.removeItem('user_user');
+  localStorage.removeItem('user');
+  localStorage.removeItem('accessToken');
+  sessionStorage.removeItem('userAuthData');
+
+  const redirectToastKey = getToastKey('User not found or inactive', 'auth-logout');
+  if (shouldShowErrorToast(redirectToastKey, 12000)) {
+    toast.error('User not found or inactive', {
+      id: redirectToastKey,
+      duration: 3000
+    });
+  }
+
+  // replace() avoids back-navigation into protected pages with stale state.
+  window.location.replace('/user/auth/sign-in');
+}
+
+function isRestaurantNotFoundOrInactiveError(error) {
+  const responseMessage =
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.response?.data?.data?.message ||
+    '';
+  const fallbackMessage = error?.message || '';
+  const msg = `${responseMessage} ${fallbackMessage}`.toLowerCase();
+  return (
+    msg.includes('restaurant not found') ||
+    msg.includes('no restaurant account found') ||
+    msg.includes('restaurant not found or inactive')
+  );
+}
+
+function forceRestaurantLogoutAndRedirect() {
+  if (forcedRestaurantLogoutInProgress) return;
+  forcedRestaurantLogoutInProgress = true;
+
+  localStorage.removeItem('restaurant_accessToken');
+  localStorage.removeItem('restaurant_authenticated');
+  localStorage.removeItem('restaurant_user');
+  localStorage.removeItem('restaurant');
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('pending_subscription_onboarding');
+  localStorage.removeItem('restaurant_onboarding_data');
+  sessionStorage.removeItem('restaurantAuthData');
+
+  const redirectToastKey = getToastKey('Restaurant not found or inactive', 'auth-logout');
+  if (shouldShowErrorToast(redirectToastKey, 12000)) {
+    toast.error('Restaurant not found or inactive', {
+      id: redirectToastKey,
+      duration: 3000
+    });
+  }
+
+  window.location.replace('/restaurant/login');
+}
+
 // Validate API base URL on import
 if (import.meta.env.DEV) {
   const backendUrl = API_BASE_URL.replace('/api', '');
@@ -211,6 +315,7 @@ apiClient.interceptors.request.use(
       !normalizedRequestUrl.includes('/restaurant/wallet') &&
       !normalizedRequestUrl.includes('/restaurant/analytics') &&
       !normalizedRequestUrl.includes('/restaurant/complaints') &&
+      !normalizedRequestUrl.includes('/restaurant/notifications') &&
       !normalizedRequestUrl.includes('/restaurant/dining-tables') &&
       !normalizedRequestUrl.includes('/restaurant/dining-activation') && (
         normalizedRequestUrl.match(/\/restaurant\/[^/]+$/) ||
@@ -230,13 +335,18 @@ apiClient.interceptors.request.use(
     // We check normalizedRequestUrl (the API endpoint) rather than path (the browser URL)
     const isApiDeliveryRoute = normalizedRequestUrl.startsWith('/delivery') || normalizedRequestUrl.includes('/api/delivery');
 
+    const isPublicAdminPath = path.startsWith('/admin/login') || 
+      path.startsWith('/admin/signup') || 
+      path.startsWith('/admin/otp') || 
+      path.startsWith('/admin/forgot-password');
+
     const isPublicRestaurantPath = path.startsWith('/restaurant/login') || 
       path.startsWith('/restaurant/signup') || 
       path.startsWith('/restaurant/otp') || 
       path.startsWith('/restaurant/forgot-password') ||
       path.startsWith('/restaurant/welcome');
 
-    const isAuthenticatedRoute = (path.startsWith('/admin') ||
+    const isAuthenticatedRoute = ((path.startsWith('/admin') && !isPublicAdminPath) ||
       (path.startsWith('/restaurant') && !path.startsWith('/restaurants') && !isPublicRestaurantPath && !isPublicRestaurantRoute) ||
       isApiDeliveryRoute && !isPublicDeliveryRoute) && !isPublicRestaurantRoute;
 
@@ -363,6 +473,26 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // If deleted/inactive user tries to access protected data, force logout once.
+    if (isUserNotFoundOrInactiveError(error)) {
+      const currentPath = window.location.pathname;
+      const isUserModulePath =
+        currentPath.startsWith('/user') ||
+        currentPath === '/' ||
+        currentPath.startsWith('/restaurants');
+
+      if (isUserModulePath) {
+        forceUserLogoutAndRedirect();
+        // Stop additional interceptor logic/toasts for this terminal auth state.
+        return Promise.reject(error);
+      }
+    }
+
+    // If restaurant is inactive/missing, surface the error but do NOT hard-redirect to login.
+    // The previous behavior was logging users out during onboarding, which was jarring.
+    // Downstream calls can still handle the 4xx as needed.
+    // (Keep the block for user/admin; restaurant stays signed-in here.)
+
     // If request was canceled, don't show error/toast
     if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.message === 'canceled' || error.name === 'CanceledError') {
       return Promise.reject(error);
@@ -446,20 +576,24 @@ apiClient.interceptors.response.use(
             refreshError.message ||
             'Token refresh failed';
 
-          toast.error(refreshErrorMessage, {
-            duration: 3000,
-            style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: '#ffffff',
-              border: '1px solid #b91c1c',
-              borderRadius: '12px',
-              padding: '16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.3), 0 8px 10px -6px rgba(239, 68, 68, 0.2)'
-            },
-            className: 'error-toast'
-          });
+          const refreshToastKey = getToastKey(refreshErrorMessage, 'auth-refresh');
+          if (shouldShowErrorToast(refreshToastKey, 12000)) {
+            toast.error(refreshErrorMessage, {
+              id: refreshToastKey,
+              duration: 3000,
+              style: {
+                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: '#ffffff',
+                border: '1px solid #b91c1c',
+                borderRadius: '12px',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500',
+                boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.3), 0 8px 10px -6px rgba(239, 68, 68, 0.2)'
+              },
+              className: 'error-toast'
+            });
+          }
         }
 
         // Refresh failed, clear module-specific token and redirect to login
@@ -498,8 +632,6 @@ apiClient.interceptors.response.use(
         }
 
         // For onboarding page, reject the promise so component can handle it
-        return Promise.reject(refreshError);
-
         return Promise.reject(refreshError);
       }
     }
@@ -686,8 +818,12 @@ apiClient.interceptors.response.use(
         }
 
         // Add slight delay for multiple toasts to appear sequentially
+        const genericToastKey = getToastKey(errorMessage, 'api-error');
+        if (!shouldShowErrorToast(genericToastKey, 8000)) return;
+
         setTimeout(() => {
           toast.error(errorMessage, {
+            id: genericToastKey,
             duration: 3000,
             style: {
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -701,7 +837,7 @@ apiClient.interceptors.response.use(
             },
             className: 'error-toast'
           });
-        }, index * 100); // Stagger multiple toasts by 100ms
+        }, index * 100); // Stagger multiple unique toasts only
       });
     }
 

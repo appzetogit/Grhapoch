@@ -340,7 +340,6 @@ export default function RestaurantOnboarding() {
       case 'cuisines': {
         const c = newValue !== undefined ? newValue : step2.cuisines;
         if (!c || c.length === 0) error = "Select cuisines are required";
-        else if (c.length > 3) error = "Maximum 3 cuisines allowed";
         break;
       }
       case 'openingTime': {
@@ -1062,8 +1061,6 @@ export default function RestaurantOnboarding() {
     // Cuisines
     if (!step2.cuisines || step2.cuisines.length === 0) {
       errors.cuisines = "Cuisine selection is required";
-    } else if (step2.cuisines.length > 3) {
-      errors.cuisines = "Maximum 3 cuisines allowed.";
     }
 
     // Timings
@@ -1713,8 +1710,6 @@ export default function RestaurantOnboarding() {
       ? step2.cuisines.filter(c => c !== cuisine)
       : [...step2.cuisines, cuisine];
 
-    if (updated.length > 3 && !step2.cuisines.includes(cuisine)) return;
-
     setStep2(prev => ({ ...prev, cuisines: updated }));
     validateField('cuisines', updated);
   };
@@ -2164,7 +2159,7 @@ export default function RestaurantOnboarding() {
       <section className="bg-white p-4 sm:p-6 rounded-md space-y-5">
         {/* Cuisines */}
         <div>
-          <Label className="text-xs text-gray-700">Select cuisines<span className="text-red-500">*</span> (up to 3)</Label>
+          <Label className="text-xs text-gray-700">Select cuisines<span className="text-red-500">*</span></Label>
           <div className="mt-2 flex flex-wrap gap-2">
             {cuisinesOptions.map((cuisine) => {
               const active = step2.cuisines.includes(cuisine);

@@ -1528,28 +1528,6 @@ return (
             overflowY: "hidden"
           }}>
 
-          {/* Offer Image - Static, Centered */}
-          <motion.div
-            className="flex-shrink-0 flex flex-col items-center justify-center cursor-pointer"
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate("/user/under-250")}>
-
-            <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl overflow-hidden">
-              <OptimizedImage
-                src={offerImage}
-                alt="Special Offer"
-                className="w-full h-full"
-                sizes="(max-width: 640px) 56px, (max-width: 768px) 80px, 96px"
-                objectFit="cover"
-                placeholder="blur" />
-
-            </div>
-          </motion.div>
           {loadingRealCategories ?
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />

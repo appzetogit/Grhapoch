@@ -71,8 +71,8 @@ export default function RestaurantDetails() {
   const [expandedCoupons, setExpandedCoupons] = useState(new Set());
   const [showMenuSheet, setShowMenuSheet] = useState(false);
   const [showLargeOrderMenu, setShowLargeOrderMenu] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(!!searchParams.get('search'));
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "");
   const [showMenuOptionsSheet, setShowMenuOptionsSheet] = useState(false);
   const [expandedAddButtons, setExpandedAddButtons] = useState(new Set());
   const [expandedSections, setExpandedSections] = useState(new Set([0])); // Default: Recommended section is expanded

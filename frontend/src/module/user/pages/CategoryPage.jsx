@@ -90,15 +90,20 @@ export default function CategoryPage() {
             const categoryName = cat.name.toLowerCase();
 
             // Generate keywords from category name
-            const words = categoryName.split(/[\s-]+/).filter((w) => w.length > 0);
-            const baseKeywords = [categoryName, slugify(categoryName), ...words];
+            // DO NOT split into individual words to enforce exact phrase matching
+            const baseKeywords = [categoryName, slugify(categoryName)];
 
             const cleanedKeywords = Array.from(new Set(
               baseKeywords
                 .map(normalizeKeyword)
                 .filter((keyword) => keyword && keyword.length >= 3 && !genericKeywords.has(keyword))
             ));
-            keywordsMap[categoryId] = cleanedKeywords;
+            // Store full name separately for strict section-name matching
+            keywordsMap[categoryId] = {
+              fullName: normalizeKeyword(categoryName),
+              fullSlug: slugify(categoryName),
+              keywords: cleanedKeywords
+            };
           });
 
           setCategoryKeywords(keywordsMap);
@@ -117,8 +122,17 @@ export default function CategoryPage() {
 
     fetchCategories();
   }, []);
+  // Checks if a dish matches category.
+  // categoryData = { fullName, fullSlug, keywords } from categoryKeywords map.
+  // sectionName is optional - used for strict full-name matching against section titles.
+  const matchesCategoryKeywords = (item, categoryData, sectionName = null) => {
+    if (!categoryData) return false;
+    // Support both old format (array) and new format (object)
+    const isNewFormat = categoryData && typeof categoryData === 'object' && !Array.isArray(categoryData);
+    const fullName = isNewFormat ? categoryData.fullName : null;
+    const fullSlug = isNewFormat ? categoryData.fullSlug : null;
+    const keywords = isNewFormat ? categoryData.keywords : categoryData;
 
-  const matchesCategoryKeywords = (item, keywords) => {
     if (!keywords || keywords.length === 0) return false;
     const normalizeKeyword = (value) => String(value || "").toLowerCase().trim();
     const slugify = (value) => normalizeKeyword(value).replace(/\s+/g, "-");
@@ -130,19 +144,48 @@ export default function CategoryPage() {
         .flatMap((keyword) => [keyword, slugify(keyword)])
     );
 
+    // Helper: check if a text value contains any keyword (for dish name/tags/category)
+    const textContainsKeyword = (text) => {
+      const normalized = normalizeKeyword(text);
+      if (!normalized) return false;
+      const slug = slugify(normalized);
+      if (keywordSet.has(normalized) || keywordSet.has(slug)) return true;
+
+      // Strict word boundary matching to prevent partial matches like "ice" matching inside "rice"
+      return Array.from(keywordSet).some((kw) => {
+        try {
+          const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // \b ensures we only match whole words, or (^|[\s-]) is even safer supporting custom delimiters
+          const regex = new RegExp(`(^|[\\s\\-])${escapedKw}([\\s\\-]|$)`, 'i');
+          return regex.test(normalized);
+        } catch (e) {
+          return normalized.includes(kw); // fail-safe fallback
+        }
+      });
+    };
+
+    // 1. STRICT section/subsection name matching — only match FULL category name, not individual words.
+    //    e.g. Section "Main Course" matches category "Main Course", but NOT section "Main Menu".
+    if (sectionName && fullName) {
+      const sectionNorm = normalizeKeyword(sectionName);
+      const sectionSlug = slugify(sectionName);
+      if (sectionNorm === fullName || sectionSlug === fullSlug ||
+        sectionNorm.includes(fullName) || fullName.includes(sectionNorm)) {
+        return true;
+      }
+    }
+
+    // 2. Check structured dish fields: category, subCategory, tags
     const candidates = [];
     if (item.category) candidates.push(item.category);
     if (item.subCategory) candidates.push(item.subCategory);
     if (Array.isArray(item.tags)) {
       item.tags.forEach((tag) => candidates.push(tag));
     }
+    if (candidates.some((c) => textContainsKeyword(c))) return true;
 
-    return candidates.some((candidate) => {
-      const normalized = normalizeKeyword(candidate);
-      if (!normalized) return false;
-      const slug = slugify(normalized);
-      return keywordSet.has(normalized) || keywordSet.has(slug);
-    });
+    // 3. Fallback: check dish name itself
+    return textContainsKeyword(item.name);
   };
 
   // Helper function to check if menu has dishes matching category keywords
@@ -151,16 +194,30 @@ export default function CategoryPage() {
       return false;
     }
 
-    const keywords = categoryKeywords[categoryId] || [];
-    if (keywords.length === 0) {
-      return false;
-    }
+    const categoryData = categoryKeywords[categoryId];
+    if (!categoryData) return false;
+    const hasKeywords = Array.isArray(categoryData) ? categoryData.length > 0 : (categoryData.keywords && categoryData.keywords.length > 0);
+    if (!hasKeywords) return false;
 
     for (const section of menu.sections) {
+      const sectionName = section.name || section.title || null;
       if (section.items && Array.isArray(section.items)) {
         for (const item of section.items) {
-          if (matchesCategoryKeywords(item, keywords)) {
+          if (matchesCategoryKeywords(item, categoryData, sectionName)) {
             return true;
+          }
+        }
+      }
+      // Check subsections too
+      if (section.subsections && Array.isArray(section.subsections)) {
+        for (const sub of section.subsections) {
+          const subName = sub.name || sub.title || sectionName;
+          if (sub.items && Array.isArray(sub.items)) {
+            for (const item of sub.items) {
+              if (matchesCategoryKeywords(item, categoryData, subName)) {
+                return true;
+              }
+            }
           }
         }
       }
@@ -175,35 +232,64 @@ export default function CategoryPage() {
       return [];
     }
 
-    const keywords = categoryKeywords[categoryId] || [];
-    if (keywords.length === 0) {
-      return [];
+    const isAll = categoryId === 'all';
+    const categoryData = categoryKeywords[categoryId];
+
+    // If not 'all', we need category data to match items.
+    if (!isAll && !categoryData) return [];
+
+    if (!isAll) {
+      const hasKeywords = Array.isArray(categoryData) ? categoryData.length > 0 : (categoryData.keywords && categoryData.keywords.length > 0);
+      if (!hasKeywords) return [];
     }
 
     const matchingDishes = [];
+    const seenIds = new Set();
+
+    const addItem = (item, section, sectionName) => {
+      // If NOT 'all', skip items that don't match the category. 
+      // If 'all', we take everything.
+      if (!isAll && !matchesCategoryKeywords(item, categoryData, sectionName)) return;
+
+      const itemId = item._id || item.id || `${item.name}-${item.price}`;
+      if (seenIds.has(itemId)) return;
+      seenIds.add(itemId);
+
+      const originalPrice = item.originalPrice || item.price || 0;
+      const discountPercent = item.discountPercent || 0;
+      const finalPrice = discountPercent > 0
+        ? Math.round(originalPrice * (1 - discountPercent / 100))
+        : originalPrice;
+
+      const dishImage = item.image?.url || item.image || section.image?.url || section.image || null;
+
+      matchingDishes.push({
+        name: item.name,
+        price: finalPrice,
+        image: dishImage,
+        originalPrice: originalPrice,
+        itemId: itemId,
+        foodType: item.foodType
+      });
+    };
 
     for (const section of menu.sections) {
+      const sectionName = section.name || section.title || null;
+
       if (section.items && Array.isArray(section.items)) {
         for (const item of section.items) {
-          if (matchesCategoryKeywords(item, keywords)) {
-            // Calculate final price considering discounts
-            const originalPrice = item.originalPrice || item.price || 0;
-            const discountPercent = item.discountPercent || 0;
-            const finalPrice = discountPercent > 0 ?
-              Math.round(originalPrice * (1 - discountPercent / 100)) :
-              originalPrice;
+          addItem(item, section, sectionName);
+        }
+      }
 
-            // Get dish image (prioritize item image, then section image)
-            const dishImage = item.image?.url || item.image || section.image?.url || section.image || null;
-
-            matchingDishes.push({
-              name: item.name,
-              price: finalPrice,
-              image: dishImage,
-              originalPrice: originalPrice,
-              itemId: item._id || item.id || `${item.name}-${finalPrice}`,
-              foodType: item.foodType // Include foodType for vegMode filtering
-            });
+      // Also check subsections
+      if (section.subsections && Array.isArray(section.subsections)) {
+        for (const sub of section.subsections) {
+          const subName = sub.name || sub.title || sectionName;
+          if (sub.items && Array.isArray(sub.items)) {
+            for (const item of sub.items) {
+              addItem(item, sub, subName);
+            }
           }
         }
       }
@@ -502,7 +588,7 @@ export default function CategoryPage() {
     let filtered = [...sourceData];
 
     // Filter by category - Dynamic filtering based on menu items
-    if (selectedCategory && selectedCategory !== 'all') {
+    if (selectedCategory) {
       const expandedDishes = [];
 
       filtered.forEach((r) => {
@@ -511,6 +597,9 @@ export default function CategoryPage() {
           const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
           if (categoryDishes.length > 0) {
             categoryDishes.forEach((dish, index) => {
+              if (vegMode && dish.foodType !== "Veg") {
+                return;
+              }
               expandedDishes.push({
                 ...r,
                 id: `${r.id}-dish-${dish.itemId || index}`,
@@ -563,7 +652,7 @@ export default function CategoryPage() {
 
     // Filter by category - Dynamic filtering based on menu items
     // If category is selected, expand restaurants into dish cards (one card per matching dish)
-    if (selectedCategory && selectedCategory !== 'all') {
+    if (selectedCategory) {
       const expandedDishes = [];
 
       filtered.forEach((r) => {
@@ -604,7 +693,10 @@ export default function CategoryPage() {
       filtered = filtered.filter((r) => r.rating && r.rating >= 4.0);
     }
     if (activeFilters.has('under-250')) {
-      filtered = filtered.filter((r) => r.featuredPrice && r.featuredPrice <= 250);
+      filtered = filtered.filter((r) => {
+        const dishPrice = r.categoryDishPrice || r.featuredPrice || 0;
+        return dishPrice > 0 && dishPrice <= 250;
+      });
     }
     if (activeFilters.has('flat-50-off')) {
       filtered = filtered.filter((r) => r.offer && r.offer.includes('50%'));
@@ -806,7 +898,7 @@ export default function CategoryPage() {
       <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-4 sm:py-6 md:py-8 lg:py-10 space-y-6 md:space-y-8 lg:space-y-10">
         <div className="max-w-7xl mx-auto">
           {/* RECOMMENDED FOR YOU Section - Hide when "All" category is selected */}
-          {filteredRecommended.length > 0 && selectedCategory !== 'all' &&
+          {filteredRecommended.length > 0 &&
             <section>
               <h2 className="text-xs sm:text-sm md:text-base font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase mb-4 md:mb-6">
                 RECOMMENDED FOR YOU
@@ -821,7 +913,7 @@ export default function CategoryPage() {
                     return (
                       <Link
                         key={restaurant.id}
-                        to={`/user/restaurants/${restaurant.name.toLowerCase().replace(/\s+/g, '-')}`}
+                        to={`/user/restaurants/${restaurant.name.toLowerCase().replace(/\s+/g, '-')}${restaurant.categoryDishName ? `?search=${encodeURIComponent(restaurant.categoryDishName)}` : ''}`}
                         className="block">
 
                         <div className={`group ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
@@ -903,7 +995,7 @@ export default function CategoryPage() {
           {/* ALL RESTAURANTS Section */}
           <section className="relative">
             <h2 className="text-xs sm:text-sm md:text-base font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase mb-4 md:mb-6">
-              ALL RESTAURANTS
+              {selectedCategory && selectedCategory !== 'all' ? 'ALL DISHES' : 'ALL RESTAURANTS'}
             </h2>
 
             {/* Loading Overlay */}
@@ -923,7 +1015,10 @@ export default function CategoryPage() {
                 const isFavorite = favorites.has(restaurant.id);
 
                 return (
-                  <Link key={restaurant.id} to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
+                  <Link
+                    key={restaurant.id}
+                    to={`/user/restaurants/${restaurantSlug}${restaurant.categoryDishName ? `?search=${encodeURIComponent(restaurant.categoryDishName)}` : ''}`}
+                    className="h-full flex">
                     <Card className={`overflow-hidden cursor-pointer gap-0 border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] shadow-md hover:shadow-xl transition-all duration-300 py-0 rounded-md h-full flex flex-col w-full ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`
                     }>
                       {/* Image Section */}
@@ -1043,19 +1138,26 @@ export default function CategoryPage() {
 
             {/* Empty State */}
             {filteredAllRestaurants.length === 0 &&
-              <div className="text-center py-12 md:py-16">
-                <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
+              <div className="text-center py-16 md:py-24">
+                <div className="text-5xl md:text-6xl mb-4">🍽️</div>
+                <p className="text-gray-700 dark:text-gray-300 text-base md:text-lg font-semibold">
                   {searchQuery ?
-                    `No restaurants found for "${searchQuery}"` :
-                    "No restaurants found with selected filters"}
+                    `No dishes found for "${searchQuery}"` :
+                    selectedCategory && selectedCategory !== 'all' ?
+                      `No dishes found in ${categories.find(c => (c.slug || c.id) === selectedCategory)?.name || selectedCategory.replace(/-/g, ' ')}` :
+                      "No restaurants found with selected filters"}
+                </p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+                  Try selecting a different category or removing filters
                 </p>
                 <Button
                   variant="outline"
-                  className="mt-4 md:mt-6"
+                  className="mt-6 md:mt-8"
                   onClick={() => {
                     setActiveFilters(new Set());
                     setSearchQuery("");
                     setSelectedCategory('all');
+                    navigate('/user/category/all');
                   }}>
 
                   Clear all filters

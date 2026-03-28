@@ -1541,6 +1541,11 @@ export default function DeliveryHome() {
     }
     setCountdownSeconds(0);
 
+    const orderIdToReject = selectedRestaurant?.id || newOrder?.orderMongoId || newOrder?.orderId;
+    if (orderIdToReject) {
+      clearNewOrder(orderIdToReject);
+    }
+
     setShowRejectPopup(false);
     setShowNewOrderPopup(false);
     setIsNewOrderPopupMinimized(false); // Reset minimized state
@@ -4149,6 +4154,7 @@ export default function DeliveryHome() {
       available,
       cashLimit,
       cashInHand,
+      pendingReserve,
       isCash
     };
   }, [normalizePaymentMethod, walletState]);
@@ -4163,7 +4169,7 @@ export default function DeliveryHome() {
 
       // Check if this order has already been accepted
       if (acceptedOrderIdsRef.current.has(orderId)) {
-        clearNewOrder();
+        clearNewOrder(orderId);
         return;
       }
 
@@ -4175,7 +4181,7 @@ export default function DeliveryHome() {
           const activeOrderId = activeOrder.orderId || activeOrder.restaurantInfo?.id || activeOrder.restaurantInfo?.orderId;
           if (activeOrderId === orderId) {
             acceptedOrderIdsRef.current.add(orderId);
-            clearNewOrder();
+            clearNewOrder(orderId);
             return;
           }
         }
@@ -4196,7 +4202,7 @@ export default function DeliveryHome() {
           });
           setShowCashLimitPopup(true);
         }
-        clearNewOrder();
+        clearNewOrder(orderId);
         return;
       }
 
@@ -9092,17 +9098,45 @@ export default function DeliveryHome() {
         title="Cash limit reached"
         showCloseButton={true}
         closeOnBackdropClick={true}
+        showHandle={false}
         maxHeight="auto">
 
         <div className="py-4 space-y-4">
-          <p className="text-sm text-gray-700">
-            You need to deposit cash first. Your cash limit is exhausted, so you can’t take COD orders right now.
-          </p>
+          <div className="bg-red-50 text-red-800 p-4 rounded-xl border border-red-100">
+            <p className="text-sm font-semibold mb-1">
+              Limit Exhausted / लिमिट खत्म हो गई है!
+            </p>
+            <p className="text-xs leading-relaxed">
+              Aapki cash limit khatm ho chuki hai, isliye aap naye COD orders accept nahi kar sakte. <br/>
+              Aap apne purane COD orders complete karein ya ₹700 deposit karein system update hone ke liye.
+            </p>
+          </div>
 
           {cashLimitPopupData && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 space-y-1">
-              <div>Order amount: {formatCurrency(cashLimitPopupData.total || 0)}</div>
-              <div>Available cash limit: {formatCurrency(cashLimitPopupData.available || 0)}</div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm space-y-3 shadow-inner">
+              <div className="flex justify-between items-center text-gray-500">
+                <span>Total Cash Limit:</span>
+                <span className="font-bold text-gray-900">{formatCurrency(cashLimitPopupData.cashLimit || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center text-gray-500">
+                <span>Cash in Hand:</span>
+                <span className="font-bold text-red-600">-{formatCurrency(cashLimitPopupData.cashInHand || 0)}</span>
+              </div>
+              {cashLimitPopupData.pendingReserve > 0 && (
+                <div className="flex justify-between items-center text-gray-500">
+                  <span>Pending Reserve:</span>
+                  <span className="font-bold text-amber-600">-{formatCurrency(cashLimitPopupData.pendingReserve || 0)}</span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-gray-200 flex justify-between items-center text-gray-900 font-bold">
+                <span>Available Limit:</span>
+                <span className={cashLimitPopupData.available <= 0 ? "text-red-700" : "text-teal-700"}>
+                  {formatCurrency(cashLimitPopupData.available || 0)}
+                </span>
+              </div>
+              <div className="mt-2 text-[10px] text-gray-400 italic">
+                * Note: Available limit should be at least {formatCurrency(cashLimitPopupData.total || 0)} for this order.
+              </div>
             </div>
           )}
 
@@ -9170,7 +9204,7 @@ export default function DeliveryHome() {
 
       {/* New Order Popup with Countdown Timer - Custom Implementation */}
       <AnimatePresence>
-        {showNewOrderPopup && (newOrder || selectedRestaurant) &&
+        {showNewOrderPopup && !showCashLimitPopup && (newOrder || selectedRestaurant) &&
           <>
             {/* Backdrop */}
             {!isNewOrderPopupMinimized &&

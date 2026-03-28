@@ -11,6 +11,9 @@ export default function ServiceAreaSettings() {
   const [baseFee, setBaseFee] = useState("");
   const [perKmCharge, setPerKmCharge] = useState("");
   const [maxServiceDistance, setMaxServiceDistance] = useState("");
+  const radiusExampleText = serviceRadiusKm === ""
+    ? "Example will update based on the value you set above."
+    : `Example: ${serviceRadiusKm} means users will only see restaurants within ${serviceRadiusKm} km.`;
 
   const fetchSettings = async () => {
     try {
@@ -130,7 +133,7 @@ export default function ServiceAreaSettings() {
                   Service Radius (km)
                 </div>
                 <div className="text-sm text-emerald-800/80 mb-3">
-                  Example: 10 means users will only see restaurants within 10 km.
+                  {radiusExampleText}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 sm:items-center">

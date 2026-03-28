@@ -18,7 +18,7 @@ export default function DesktopNavbar() {
   const [isVisible, setIsVisible] = useState(true)
   const lastScrollY = useRef(0)
   const [logoUrl, setLogoUrl] = useState(null)
-  const logoCleanupRef = useRef(() => {})
+  const logoCleanupRef = useRef(() => { })
 
   // Load admin-configured logo
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function DesktopNavbar() {
   // Main location name: Show area if available, otherwise show city, otherwise "Select"
   const mainLocationName = areaName || cityName || "Select"
   // Secondary location: Show only city when area is available (as per design image)
-  const secondaryLocation = areaName 
+  const secondaryLocation = areaName
     ? (cityName || "")  // Show only city when area is available
     : (cityName && stateName ? `${cityName}, ${stateName}` : cityName || stateName || "")
 
@@ -134,7 +134,7 @@ export default function DesktopNavbar() {
   }, [location.pathname])
 
   return (
-    <nav 
+    <nav
       data-header-logo-scope
       className="hidden md:block fixed top-0 left-0 right-0 z-50"
     >
@@ -145,160 +145,156 @@ export default function DesktopNavbar() {
       `}</style>
       {/* Background */}
       <div className="absolute inset-0 bg-white/98 dark:bg-[#1a1a1a]/98 border-b border-gray-200/50 dark:border-gray-800/50 shadow-sm" />
-      
+
       {/* Content */}
       <div className="relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center h-16 gap-5">
-          {/* Left: Logo (clickable home) + Location */}
-          <div className="flex items-center gap-4 lg:gap-6 min-w-0">
-            <Link to="/user" className="flex-shrink-0" title="Go to Home">
-              <img
-                src={logoUrl || logo}
-                alt="Brand logo"
-                className="header-brand-logo h-10 w-auto lg:h-12 object-contain"
-                onError={(e) => { e.currentTarget.src = logo }}
-              />
-            </Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center h-16 gap-5">
+            {/* Left: Logo (clickable home) + Location */}
+            <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+              <Link to="/user" className="flex-shrink-0" title="Go to Home">
+                <img
+                  src={logoUrl || logo}
+                  alt="Brand logo"
+                  className="header-brand-logo h-10 w-auto lg:h-12 object-contain"
+                  onError={(e) => { e.currentTarget.src = logo }}
+                />
+              </Link>
 
-            <Button
-              variant="ghost"
-              onClick={handleLocationClick}
-              disabled={locationLoading}
-              className="h-auto px-0 py-0 hover:bg-transparent transition-colors flex-shrink min-w-0"
-            >
-              {locationLoading ? (
-                <span className="text-sm font-bold text-black">
-                  Loading...
-                </span>
-              ) : (
-                <div className="flex flex-col items-start min-w-0">
-                  <div className="flex items-center gap-2 lg:gap-3 min-w-0">
-                    <FaLocationDot 
-                      className="h-5 w-5 lg:h-6 lg:w-6 text-black flex-shrink-0" 
-                      fill="black" 
-                      strokeWidth={2} 
-                    />
-                    <span className="text-sm lg:text-base font-bold text-black whitespace-nowrap max-w-[10rem] lg:max-w-[14rem] truncate">
-                      {mainLocationName}
-                    </span>
-                    <ChevronDown className="h-4 w-4 lg:h-5 lg:w-5 text-black flex-shrink-0" strokeWidth={2.5} />
-                  </div>
-                  {secondaryLocation && (
-                    <span className="text-xs lg:text-sm font-bold text-black mt-0.5 max-w-[12rem] lg:max-w-[16rem] truncate">
-                      {secondaryLocation}
-                    </span>
-                  )}
-                </div>
-              )}
-            </Button>
-          </div>
-
-          {/* Center: Navigation Tabs */}
-          <div className="flex items-center justify-center space-x-1">
-            {/* Delivery Tab */}
-            <Link
-              to="/user"
-              className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${
-                isDelivery
-                  ? "text-green-600 dark:text-green-500"
-                  : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
-              }`}
-            >
-              <span className="relative z-10">Delivery</span>
-              {isDelivery && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
-              )}
-            </Link>
-
-            {/* Divider */}
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-
-            {/* Under 250 Tab */}
-            <Link
-              to="/user/under-250"
-              className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${
-                isUnder250
-                  ? "text-green-600 dark:text-green-500"
-                  : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
-              }`}
-            >
-              <span className="relative z-10">Under 250</span>
-              {isUnder250 && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
-              )}
-            </Link>
-
-            {/* Divider */}
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-
-            {/* Dining Tab */}
-            <Link
-              to="/user/dining"
-              className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${
-                isDining
-                  ? "text-green-600 dark:text-green-500"
-                  : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
-              }`}
-            >
-              <span className="relative z-10">Dining</span>
-              {isDining && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
-              )}
-            </Link>
-
-            {/* Divider */}
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-
-            {/* Profile Tab */}
-            <Link
-              to="/user/profile"
-              className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${
-                isProfile
-                  ? "text-green-600 dark:text-green-500"
-                  : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
-              }`}
-            >
-              <span className="relative z-10">Profile</span>
-              {isProfile && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
-              )}
-            </Link>
-          </div>
-
-          {/* Right: Wallet and Cart Icons */}
-          <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
-            {/* Wallet Icon */}
-            <Link to="/user/wallet">
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-9 w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Wallet"
+                onClick={handleLocationClick}
+                disabled={locationLoading}
+                className="h-auto px-0 py-0 hover:bg-transparent transition-colors flex-shrink min-w-0"
               >
-                <Wallet className="h-5 w-5 lg:h-6 lg:w-6 text-gray-700 dark:text-gray-300" strokeWidth={2} />
-              </Button>
-            </Link>
-
-            {/* Cart Icon */}
-            <Link to="/user/cart">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-9 w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Cart"
-              >
-                <ShoppingCart className="h-5 w-5 lg:h-6 lg:w-6 text-gray-700 dark:text-gray-300" strokeWidth={2} />
-                {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
-                    <span className="text-[10px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
+                {locationLoading ? (
+                  <span className="text-sm font-bold text-black">
+                    Loading...
                   </span>
+                ) : (
+                  <div className="flex flex-col items-start min-w-0">
+                    <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                      <FaLocationDot
+                        className="h-5 w-5 lg:h-6 lg:w-6 text-black flex-shrink-0"
+                        fill="black"
+                        strokeWidth={2}
+                      />
+                      <span className="text-sm lg:text-base font-bold text-black whitespace-nowrap max-w-[10rem] lg:max-w-[14rem] truncate">
+                        {mainLocationName}
+                      </span>
+                      <ChevronDown className="h-4 w-4 lg:h-5 lg:w-5 text-black flex-shrink-0" strokeWidth={2.5} />
+                    </div>
+                    {secondaryLocation && (
+                      <span className="text-xs lg:text-sm font-bold text-black mt-0.5 max-w-[12rem] lg:max-w-[16rem] truncate">
+                        {secondaryLocation}
+                      </span>
+                    )}
+                  </div>
                 )}
               </Button>
-            </Link>
+            </div>
+
+            {/* Center: Navigation Tabs */}
+            <div className="flex items-center justify-center space-x-1">
+              {/* Delivery Tab */}
+              <Link
+                to="/user"
+                className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${isDelivery
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
+                  }`}
+              >
+                <span className="relative z-10">Delivery</span>
+                {isDelivery && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
+                )}
+              </Link>
+
+              {/* Divider */}
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
+
+              {/* Under 250 Tab */}
+              <Link
+                to="/user/under-250"
+                className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${isUnder250
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
+                  }`}
+              >
+                <span className="relative z-10">Under 250</span>
+                {isUnder250 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
+                )}
+              </Link>
+
+              {/* Divider */}
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
+
+              {/* Dining Tab */}
+              <Link
+                to="/user/dining"
+                className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${isDining
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
+                  }`}
+              >
+                <span className="relative z-10">Dining</span>
+                {isDining && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
+                )}
+              </Link>
+
+              {/* Divider */}
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
+
+              {/* Profile Tab */}
+              <Link
+                to="/user/profile"
+                className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${isProfile
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
+                  }`}
+              >
+                <span className="relative z-10">Profile</span>
+                {isProfile && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
+                )}
+              </Link>
+            </div>
+
+            {/* Right: Wallet and Cart Icons */}
+            <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
+              {/* Wallet Icon */}
+              <Link to="/user/wallet">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Wallet"
+                >
+                  <Wallet className="h-5 w-5 lg:h-6 lg:w-6 text-gray-700 dark:text-gray-300" strokeWidth={2} />
+                </Button>
+              </Link>
+
+              {/* Cart Icon */}
+              <Link to="/user/cart">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-9 w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Cart"
+                >
+                  <ShoppingCart className="h-5 w-5 lg:h-6 lg:w-6 text-gray-700 dark:text-gray-300" strokeWidth={2} />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
+                      <span className="text-[10px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </nav>
   )

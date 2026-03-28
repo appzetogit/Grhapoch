@@ -111,39 +111,24 @@ export default function RestaurantDetails() {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
 
         try {
-          // Main attempt depending on slug format
-          if (isObjectId) {
-            response = await restaurantAPI.getRestaurantById(slug);
-            if (response.data && response.data.success && response.data.data) {
-              apiRestaurant = response.data.data;
-            }
-          } else {
-            response = await diningAPI.getRestaurantBySlug(slug);
-            if (response.data && response.data.success && response.data.data) {
-              apiRestaurant = response.data.data;
-            }
+          response = await restaurantAPI.getRestaurantById(slug);
+          if (response.data && response.data.success && response.data.data) {
+            apiRestaurant = response.data.data;
           }
         } catch (initialError) {
+          // If 404, try various fallbacks
           if (initialError.response?.status === 404) {
             try {
-              // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
-              // This doesn't require a zone, so it works even if location isn't detected
+              // FALLBACK 1: Try dining API directly by slug
               try {
-                if (isObjectId) {
-                  // Fallback for ObjectId: Try dining API just in case
-                  response = await diningAPI.getRestaurantBySlug(slug);
-                  if (response.data && response.data.success && response.data.data) {
-                    apiRestaurant = response.data.data;
-                  }
-                } else {
-                  // Fallback for Slug: Try delivery restaurant API
-                  response = await restaurantAPI.getRestaurantById(slug);
-                  if (response.data && response.data.success && response.data.data) {
-                    apiRestaurant = response.data.data;
-                  }
+                const diningRes = await diningAPI.getRestaurantBySlug(slug);
+                if (diningRes.data && diningRes.data.success && diningRes.data.data) {
+                  apiRestaurant = diningRes.data.data;
                 }
-              } catch (directLookupError) {
-                // If direct lookup fails, try searching by name
+              } catch (e) { /* Ignore dining failure and try search next */ }
+
+              // FALLBACK 2: Search by name/slug match if still not found
+              if (!apiRestaurant) {
                 const searchParams = { limit: 100 };
                 if (userLocation?.latitude && userLocation?.longitude) {
                   searchParams.lat = userLocation.latitude;
@@ -152,32 +137,30 @@ export default function RestaurantDetails() {
                 const searchResponse = await restaurantAPI.getRestaurants(searchParams);
                 const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
 
-                // Try to find by slug match or name match
-                const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+                const restaurantNameMatch = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
                 const matchingRestaurant = restaurants.find((r) =>
-                  r.slug === slug ||
-                  r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
-                  r.name?.toLowerCase() === restaurantName.toLowerCase()
+                  String(r.slug || "").toLowerCase() === slug.toLowerCase() ||
+                  String(r.name || "").toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
+                  String(r.name || "").toLowerCase() === restaurantNameMatch.toLowerCase()
                 );
 
                 if (matchingRestaurant) {
-                  // Get full restaurant details by ID
                   const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
                   if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
                     apiRestaurant = fullResponse.data.data;
                   }
                 }
               }
-            } catch (restaurantError) {
-              console.error('❌ Restaurant not found in fallback API either:', restaurantError);
-              if (!apiRestaurant) {
-                throw initialError;
-              }
+            } catch (fallbackError) {
+              console.error('❌ Restaurant not found in fallback search either:', fallbackError);
             }
-          } else {
-            throw initialError; // Not a 404 error
+          }
+
+          if (!apiRestaurant) {
+            throw initialError;
           }
         }
+
 
         if (apiRestaurant) {
 

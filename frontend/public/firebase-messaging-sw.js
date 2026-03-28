@@ -33,7 +33,7 @@ function isDuplicate(tag) {
 
 // ─── Handle background messages ──────────────────────────────────────────────
 messaging.onBackgroundMessage((payload) => {
-    console.log('[SW] Background message received:', payload);
+    // console.log('[SW] Background message received:', payload);
 
     const notification = payload.notification || {};
     const data = payload.data || {};

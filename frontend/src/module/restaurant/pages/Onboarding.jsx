@@ -340,7 +340,6 @@ export default function RestaurantOnboarding() {
       case 'cuisines': {
         const c = newValue !== undefined ? newValue : step2.cuisines;
         if (!c || c.length === 0) error = "Select cuisines are required";
-        else if (c.length > 3) error = "Maximum 3 cuisines allowed";
         break;
       }
       case 'openingTime': {
@@ -1062,8 +1061,6 @@ export default function RestaurantOnboarding() {
     // Cuisines
     if (!step2.cuisines || step2.cuisines.length === 0) {
       errors.cuisines = "Cuisine selection is required";
-    } else if (step2.cuisines.length > 3) {
-      errors.cuisines = "Maximum 3 cuisines allowed.";
     }
 
     // Timings
@@ -1277,23 +1274,72 @@ export default function RestaurantOnboarding() {
   const handleNext = async () => {
     setError("");
 
-    // Validate current step before proceeding
-    let validationErrors = [];
-    if (step === 1) {
-      validationErrors = validateStep1();
-    } else if (step === 2) {
-      validationErrors = validateStep2();
-    } else if (step === 3) {
-      validationErrors = validateStep3();
-    } else if (step === 4) {
-      validationErrors = validateStep4();
-    } else if (step === 5) {
-      validationErrors = validateStep5();
-    }
+    const stepFields = {
+      1: [
+        "restaurantName",
+        "ownerName",
+        "ownerEmail",
+        "ownerPhone",
+        "primaryContactNumber",
+        "area",
+        "city",
+        "addressLine1",
+        "addressLine2",
+        "landmark"
+      ],
+      2: [
+        "menuImages",
+        "profileImage",
+        "cuisines",
+        "openingTime",
+        "closingTime",
+        "openDays"
+      ],
+      3: [
+        "panNumber",
+        "nameOnPan",
+        "panImage",
+        "gstNumber",
+        "gstLegalName",
+        "gstAddress",
+        "gstImage",
+        "fssaiNumber",
+        "fssaiExpiry",
+        "fssaiImage",
+        "accountNumber",
+        "confirmAccountNumber",
+        "ifscCode",
+        "accountHolderName",
+        "accountType"
+      ],
+      4: ["estimatedDeliveryTime", "featuredDish", "featuredPrice", "offer"],
+      5: ["businessModel"]
+    };
 
-    if (validationErrors.length > 0) {
+    const getStepErrors = () => {
+      if (step === 1) return validateStep1();
+      if (step === 2) return validateStep2();
+      if (step === 3) return validateStep3();
+      if (step === 4) return validateStep4();
+      if (step === 5) return validateStep5();
+      return {};
+    };
+
+    const stepErrors = getStepErrors();
+    const errorList = Object.values(stepErrors).filter(Boolean);
+
+    // Sync field-level errors for the current step
+    setFormErrors(prev => {
+      const next = { ...prev };
+      (stepFields[step] || []).forEach((field) => {
+        next[field] = stepErrors[field] || null;
+      });
+      return next;
+    });
+
+    if (errorList.length > 0) {
       // Show error toast for each validation error
-      validationErrors.forEach((error, index) => {
+      errorList.forEach((error, index) => {
         setTimeout(() => {
           toast.error(error, {
             duration: 4000
@@ -1712,8 +1758,6 @@ export default function RestaurantOnboarding() {
     const updated = step2.cuisines.includes(cuisine)
       ? step2.cuisines.filter(c => c !== cuisine)
       : [...step2.cuisines, cuisine];
-
-    if (updated.length > 3 && !step2.cuisines.includes(cuisine)) return;
 
     setStep2(prev => ({ ...prev, cuisines: updated }));
     validateField('cuisines', updated);
@@ -2164,7 +2208,7 @@ export default function RestaurantOnboarding() {
       <section className="bg-white p-4 sm:p-6 rounded-md space-y-5">
         {/* Cuisines */}
         <div>
-          <Label className="text-xs text-gray-700">Select cuisines<span className="text-red-500">*</span> (up to 3)</Label>
+          <Label className="text-xs text-gray-700">Select cuisines<span className="text-red-500">*</span></Label>
           <div className="mt-2 flex flex-wrap gap-2">
             {cuisinesOptions.map((cuisine) => {
               const active = step2.cuisines.includes(cuisine);

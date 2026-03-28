@@ -1274,23 +1274,72 @@ export default function RestaurantOnboarding() {
   const handleNext = async () => {
     setError("");
 
-    // Validate current step before proceeding
-    let validationErrors = [];
-    if (step === 1) {
-      validationErrors = validateStep1();
-    } else if (step === 2) {
-      validationErrors = validateStep2();
-    } else if (step === 3) {
-      validationErrors = validateStep3();
-    } else if (step === 4) {
-      validationErrors = validateStep4();
-    } else if (step === 5) {
-      validationErrors = validateStep5();
-    }
+    const stepFields = {
+      1: [
+        "restaurantName",
+        "ownerName",
+        "ownerEmail",
+        "ownerPhone",
+        "primaryContactNumber",
+        "area",
+        "city",
+        "addressLine1",
+        "addressLine2",
+        "landmark"
+      ],
+      2: [
+        "menuImages",
+        "profileImage",
+        "cuisines",
+        "openingTime",
+        "closingTime",
+        "openDays"
+      ],
+      3: [
+        "panNumber",
+        "nameOnPan",
+        "panImage",
+        "gstNumber",
+        "gstLegalName",
+        "gstAddress",
+        "gstImage",
+        "fssaiNumber",
+        "fssaiExpiry",
+        "fssaiImage",
+        "accountNumber",
+        "confirmAccountNumber",
+        "ifscCode",
+        "accountHolderName",
+        "accountType"
+      ],
+      4: ["estimatedDeliveryTime", "featuredDish", "featuredPrice", "offer"],
+      5: ["businessModel"]
+    };
 
-    if (validationErrors.length > 0) {
+    const getStepErrors = () => {
+      if (step === 1) return validateStep1();
+      if (step === 2) return validateStep2();
+      if (step === 3) return validateStep3();
+      if (step === 4) return validateStep4();
+      if (step === 5) return validateStep5();
+      return {};
+    };
+
+    const stepErrors = getStepErrors();
+    const errorList = Object.values(stepErrors).filter(Boolean);
+
+    // Sync field-level errors for the current step
+    setFormErrors(prev => {
+      const next = { ...prev };
+      (stepFields[step] || []).forEach((field) => {
+        next[field] = stepErrors[field] || null;
+      });
+      return next;
+    });
+
+    if (errorList.length > 0) {
       // Show error toast for each validation error
-      validationErrors.forEach((error, index) => {
+      errorList.forEach((error, index) => {
         setTimeout(() => {
           toast.error(error, {
             duration: 4000

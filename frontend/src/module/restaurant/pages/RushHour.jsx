@@ -9,7 +9,7 @@ export default function RushHour() {
   const navigate = useNavigate();
   const [selectedTime, setSelectedTime] = useState("30");
 
-  // Lenis smooth scrolling
+  // Lenis smooth scrollinge
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.2,

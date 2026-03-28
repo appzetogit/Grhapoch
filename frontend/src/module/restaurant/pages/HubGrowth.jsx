@@ -23,7 +23,7 @@ export default function HubGrowth() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Contentd */}
       <div className="flex-1 px-4 py-6">
         {/* Build your own section */}
         <div className="mb-6">

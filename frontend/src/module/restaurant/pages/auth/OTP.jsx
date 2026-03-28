@@ -69,6 +69,11 @@ export default function RestaurantOTP() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
+    const timer = setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // Auto-clear error after 3 seconds
@@ -171,11 +176,17 @@ export default function RestaurantOTP() {
         throw new Error("Session expired. Please try logging in again.");
       }
 
-      // Determine identifier type (phone or email)
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
       const purpose = authData.isSignUp ? "register" : "login";
       const nameToSend = (authData?.name && authData.name.trim()) || "Restaurant";
+      const nameToSend = (
+        authData?.name ||
+        authData?.restaurantName ||
+        authData?.businessModel ||
+        authData?.phone ||
+        "New Restaurant"
+      ).toString().trim();
 
       const response = await restaurantAPI.verifyOTP(
         phone,
@@ -186,7 +197,6 @@ export default function RestaurantOTP() {
         authData?.businessModel || "Commission Base"
       );
 
-      // Extract restaurant and token or special flags (like needsName) from backend response
       const data = response?.data?.data || response?.data;
 
       // If backend still asks for name, retry quickly with fallback name
@@ -214,13 +224,10 @@ export default function RestaurantOTP() {
       const restaurant = data?.restaurant;
 
       if (accessToken && restaurant) {
-        // Store auth data using utility function to ensure proper module-specific token storage
         setRestaurantAuthData("restaurant", accessToken, restaurant);
-
-        // Dispatch custom event for same-tab updates
         window.dispatchEvent(new Event("restaurantAuthChanged"));
-
         sessionStorage.removeItem("restaurantAuthData");
+        localStorage.removeItem("pendingRestaurantRegistration");
 
         setTimeout(async () => {
           try {
@@ -250,6 +257,7 @@ export default function RestaurantOTP() {
       setIsLoading(false);
     }
   };
+
 
   const handleResend = async () => {
     if (resendTimer > 0) return;
@@ -409,20 +417,21 @@ export default function RestaurantOTP() {
       </div>
 
       {/* Bottom Section - Continue Button */}
-      <div className="px-6 pb-8 pt-4">
-        <div className="w-full max-w-md mx-auto">
-          <Button
-            onClick={() => handleVerify()}
-            disabled={isLoading || !isOtpComplete}
-            className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${!isLoading && isOtpComplete ?
-            "bg-blue-600 hover:bg-blue-700 text-white" :
-            "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-            }>
-            
-            {isLoading ? "Verifying..." : "Continue"}
-          </Button>
-        </div>
-      </div>
+          <div className="px-6 pb-8 pt-4">
+            <div className="w-full max-w-md mx-auto">
+              <Button
+                onClick={() => handleVerify()}
+                disabled={isLoading || !isOtpComplete}
+                className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${
+                  !isLoading && isOtpComplete
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}>
+                
+                {isLoading ? "Verifying..." : "Continue"}
+              </Button>
+            </div>
+          </div>
     </div>);
 
 }

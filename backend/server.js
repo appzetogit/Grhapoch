@@ -10,9 +10,13 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cron from 'node-cron';
 import mongoose from 'mongoose';
+import dns from 'dns';
 
 // Load environment variables
 dotenv.config();
+
+// Force known public DNS resolvers to avoid local DNS issues (Atlas SRV lookups)
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 // Suppress Mongoose duplicate index warnings
 const _warn = console.warn;

@@ -1938,232 +1938,258 @@ return (
               </motion.div>
             }
           </AnimatePresence>
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3  gap-3 sm:gap-4 lg:gap-5 xl:gap-6 pt-1 sm:pt-1.5 lg:pt-2 items-stretch ${isLoadingFilterResults || loadingRestaurants ? 'opacity-50' : 'opacity-100'} transition-opacity duration-300`}>
-            {filteredRestaurants.map((restaurant, index) => {
-              const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/\s+/g, "-");
-              // Direct favorite check - isFavorite is already memoized in context
-              const favorite = isFavorite(restaurantSlug);
+          <div className={`${filteredRestaurants.length > 0 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 xl:gap-6 pt-1 sm:pt-1.5 lg:pt-2' : ''} items-stretch ${isLoadingFilterResults || loadingRestaurants ? 'opacity-50' : 'opacity-100'} transition-opacity duration-300`}>
+            {filteredRestaurants.length > 0 ? 
+              filteredRestaurants.map((restaurant, index) => {
+                const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/\s+/g, "-");
+                // Direct favorite check - isFavorite is already memoized in context
+                const favorite = isFavorite(restaurantSlug);
 
-              const handleToggleFavorite = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (favorite) {
-                  removeFavorite(restaurantSlug);
-                } else {
-                  // Add to favorites
-                  addFavorite({
-                    id: restaurant.id || restaurant._id || restaurant.restaurantId,
-                    slug: restaurantSlug,
-                    name: restaurant.name,
-                    cuisine: restaurant.cuisine,
-                    rating: restaurant.rating,
-                    deliveryTime: restaurant.deliveryTime,
-                    distance: restaurant.distance,
-                    priceRange: restaurant.priceRange,
-                    image: restaurant.image
-                  });
-                }
-              };
+                const handleToggleFavorite = (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (favorite) {
+                    removeFavorite(restaurantSlug);
+                  } else {
+                    // Add to favorites
+                    addFavorite({
+                      id: restaurant.id || restaurant._id || restaurant.restaurantId,
+                      slug: restaurantSlug,
+                      name: restaurant.name,
+                      cuisine: restaurant.cuisine,
+                      rating: restaurant.rating,
+                      deliveryTime: restaurant.deliveryTime,
+                      distance: restaurant.distance,
+                      priceRange: restaurant.priceRange,
+                      image: restaurant.image
+                    });
+                  }
+                };
 
-              return (
-                <motion.div
-                  key={restaurant.id}
-                  className="h-full"
-                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.1,
-                    type: "spring",
-                    stiffness: 100
-                  }}
-                  style={{ perspective: 1000 }}>
-
+                return (
                   <motion.div
+                    key={restaurant.id}
                     className="h-full"
-                    whileHover="hover"
-                    initial="rest"
-                    variants={{
-                      rest: {
-                        y: 0,
-                        scale: 1,
-                        rotateX: 0,
-                        rotateY: 0,
-                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
-                      },
-                      hover: {
-                        y: -12,
-                        scale: 1.02,
-                        rotateX: 2,
-                        rotateY: 0,
-                        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(34, 197, 94, 0.1)",
-                        transition: {
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 20,
-                          mass: 0.5
-                        }
-                      }
-                    }}>
+                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                    whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{
+                      duration: 0.5,
+                      delay: index * 0.1,
+                      type: "spring",
+                      stiffness: 100
+                    }}
+                    style={{ perspective: 1000 }}>
 
-                    <Link to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
-                      <Card className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-md flex flex-col h-full w-full relative ${isOutOfService ? 'grayscale opacity-75' : ''}`
-                      }>
-                        {/* Image Section with Carousel */}
-                        <div className="relative">
-                          <RestaurantImageCarousel
-                            images={restaurant.images || [restaurant.image]}
-                            restaurantName={restaurant.name}
-                            restaurantId={restaurant.id}
-                            priority={index < 3} />
-
-
-                          {/* Featured Dish Badge - Top Left */}
-                          <motion.div
-                            className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center z-10"
-                            variants={{
-                              rest: { scale: 1, y: 0 },
-                              hover: { scale: 1.05, y: -2 }
-                            }}
-                            transition={{ duration: 0.3 }}>
-
-                            <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center gap-2 shadow-lg">
-                              <FoodTypeIcon isVeg={restaurant.isVeg} size="sm" />
-                              <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
-                            </div>
-                          </motion.div>
-
-                          {/* Bookmark Icon - Top Right */}
-                          <motion.div
-                            variants={{
-                              rest: { scale: 1, rotate: 0 },
-                              hover: { scale: 1.1, rotate: 5 }
-                            }}
-                            transition={{ duration: 0.3 }}
-                            className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={handleToggleFavorite}
-                              className={`h-9 w-9 md:h-11 md:w-11 rounded-full border flex items-center justify-center transition-all duration-300 ${favorite ?
-                                "border-red-500 bg-red-50 text-red-500" :
-                                "border-white bg-white/90 text-gray-600 hover:bg-white"}`
-                              }>
-
-                              <Heart
-                                className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
-                                } />
-                            </Button>
-                          </motion.div>
-
-                          {/* FREE delivery Badge - Bottom Left (only for first 3 restaurants) */}
-                          {index < 3 &&
-                            <motion.div
-                              className="absolute bottom-2 left-0 sm:bottom-2 sm:left-0 z-10"
-                              variants={{
-                                rest: { x: 0, opacity: 1 },
-                                hover: { x: 4, opacity: 1 }
-                              }}
-                              transition={{ duration: 0.3 }}>
-
-                              <div className="bg-gradient-to-r from-blue-600 via-blue-500/80 to-transparent text-white px-2.5 py-1 rounded-r-sm text-[10px] sm:text-xs font-bold shadow-lg backdrop-blur-sm">
-                                FREE delivery
-                              </div>
-                            </motion.div>
+                    <motion.div
+                      className="h-full"
+                      whileHover="hover"
+                      initial="rest"
+                      variants={{
+                        rest: {
+                          y: 0,
+                          scale: 1,
+                          rotateX: 0,
+                          rotateY: 0,
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
+                        },
+                        hover: {
+                          y: -12,
+                          scale: 1.02,
+                          rotateX: 2,
+                          rotateY: 0,
+                          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(34, 197, 94, 0.1)",
+                          transition: {
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 20,
+                            mass: 0.5
                           }
-                        </div>
+                        }
+                      }}>
 
-                        {/* Content Section */}
-                        <motion.div
-                          variants={{
-                            rest: { y: 0 },
-                            hover: { y: -4 }
-                          }}
-                          transition={{ duration: 0.4, ease: "easeOut" }}>
+                      <Link to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
+                        <Card className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-md flex flex-col h-full w-full relative ${isOutOfService ? 'grayscale opacity-75' : ''}`
+                        }>
+                          {/* Image Section with Carousel */}
+                          <div className="relative">
+                            <RestaurantImageCarousel
+                              images={restaurant.images || [restaurant.image]}
+                              restaurantName={restaurant.name}
+                              restaurantId={restaurant.id}
+                              priority={index < 3} />
 
-                          <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
-                            {/* Restaurant Name & Rating */}
-                            <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
-                              <div className="flex-1 min-w-0">
-                                <motion.h3
-                                  className="text-md sm:text-md lg:text-xl font-bold text-gray-900 dark:text-white line-clamp-1 lg:line-clamp-2"
-                                  variants={{
-                                    rest: {},
-                                    hover: { color: "rgb(34, 197, 94)" }
-                                  }}
-                                  transition={{ duration: 0.3 }}>
 
-                                  {restaurant.name}
-                                </motion.h3>
-                              </div>
-                              <motion.div
-                                className="flex-shrink-0 bg-green-600 text-white px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg flex items-center gap-1"
-                                variants={{
-                                  rest: { scale: 1, rotate: 0 },
-                                  hover: { scale: 1.1, rotate: 5 }
-                                }}
-                                transition={{ duration: 0.3, type: "spring", stiffness: 400 }}>
-
-                                <span className="text-sm lg:text-base font-bold">{restaurant.rating}</span>
-                                <Star className="h-3 w-3 lg:h-4 lg:w-4 fill-white text-white" />
-                              </motion.div>
-                            </div>
-
-                            {/* Delivery Time & Distance */}
+                            {/* Featured Dish Badge - Top Left */}
                             <motion.div
-                              className="flex items-center gap-1 text-sm lg:text-base text-gray-500 mb-2 lg:mb-3"
+                              className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center z-10"
                               variants={{
-                                rest: { opacity: 0.7 },
-                                hover: { opacity: 1 }
+                                rest: { scale: 1, y: 0 },
+                                hover: { scale: 1.05, y: -2 }
                               }}
                               transition={{ duration: 0.3 }}>
 
-                              <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
-                              <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.deliveryTime}</span>
-                              <span className="mx-1">|</span>
-                              <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.distance}</span>
+                              <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center gap-2 shadow-lg">
+                                <FoodTypeIcon isVeg={restaurant.isVeg} size="sm" />
+                                <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
+                              </div>
                             </motion.div>
 
-                            {/* Offer Badge */}
-                            {restaurant.offer &&
+                            {/* Bookmark Icon - Top Right */}
+                            <motion.div
+                              variants={{
+                                rest: { scale: 1, rotate: 0 },
+                                hover: { scale: 1.1, rotate: 5 }
+                              }}
+                              transition={{ duration: 0.3 }}
+                              className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleToggleFavorite}
+                                className={`h-9 w-9 md:h-11 md:w-11 rounded-full border flex items-center justify-center transition-all duration-300 ${favorite ?
+                                  "border-red-500 bg-red-50 text-red-500" :
+                                  "border-white bg-white/90 text-gray-600 hover:bg-white"}`
+                                }>
+
+                                <Heart
+                                  className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
+                                  } />
+                              </Button>
+                            </motion.div>
+
+                            {/* FREE delivery Badge - Bottom Left (only for first 3 restaurants) */}
+                            {index < 3 &&
                               <motion.div
-                                className="flex items-center gap-2 text-sm lg:text-base mt-auto"
+                                className="absolute bottom-2 left-0 sm:bottom-2 sm:left-0 z-10"
                                 variants={{
-                                  rest: { x: 0 },
-                                  hover: { x: 4 }
+                                  rest: { x: 0, opacity: 1 },
+                                  hover: { x: 4, opacity: 1 }
                                 }}
                                 transition={{ duration: 0.3 }}>
 
-                                <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black" strokeWidth={2} />
-                                <span className="text-gray-700 dark:text-gray-300 font-medium">{restaurant.offer}</span>
+                                <div className="bg-gradient-to-r from-blue-600 via-blue-500/80 to-transparent text-white px-2.5 py-1 rounded-r-sm text-[10px] sm:text-xs font-bold shadow-lg backdrop-blur-sm">
+                                  FREE delivery
+                                </div>
                               </motion.div>
                             }
-                          </CardContent>
-                        </motion.div>
+                          </div>
 
-                        {/* Border Glow Effect */}
-                        <motion.div
-                          className="absolute inset-0 rounded-md pointer-events-none z-0"
-                          variants={{
-                            rest: {
-                              boxShadow: "inset 0 0 0 0px rgba(34, 197, 94, 0)",
-                              border: "1px solid transparent"
-                            },
-                            hover: {
-                              boxShadow: "inset 0 0 0 1px rgba(34, 197, 94, 0.2)",
-                              border: "1px solid rgba(34, 197, 94, 0.3)"
-                            }
-                          }}
-                          transition={{ duration: 0.4 }} />
+                          {/* Content Section */}
+                          <motion.div
+                            variants={{
+                              rest: { y: 0 },
+                              hover: { y: -4 }
+                            }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}>
 
-                      </Card>
-                    </Link>
-                  </motion.div>
-                </motion.div>);
+                            <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
+                              {/* Restaurant Name & Rating */}
+                              <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
+                                <div className="flex-1 min-w-0">
+                                  <motion.h3
+                                    className="text-md sm:text-md lg:text-xl font-bold text-gray-900 dark:text-white line-clamp-1 lg:line-clamp-2"
+                                    variants={{
+                                      rest: {},
+                                      hover: { color: "rgb(34, 197, 94)" }
+                                    }}
+                                    transition={{ duration: 0.3 }}>
 
-            })}
+                                    {restaurant.name}
+                                  </motion.h3>
+                                </div>
+                                <motion.div
+                                  className="flex-shrink-0 bg-green-600 text-white px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg flex items-center gap-1"
+                                  variants={{
+                                    rest: { scale: 1, rotate: 0 },
+                                    hover: { scale: 1.1, rotate: 5 }
+                                  }}
+                                  transition={{ duration: 0.3, type: "spring", stiffness: 400 }}>
+
+                                  <span className="text-sm lg:text-base font-bold">{restaurant.rating}</span>
+                                  <Star className="h-3 w-3 lg:h-4 lg:w-4 fill-white text-white" />
+                                </motion.div>
+                              </div>
+
+                              {/* Delivery Time & Distance */}
+                              <motion.div
+                                className="flex items-center gap-1 text-sm lg:text-base text-gray-500 mb-2 lg:mb-3"
+                                variants={{
+                                  rest: { opacity: 0.7 },
+                                  hover: { opacity: 1 }
+                                }}
+                                transition={{ duration: 0.3 }}>
+
+                                <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
+                                <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.deliveryTime}</span>
+                                <span className="mx-1">|</span>
+                                <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.distance}</span>
+                              </motion.div>
+
+                              {/* Offer Badge */}
+                              {restaurant.offer &&
+                                <motion.div
+                                  className="flex items-center gap-2 text-sm lg:text-base mt-auto"
+                                  variants={{
+                                    rest: { x: 0 },
+                                    hover: { x: 4 }
+                                  }}
+                                  transition={{ duration: 0.3 }}>
+
+                                  <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black" strokeWidth={2} />
+                                  <span className="text-gray-700 dark:text-gray-300 font-medium">{restaurant.offer}</span>
+                                </motion.div>
+                              }
+                            </CardContent>
+                          </motion.div>
+
+                          {/* Border Glow Effect */}
+                          <motion.div
+                            className="absolute inset-0 rounded-md pointer-events-none z-0"
+                            variants={{
+                              rest: {
+                                boxShadow: "inset 0 0 0 0px rgba(34, 197, 94, 0)",
+                                border: "1px solid transparent"
+                              },
+                              hover: {
+                                boxShadow: "inset 0 0 0 1px rgba(34, 197, 94, 0.2)",
+                                border: "1px solid rgba(34, 197, 94, 0.3)"
+                              }
+                            }}
+                            transition={{ duration: 0.4 }} />
+
+                        </Card>
+                      </Link>
+                    </motion.div>
+                  </motion.div>);
+
+              }) : 
+              !loadingRestaurants && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="col-span-full py-12 flex flex-col items-center justify-center text-center space-y-4 px-4 bg-gray-50/50 dark:bg-[#1a1a1a]/30 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800"
+                >
+                  <div className="w-20 h-20 bg-white dark:bg-[#1a1a1a] rounded-full flex items-center justify-center shadow-md mb-2">
+                    <MapPin className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Aww! No Service at this Location</h3>
+                    <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto text-sm">
+                      We're currently not serving at your location. Try picking from the active areas or check back soon!
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4 rounded-full border-green-600 text-green-600 hover:bg-green-50"
+                    onClick={openLocationSelector}
+                  >
+                    Change Location
+                  </Button>
+                </motion.div>
+              )
+            }
           </div>
         </div>
         <div className="flex justify-center pt-2 sm:pt-3">

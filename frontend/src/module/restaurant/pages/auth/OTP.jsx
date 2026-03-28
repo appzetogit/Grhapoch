@@ -69,11 +69,6 @@ export default function RestaurantOTP() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
-    const timer = setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     // Auto-clear error after 3 seconds
@@ -179,7 +174,6 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
       const purpose = authData.isSignUp ? "register" : "login";
-      const nameToSend = (authData?.name && authData.name.trim()) || "Restaurant";
       const nameToSend = (
         authData?.name ||
         authData?.restaurantName ||

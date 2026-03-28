@@ -2067,8 +2067,9 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     e.preventDefault();
 
     // Validate required fields (zipCode is optional)
-    if (!addressFormData.street || !addressFormData.city || !addressFormData.state) {
-      toast.error("Please fill in all required fields (Street, City, State)");
+    // Relaxed validation: Coordinates are the most important for delivery radius logic
+    if (!addressFormData.city && !addressFormData.state && !addressFormData.additionalDetails) {
+      toast.error("Please provide at least a City/State or specific Area details");
       return;
     }
 
@@ -2095,16 +2096,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         normalizedLabel = "Other"; // Fallback to Other if invalid
       }
 
-      // Validate that trimmed fields are not empty
-      const trimmedStreet = addressFormData.street.trim();
-      const trimmedCity = addressFormData.city.trim();
-      const trimmedState = addressFormData.state.trim();
-
-      if (!trimmedStreet || !trimmedCity || !trimmedState) {
-        toast.error("Street, City, and State cannot be empty");
-        setLoadingAddress(false);
-        return;
-      }
+      // Use fallbacks for missing fields to prevent empty strings in DB
+      const trimmedStreet = (addressFormData.street || "").trim() || "Not specified";
+      const trimmedCity = (addressFormData.city || "").trim() || "Local Area";
+      const trimmedState = (addressFormData.state || "").trim() || "Madhya Pradesh";
 
       const addressToSave = {
         label: normalizedLabel,

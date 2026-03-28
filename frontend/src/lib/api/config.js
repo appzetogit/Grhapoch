@@ -4,8 +4,8 @@
  */
 
 // Get API base URL from environment variable or use default
-// IMPORTANT: Backend runs on port 5000, frontend on port 5173
-let rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// IMPORTANT: Backend runs on port 5001, frontend on port 5173
+let rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
 
 // Normalize URL - fix common issues like double slashes, missing protocols
 if (rawApiBaseUrl && typeof rawApiBaseUrl === 'string') {
@@ -50,13 +50,13 @@ try {
   const urlObj = new URL(API_BASE_URL);
   if (!urlObj.protocol || !urlObj.hostname) {
     console.error('❌ Invalid API_BASE_URL format:', API_BASE_URL);
-    console.error('💡 Expected format: https://your-domain.com/api or http://localhost:5000/api');
+    console.error('💡 Expected format: https://your-domain.com/api or http://localhost:5001/api');
   }
 } catch (urlError) {
   console.error('❌ Invalid API_BASE_URL format:', API_BASE_URL);
   console.error('💡 URL validation error:', urlError.message);
   console.error('💡 Raw VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL || 'Not set');
-  console.error('💡 Expected format: https://your-domain.com/api or http://localhost:5000/api');
+  console.error('💡 Expected format: https://your-domain.com/api or http://localhost:5001/api');
 
   // Try to auto-fix common malformed patterns
   let fixedUrl = API_BASE_URL;
@@ -79,9 +79,9 @@ try {
 
 // Validate API base URL
 if (API_BASE_URL.includes('5173')) {
-  console.error('❌ ERROR: API_BASE_URL is pointing to frontend port (5173) instead of backend port (5000)');
-  console.error('💡 Fix: Set VITE_API_BASE_URL=http://localhost:5000/api in .env file');
-  console.error('💡 Or remove VITE_API_BASE_URL to use default: http://localhost:5000/api');
+  console.error('❌ ERROR: API_BASE_URL is pointing to frontend port (5173) instead of backend port (5001)');
+  console.error('💡 Fix: Set VITE_API_BASE_URL=http://localhost:5001/api in .env file');
+  console.error('💡 Or remove VITE_API_BASE_URL to use default: http://localhost:5001/api');
 }
 
 // Log API base URL in both development and production for debugging

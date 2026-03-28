@@ -247,10 +247,10 @@ export const useDeliveryNotifications = () => {
       transports: ['polling'], // Start with polling only
       upgrade: false, // Disable WebSocket upgrade to prevent WebSocket connection errors
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-      timeout: 20000,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: 5,
+      timeout: 10000,
       forceNew: false,
       autoConnect: true,
       auth: {

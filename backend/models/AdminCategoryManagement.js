@@ -50,7 +50,7 @@ adminCategoryManagementSchema.index({ priority: 1 });
 adminCategoryManagementSchema.index({ createdAt: -1 });
 
 // Virtual for serial number (for display purposes)
-adminCategoryManagementSchema.virtual('sl').get(function() {
+adminCategoryManagementSchema.virtual('sl').get(function () {
   // This will be calculated in the controller based on query results
   return null;
 });

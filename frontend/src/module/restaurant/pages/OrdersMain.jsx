@@ -758,36 +758,81 @@ export default function OrdersMain() {
     // Use popupOrder (from Socket.IO or API fallback) or newOrder (from hook)
     const orderToAccept = popupOrder || newOrder;
 
+    const finalizeAcceptSuccess = () => {
+      setShowNewOrderPopup(false);
+      setPopupOrder(null);
+      clearNewOrder();
+      setCountdown(240);
+      setPrepTime(11);
+    };
+
+    const normalizeStatus = (value) => (value == null ? '' : String(value).trim().toLowerCase());
+    const isPaymentCaptured = (status) => {
+      const s = normalizeStatus(status);
+      return s === 'completed' || s === 'captured' || s === 'paid';
+    };
+    const isOnlinePayment = (order) => {
+      const raw = order?.paymentMethod ?? order?.payment?.method;
+      const m = normalizeStatus(raw);
+      return m && m !== 'cash' && m !== 'cod' && m !== 'cash_on_delivery' && m !== 'cash on delivery';
+    };
+
     // Accept order via API if we have a real order
     if (orderToAccept?.orderMongoId || orderToAccept?.orderId) {
-      try {
-        const orderId = orderToAccept.orderMongoId || orderToAccept.orderId;
-        const response = await restaurantAPI.acceptOrder(orderId, prepTime);
+      const orderId = orderToAccept.orderMongoId || orderToAccept.orderId;
+      const paymentStatus = orderToAccept?.payment?.status;
+      const onlinePayment = isOnlinePayment(orderToAccept);
 
-        toast.success('Order accepted successfully');
-      } catch (error) {
-        console.error('❌ Error accepting order:', error);
-        const errorMessage = error.response?.data?.message ||
-          error.message ||
-          'Failed to accept order. Please try again.';
-
-        // Show specific error message
-        if (error.response?.status === 400) {
-          toast.error(errorMessage);
-        } else if (error.response?.status === 404) {
-          toast.error('Order not found. It may have been cancelled or already processed.');
-        } else {
-          toast.error(errorMessage);
-        }
+      // If we already know payment is pending for online orders, avoid failing the API
+      if (onlinePayment && paymentStatus && !isPaymentCaptured(paymentStatus)) {
+        toast.info('Payment pending. Please wait a moment and try again.');
         return;
       }
-    }
 
-    setShowNewOrderPopup(false);
-    setPopupOrder(null);
-    clearNewOrder();
-    setCountdown(240);
-    setPrepTime(11);
+      const maxRetries = 3;
+      const retryDelayMs = 2000;
+      let pendingToastShown = false;
+
+      const attemptAccept = async (attempt) => {
+        try {
+          await restaurantAPI.acceptOrder(orderId, prepTime);
+          toast.success('Order accepted successfully');
+          finalizeAcceptSuccess();
+        } catch (error) {
+          console.error('❌ Error accepting order:', error);
+          const errorMessage = error.response?.data?.message ||
+            error.message ||
+            'Failed to accept order. Please try again.';
+
+          const status = error.response?.status;
+          const isPaymentPending =
+            status === 400 &&
+            normalizeStatus(errorMessage).includes('payment') &&
+            normalizeStatus(errorMessage).includes('complete');
+
+          if (isPaymentPending && attempt < maxRetries) {
+            if (!pendingToastShown) {
+              pendingToastShown = true;
+              toast.info('Payment pending. Retrying in a moment...');
+            }
+            setTimeout(() => attemptAccept(attempt + 1), retryDelayMs);
+            return;
+          }
+
+          // Show specific error message
+          if (status === 400) {
+            toast.error(errorMessage);
+          } else if (status === 404) {
+            toast.error('Order not found. It may have been cancelled or already processed.');
+          } else {
+            toast.error(errorMessage);
+          }
+          return;
+        }
+      };
+
+      attemptAccept(0);
+    }
 
     // Note: PreparingOrders component will automatically refresh orders via its own useEffect
     // No need to manually refresh here as the component polls every 10 seconds
@@ -2608,3 +2653,4 @@ function EmptyState({ message = "Temporarily closed" }) {
     </div>);
 
 }
+

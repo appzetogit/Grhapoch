@@ -236,14 +236,25 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
       }
     }
 
-    // Geo-near filter (max distance)
+    // Geo-near filter (max distance) - dynamic from settings if default 50 is used
+    let finalMaxDistance = maxDistance;
+    if (maxDistance === 50) {
+      try {
+        const ServiceSettings = (await import('../models/ServiceSettings.js')).default;
+        const settings = await ServiceSettings.getSettings();
+        finalMaxDistance = settings.serviceRadiusKm || 10;
+      } catch (e) {
+        finalMaxDistance = 10;
+      }
+    }
+
     deliveryQuery['availability.currentLocation'] = {
       $near: {
         $geometry: {
           type: 'Point',
           coordinates: [restaurantLng, restaurantLat]
         },
-        $maxDistance: maxDistance * 1000
+        $maxDistance: finalMaxDistance * 1000
       }
     };
 

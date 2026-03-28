@@ -203,22 +203,36 @@ export const getWallet = asyncHandler(async (req, res) => {
                   ]
                 },
                 {
-                  $in: [
-                    { $toLower: { $ifNull: ['$payment.method', ''] } },
-                    ['cash', 'cod', 'cash on delivery']
+                  $or: [
+                    {
+                      $in: [
+                        { $toLower: { $ifNull: ['$payment.method', ''] } },
+                        ['cash', 'cod', 'cash on delivery']
+                      ]
+                    },
+                    {
+                      $in: [
+                        { $toLower: { $ifNull: ['$paymentMethod', ''] } },
+                        ['cash', 'cod', 'cash on delivery']
+                      ]
+                    }
                   ]
                 },
                 {
-                  $ne: [
-                    { $toLower: { $ifNull: ['$paymentStatus', ''] } },
-                    'paid'
-                  ]
+                  $not: {
+                    $in: [
+                      { $toLower: { $ifNull: ['$paymentStatus', ''] } },
+                      ['paid', 'completed', 'success', 'successful']
+                    ]
+                  }
                 },
                 {
-                  $ne: [
-                    { $toLower: { $ifNull: ['$payment.status', ''] } },
-                    'completed'
-                  ]
+                  $not: {
+                    $in: [
+                      { $toLower: { $ifNull: ['$payment.status', ''] } },
+                      ['paid', 'completed', 'success', 'successful']
+                    ]
+                  }
                 },
                 {
                   $not: {

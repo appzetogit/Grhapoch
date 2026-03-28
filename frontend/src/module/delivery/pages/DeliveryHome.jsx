@@ -1195,18 +1195,15 @@ export default function DeliveryHome() {
     }
   }, [calculatedEarnings, calculatedTrips, calculatedHours, updateTodayProgress]);
 
-  // Listen for progress data updates from other components
+  // Listen for progress data updates from other components - reactivity handled by store
   useEffect(() => {
-    const handleProgressUpdate = () => {
-      // Force re-render to show updated progress
-      setAnimationKey((prev) => prev + 1);
-    };
-
+    // Redundant listener removed to prevent infinite loops
+    const handleProgressUpdate = () => {};
     window.addEventListener('progressDataUpdated', handleProgressUpdate);
     return () => {
       window.removeEventListener('progressDataUpdated', handleProgressUpdate);
     };
-  }, []); // Empty dependency array - only set up listener once
+  }, []);
 
   const formatHours = (hours) => {
     const h = Math.floor(hours);
@@ -1215,11 +1212,11 @@ export default function DeliveryHome() {
   };
 
 
-  // Listen for progress data updates
+  // Listen for progress data updates - reliance on store's built-in reactivity
   useEffect(() => {
+    // We remove the setAnimationKey call that triggers infinite re-render loops
+    // The component will naturally re-render when store values it consumes change
     const handleProgressUpdate = () => {
-      // Force re-render to show updated progress
-      setAnimationKey((prev) => prev + 1);
     };
 
     window.addEventListener('progressDataUpdated', handleProgressUpdate);

@@ -628,28 +628,21 @@ export const acceptOrder = asyncHandler(async (req, res) => {
         console.error(`❌ Error stack: ${reloadError.stack}`);
         return errorResponse(res, 500, 'Error reloading order. Please try again.');
       }
-
       // Update orderDeliveryPartnerId after assignment
       const updatedOrderDeliveryPartnerId = order.deliveryPartnerId?.toString();
       if (updatedOrderDeliveryPartnerId !== currentDeliveryId) {
         console.error(`❌ Order assignment failed - order still not assigned to ${currentDeliveryId}, got ${updatedOrderDeliveryPartnerId}`);
         return errorResponse(res, 500, 'Failed to assign order. Please try again.');
       }
-    } else if (orderDeliveryPartnerId !== currentDeliveryId) {
+    } else if (orderDeliveryPartnerId && orderDeliveryPartnerId !== currentDeliveryId) {
       console.error(`❌ Order ${order.orderId} is assigned to ${orderDeliveryPartnerId}, but current delivery partner is ${currentDeliveryId}`);
       return errorResponse(res, 403, 'Order is assigned to another delivery partner');
     } else {
-
+      // Already assigned to this partner (or first time)
+      if (orderDeliveryPartnerId === currentDeliveryId) {
+        console.info(`ℹ️ Order ${order.orderId} is already assigned to this delivery partner ${currentDeliveryId}. Proceeding.`);
+      }
     }
-
-
-
-
-
-
-
-
-
 
     // Strict cash limit check for COD orders
     let orderPaymentMethod = order.payment?.method || 'razorpay';
@@ -1840,39 +1833,45 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
 
     const orderIdForLog = finalOrder.orderId || finalOrder._id?.toString() || orderId;
 
-
-    try {
-      const deliveryIdStr = delivery._id?.toString?.() || delivery._id;
-      const routePoints = normalizeRoutePointsForRealtime(finalOrder?.deliveryState?.routeToDelivery?.coordinates);
-
-      await upsertActiveOrderRealtime({
-        orderId: finalOrder.orderId || finalOrder._id?.toString?.(),
-        orderMongoId: finalOrder._id?.toString?.() || finalOrder._id,
-        deliveryId: deliveryIdStr,
-        restaurantId: finalOrder?.restaurantId?._id?.toString?.() ||
-          finalOrder?.restaurantId?._id ||
-          finalOrder?.restaurantId?.toString?.() ||
-          finalOrder?.restaurantId,
-        status: 'out_for_delivery',
-        phase: 'at_delivery',
-        routePoints,
-        totalDistanceKm: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.distance),
-        durationMin: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.duration),
-        deliveryFee: toFiniteNumber(finalOrder?.pricing?.deliveryFee)
-      });
-    } catch (firebaseSyncError) {
-      logger.warn(`Firebase sync skipped for reached-drop ${orderIdForLog}: ${firebaseSyncError.message}`);
-    }
-
-    // Notify customer that rider reached drop location
-    notifyUserOrderUpdate(finalOrder._id, 'at_delivery').catch(err => {
-      logger.error('Error notifying user about reaching drop:', err);
-    });
-
-    return successResponse(res, 200, 'Reached drop confirmed', {
+    // Respond immediately to avoid client timeout; do background sync/notifications after.
+    const response = successResponse(res, 200, 'Reached drop confirmed', {
       order: finalOrder,
       message: 'Reached drop location confirmed'
     });
+
+    setImmediate(async () => {
+      try {
+        const deliveryIdStr = delivery._id?.toString?.() || delivery._id;
+        const routePoints = normalizeRoutePointsForRealtime(finalOrder?.deliveryState?.routeToDelivery?.coordinates);
+
+        await upsertActiveOrderRealtime({
+          orderId: finalOrder.orderId || finalOrder._id?.toString?.(),
+          orderMongoId: finalOrder._id?.toString?.() || finalOrder._id,
+          deliveryId: deliveryIdStr,
+          restaurantId: finalOrder?.restaurantId?._id?.toString?.() ||
+            finalOrder?.restaurantId?._id ||
+            finalOrder?.restaurantId?.toString?.() ||
+            finalOrder?.restaurantId,
+          status: 'out_for_delivery',
+          phase: 'at_delivery',
+          routePoints,
+          totalDistanceKm: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.distance),
+          durationMin: toFiniteNumber(finalOrder?.deliveryState?.routeToDelivery?.duration),
+          deliveryFee: toFiniteNumber(finalOrder?.pricing?.deliveryFee)
+        });
+      } catch (firebaseSyncError) {
+        logger.warn(`Firebase sync skipped for reached-drop ${orderIdForLog}: ${firebaseSyncError.message}`);
+      }
+
+      // Notify customer that rider reached drop location
+      try {
+        await notifyUserOrderUpdate(finalOrder._id, 'at_delivery');
+      } catch (err) {
+        logger.error('Error notifying user about reaching drop:', err);
+      }
+    });
+
+    return response;
   } catch (error) {
     logger.error(`Error confirming reached drop: ${error.message}`);
     console.error('Error stack:', error.stack);

@@ -22,7 +22,7 @@ const getGeoCoordinates = (payload) => {
   const lng = parseNumber(payload?.lng ?? payload?.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat, lng };
+  return { latitude: lat, longitude: lng };
 };
 
 const resolveLngLatFromLocation = (location) => {
@@ -119,10 +119,12 @@ const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
 export const getRestaurants = async (req, res) => {
   try {
     const {
-      limit = 10000, // Increased to show all restaurants
+      limit = 10000,
       offset = 0,
       sortBy,
       cuisine,
+      search,
+      category,
       minRating,
       maxDeliveryTime,
       maxDistance,
@@ -136,9 +138,33 @@ export const getRestaurants = async (req, res) => {
     // Build query
     const query = { isActive: true };
 
-    // Cuisine filter
-    if (cuisine) {
-      query.cuisines = { $in: [new RegExp(cuisine, 'i')] };
+    // Search / Category filter
+    const searchTerm = (search || category || cuisine)?.trim();
+    if (searchTerm) {
+      const searchRegex = new RegExp(searchTerm, 'i');
+      
+      // 1. Search in Restaurant Profile
+      const profileMatch = [
+        { name: searchRegex },
+        { cuisines: { $in: [searchRegex] } },
+        { featuredDish: searchRegex },
+        { diningCategory: searchRegex }
+      ];
+
+      // 2. Search in Menu Items (Menu-Aware Search)
+      const matchingMenus = await Menu.find({
+        'sections.items.name': searchRegex
+      }).select('restaurantId').lean();
+      
+      const menuRestaurantIds = matchingMenus.map(m => m.restaurantId).filter(Boolean);
+
+      query.$or = query.$or || [];
+      query.$or.push(...profileMatch);
+      
+      if (menuRestaurantIds.length > 0) {
+        query.$or.push({ restaurantId: { $in: menuRestaurantIds } });
+        query.$or.push({ _id: { $in: menuRestaurantIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } });
+      }
     }
 
     // Rating filter
@@ -223,15 +249,19 @@ export const getRestaurants = async (req, res) => {
     await backfillGeoLocationForRestaurants();
     const settings = await ServiceSettings.getSettings();
     const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
-    query.geoLocation = {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: [coords.lng, coords.lat]
-        },
-        $maxDistance: serviceRadiusKm * 1000
-      }
-    };
+    
+    // Near query with dynamic radius (converting KM to Meters for MongoDB)
+    if (Number.isFinite(coords.longitude) && Number.isFinite(coords.latitude)) {
+      query.geoLocation = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [coords.longitude, coords.latitude]
+          },
+          $maxDistance: serviceRadiusKm * 1000 
+        }
+      };
+    }
 
     // Fetch restaurants - zone dependency removed, optional nearby filtering by coordinates
     let restaurantQuery = Restaurant.find(query)
@@ -361,15 +391,17 @@ export const getNearbyRestaurants = async (req, res) => {
     }
 
     // Nearby filter
-    query.geoLocation = {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: [coords.lng, coords.lat]
-        },
-        $maxDistance: serviceRadiusKm * 1000
-      }
-    };
+    if (coords && Number.isFinite(coords.longitude) && Number.isFinite(coords.latitude)) {
+      query.geoLocation = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [coords.longitude, coords.latitude]
+          },
+          $maxDistance: serviceRadiusKm * 1000
+        }
+      };
+    }
 
     // Sort preference (distance is default with $near)
     let sortObj = null;
@@ -1178,15 +1210,18 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
     await backfillGeoLocationForRestaurants();
     const settings = await ServiceSettings.getSettings();
     const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
-    restaurantQuery.geoLocation = {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: [coords.lng, coords.lat]
-        },
-        $maxDistance: serviceRadiusKm * 1000
-      }
-    };
+    
+    if (coords && Number.isFinite(coords.longitude) && Number.isFinite(coords.latitude)) {
+      restaurantQuery.geoLocation = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [coords.longitude, coords.latitude]
+          },
+          $maxDistance: serviceRadiusKm * 1000
+        }
+      };
+    }
 
     let restaurants = await Restaurant.find(restaurantQuery)
       .select('-owner -createdAt -updatedAt')

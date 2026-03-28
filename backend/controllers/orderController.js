@@ -888,9 +888,21 @@ export const createOrder = async (req, res) => {
       try {
         const credentials = await getRazorpayCredentials();
         razorpayKeyId = credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
+        if (razorpayKeyId) {
+          const maskedKeyId = `${String(razorpayKeyId).slice(0, 8)}...${String(razorpayKeyId).slice(-4)}`;
+          logger.info('Razorpay key id resolved (masked)', { keyId: maskedKeyId });
+        } else {
+          logger.warn('Razorpay key id missing while creating order');
+        }
       } catch (error) {
         logger.warn(`Failed to get Razorpay key ID from env service: ${error.message}`);
         razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
+        if (razorpayKeyId) {
+          const maskedKeyId = `${String(razorpayKeyId).slice(0, 8)}...${String(razorpayKeyId).slice(-4)}`;
+          logger.info('Razorpay key id resolved from env fallback (masked)', { keyId: maskedKeyId });
+        } else {
+          logger.warn('Razorpay key id missing from env fallback');
+        }
       }
     }
 

@@ -4,6 +4,17 @@
  */
 
 let razorpayLoaded = false;
+// 1x1 transparent PNG to avoid mixed-content issues in Razorpay checkout
+const base64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR4nGNgYGBgAAAABQABF6k1NwAAAABJRU5ErkJggg==';
+
+const isSafeCheckoutImage = (value) => {
+  if (!value) return false;
+  const v = String(value).trim();
+  if (!v) return false;
+  return v.startsWith('https://') || v.startsWith('data:image/');
+};
+
+const getCheckoutImage = (value) => (isSafeCheckoutImage(value) ? value : base64);
 
 /**
  * Load Razorpay checkout script
@@ -68,7 +79,7 @@ export const initRazorpayPayment = async (options) => {
       order_id: options.order_id,
       name: options.name || 'GrhaPoch',
       description: options.description || 'Order Payment',
-      image: options.image || '/logo.png',
+      image: getCheckoutImage(options.image),
       prefill: {
         name: options.prefill?.name || '',
         email: options.prefill?.email || '',

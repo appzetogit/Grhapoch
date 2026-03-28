@@ -256,22 +256,42 @@ export const upsertOnboarding = async (req, res) => {
 
 
       // Return success response with restaurant info
-      // Old flow restoration: ALWAYS require admin approval to activate.
-      // We keep onboarding completed, but keep isActive false and flag pending approval.
+      // If a paid subscription is active, keep restaurant auto-approved.
+      // Otherwise, keep the legacy pending-admin-approval flow.
       const finalBusinessModel =
         (step5 && step5.businessModel) ||
         onboarding?.step5?.businessModel ||
         'Commission Base';
 
-      await Restaurant.findByIdAndUpdate(restaurantId, {
-        $set: {
-          onboardingCompleted: true,
-          'onboarding.completedSteps': 5,
-          'onboarding.status': 'pending_admin_approval',
-          businessModel: finalBusinessModel,
-          isActive: false
+      const now = new Date();
+      const currentSubscription = completeRestaurant?.subscription || null;
+      const subscriptionEnd = currentSubscription?.endDate ? new Date(currentSubscription.endDate) : null;
+      const hasPaidSubscription = Boolean(
+        currentSubscription &&
+        currentSubscription.planId &&
+        ['active', 'pending_approval', 'cancelled'].includes(currentSubscription.status) &&
+        (!subscriptionEnd || subscriptionEnd > now)
+      );
+
+      const updateData = {
+        onboardingCompleted: true,
+        'onboarding.completedSteps': 5
+      };
+
+      if (hasPaidSubscription) {
+        updateData['onboarding.status'] = 'approved';
+        updateData.businessModel = 'Subscription Base';
+        updateData.isActive = true;
+        if (currentSubscription?.status === 'pending_approval') {
+          updateData['subscription.status'] = 'active';
         }
-      });
+      } else {
+        updateData['onboarding.status'] = 'pending_admin_approval';
+        updateData.businessModel = finalBusinessModel;
+        updateData.isActive = false;
+      }
+
+      await Restaurant.findByIdAndUpdate(restaurantId, { $set: updateData });
 
       return successResponse(res, 200, 'Onboarding data saved and restaurant updated', {
         onboarding,

@@ -475,7 +475,7 @@ export default function OrdersMain() {
   const [popupOrder, setPopupOrder] = useState(null); // Store order for popup (from Socket.IO or API)
   const [isMuted, setIsMuted] = useState(false);
   const [prepTime, setPrepTime] = useState(11);
-  const [countdown, setCountdown] = useState(240); // 4 minutes in seconds
+  const [countdown, setCountdown] = useState(600); // 10 minutes in seconds
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
   const [showRejectPopup, setShowRejectPopup] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -626,13 +626,19 @@ export default function OrdersMain() {
   // Show new order popup when real order notification arrives from Socket.IO
   useEffect(() => {
     if (newOrder) {
-
       const orderId = newOrder.orderId || newOrder.orderMongoId;
       if (orderId && !shownOrdersRef.current.has(orderId)) {
         shownOrdersRef.current.add(orderId);
         setPopupOrder(newOrder);
         setShowNewOrderPopup(true);
-        setCountdown(240); // Reset countdown to 4 minutes
+        
+        // SYNC COUNTDOWN: Calculate remaining time from order.createdAt
+        if (newOrder.createdAt) {
+          const elapsedSecs = Math.floor((Date.now() - new Date(newOrder.createdAt).getTime()) / 1000);
+          setCountdown(Math.max(0, 600 - elapsedSecs));
+        } else {
+          setCountdown(600);
+        }
       }
     }
   }, [newOrder]);
@@ -691,7 +697,14 @@ export default function OrdersMain() {
             shownOrdersRef.current.add(orderId);
             setPopupOrder(orderForPopup);
             setShowNewOrderPopup(true);
-            setCountdown(240);
+
+            // SYNC COUNTDOWN: Calculate remaining time from order.createdAt
+            if (orderForPopup.createdAt) {
+              const elapsedSecs = Math.floor((Date.now() - new Date(orderForPopup.createdAt).getTime()) / 1000);
+              setCountdown(Math.max(0, 600 - elapsedSecs));
+            } else {
+              setCountdown(600);
+            }
           }
         }
       } catch (error) {
@@ -762,7 +775,7 @@ export default function OrdersMain() {
       setShowNewOrderPopup(false);
       setPopupOrder(null);
       clearNewOrder();
-      setCountdown(240);
+      setCountdown(600);
       setPrepTime(11);
     };
 
@@ -1611,7 +1624,7 @@ export default function OrdersMain() {
                         <motion.div
                           className="absolute inset-0 bg-blue-600"
                           initial={{ width: "100%" }}
-                          animate={{ width: `${countdown / 240 * 100}%` }}
+                          animate={{ width: `${countdown / 600 * 100}%` }}
                           transition={{ duration: 1, ease: "linear" }} />
 
                         <span className="relative z-10">Accept ({formatTime(countdown)})</span>

@@ -989,7 +989,17 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
           throw new Error("Invalid location data received");
         }
       } catch (raceError) {
-        console.warn("⚠️ Location request failed or timed out:", raceError.message);
+        // Handle common geolocation errors
+        const isPermissionError = raceError.message?.toLowerCase().includes("denied") || raceError.message?.toLowerCase().includes("permission");
+        const isTimeoutError = raceError.message?.toLowerCase().includes("timeout") || raceError.message?.toLowerCase().includes("expired");
+
+        if (isPermissionError) {
+          console.info("ℹ️ Geolocation permission is blocked by the user or browser.");
+        } else if (isTimeoutError) {
+          console.info("ℹ️ Location request timed out. Trying to fall back to cached data...");
+        } else {
+          console.warn("⚠️ Location request failed:", raceError.message);
+        }
 
         // If timeout or error, try to use cached location as fallback
         const stored = localStorage.getItem("userLocation");
@@ -997,7 +1007,6 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
           try {
             const cachedLocation = JSON.parse(stored);
             if (cachedLocation?.latitude && cachedLocation?.longitude) {
-
               locationData = cachedLocation;
 
               // Show info toast that we're using cached location
@@ -1009,15 +1018,12 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
               throw new Error("Invalid cached location");
             }
           } catch (cacheErr) {
-            console.error("❌ Failed to parse cached location:", cacheErr);
             // Determine specific error message
             let errorMessage = "Could not get location. Please try again.";
-            if (raceError.message.includes("permission") || raceError.message.includes("denied")) {
-              errorMessage = "Location permission denied. Please enable location access in your browser settings.";
-            } else if (raceError.message.includes("timeout") || raceError.message.includes("longer")) {
+            if (isPermissionError) {
+              errorMessage = "Location access is blocked. Please enable it in your browser settings to use this feature.";
+            } else if (isTimeoutError) {
               errorMessage = "Location request timed out. Please check your GPS settings and try again.";
-            } else if (raceError.message.includes("unavailable")) {
-              errorMessage = "Location information is unavailable. Please check your device settings.";
             }
 
             toast.error(errorMessage, {
@@ -1029,12 +1035,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         } else {
           // No cached location available
           let errorMessage = "Could not get location. Please try again.";
-          if (raceError.message.includes("permission") || raceError.message.includes("denied")) {
-            errorMessage = "Location permission denied. Please enable location access in your browser settings.";
-          } else if (raceError.message.includes("timeout") || raceError.message.includes("longer")) {
-            errorMessage = "Location request timed out. Please check your GPS settings and try again.";
-          } else if (raceError.message.includes("unavailable")) {
-            errorMessage = "Location information is unavailable. Please check your device settings.";
+          if (isPermissionError) {
+            errorMessage = "Location access is blocked. Please enable it in your browser settings.";
+          } else if (isTimeoutError) {
+            errorMessage = "Location request timed out. Please try again.";
           }
 
           toast.error(errorMessage, {
@@ -1068,13 +1072,13 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
 
 
 
-      // Verify we got complete address (but don't fail if incomplete - still use the location)
-      if (!locationData?.formattedAddress ||
-      locationData.formattedAddress === "Select location" ||
-      locationData.formattedAddress.split(',').length < 4) {
-        console.warn("⚠️ Location received but address is incomplete. Will try to get better address from map...");
-        // Don't retry immediately - let the map handle address fetching
-        // The address will be fetched when map moves to the location
+      // Verify if we have a sufficiently detailed address
+      const isAddressSimple = !locationData?.formattedAddress ||
+                           locationData.formattedAddress === "Select location" ||
+                           locationData.formattedAddress.split(',').length < 3;
+
+      if (isAddressSimple) {
+        // Address is basic (likely from cache), map will fetch full details once it moves
       }
 
       // CRITICAL: Ensure location state is updated in the hook

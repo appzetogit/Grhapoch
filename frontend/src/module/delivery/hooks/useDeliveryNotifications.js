@@ -18,6 +18,7 @@ export const useDeliveryNotifications = () => {
   const [orderReady, setOrderReady] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [deliveryPartnerId, setDeliveryPartnerId] = useState(null);
+  const [rejectedOrderIds, setRejectedOrderIds] = useState(new Set());
 
   // Step 3: All callbacks before effects (unconditional)
   // Track user interaction for autoplay policy
@@ -202,12 +203,6 @@ export const useDeliveryNotifications = () => {
 
     const socketUrl = `${backendUrl}/delivery`;
 
-
-
-
-
-
-
     // Warn if trying to connect to localhost in production
     if (import.meta.env.MODE === 'production' && backendUrl.includes('localhost')) {
       console.error('❌ CRITICAL: Trying to connect Socket.IO to localhost in production!');
@@ -285,11 +280,6 @@ export const useDeliveryNotifications = () => {
         console.error('❌ Delivery Socket connection error:', error);
       } else {
 
-
-
-
-
-
       }
       setIsConnected(false);
     });
@@ -317,15 +307,20 @@ export const useDeliveryNotifications = () => {
     });
 
     socketRef.current.on('new_order', (orderData) => {
-
+      const orderId = orderData?.orderMongoId || orderData?.orderId || orderData?._id;
+      if (orderId && rejectedOrderIds.has(String(orderId))) {
+        return;
+      }
       setNewOrder(orderData);
       playNotificationSound();
     });
 
     // Listen for priority-based order notifications (new_order_available)
     socketRef.current.on('new_order_available', (orderData) => {
-
-
+      const orderId = orderData?.orderMongoId || orderData?.orderId || orderData?._id;
+      if (orderId && rejectedOrderIds.has(String(orderId))) {
+        return;
+      }
       // Treat it the same as new_order for now - delivery boy can accept it
       setNewOrder(orderData);
       playNotificationSound();
@@ -348,10 +343,13 @@ export const useDeliveryNotifications = () => {
         socketRef.current = null;
       }
     };
-  }, [deliveryPartnerId, playNotificationSound]);
+  }, [deliveryPartnerId, playNotificationSound, rejectedOrderIds]);
 
   // Helper functions
-  const clearNewOrder = () => {
+  const clearNewOrder = (orderId = null) => {
+    if (orderId) {
+      setRejectedOrderIds(prev => new Set([...prev, String(orderId)]));
+    }
     setNewOrder(null);
   };
 
@@ -366,6 +364,7 @@ export const useDeliveryNotifications = () => {
     clearOrderReady,
     isConnected,
     pushNewOrder,
-    playNotificationSound
+    playNotificationSound,
+    rejectedOrderIds
   };
 };

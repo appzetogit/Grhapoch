@@ -1746,8 +1746,6 @@ export default function RestaurantOnboarding() {
             toast.success("Registration Successful!");
             // Clear localStorage for Commission Base since it's already saved to DB
             clearOnboardingFromLocalStorage();
-            navigate("/restaurant/hub", { replace: true });
-
             navigate("/restaurant/to-hub", { replace: true });
           }
         }, 800);

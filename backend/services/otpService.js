@@ -1,4 +1,5 @@
 import Otp from '../models/Otp.js';
+import crypto from 'crypto';
 import prpSmsService from './prpSmsService.js';
 import emailService from './emailService.js';
 import { normalizePhoneNumber } from '../utils/phoneUtils.js';
@@ -52,6 +53,19 @@ const isPrpSmsDisabled = () => {
   return parseBooleanEnv(process.env.DISABLE_PRP_SMS, false);
 };
 
+const getOtpHashSecret = () => {
+  return process.env.OTP_HASH_SECRET || process.env.JWT_SECRET || '';
+};
+
+const hashOtp = (otp, identifier, purpose) => {
+  const secret = getOtpHashSecret();
+  if (!secret) {
+    throw new Error('OTP hash secret is not configured');
+  }
+  const payload = `${otp}:${identifier}:${purpose}`;
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+};
+
 /**
  * Generate a random 6-digit OTP
  */
@@ -80,8 +94,9 @@ class OTPService {
       }
 
       const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+      const normalizedEmail = email ? email.toLowerCase().trim() : null;
 
-      const identifier = normalizedPhone || email;
+      const identifier = normalizedPhone || normalizedEmail;
       const identifierType = normalizedPhone ? 'phone' : 'email';
 
       // Check rate limiting (max 3 OTPs per identifier per hour) - using MongoDB
@@ -105,15 +120,16 @@ class OTPService {
         otp = getMockOTPValue();
       }
       const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+      const otpHash = hashOtp(otp, identifier, purpose);
 
       // Store OTP in database
       const otpData = {
-        otp,
+        otpHash,
         purpose,
         expiresAt
       };
       if (normalizedPhone) otpData.phone = normalizedPhone;
-      if (email) otpData.email = email;
+      if (normalizedEmail) otpData.email = normalizedEmail;
 
       const otpRecord = await Otp.create(otpData);
 
@@ -135,6 +151,14 @@ class OTPService {
           await emailService.sendOTP(email, otp, purpose);
         }
       } catch (sendError) {
+        // Clean up OTP record so users don't get blocked by rate limits
+        try {
+          await Otp.deleteOne({ _id: otpRecord._id });
+        } catch (cleanupError) {
+          logger.error(`Failed to delete OTP after send failure: ${cleanupError.message}`, {
+            otpId: otpRecord?._id
+          });
+        }
         logger.error(`Failed to send OTP via ${phone ? 'SMS' : 'email'}: ${sendError.message}`);
         throw sendError;
       }
@@ -142,7 +166,6 @@ class OTPService {
       logger.info(`OTP generated and sent to ${identifier} (${identifierType})`, {
         [identifierType]: identifier,
         purpose,
-        otp,
         otpId: otpRecord._id
       });
 
@@ -182,12 +205,14 @@ class OTPService {
 
       const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
       const rawDigitsPhone = phone ? phone.replace(/\D/g, '') : null;
+      const normalizedEmail = email ? email.toLowerCase().trim() : null;
       const phoneVariants = Array.from(
         new Set([normalizedPhone, rawDigitsPhone].filter(Boolean))
       );
 
-      const identifier = normalizedPhone || email;
+      const identifier = normalizedPhone || normalizedEmail;
       const identifierType = normalizedPhone ? 'phone' : 'email';
+      const otpHash = hashOtp(otp, identifier, purpose);
 
       // Allow mock OTP validation when enabled (dev/test only)
       if (isMockOTPVerifyEnabled() && otp === getMockOTPValue()) {
@@ -209,28 +234,41 @@ class OTPService {
       if (purpose === 'reset-password' || purpose === 'login' || purpose === 'register') {
         // First try to find unverified OTP
         const unverifiedQuery = {
-          otp,
+          otpHash,
           purpose,
           verified: false,
           expiresAt: { $gt: new Date() }
         };
         if (phoneVariants.length) unverifiedQuery.phone = { $in: phoneVariants };
-        if (email) unverifiedQuery.email = email;
+        if (normalizedEmail) unverifiedQuery.email = normalizedEmail;
 
         otpRecord = await Otp.findOne(unverifiedQuery);
+
+        // Legacy fallback (plaintext OTPs issued before hashing)
+        if (!otpRecord) {
+          const legacyUnverifiedQuery = {
+            otp,
+            purpose,
+            verified: false,
+            expiresAt: { $gt: new Date() }
+          };
+          if (phoneVariants.length) legacyUnverifiedQuery.phone = { $in: phoneVariants };
+          if (normalizedEmail) legacyUnverifiedQuery.email = normalizedEmail;
+          otpRecord = await Otp.findOne(legacyUnverifiedQuery);
+        }
 
         // If not found, check for already-verified OTP within last 5 minutes
         if (!otpRecord) {
           const graceWindow = new Date(Date.now() - OTP_VERIFIED_GRACE_MINUTES * 60 * 1000);
           const verifiedQuery = {
-            otp,
+            otpHash,
             purpose,
             verified: true,
             expiresAt: { $gt: new Date() },
             updatedAt: { $gt: graceWindow }
           };
           if (phoneVariants.length) verifiedQuery.phone = { $in: phoneVariants };
-          if (email) verifiedQuery.email = email;
+          if (normalizedEmail) verifiedQuery.email = normalizedEmail;
 
           otpRecord = await Otp.findOne(verifiedQuery);
 
@@ -241,26 +279,59 @@ class OTPService {
               message: 'OTP verified successfully'
             };
           }
+
+          // Legacy fallback for already-verified OTPs
+          if (!otpRecord) {
+            const legacyVerifiedQuery = {
+              otp,
+              purpose,
+              verified: true,
+              expiresAt: { $gt: new Date() },
+              updatedAt: { $gt: graceWindow }
+            };
+            if (phoneVariants.length) legacyVerifiedQuery.phone = { $in: phoneVariants };
+            if (normalizedEmail) legacyVerifiedQuery.email = normalizedEmail;
+            otpRecord = await Otp.findOne(legacyVerifiedQuery);
+            if (otpRecord) {
+              return {
+                success: true,
+                message: 'OTP verified successfully'
+              };
+            }
+          }
         }
       } else {
         // For other purposes, only check unverified OTPs
         const query = {
-          otp,
+          otpHash,
           purpose,
           verified: false,
           expiresAt: { $gt: new Date() }
         };
-        if (phone) query.phone = phone;
-        if (email) query.email = email;
+        if (phoneVariants.length) query.phone = { $in: phoneVariants };
+        if (normalizedEmail) query.email = normalizedEmail;
 
         otpRecord = await Otp.findOne(query);
+
+        // Legacy fallback for plaintext OTPs
+        if (!otpRecord) {
+          const legacyQuery = {
+            otp,
+            purpose,
+            verified: false,
+            expiresAt: { $gt: new Date() }
+          };
+          if (phoneVariants.length) legacyQuery.phone = { $in: phoneVariants };
+          if (normalizedEmail) legacyQuery.email = normalizedEmail;
+          otpRecord = await Otp.findOne(legacyQuery);
+        }
       }
 
       if (!otpRecord) {
         // Increment attempts for security (only for unverified OTPs)
         const incrementQuery = { purpose, verified: false };
-        if (phone) incrementQuery.phone = phone;
-        if (email) incrementQuery.email = email;
+        if (phoneVariants.length) incrementQuery.phone = { $in: phoneVariants };
+        if (normalizedEmail) incrementQuery.email = normalizedEmail;
 
         await Otp.updateMany(
           incrementQuery,

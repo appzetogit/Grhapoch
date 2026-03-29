@@ -329,10 +329,21 @@ const restaurantSchema = new mongoose.Schema(
         featuredPrice: Number,
         offer: String,
       },
+      step5: {
+        businessModel: {
+          type: String,
+          enum: ['Commission Base', 'Subscription Base', 'None'],
+          default: 'Commission Base'
+        }
+      },
       completedSteps: {
         type: Number,
         default: 0,
       },
+      status: {
+        type: String,
+        default: null
+      }
     },
     // Approval/Rejection fields
     rejectionReason: {

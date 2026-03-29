@@ -16,9 +16,16 @@ const otpSchema = new mongoose.Schema({
     lowercase: true,
     index: true
   },
+  // Store only hashed OTPs (plaintext OTP is legacy-only)
+  otpHash: {
+    type: String,
+    required: true,
+    index: true
+  },
+  // Legacy field (kept for backward compatibility with pre-hash OTPs)
   otp: {
     type: String,
-    required: true
+    required: false
   },
   purpose: {
     type: String,
@@ -47,6 +54,8 @@ const otpSchema = new mongoose.Schema({
 otpSchema.index({ phone: 1, purpose: 1, verified: 1 });
 // Index for faster lookups - email-based
 otpSchema.index({ email: 1, purpose: 1, verified: 1 });
+// Index for hashed OTP lookups
+otpSchema.index({ otpHash: 1, purpose: 1, verified: 1 });
 
 // Compound index for either phone or email
 otpSchema.index({ phone: 1, email: 1, purpose: 1, verified: 1 });

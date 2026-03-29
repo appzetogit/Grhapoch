@@ -1824,49 +1824,6 @@ export default function Home() {
                               objectFit="contain"
                               placeholder="blur" />
 
-<<<<<<< HEAD
-=======
-
-                            {/* Featured Dish Badge - Top Left */}
-                            <motion.div
-                              className="absolute top-3 left-3 md:top-4 md:left-4 flex items-center z-10"
-                              variants={{
-                                rest: { scale: 1, y: 0 },
-                                hover: { scale: 1.05, y: -2 }
-                              }}
-                              transition={{ duration: 0.3 }}>
-
-                              <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center gap-2 shadow-lg">
-                                <FoodTypeIcon isVeg={restaurant.isVeg} size="sm" />
-                                <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
-                              </div>
-                            </motion.div>
-
-                            {/* Bookmark Icon - Top Right */}
-                            <motion.div
-                              variants={{
-                                rest: { scale: 1, rotate: 0 },
-                                hover: { scale: 1.1, rotate: 5 }
-                              }}
-                              transition={{ duration: 0.3 }}
-                              className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={handleToggleFavorite}
-                                className={`h-9 w-9 md:h-11 md:w-11 rounded-full border flex items-center justify-center transition-all duration-300 ${favorite ?
-                                  "border-red-500 bg-red-50 text-red-500" :
-                                  "border-white bg-white/90 text-gray-600 hover:bg-white"}`
-                                }>
-
-                                <Heart
-                                  className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
-                                  } />
-                              </Button>
-                            </motion.div>
-
->>>>>>> e1dd71228395498a4934617831d0151ba5f5b2a6
                           </div>
                           <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight">
                             {item.label}

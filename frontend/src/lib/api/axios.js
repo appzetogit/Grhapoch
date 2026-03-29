@@ -189,6 +189,14 @@ const apiClient = axios.create({
 const defaultAdapter = axios.defaults?.adapter;
 if (typeof defaultAdapter === 'function') {
   apiClient.defaults.adapter = async (config) => {
+    const skipCache =
+      !!config?.skipCache ||
+      config?.headers?.['x-skip-cache'] === true ||
+      config?.headers?.['X-Skip-Cache'] === true;
+    if (skipCache) {
+      return defaultAdapter(config);
+    }
+
     const key = getDedupKey(config);
     if (!key) return defaultAdapter(config);
 

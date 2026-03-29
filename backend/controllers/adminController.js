@@ -1542,6 +1542,21 @@ export const approveRestaurant = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Cannot approve a rejected restaurant. Please remove rejection reason first.');
     }
 
+    // If restaurant chose Subscription Base but has not paid yet, block manual approval.
+    if (restaurant.onboarding?.step5?.businessModel === 'Subscription Base') {
+      const now = new Date();
+      const subscriptionEnd = restaurant.subscription?.endDate ? new Date(restaurant.subscription.endDate) : null;
+      const hasPaidSubscription = Boolean(
+        restaurant.subscription?.planId &&
+        ['active', 'pending_approval', 'cancelled'].includes(restaurant.subscription?.status) &&
+        (!subscriptionEnd || subscriptionEnd > now)
+      );
+
+      if (!hasPaidSubscription) {
+        return errorResponse(res, 400, 'Subscription payment pending. This restaurant will auto-activate after payment.');
+      }
+    }
+
     // Activate restaurant and set default dish limit
     restaurant.isActive = true;
     if (restaurant.subscription?.status === 'pending_approval') {

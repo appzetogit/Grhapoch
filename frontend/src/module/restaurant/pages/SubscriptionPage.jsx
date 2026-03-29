@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ArrowLeft, Crown, Sparkles, TrendingUp, Loader2, History, Calendar, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +23,9 @@ const GRADIENTS = {
 const DEFAULT_ICON = Crown;
 const DEFAULT_GRADIENT = 'from-slate-700 to-slate-900';
 const HISTORY_ITEMS_PER_PAGE = 5;
+const ACTIVATION_FLAG_KEY = "subscription_activation_pending";
+const ACTIVATION_WINDOW_MS = 2 * 60 * 1000;
+const STATUS_REFRESH_INTERVAL_MS = 5000;
 
 const getDefaultEffectiveFeatures = (plan) => {
     const durationMonths = Math.max(Number(plan?.durationMonths) || 1, 1);
@@ -55,6 +58,11 @@ export default function SubscriptionPage() {
     const [statusLoaded, setStatusLoaded] = useState(false);
     const [historyPage, setHistoryPage] = useState(1);
     const [cancelling, setCancelling] = useState(false);
+    const [isActivating, setIsActivating] = useState(false);
+    const pollIntervalRef = useRef(null);
+    const pollInFlightRef = useRef(false);
+    const pollAttemptsRef = useRef(0);
+    const statusRefreshRef = useRef(null);
 
     const totalHistoryPages = useMemo(
         () => Math.max(1, Math.ceil(subscriptionHistory.length / HISTORY_ITEMS_PER_PAGE)),
@@ -76,9 +84,27 @@ export default function SubscriptionPage() {
         try {
             const res = await restaurantAPI.getSubscriptionStatus();
             const data = res.data?.data;
+            const pendingActivationRaw = localStorage.getItem(ACTIVATION_FLAG_KEY);
+            const pendingActivationTs = pendingActivationRaw ? Number(pendingActivationRaw) : null;
+            const hasRecentActivation = Number.isFinite(pendingActivationTs) && (Date.now() - pendingActivationTs) < ACTIVATION_WINDOW_MS;
+
             // Always set from API so that when subscription is removed in DB, UI clears
-            setCurrentSubscription(data?.subscription ?? null);
-            setBusinessModel(data?.businessModel || null);
+            if (data?.subscription) {
+                setCurrentSubscription(data.subscription);
+                setIsActivating(false);
+                if (pendingActivationRaw) {
+                    localStorage.removeItem(ACTIVATION_FLAG_KEY);
+                }
+            } else if (hasRecentActivation && currentSubscription) {
+                // Keep optimistic subscription until backend confirms
+                setIsActivating(true);
+            } else {
+                setCurrentSubscription(null);
+            }
+            const subStatus = (data?.subscription?.status || '').toLowerCase();
+            const isSubActive = ['active', 'cancelled'].includes(subStatus);
+            const computedBusinessModel = isSubActive ? 'Subscription Base' : (data?.businessModel || null);
+            setBusinessModel(computedBusinessModel);
             setIsActive(data?.isActive ?? true);
             setSubscriptionMeta({
                 daysRemaining: data?.daysRemaining ?? null,
@@ -88,10 +114,23 @@ export default function SubscriptionPage() {
             if (Array.isArray(data?.subscriptionHistory)) {
                 setSubscriptionHistory(data.subscriptionHistory);
             }
+            return data || null;
         } catch (error) {
             console.error('Failed to fetch subscription status', error);
+            return null;
         } finally {
             setStatusLoaded(true);
+        }
+    };
+
+    const pollStatusAfterPayment = async ({ retries = 3, delayMs = 2000 } = {}) => {
+        for (let i = 0; i < retries; i++) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            const data = await fetchStatus();
+            const subStatus = (data?.subscription?.status || '').toLowerCase();
+            if (subStatus === 'active') {
+                return;
+            }
         }
     };
 
@@ -134,6 +173,12 @@ export default function SubscriptionPage() {
         const fetchInitialData = async () => {
             const token = localStorage.getItem("restaurant_accessToken");
             const isProspect = !!localStorage.getItem("pending_subscription_onboarding");
+            const activationTsRaw = localStorage.getItem(ACTIVATION_FLAG_KEY);
+            const activationTs = activationTsRaw ? Number(activationTsRaw) : null;
+            const hasRecentActivation = Number.isFinite(activationTs) && (Date.now() - activationTs) < ACTIVATION_WINDOW_MS;
+            if (hasRecentActivation) {
+                setIsActivating(true);
+            }
             
             setLoading(true);
             setStatusLoaded(false);
@@ -180,6 +225,80 @@ export default function SubscriptionPage() {
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
     }, []);
+
+    useEffect(() => {
+        const token = localStorage.getItem("restaurant_accessToken");
+        const isProspect = !!localStorage.getItem("pending_subscription_onboarding");
+        if (!statusLoaded || loading || !token || token === 'null' || token === 'undefined' || isProspect) {
+            if (statusRefreshRef.current) {
+                clearInterval(statusRefreshRef.current);
+                statusRefreshRef.current = null;
+            }
+            return;
+        }
+
+        if (statusRefreshRef.current) return;
+
+        statusRefreshRef.current = setInterval(async () => {
+            if (document.visibilityState !== 'visible') return;
+            if (pollInFlightRef.current) return;
+            pollInFlightRef.current = true;
+            try {
+                await fetchStatus();
+            } finally {
+                pollInFlightRef.current = false;
+            }
+        }, STATUS_REFRESH_INTERVAL_MS);
+
+        return () => {
+            if (statusRefreshRef.current) {
+                clearInterval(statusRefreshRef.current);
+                statusRefreshRef.current = null;
+            }
+        };
+    }, [statusLoaded, loading]);
+
+    useEffect(() => {
+        const needsRealtime =
+            statusLoaded &&
+            (isActivating || (businessModel === 'Subscription Base' && !currentSubscription));
+
+        if (!needsRealtime) {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+            pollAttemptsRef.current = 0;
+            return;
+        }
+
+        if (pollIntervalRef.current) return;
+
+        pollAttemptsRef.current = 0;
+        pollIntervalRef.current = setInterval(async () => {
+            if (pollInFlightRef.current) return;
+            pollInFlightRef.current = true;
+            pollAttemptsRef.current += 1;
+            try {
+                const data = await fetchStatus();
+                const subStatus = (data?.subscription?.status || '').toLowerCase();
+                if (subStatus === 'active' || pollAttemptsRef.current >= 15) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                    pollAttemptsRef.current = 0;
+                }
+            } finally {
+                pollInFlightRef.current = false;
+            }
+        }, 2000);
+
+        return () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+        };
+    }, [statusLoaded, isActivating, businessModel, currentSubscription]);
 
     useEffect(() => {
         setHistoryPage(1);
@@ -355,24 +474,42 @@ export default function SubscriptionPage() {
                                 localStorage.removeItem("restaurant_onboarding_data");
                                 await clearIDB();
                             } catch (onbErr) {
-                                console.error("Failed to finalize onboarding after payment:", onbErr);
+                                if (onbErr?.response?.status === 403) {
+                                    // Already completed or active; treat as success
+                                    localStorage.removeItem("pending_subscription_onboarding");
+                                    localStorage.removeItem("restaurant_onboarding_data");
+                                    await clearIDB();
+                                } else {
+                                    console.error("Failed to finalize onboarding after payment:", onbErr);
+                                }
                                 // We don't block the user since payment was successful
                             }
                         }
 
                         toast.success('Subscription activated successfully!');
 
-                        // Update UI status after activation
+                        // Update UI status immediately from response, then poll backend to confirm
+                        const subData = verifyRes?.data?.data?.subscription || null;
+                        if (subData) {
+                            setCurrentSubscription(subData);
+                            setBusinessModel('Subscription Base');
+                            setIsActive(true);
+                        }
+                        localStorage.setItem(ACTIVATION_FLAG_KEY, String(Date.now()));
+                        setIsActivating(true);
                         await fetchStatus();
+                        await pollStatusAfterPayment({ retries: 3, delayMs: 2000 });
+                        setIsActivating(false);
+                        localStorage.removeItem(ACTIVATION_FLAG_KEY);
                         setSubmittingPlanId(null);
 
                         // Navigate to success page with data
-                        const subData = verifyRes.data.data.subscription;
+                        const subDataForNav = verifyRes?.data?.data?.subscription;
                         navigate('/restaurant/subscription-success', {
                             replace: true,
                             state: {
                                 planName: plan.name,
-                                endDate: subData.endDate
+                                endDate: subDataForNav?.endDate
                             }
                         });
                         // Directly take restaurant to dashboard (no back to onboarding)
@@ -381,6 +518,8 @@ export default function SubscriptionPage() {
                         console.error('Payment verification failed details:', error.response?.data || error.message);
                         toast.error(error.response?.data?.message || 'Payment verification failed.');
                         setSubmittingPlanId(null);
+                        setIsActivating(false);
+                        localStorage.removeItem(ACTIVATION_FLAG_KEY);
                     }
                 },
                 prefill: {
@@ -394,6 +533,8 @@ export default function SubscriptionPage() {
                 modal: {
                     ondismiss: function () {
                         setSubmittingPlanId(null);
+                        setIsActivating(false);
+                        localStorage.removeItem(ACTIVATION_FLAG_KEY);
                     }
                 }
             };
@@ -448,6 +589,20 @@ export default function SubscriptionPage() {
         );
     }
 
+    const hasActiveSubscription = !!currentSubscription && currentSubscription.status === 'active';
+    const isSubscriptionModel = businessModel === 'Subscription Base';
+    const shouldShowBanner = statusLoaded && !hasActiveSubscription && !loading;
+    let bannerText = null;
+    if (shouldShowBanner) {
+        if (isActivating || isSubscriptionModel) {
+            bannerText = "Activating...";
+        } else if (businessModel) {
+            bannerText = "Commission Base";
+        } else {
+            bannerText = "Loading plan...";
+        }
+    }
+
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
             {/* Header */}
@@ -481,14 +636,14 @@ export default function SubscriptionPage() {
                 <div className="text-center mb-10 space-y-4">
                     {/* Active Plan Indicator for Commission Base */}
                     {/* Active Plan Indicator for Commission Base */}
-                    {statusLoaded && (!currentSubscription || currentSubscription.status !== 'active') && !loading && (
+                    {shouldShowBanner && (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                     className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 px-4 py-2 rounded-lg border border-amber-200"
                 >
-                    <span className="font-semibold">Current Plan:</span> Commission Base
+                    <span className="font-semibold">Current Plan:</span> {bannerText}
                 </motion.div>
             )}
 

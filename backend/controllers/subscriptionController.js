@@ -323,6 +323,9 @@ export const activateSubscriptionTx = async ({
     autoRenew: true
   };
   restaurant.businessModel = 'Subscription Base';
+  if (!restaurant.onboarding) restaurant.onboarding = {};
+  if (!restaurant.onboarding.step5) restaurant.onboarding.step5 = {};
+  restaurant.onboarding.step5.businessModel = 'Subscription Base';
   if (nextSubscriptionStatus === 'active') {
     enableDiningForSubscription(restaurant, now);
   }
@@ -345,7 +348,6 @@ export const activateSubscriptionTx = async ({
   }
 
   restaurant.onboardingCompleted = true;
-  if (!restaurant.onboarding) restaurant.onboarding = {};
   restaurant.onboarding.completedSteps = Math.max(Number(restaurant.onboarding.completedSteps || 0), 5);
   await restaurant.save({ session });
 

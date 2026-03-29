@@ -684,7 +684,8 @@ export const restaurantAPI = {
   },
   getSubscriptionStatus: () => {
     return apiClient.get(API_ENDPOINTS.RESTAURANT.SUBSCRIPTION.STATUS, {
-      params: { _t: Date.now() }
+      params: { _t: Date.now() },
+      skipCache: true
     });
   },
   getSubscriptionPlans: () => {

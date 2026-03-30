@@ -1220,74 +1220,7 @@ export default function RestaurantOnboarding() {
     return errors;
   };
 
-  // Fill dummy data for testing (development mode only)
-  const fillDummyData = () => {
-    if (step === 1) {
-      setStep1({
-        restaurantName: "The Grill House",
-        ownerName: "John Smith",
-        ownerEmail: "john.smith@example.com",
-        ownerPhone: "9876543210",
-        primaryContactNumber: "9123456780",
-        location: {
-          addressLine1: "Flat 402, Sea View",
-          addressLine2: "A Wing, 4th Floor",
-          area: "Bandra West",
-          city: "Mumbai",
-          landmark: "Opposite Taj Hotel"
-        }
-      });
-      toast.success("Step 1 filled with dummy data", { duration: 2000 });
-    } else if (step === 2) {
-      setStep2({
-        menuImages: [{ url: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80" }],
-        profileImage: { url: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&q=80" },
-        cuisines: ["North Indian", "Chinese"],
-        openingTime: "09:00",
-        closingTime: "23:00",
-        openDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-      });
-      toast.success("Step 2 filled with dummy data", { duration: 2000 });
-    } else if (step === 3) {
-      // Calculate expiry date 1 year from now
-      const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-      const expiryDateString = expiryDate.toISOString().split("T")[0];
 
-      setStep3({
-        panNumber: "ABCDE1234F",
-        nameOnPan: "John Doe",
-        panImage: null,
-        gstRegistered: true,
-        gstNumber: "27ABCDE1234F1Z5",
-        gstLegalName: "Test Restaurant Private Limited",
-        gstAddress: "123 Main Street, Mumbai, Maharashtra 400001",
-        gstImage: null,
-        fssaiNumber: "12345678901234",
-        fssaiExpiry: expiryDateString,
-        fssaiImage: null,
-        accountNumber: "1234567890123",
-        confirmAccountNumber: "1234567890123",
-        ifscCode: "HDFC0001234",
-        accountHolderName: "John Doe",
-        accountType: "savings"
-      });
-      toast.success("Step 3 filled with dummy data", { duration: 2000 });
-    } else if (step === 4) {
-      setStep4({
-        estimatedDeliveryTime: "25-30 mins",
-        featuredDish: "Butter Chicken Special",
-        featuredPrice: "249",
-        offer: "Flat ₹50 OFF above ₹199"
-      });
-      toast.success("Step 4 filled with dummy data", { duration: 2000 });
-    } else if (step === 5) {
-      setStep5({
-        businessModel: "Commission Base"
-      });
-      toast.success("Step 5 filled with dummy data", { duration: 2000 });
-    }
-  };
 
   const handleNext = async () => {
     setError("");
@@ -2925,18 +2858,7 @@ export default function RestaurantOnboarding() {
             <div className="text-sm font-bold text-black tracking-tight whitespace-nowrap">Restaurant Onboarding</div>
           </div>
           <div className="flex items-center gap-3">
-            {import.meta.env.DEV &&
-              <Button
-                onClick={fillDummyData}
-                variant="outline"
-                size="sm"
-                className="text-xs bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100 flex items-center gap-1.5"
-                title="Fill with dummy data (Dev only)">
 
-                <Sparkles className="w-3 h-3" />
-                Fill Dummy
-              </Button>
-            }
             <div className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
               Step {step} of 5
             </div>

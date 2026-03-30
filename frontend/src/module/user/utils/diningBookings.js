@@ -105,8 +105,17 @@ export function parseBookingDateTime(dateValue, timeValue, referenceDate = new D
   const { hours, minutes } = parseTime(timeValue);
   parsedDate.setHours(hours, minutes, 0, 0);
 
-  // Handle year rollover for month-day strings around New Year.
-  if (!/^today$|^tomorrow$/i.test(dateText) && parsedDate.getTime() < now.getTime() - ONE_DAY_MS) {
+  // Handle year rollover only for true New Year edge-case:
+  // Example: now is Dec and booking is Jan without explicit year.
+  // Do not roll old month/day bookings (e.g. Mar 26) to next year.
+  const hasExplicitYear = /\b\d{4}\b/.test(dateText);
+  if (
+    !hasExplicitYear &&
+    !/^today$|^tomorrow$/i.test(dateText) &&
+    parsedDate.getTime() < now.getTime() - ONE_DAY_MS &&
+    now.getMonth() === 11 &&
+    parsedDate.getMonth() === 0
+  ) {
     const nextYear = new Date(parsedDate);
     nextYear.setFullYear(nextYear.getFullYear() + 1);
     if (nextYear.getTime() > now.getTime()) {

@@ -905,7 +905,10 @@ export default function ToHub() {
 
   // Fetch orders on mount and when date range changes
   useEffect(() => {
-    if (!restaurantData) return; // Don't fetch if restaurant data is not loaded yet
+    // Don't fetch if restaurant data is not loaded yet or if the restaurant is inactive
+    // Inactive restaurants are blocked from accessing orders API by backend middleware
+    if (!restaurantData || !restaurantData.isActive) return;
+    
     fetchOrdersAndUpdateChart(selectedDateRange);
   }, [restaurantData, selectedDateRange, fetchOrdersAndUpdateChart]);
 

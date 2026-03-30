@@ -299,11 +299,9 @@ export const activateSubscriptionTx = async ({
 
   const now = new Date(paymentDate || Date.now());
   const { startDate, endDate, isRenewing } = buildSubscriptionDates({ restaurant, plan, now });
-  // Auto-approve only if restaurant is still awaiting onboarding approval
-  const shouldAutoApprove =
-    restaurant.isActive === false &&
-    !restaurant.rejectionReason &&
-    restaurant.onboarding?.status === 'pending_admin_approval';
+  // Auto-approve for any successful subscription unless the restaurant is explicitly rejected.
+  // This guarantees subscription-based restaurants go live immediately after payment.
+  const shouldAutoApprove = !restaurant.rejectionReason;
   const nextSubscriptionStatus = shouldAutoApprove ? 'active' : 'pending_approval';
 
   if (isRenewing) {
@@ -325,6 +323,9 @@ export const activateSubscriptionTx = async ({
     autoRenew: true
   };
   restaurant.businessModel = 'Subscription Base';
+  if (!restaurant.onboarding) restaurant.onboarding = {};
+  if (!restaurant.onboarding.step5) restaurant.onboarding.step5 = {};
+  restaurant.onboarding.step5.businessModel = 'Subscription Base';
   if (nextSubscriptionStatus === 'active') {
     enableDiningForSubscription(restaurant, now);
   }
@@ -347,7 +348,6 @@ export const activateSubscriptionTx = async ({
   }
 
   restaurant.onboardingCompleted = true;
-  if (!restaurant.onboarding) restaurant.onboarding = {};
   restaurant.onboarding.completedSteps = Math.max(Number(restaurant.onboarding.completedSteps || 0), 5);
   await restaurant.save({ session });
 

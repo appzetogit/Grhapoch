@@ -174,44 +174,28 @@ export default function RestaurantOTP() {
       const phone = authData.method === "phone" ? authData.phone : null;
       const email = authData.method === "email" ? authData.email : null;
       const purpose = authData.isSignUp ? "register" : "login";
-      const nameToSend = (
-        authData?.name ||
-        authData?.restaurantName ||
-        authData?.businessModel ||
-        authData?.phone ||
-        "New Restaurant"
-      ).toString().trim();
+      const rawName = authData?.name || authData?.restaurantName;
+      const nameToSend = rawName ? rawName.toString().trim() : "";
+      const normalizedName = nameToSend || null;
+      const fallbackRegistrationName = "New Restaurant";
+      // Always provide a fallback name so backend can auto-register new numbers
+      // in a single OTP verification call (avoids OTP re-use on retry).
+      const nameForRequest = normalizedName || fallbackRegistrationName;
 
       const response = await restaurantAPI.verifyOTP(
         phone,
         code,
         purpose,
-        nameToSend,
+        nameForRequest,
         email,
         authData?.businessModel || "Commission Base"
       );
 
       const data = response?.data?.data || response?.data;
 
-      // If backend still asks for name, retry quickly with fallback name
+      // Defensive fallback: backend asked for name unexpectedly.
       if (data?.needsName) {
-        const retry = await restaurantAPI.verifyOTP(
-          phone,
-          code,
-          "register",
-          nameToSend,
-          email,
-          authData?.businessModel || "Commission Base"
-        );
-        const retryData = retry?.data?.data || retry?.data;
-        const accessTokenRetry = retryData?.accessToken;
-        const restaurantRetry = retryData?.restaurant;
-        if (accessTokenRetry && restaurantRetry) {
-          data.accessToken = accessTokenRetry;
-          data.restaurant = restaurantRetry;
-        } else {
-          throw new Error("Restaurant name missing. Please restart signup.");
-        }
+        throw new Error("Unable to continue. Please request a new OTP and try again.");
       }
 
       const accessToken = data?.accessToken;

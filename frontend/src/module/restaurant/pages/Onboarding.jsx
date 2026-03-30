@@ -807,6 +807,24 @@ export default function RestaurantOnboarding() {
       fetchCalledRef.current = true;
       try {
         setLoading(true);
+        const cachedRestaurant = JSON.parse(localStorage.getItem("restaurant_user") || "{}");
+        if (cachedRestaurant?.onboardingCompleted) {
+          navigate("/restaurant/to-hub", { replace: true });
+          return;
+        }
+
+        // If subscription is already active, skip onboarding fetch to avoid 403
+        try {
+          const statusRes = await restaurantAPI.getSubscriptionStatus?.();
+          const subscriptionStatus = statusRes?.data?.data?.subscription?.status;
+          if (subscriptionStatus === "active") {
+            navigate("/restaurant/to-hub", { replace: true });
+            return;
+          }
+        } catch (statusErr) {
+          // Ignore status fetch errors and continue with onboarding fetch
+        }
+
         const res = await api.get("/restaurant/onboarding");
         const onboardingCompleted = res?.data?.data?.onboardingCompleted;
         const subscriptionStatus = res?.data?.data?.subscription?.status;
@@ -1621,10 +1639,11 @@ export default function RestaurantOnboarding() {
           completedSteps: 5
         };
 
-        // If Subscription based, we DON'T save to DB yet.
-        if (step5.businessModel === "Subscription Base") {
-          // Include registration data for prospects to allow "late registration"
-          if (isProspect && pendingData) {
+        const isSubscriptionBase = step5.businessModel === "Subscription Base";
+
+        if (isSubscriptionBase && isProspect) {
+          // Prospect flow (no auth yet): defer save until payment/verification
+          if (pendingData) {
             const normalizedPending = { ...pendingData };
             if (!normalizedPending.otpExpiresIn && normalizedPending.expiresIn) {
               normalizedPending.otpExpiresIn = normalizedPending.expiresIn;
@@ -1640,10 +1659,10 @@ export default function RestaurantOnboarding() {
           }
           localStorage.setItem("pending_subscription_onboarding", JSON.stringify(finalPayload));
         } else {
-          // Ensure model is set correctly
-          // For Commission Base, we save now.
-          // For Subscription Base, we only save step5 in state/local, then redirect to /restaurant/plans to pay and then save.
+          // Authenticated flow: save onboarding now (even for Subscription Base)
           await api.put("/restaurant/onboarding", finalPayload);
+          localStorage.removeItem("pending_subscription_onboarding");
+          clearOnboardingFromLocalStorage();
         }
 
         // 4. Cleanup for legacy prospect data if any remained
@@ -1660,8 +1679,6 @@ export default function RestaurantOnboarding() {
             toast.success("Registration Successful!");
             // Clear localStorage for Commission Base since it's already saved to DB
             clearOnboardingFromLocalStorage();
-            navigate("/restaurant/hub", { replace: true });
-
             navigate("/restaurant/to-hub", { replace: true });
           }
         }, 800);
@@ -2806,8 +2823,8 @@ export default function RestaurantOnboarding() {
 
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mt-6">
           <p className="text-xs text-blue-800 leading-relaxed">
-            <strong>Note:</strong> Subscription plans can be purchased after your restaurant profile is approved by our team.
-            The unlimited dish feature will be activated immediately upon selecting the subscription model.
+            <strong>Note:</strong> Subscription plans can be purchased after onboarding.
+            Your restaurant will be activated automatically after successful payment.
           </p>
         </div>
       </section>

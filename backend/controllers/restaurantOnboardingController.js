@@ -29,10 +29,15 @@ export const getOnboarding = async (req, res) => {
       return errorResponse(res, 404, 'Restaurant not found');
     }
 
+    const selectedModel =
+      restaurant?.onboarding?.step5?.businessModel ||
+      restaurant?.businessModel ||
+      'Commission Base';
+
     return successResponse(res, 200, 'Onboarding data retrieved', {
       onboarding: {
         ...(restaurant.onboarding || {}),
-        businessModel: restaurant.businessModel
+        businessModel: selectedModel
       },
       subscription: restaurant.subscription || null,
       onboardingCompleted: restaurant.onboardingCompleted === true
@@ -78,11 +83,62 @@ export const upsertOnboarding = async (req, res) => {
       const gstNumber = step3.gst?.gstNumber || step3.gstNumber;
       const gstLegalName = step3.gst?.legalName || step3.gstLegalName;
       const fssaiNumber = step3.fssai?.registrationNumber || step3.fssaiNumber;
+      const fssaiExpiry = step3.fssai?.expiryDate || step3.fssaiExpiry;
       const accountNumber = step3.bank?.accountNumber || step3.accountNumber;
       const confirmAccountNumber = step3.confirmAccountNumber;
       const ifscCode = step3.bank?.ifscCode || step3.ifscCode;
       const accountHolderName = step3.bank?.accountHolderName || step3.accountHolderName;
       const accountType = step3.bank?.accountType || step3.accountType;
+      const panImage = step3.pan?.image || step3.panImage;
+      const fssaiImage = step3.fssai?.image || step3.fssaiImage;
+      const gstImage = step3.gst?.image || step3.gstImage;
+
+      // Required fields (align with frontend validations)
+      if (!panNumber) {
+        return errorResponse(res, 400, 'PAN number is required');
+      }
+      if (!nameOnPan) {
+        return errorResponse(res, 400, 'Name on PAN is required');
+      }
+      if (!panImage) {
+        return errorResponse(res, 400, 'PAN image is required');
+      }
+      if (!fssaiNumber) {
+        return errorResponse(res, 400, 'FSSAI number is required');
+      }
+      if (!fssaiExpiry) {
+        return errorResponse(res, 400, 'FSSAI expiry is required');
+      }
+      if (!fssaiImage) {
+        return errorResponse(res, 400, 'FSSAI image is required');
+      }
+      if (!accountNumber) {
+        return errorResponse(res, 400, 'Account number is required');
+      }
+      if (!ifscCode) {
+        return errorResponse(res, 400, 'IFSC code is required');
+      }
+      if (!accountHolderName) {
+        return errorResponse(res, 400, 'Account holder name is required');
+      }
+      if (!accountType) {
+        return errorResponse(res, 400, 'Account type is required');
+      }
+
+      if (gstRegistered) {
+        if (!gstNumber) {
+          return errorResponse(res, 400, 'GST number is required');
+        }
+        if (!gstLegalName) {
+          return errorResponse(res, 400, 'GST legal name is required');
+        }
+        if (!step3.gst?.address && !step3.gstAddress) {
+          return errorResponse(res, 400, 'GST address is required');
+        }
+        if (!gstImage) {
+          return errorResponse(res, 400, 'GST image is required');
+        }
+      }
 
       // PAN Validation
       if (panNumber && !PAN_REGEX.test(panNumber)) {
@@ -212,9 +268,11 @@ export const upsertOnboarding = async (req, res) => {
 
       // Never downgrade if a subscription is active.
       // If user picked Subscription Base, keep it so payment flow can proceed.
+      // Keep Subscription Base ONLY after a paid subscription is active.
+      // If user selected Subscription Base but hasn't paid yet, keep Commission Base.
       const modelToSave =
         hasActiveSubscription ? 'Subscription Base'
-          : requestedModel === 'Subscription Base' ? 'Subscription Base'
+          : requestedModel === 'Subscription Base' ? 'Commission Base'
             : 'Commission Base';
 
 
@@ -256,22 +314,44 @@ export const upsertOnboarding = async (req, res) => {
 
 
       // Return success response with restaurant info
-      // Old flow restoration: ALWAYS require admin approval to activate.
-      // We keep onboarding completed, but keep isActive false and flag pending approval.
+      // If a paid subscription is active, keep restaurant auto-approved.
+      // Otherwise, keep the legacy pending-admin-approval flow.
       const finalBusinessModel =
         (step5 && step5.businessModel) ||
         onboarding?.step5?.businessModel ||
         'Commission Base';
 
-      await Restaurant.findByIdAndUpdate(restaurantId, {
-        $set: {
-          onboardingCompleted: true,
-          'onboarding.completedSteps': 5,
-          'onboarding.status': 'pending_admin_approval',
-          businessModel: finalBusinessModel,
-          isActive: false
+      const now = new Date();
+      const currentSubscription = completeRestaurant?.subscription || null;
+      const subscriptionEnd = currentSubscription?.endDate ? new Date(currentSubscription.endDate) : null;
+      const hasPaidSubscription = Boolean(
+        currentSubscription &&
+        currentSubscription.planId &&
+        ['active', 'pending_approval', 'cancelled'].includes(currentSubscription.status) &&
+        (!subscriptionEnd || subscriptionEnd > now)
+      );
+
+      const updateData = {
+        onboardingCompleted: true,
+        'onboarding.completedSteps': 5
+      };
+
+      if (hasPaidSubscription) {
+        updateData['onboarding.status'] = 'approved';
+        updateData.businessModel = 'Subscription Base';
+        updateData['onboarding.step5.businessModel'] = 'Subscription Base';
+        updateData.isActive = true;
+        if (currentSubscription?.status === 'pending_approval') {
+          updateData['subscription.status'] = 'active';
         }
-      });
+      } else {
+        updateData['onboarding.status'] = 'pending_admin_approval';
+        // If subscription was selected but not yet paid, keep Commission Base for now.
+        updateData.businessModel = finalBusinessModel === 'Subscription Base' ? 'Commission Base' : finalBusinessModel;
+        updateData.isActive = false;
+      }
+
+      await Restaurant.findByIdAndUpdate(restaurantId, { $set: updateData });
 
       return successResponse(res, 200, 'Onboarding data saved and restaurant updated', {
         onboarding,

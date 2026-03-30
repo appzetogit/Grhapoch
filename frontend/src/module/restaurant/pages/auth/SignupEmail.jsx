@@ -136,7 +136,8 @@ export default function RestaurantSignupEmail() {
         "register",
         formData.name,
         formData.email,
-        formData.businessModel
+        formData.businessModel,
+        formData.password
       )
 
       const data = response?.data?.data || response?.data

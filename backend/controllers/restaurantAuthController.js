@@ -720,7 +720,7 @@ export const login = asyncHandler(async (req, res) => {
 
   // Check if restaurant has a password set
   if (!restaurant.password) {
-    return errorResponse(res, 400, 'Account was created with phone. Please use OTP login.');
+    return errorResponse(res, 400, 'Password login is not enabled for this account. Please use OTP login or reset password.');
   }
 
   // Verify password

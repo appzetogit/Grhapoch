@@ -903,11 +903,16 @@ export default function ToHub() {
     }
   };
 
-  // Fetch orders on mount and when date range changes
+  // Fetch orders on mount and when date range changes.
+  // Keep dependencies minimal to avoid accidental re-trigger loops
+  // from callback identity changes.
   useEffect(() => {
     if (!restaurantData) return; // Don't fetch if restaurant data is not loaded yet
     fetchOrdersAndUpdateChart(selectedDateRange);
-  }, [restaurantData, selectedDateRange, fetchOrdersAndUpdateChart]);
+    // Intentionally exclude fetchOrdersAndUpdateChart to keep effect stable.
+    // selectedDateRange/custom apply handlers already control when to refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantData, selectedDateRange]);
 
   const formatDateShort = (date) =>
   date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });

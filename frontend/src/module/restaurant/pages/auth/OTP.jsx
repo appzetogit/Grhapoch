@@ -208,6 +208,18 @@ export default function RestaurantOTP() {
         localStorage.removeItem("pendingRestaurantRegistration");
 
         setTimeout(async () => {
+          const onboardingCompleted =
+            restaurant?.onboardingCompleted === true ||
+            Number(restaurant?.onboarding?.completedSteps || 0) >= 5;
+          const subscriptionStatus = String(restaurant?.subscription?.status || "").toLowerCase();
+          const hasActiveSubscription = subscriptionStatus === "active";
+
+          // Skip onboarding status API call when onboarding is already complete.
+          if (onboardingCompleted || hasActiveSubscription) {
+            navigate("/restaurant/to-hub", { replace: true });
+            return;
+          }
+
           try {
             const incompleteStep = await checkOnboardingStatus();
             if (incompleteStep) {

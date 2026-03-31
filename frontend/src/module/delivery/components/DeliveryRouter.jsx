@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import DeliveryLayout from "./DeliveryLayout"
 import ProtectedRoute from "./ProtectedRoute"
 
@@ -48,6 +48,12 @@ export default function DeliveryRouter() {
       {/* Protected routes - require authentication */}
       <Route
         path="/"
+        element={
+          <Navigate to="/delivery/requests" replace />
+        }
+      />
+      <Route
+        path="/feed"
         element={
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>

@@ -24,7 +24,7 @@ export default function BottomNavigation() {
   const [imageError, setImageError] = useState(false)
 
   const isActive = (path) => {
-    if (path === "/delivery") return location.pathname === "/delivery"
+    if (path === "/delivery/feed") return location.pathname === "/delivery/feed"
     return location.pathname.startsWith(path)
   }
 
@@ -84,11 +84,11 @@ export default function BottomNavigation() {
 
         {/* Feed */}
         <button
-          onClick={() => navigate("/delivery")}
+          onClick={() => navigate("/delivery/feed")}
           className="flex flex-col items-center gap-1 p-2"
         >
-          {TabIcon(isActive("/delivery"), HomeOutline, HomeSolid)}
-          {TabLabel(isActive("/delivery"), "Feed")}
+          {TabIcon(isActive("/delivery/feed"), HomeOutline, HomeSolid)}
+          {TabLabel(isActive("/delivery/feed"), "Feed")}
         </button>
 
         {/* Pocket */}

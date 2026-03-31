@@ -8309,7 +8309,7 @@ export default function DeliveryHome() {
 
 
       {/* Conditional Content Based on Swipe Bar Position */}
-      {!showHomeSections ?
+      {true ?
         <>
           {/* Map View - Shows map with Hotspot or Select drop mode */}
           <div className="relative flex-1 overflow-hidden pb-16 md:pb-0" style={{ minHeight: 0, pointerEvents: 'auto' }}>
@@ -8598,7 +8598,7 @@ export default function DeliveryHome() {
             }
 
             {/* Bottom Swipeable Bar - Can be dragged up to show home sections */}
-            {!showHomeSections &&
+            {false && !showHomeSections &&
               <motion.div
                 ref={swipeBarRef}
                 initial={{ y: "100%" }}

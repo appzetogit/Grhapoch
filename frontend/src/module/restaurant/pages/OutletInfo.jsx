@@ -55,23 +55,29 @@ export default function OutletInfo() {
 
   // Format address from location object
   const formatAddress = (location) => {
-    if (!location) return ""
+    if (!location) return "";
 
-    const parts = []
-    if (location.addressLine1) parts.push(location.addressLine1.trim())
-    if (location.addressLine2) parts.push(location.addressLine2.trim())
-    if (location.area) parts.push(location.area.trim())
+    // Prefer using the full formatted address from Google Maps (Zone Setup updates this)
+    if (location.formattedAddress && location.formattedAddress.trim() !== "") {
+      return location.formattedAddress.trim();
+    }
+
+    // Fallback to constructing address from individual components (Onboarding Step 1 uses this)
+    const parts = [];
+    if (location.addressLine1) parts.push(location.addressLine1.trim());
+    if (location.addressLine2) parts.push(location.addressLine2.trim());
+    if (location.area) parts.push(location.area.trim());
     if (location.city) {
-      const city = location.city.trim()
+      const city = location.city.trim();
       // Only add city if it's not already included in area
       if (!location.area || !location.area.includes(city)) {
-        parts.push(city)
+        parts.push(city);
       }
     }
-    if (location.landmark) parts.push(location.landmark.trim())
+    if (location.landmark) parts.push(location.landmark.trim());
 
-    return parts.join(", ") || ""
-  }
+    return parts.join(", ") || "";
+  };
 
   // Fetch restaurant data on mount
   useEffect(() => {
@@ -871,6 +877,9 @@ export default function OutletInfo() {
         <DialogContent className="sm:max-w-md p-4 w-[90%]">
           <DialogHeader>
             <DialogTitle className="text-left">Edit Restaurant Name</DialogTitle>
+            <DialogDescription className="sr-only">
+              Enter a new name for your restaurant to update its display across the platform.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input

@@ -217,6 +217,9 @@ function TimeSelector({ label, value, onChange, disabled = false, onBlur }) {
           onChange={handleTimeChange}
           disabled={disabled}
           slotProps={{
+            dialog: {
+              disableEnforceFocus: true, // Prevents the aria-hidden console warning
+            },
             textField: {
               fullWidth: true,
               onBlur: onBlur,
@@ -362,7 +365,6 @@ export default function RestaurantOnboarding() {
         if (!v) error = "Restaurant name is required";
         else if (v.length < 3 || v.length > 60) error = "Restaurant name must be between 3 and 60 characters.";
         else if (/^\d+$/.test(v)) error = "Restaurant name cannot contain only numbers.";
-        else if (!/^[A-Za-z0-9\s&'-]+$/.test(v)) error = "Please enter a valid restaurant name.";
         break;
       }
       case 'ownerName': {
@@ -632,6 +634,8 @@ export default function RestaurantOnboarding() {
     accountHolderName: "",
     accountType: ""
   });
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // For FSSAI calendar popover
+
 
   const [step4, setStep4] = useState({
     estimatedDeliveryTime: "",
@@ -961,8 +965,6 @@ export default function RestaurantOnboarding() {
       errors.restaurantName = "Restaurant name must be between 3 and 60 characters.";
     } else if (/^\d+$/.test(resName)) {
       errors.restaurantName = "Restaurant name cannot contain only numbers.";
-    } else if (!/^[A-Za-z0-9\s&'-]+$/.test(resName)) {
-      errors.restaurantName = "Please enter a valid restaurant name.";
     }
 
     // Owner Full Name
@@ -2468,7 +2470,7 @@ export default function RestaurantOnboarding() {
 
           <div>
             <Label className="text-xs text-gray-700 mb-1.5 block">FSSAI expiry date<span className="text-red-500">*</span></Label>
-            <Popover>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -2496,10 +2498,17 @@ export default function RestaurantOnboarding() {
                   selected={step3.fssaiExpiry ? new Date(step3.fssaiExpiry) : undefined}
                   onSelect={(date) => {
                     if (date) {
-                      const formattedDate = date.toISOString().split("T")[0];
+                      // Fix: Use local date components instead of toISOString() to avoid timezone shift
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const formattedDate = `${year}-${month}-${day}`;
+                      
                       setStep3({ ...step3, fssaiExpiry: formattedDate });
                       validateField('fssaiExpiry', formattedDate);
                     }
+                    // Fix: Always close the popover after any click on the calendar
+                    setIsCalendarOpen(false);
                   }}
                   initialFocus
                   className="rounded-md border border-gray-200" />

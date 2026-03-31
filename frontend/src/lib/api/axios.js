@@ -238,7 +238,6 @@ function getTokenForCurrentRoute() {
              !path.startsWith('/restaurant/welcome') &&
              !path.startsWith('/restaurant/login') &&
              !path.startsWith('/restaurant/signup') &&
-             !path.startsWith('/restaurant/otp') &&
              !path.startsWith('/restaurant/forgot-password')) {
     // /restaurant/* is for restaurant module, /restaurants/* is for user module viewing restaurants
     // Exclude public routes like /restaurant/list and /restaurant/under-250

@@ -907,7 +907,10 @@ export default function ToHub() {
   // Keep dependencies minimal to avoid accidental re-trigger loops
   // from callback identity changes.
   useEffect(() => {
-    if (!restaurantData) return; // Don't fetch if restaurant data is not loaded yet
+    // Don't fetch if restaurant data is not loaded yet or if the restaurant is inactive
+    // Inactive restaurants are blocked from accessing orders API by backend middleware
+    if (!restaurantData || !restaurantData.isActive) return;
+    
     fetchOrdersAndUpdateChart(selectedDateRange);
     // Intentionally exclude fetchOrdersAndUpdateChart to keep effect stable.
     // selectedDateRange/custom apply handlers already control when to refetch.

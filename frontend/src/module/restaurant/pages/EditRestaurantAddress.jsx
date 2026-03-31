@@ -244,7 +244,7 @@ export default function EditRestaurantAddress() {
       <div className="relative flex-1 min-h-0 overflow-hidden">
         {/* Google Maps Embed */}
         <iframe
-          src={`https://www.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`}
+          src={`https://www.google.com/maps?q=${encodeURIComponent(address)}&hl=en&z=15&output=embed`}
           width="100%"
           height="100%"
           style={{ border: 0 }}

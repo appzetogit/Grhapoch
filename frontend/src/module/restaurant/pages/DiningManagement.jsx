@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import AnimatedPage from "@/module/user/components/AnimatedPage"
 import { restaurantAPI } from "@/lib/api"
+import { loadRazorpayScript } from "@/lib/utils/razorpay"
 import { toast } from "sonner"
 
 const DINING_STATUSES = {
@@ -98,13 +99,14 @@ export default function DiningManagement() {
     }
 
     const handlePayAndEnableDining = async () => {
-        if (!window.Razorpay) {
-            toast.error("Razorpay SDK not loaded. Please refresh and try again.")
-            return
-        }
-
         try {
             setPaying(true)
+            await loadRazorpayScript()
+            if (!window.Razorpay) {
+                toast.error("Razorpay SDK not loaded. Please refresh and try again.")
+                setPaying(false)
+                return
+            }
             const orderRes = await restaurantAPI.createDiningActivationOrder()
             const orderData = orderRes.data?.data || {}
 
@@ -163,6 +165,7 @@ export default function DiningManagement() {
     const isDiningEnabled = Boolean(diningStatus?.diningEnabled)
     const canEnableWithoutPayment = Boolean(diningStatus?.canEnableWithoutPayment)
     const requiresPayment = Boolean(diningStatus?.requiresPayment)
+    const isSubscriptionBased = diningStatus?.businessModel === "Subscription Base"
     const canRequest =
         !isDiningEnabled &&
         (!currentStatus || currentStatus === DINING_STATUSES.REJECTED)
@@ -176,7 +179,9 @@ export default function DiningManagement() {
             return (
                 <div className="mt-4">
                     <p className="text-sm text-gray-600">
-                        Send a request to admin first. After approval, you can complete activation.
+                        {isSubscriptionBased
+                            ? "Subscription plan active hai to dining instantly enable ho jayega."
+                            : "Send a request to admin first. After approval, you can complete activation."}
                     </p>
                     <Button
                         onClick={handleRequestDiningEnable}
@@ -188,9 +193,7 @@ export default function DiningManagement() {
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Requesting...
                             </span>
-                        ) : (
-                            isRejected ? "Request Again" : "Request Dining Enable"
-                        )}
+                        ) : (isRejected ? "Request Again" : isSubscriptionBased ? "Enable Dining" : "Request Dining Enable")}
                     </Button>
                 </div>
             )
@@ -296,7 +299,7 @@ export default function DiningManagement() {
                 <div className="max-w-6xl mx-auto w-full px-4 md:px-6 h-[72px] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={() => navigate(-1)}
+                            onClick={() => navigate("/restaurant/explore")}
                             className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5 text-gray-700" />

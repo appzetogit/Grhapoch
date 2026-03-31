@@ -94,15 +94,28 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   const [currentAddress, setCurrentAddress] = useState("");
   const [GOOGLE_MAPS_API_KEY, setGOOGLE_MAPS_API_KEY] = useState(null);
 
-  // Load Google Maps API key from backend
+  // Load Google Maps API key from backend.
+  // Retry when selector opens so user doesn't need hard refresh if first fetch failed.
   useEffect(() => {
-    import('@/lib/utils/googleMapsApiKey.js').then(({ getGoogleMapsApiKey }) => {
-      getGoogleMapsApiKey().then((key) => {
-        setGOOGLE_MAPS_API_KEY(key);
+    if (GOOGLE_MAPS_API_KEY) return;
+    if (!isOpen && mapsKeyFetched) return;
+
+    let cancelled = false;
+    import('@/lib/utils/googleMapsApiKey.js').
+      then(({ getGoogleMapsApiKey }) => getGoogleMapsApiKey()).
+      then((key) => {
+        if (cancelled) return;
+        setGOOGLE_MAPS_API_KEY(key || null);
         setMapsKeyFetched(true);
+      }).
+      catch(() => {
+        if (!cancelled) setMapsKeyFetched(true);
       });
-    });
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, GOOGLE_MAPS_API_KEY, mapsKeyFetched]);
   const reverseGeocodeTimeoutRef = useRef(null); // Debounce timeout for reverse geocoding
   const lastReverseGeocodeCoordsRef = useRef(null); // Track last coordinates to avoid duplicate calls
 
@@ -113,7 +126,41 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     }
   }, [GOOGLE_MAPS_API_KEY, mapsKeyFetched]);
 
-  // Detect Google Maps SDK readiness from the global script (loaded in main.jsx)
+  // Ensure Google Maps SDK script is present (fallback if main bootstrap load missed/failed).
+  useEffect(() => {
+    if (!isOpen || !GOOGLE_MAPS_API_KEY || mapsLoaded) return;
+    if (window.google && window.google.maps && window.google.maps.places) {
+      setMapsLoaded(true);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+    const handleScriptReady = () => {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setMapsLoaded(true);
+      }
+    };
+
+    if (existingScript) {
+      existingScript.addEventListener('load', handleScriptReady);
+      return () => {
+        existingScript.removeEventListener('load', handleScriptReady);
+      };
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,drawing`;
+    script.async = true;
+    script.defer = true;
+    script.onload = handleScriptReady;
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+    };
+  }, [isOpen, GOOGLE_MAPS_API_KEY, mapsLoaded]);
+
+  // Detect Google Maps SDK readiness from the global script (loaded in main.jsx or fallback above)
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) return;
 
@@ -2365,6 +2412,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
                   e.preventDefault();
                   handlePredictionSelect(prediction);
                 }}
+                onClick={() => handlePredictionSelect(prediction)}
                 className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-50 dark:border-gray-800 last:border-0">
                 
                     <div className="h-8 w-8 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -2620,6 +2668,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
                 e.preventDefault();
                 handlePredictionSelect(prediction);
               }}
+              onClick={() => handlePredictionSelect(prediction)}
               className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-50 dark:border-gray-800 last:border-0">
               
                   <div className="h-8 w-8 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">

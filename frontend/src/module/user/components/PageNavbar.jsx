@@ -912,23 +912,36 @@ export default function PageNavbar({
       className={`relative ${zIndexClass} w-full px-1 pr-2 sm:px-2 sm:pr-3 md:px-3 lg:px-6 xl:px-8 py-1.5 sm:py-3 lg:py-4`}
       onClick={onNavClick}
     >
-      {/* Mobile layout: location (left), centered logo, actions (right) */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 max-w-7xl mx-auto w-full md:hidden">
-        {/* Location (takes available space) */}
-        <div className="flex items-center min-w-0 flex-1">
+      {/* Mobile layout: logo (left), location (center), actions (right) */}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 max-w-7xl mx-auto w-full md:hidden">
+        {/* Left: Logo */}
+        <Link to="/user" className="flex items-center justify-start flex-shrink-0 w-20 min-w-[72px]">
+          <img
+            src={logoUrl || fallbackLogo}
+            alt="Company Logo"
+            className="h-11 w-auto object-contain"
+            onError={(e) => {
+              e.currentTarget.src = fallbackLogo
+              e.currentTarget.style.display = 'inline-block'
+            }}
+          />
+        </Link>
+
+        {/* Center: Location */}
+        <div className="flex items-center min-w-0 justify-center">
           <Button
             variant="ghost"
             onClick={handleLocationClick}
             disabled={loading}
-            className="h-auto px-0 py-0 hover:bg-transparent transition-colors min-w-0 w-full text-left"
+            className="h-auto px-0 py-0 hover:bg-transparent transition-colors min-w-0 w-full text-center"
           >
             {loading ? (
               <span className={`text-sm font-bold ${textColorClass} ${textColor === "white" ? "drop-shadow-lg" : ""}`}>
                 Loading...
               </span>
             ) : (
-              <div className="flex flex-col items-start min-w-0 w-full">
-                <div className="flex items-center gap-1 min-w-0 w-full">
+              <div className="flex flex-col items-center min-w-0 w-full">
+                <div className="flex items-center justify-center gap-1 min-w-0 w-full">
                   <FaLocationDot
                     className={`h-5 w-5 sm:h-6 sm:w-6 ${textColorClass} flex-shrink-0 ${textColor === "white" ? "drop-shadow-lg" : ""}`}
                     fill={iconFill}
@@ -948,19 +961,6 @@ export default function PageNavbar({
             )}
           </Button>
         </div>
-
-        {/* Centered Logo */}
-        <Link to="/user" className="flex items-center justify-center flex-shrink-0 w-20 min-w-[72px] justify-self-center">
-          <img
-            src={logoUrl || fallbackLogo}
-            alt="Company Logo"
-            className="h-11 w-auto object-contain"
-            onError={(e) => {
-              e.currentTarget.src = fallbackLogo
-              e.currentTarget.style.display = 'inline-block'
-            }}
-          />
-        </Link>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 justify-self-end">

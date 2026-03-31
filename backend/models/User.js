@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { deleteUserAdvertisements } from '../services/userAdvertisementCleanupService.js';
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -289,6 +290,55 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   }
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+const safeCleanupUserAdvertisements = async (userId) => {
+  if (!userId) return;
+  try {
+    await deleteUserAdvertisements(userId);
+  } catch (error) {
+    console.warn(`[User Model] Failed to cleanup advertisements for user ${userId}:`, error.message);
+  }
+};
+
+userSchema.pre('findOneAndDelete', async function (next) {
+  this._userToDelete = await this.model.findOne(this.getFilter()).select('_id').lean();
+  next();
+});
+
+userSchema.post('findOneAndDelete', async function (doc) {
+  const targetUserId = doc?._id || this._userToDelete?._id;
+  if (!targetUserId) return;
+  await safeCleanupUserAdvertisements(targetUserId);
+});
+
+userSchema.post('deleteOne', { document: true, query: false }, async function () {
+  if (!this?._id) return;
+  await safeCleanupUserAdvertisements(this._id);
+});
+
+userSchema.pre('deleteOne', { document: false, query: true }, async function (next) {
+  this._usersToDelete = await this.model.find(this.getFilter()).select('_id').lean();
+  next();
+});
+
+userSchema.post('deleteOne', { document: false, query: true }, async function () {
+  const users = Array.isArray(this._usersToDelete) ? this._usersToDelete : [];
+  for (const user of users) {
+    await safeCleanupUserAdvertisements(user._id);
+  }
+});
+
+userSchema.pre('deleteMany', async function (next) {
+  this._usersToDelete = await this.model.find(this.getFilter()).select('_id').lean();
+  next();
+});
+
+userSchema.post('deleteMany', async function () {
+  const users = Array.isArray(this._usersToDelete) ? this._usersToDelete : [];
+  for (const user of users) {
+    await safeCleanupUserAdvertisements(user._id);
+  }
+});
 
 const User = mongoose.model('User', userSchema);
 

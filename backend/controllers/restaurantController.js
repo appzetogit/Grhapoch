@@ -8,6 +8,7 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
 import { checkSubscriptionExpiry } from './subscriptionController.js';
 import BusinessSettings from '../models/BusinessSettings.js';
+import { cleanupRestaurantAdvertisements } from '../services/restaurantAdvertisementCleanupService.js';
 
 const parseNumber = (value) => {
   const num = Number(value);
@@ -1083,6 +1084,18 @@ export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
       }
     } catch (error) {
       console.error('Error deleting images from Cloudinary:', error);
+    }
+
+    // Delete restaurant advertisements (and related Cloudinary media)
+    try {
+      const adCleanupResult = await cleanupRestaurantAdvertisements(restaurantId);
+      console.info('[Restaurant Delete] Associated advertisements cleaned', {
+        restaurantId: restaurantId?.toString?.() || restaurantId,
+        ...adCleanupResult
+      });
+    } catch (adCleanupError) {
+      console.error('Error deleting restaurant advertisements:', adCleanupError);
+      // Continue with account deletion even if advertisement cleanup fails
     }
 
     // Delete the restaurant from database

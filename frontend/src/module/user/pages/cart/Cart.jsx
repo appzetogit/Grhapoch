@@ -213,7 +213,7 @@ export default function Cart() {
   // Priority: restaurantData > cart[0].restaurantId
   // DO NOT use cart[0].restaurant as slug fallback - it creates wrong slugs
   const restaurantId = cart.length > 0 ?
-    restaurantData?._id || restaurantData?.restaurantId || cart[0]?.restaurantId || null :
+    restaurantData?._id || restaurantData?.restaurantId || restaurantData?.id || cart[0]?.restaurantId || null :
     null;
 
   // Stable restaurant ID for addons fetch (memoized to prevent dependency array issues)
@@ -221,7 +221,7 @@ export default function Cart() {
   const restaurantIdForAddons = useMemo(() => {
     // Only use restaurantData if it's loaded, otherwise wait
     if (restaurantData) {
-      return restaurantData._id || restaurantData.restaurantId || null;
+      return restaurantData._id || restaurantData.restaurantId || restaurantData.id || null;
     }
     // If restaurantData is not loaded yet, return null to wait
     return null;
@@ -284,11 +284,15 @@ export default function Cart() {
 
 
           const response = await restaurantAPI.getRestaurantById(cartRestaurantId);
-          const data = response?.data?.data?.restaurant || response?.data?.restaurant;
+          const data =
+            response?.data?.data?.restaurant ||
+            response?.data?.data ||
+            response?.data?.restaurant ||
+            null;
 
           if (data) {
             // CRITICAL: Validate that fetched restaurant matches cart items
-            const fetchedRestaurantId = data.restaurantId || data._id?.toString();
+            const fetchedRestaurantId = data.restaurantId || data._id?.toString() || data.id?.toString();
             const fetchedRestaurantName = data.name;
 
             // Check if restaurantId matches
@@ -346,9 +350,10 @@ export default function Cart() {
       if (cart[0]?.restaurant && !restaurantData) {
         try {
 
-          const searchResponse = await restaurantAPI.getRestaurants({ 
+          const searchResponse = await restaurantAPI.getRestaurants({
+            search: cart[0].restaurant,
             name: cart[0].restaurant,
-            limit: 5 
+            limit: 5
           });
           const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
 
@@ -390,6 +395,25 @@ export default function Cart() {
 
 
 
+
+            if (matchingRestaurant?._id || matchingRestaurant?.restaurantId || matchingRestaurant?.id) {
+              try {
+                const fullRestaurantId = matchingRestaurant._id || matchingRestaurant.restaurantId || matchingRestaurant.id;
+                const fullResponse = await restaurantAPI.getRestaurantById(fullRestaurantId);
+                const fullRestaurantData =
+                  fullResponse?.data?.data?.restaurant ||
+                  fullResponse?.data?.data ||
+                  fullResponse?.data?.restaurant ||
+                  null;
+                if (fullRestaurantData) {
+                  setRestaurantData(fullRestaurantData);
+                  setLoadingRestaurant(false);
+                  return;
+                }
+              } catch (fullFetchError) {
+                // Fallback to list response object
+              }
+            }
 
             setRestaurantData(matchingRestaurant);
             setLoadingRestaurant(false);
@@ -939,8 +963,40 @@ export default function Cart() {
 
       // CRITICAL: Validate restaurant ID before placing order
       // Ensure we're using the correct restaurant from restaurantData (most reliable)
-      const finalRestaurantId = restaurantData?.restaurantId || restaurantData?._id || null;
-      const finalRestaurantName = restaurantData?.name || null;
+      let finalRestaurantId =
+        restaurantData?.restaurantId ||
+        restaurantData?._id ||
+        restaurantData?.id ||
+        restaurantId ||
+        cart[0]?.restaurantId ||
+        null;
+      let finalRestaurantName = restaurantData?.name || cart[0]?.restaurant || null;
+
+      // Last-resort fallback: resolve by cart restaurant name if ID is still missing
+      if (!finalRestaurantId && cart[0]?.restaurant) {
+        try {
+          const searchResponse = await restaurantAPI.getRestaurants({
+            search: cart[0].restaurant,
+            name: cart[0].restaurant,
+            limit: 10
+          });
+          const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || [];
+          const normalizedCartName = cart[0].restaurant.toLowerCase().trim();
+          const matchedRestaurant = restaurants.find((r) =>
+            r?.name?.toLowerCase().trim() === normalizedCartName
+          ) || restaurants.find((r) =>
+            r?.name?.toLowerCase().includes(normalizedCartName) ||
+            normalizedCartName.includes(r?.name?.toLowerCase() || "")
+          );
+
+          if (matchedRestaurant) {
+            finalRestaurantId = matchedRestaurant.restaurantId || matchedRestaurant._id || matchedRestaurant.id || null;
+            finalRestaurantName = matchedRestaurant.name || finalRestaurantName;
+          }
+        } catch (fallbackSearchError) {
+          // Keep existing validation path below
+        }
+      }
 
       if (!finalRestaurantId) {
         console.error('❌ CRITICAL: Cannot place order - Restaurant ID is missing!');

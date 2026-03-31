@@ -9,6 +9,33 @@ import DiningTable from '../models/DiningTable.js';
 import DiningBooking from '../models/DiningBooking.js';
 import { createOrder, verifyPayment } from '../services/razorpayService.js';
 
+const BOOKING_STATUSES = {
+    PENDING: "Pending",
+    CONFIRMED: "Confirmed",
+    REJECTED: "Rejected",
+    CANCELLED: "Cancelled",
+    COMPLETED: "Completed"
+};
+
+const CANCELLABLE_STATUSES = new Set([
+    BOOKING_STATUSES.PENDING,
+    BOOKING_STATUSES.CONFIRMED
+]);
+
+const BOOKED_STATUSES = [
+    BOOKING_STATUSES.PENDING,
+    BOOKING_STATUSES.CONFIRMED,
+    BOOKING_STATUSES.COMPLETED
+];
+
+const toObjectIdString = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value._id) return String(value._id);
+    if (value.id) return String(value.id);
+    return String(value);
+};
+
 // Get all dining restaurants (with filtering)
 export const getRestaurants = async (req, res) => {
     try {
@@ -247,7 +274,7 @@ export const getAvailableTables = async (req, res) => {
             restaurantId: id,
             date,
             time,
-            bookingStatus: { $in: ["Pending", "Confirmed", "Completed"] }
+            bookingStatus: { $in: BOOKED_STATUSES }
         });
 
         const bookedTableNumbers = existingBookings.map(b => b.tableNumber);
@@ -294,7 +321,7 @@ export const createBooking = async (req, res) => {
             tableNumber,
             date,
             time,
-            bookingStatus: { $in: ["Pending", "Confirmed", "Completed"] }
+            bookingStatus: { $in: BOOKED_STATUSES }
         });
 
         if (existingBooking) {
@@ -314,7 +341,7 @@ export const createBooking = async (req, res) => {
             time,
             guestName: customerDetails?.name || "Guest",
             guestPhone: customerDetails?.phone || "N/A",
-            bookingStatus: "Pending"
+            bookingStatus: BOOKING_STATUSES.PENDING
         });
 
         await newBooking.save();
@@ -338,19 +365,23 @@ export const updateBookingStatus = async (req, res) => {
     try {
         const { bookingId } = req.params;
         const { status } = req.body; // "Confirmed", "Rejected", etc.
+        const restaurantId = req.restaurant?._id || req.restaurant?.id;
 
-        if (!["Confirmed", "Rejected", "Completed", "Cancelled", "Pending"].includes(status)) {
+        if (!restaurantId) {
+            return res.status(401).json({
+                success: false,
+                message: "Restaurant authentication required"
+            });
+        }
+
+        if (!Object.values(BOOKING_STATUSES).includes(status)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid booking status"
             });
         }
 
-        const booking = await DiningBooking.findByIdAndUpdate(
-            bookingId,
-            { bookingStatus: status },
-            { new: true }
-        );
+        const booking = await DiningBooking.findById(bookingId);
 
         if (!booking) {
             return res.status(404).json({
@@ -358,6 +389,20 @@ export const updateBookingStatus = async (req, res) => {
                 message: "Booking not found"
             });
         }
+
+        if (toObjectIdString(booking.restaurantId) !== toObjectIdString(restaurantId)) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only update bookings for your own restaurant"
+            });
+        }
+
+        booking.bookingStatus = status;
+        booking.statusUpdatedAt = new Date();
+        booking.statusUpdatedByRole = "restaurant";
+        booking.statusUpdatedBy = restaurantId;
+
+        await booking.save();
 
         res.status(200).json({
             success: true,
@@ -411,7 +456,7 @@ export const initiateBookingPayment = async (req, res) => {
             tableNumber,
             date,
             time,
-            bookingStatus: { $in: ["Pending", "Confirmed", "Completed"] }
+            bookingStatus: { $in: BOOKED_STATUSES }
         });
 
         if (existingBooking) {
@@ -556,6 +601,22 @@ export const verifyAndCreateBooking = async (req, res) => {
 export const getRestaurantBookings = async (req, res) => {
     try {
         const { id } = req.params;
+        const restaurantId = req.restaurant?._id || req.restaurant?.id;
+
+        if (!restaurantId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Restaurant authentication required'
+            });
+        }
+
+        if (toObjectIdString(restaurantId) !== toObjectIdString(id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only access your own restaurant bookings'
+            });
+        }
+
         const bookings = await DiningBooking.find({ restaurantId: id })
             .sort({ createdAt: -1 });
 
@@ -566,6 +627,101 @@ export const getRestaurantBookings = async (req, res) => {
     } catch (error) {
         console.error("Error fetching restaurant bookings:", error);
         res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
+    }
+};
+
+// Get a single booking for logged-in user
+export const getUserBookingById = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const userId = req.user?._id || req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        const booking = await DiningBooking.findOne({
+            _id: bookingId,
+            userId
+        }).populate('restaurantId', 'name profileImage slug');
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: 'Booking not found'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: booking
+        });
+    } catch (error) {
+        console.error("Error fetching user booking details:", error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
+    }
+};
+
+// Cancel booking by logged-in user
+export const cancelUserBooking = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { reason = '' } = req.body || {};
+        const userId = req.user?._id || req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        const booking = await DiningBooking.findOne({
+            _id: bookingId,
+            userId
+        });
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: 'Booking not found'
+            });
+        }
+
+        if (!CANCELLABLE_STATUSES.has(booking.bookingStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel a ${booking.bookingStatus} booking`
+            });
+        }
+
+        booking.bookingStatus = BOOKING_STATUSES.CANCELLED;
+        booking.statusUpdatedAt = new Date();
+        booking.statusUpdatedByRole = "user";
+        booking.statusUpdatedBy = userId;
+        booking.cancellationReason = reason || '';
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Booking cancelled successfully',
+            data: booking
+        });
+    } catch (error) {
+        console.error("Error cancelling user booking:", error);
+        return res.status(500).json({
             success: false,
             message: 'Server Error',
             error: error.message

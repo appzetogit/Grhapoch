@@ -2038,21 +2038,6 @@ export default function Home() {
                                 </Button>
                               </motion.div>
 
-                              {/* FREE delivery Badge - Bottom Left (only for first 3 restaurants) */}
-                              {index < 3 &&
-                                <motion.div
-                                  className="absolute bottom-2 left-0 sm:bottom-2 sm:left-0 z-10"
-                                  variants={{
-                                    rest: { x: 0, opacity: 1 },
-                                    hover: { x: 4, opacity: 1 }
-                                  }}
-                                  transition={{ duration: 0.3 }}>
-
-                                  <div className="bg-gradient-to-r from-blue-600 via-blue-500/80 to-transparent text-white px-2.5 py-1 rounded-r-sm text-[10px] sm:text-xs font-bold shadow-lg backdrop-blur-sm">
-                                    FREE delivery
-                                  </div>
-                                </motion.div>
-                              }
                             </div>
 
                             {/* Content Section */}

@@ -588,6 +588,7 @@ export default function DeliveryHome() {
   const [rejectReason, setRejectReason] = useState("");
   const alertAudioRef = useRef(null);
   const userInteractedRef = useRef(false); // Track user interaction for autoplay policy
+  const pendingPopupSoundRef = useRef(false);
   const newOrderAcceptButtonRef = useRef(null);
   const newOrderAcceptButtonSwipeStartX = useRef(0);
   const newOrderAcceptButtonSwipeStartY = useRef(0);
@@ -1252,6 +1253,13 @@ export default function DeliveryHome() {
   useEffect(() => {
     const handleUserInteraction = () => {
       userInteractedRef.current = true;
+      if (pendingPopupSoundRef.current && alertAudioRef.current) {
+        pendingPopupSoundRef.current = false;
+        alertAudioRef.current.currentTime = 0;
+        alertAudioRef.current.play().catch(() => {
+          // ignore autoplay retry failures
+        });
+      }
       // Remove listeners after first interaction
       document.removeEventListener('click', handleUserInteraction);
       document.removeEventListener('touchstart', handleUserInteraction);
@@ -1272,9 +1280,9 @@ export default function DeliveryHome() {
 
   // Play alert sound function - plays until countdown ends (30 seconds)
   const playAlertSound = async () => {
-    // Only play if user has interacted with the page (browser autoplay policy)
-    if (!userInteractedRef.current) {
-      return null;
+    // If browser already has user activation, treat it as interacted
+    if (!userInteractedRef.current && navigator?.userActivation?.hasBeenActive) {
+      userInteractedRef.current = true;
     }
 
     try {
@@ -1331,6 +1339,15 @@ export default function DeliveryHome() {
         }
         return audio;
       } catch (playError) {
+        const isAutoplayBlocked =
+          playError?.name?.includes('NotAllowedError') ||
+          playError?.message?.includes('user didn\'t interact');
+
+        if (isAutoplayBlocked) {
+          pendingPopupSoundRef.current = true;
+          return audio;
+        }
+
         console.error('❌ Audio play error:', {
           error: playError,
           message: playError.message,
@@ -4319,16 +4336,36 @@ export default function DeliveryHome() {
       );
       const distanceInKm = distanceInMeters / 1000;
       const pickupDistance = `${distanceInKm.toFixed(2)} km`;
+      const nextTimeAway = calculateTimeAway(pickupDistance);
 
+      setSelectedRestaurant((prev) => {
+        if (!prev) return prev;
+        if (
+          prev.distance === pickupDistance &&
+          prev.pickupDistance === pickupDistance &&
+          prev.timeAway === nextTimeAway
+        ) {
+          return prev;
+        }
 
-      setSelectedRestaurant((prev) => ({
-        ...prev,
-        distance: pickupDistance,
-        pickupDistance: pickupDistance,
-        timeAway: calculateTimeAway(pickupDistance)
-      }));
+        return {
+          ...prev,
+          distance: pickupDistance,
+          pickupDistance: pickupDistance,
+          timeAway: nextTimeAway
+        };
+      });
     }
-  }, [riderLocation, selectedRestaurant, showNewOrderPopup, calculateTimeAway]);
+  }, [
+    riderLocation?.[0],
+    riderLocation?.[1],
+    selectedRestaurant?.lat,
+    selectedRestaurant?.lng,
+    selectedRestaurant?.distance,
+    selectedRestaurant?.pickupDistance,
+    showNewOrderPopup,
+    calculateTimeAway
+  ]);
 
   // Fetch restaurant address if missing when selectedRestaurant is set
   useEffect(() => {
@@ -7644,26 +7681,50 @@ export default function DeliveryHome() {
 
   // Auto-rotate carousel
   useEffect(() => {
+    const slidesCount = carouselSlides.length;
+
+    // No slides: reset and skip timer setup.
+    if (slidesCount === 0) {
+      setCurrentCarouselSlide(0);
+      if (carouselAutoRotateRef.current) {
+        clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
+      }
+      return;
+    }
+
     // Reset to first slide if current slide is out of bounds
     setCurrentCarouselSlide((prev) => {
-      if (prev >= carouselSlides.length) {
+      if (prev >= slidesCount) {
         return 0;
       }
       return prev;
     });
 
+    // Single slide: no need to auto-rotate.
+    if (slidesCount === 1) {
+      if (carouselAutoRotateRef.current) {
+        clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
+      }
+      return;
+    }
+
     carouselAutoRotateRef.current = setInterval(() => {
-      setCurrentCarouselSlide((prev) => (prev + 1) % carouselSlides.length);
+      setCurrentCarouselSlide((prev) => (prev + 1) % slidesCount);
     }, 3000);
+
     return () => {
       if (carouselAutoRotateRef.current) {
         clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
       }
     };
   }, [carouselSlides]);
 
   // Reset auto-rotate timer after manual swipe
   const resetCarouselAutoRotate = useCallback(() => {
+    if (carouselSlides.length <= 1) return;
     if (carouselAutoRotateRef.current) {
       clearInterval(carouselAutoRotateRef.current);
     }

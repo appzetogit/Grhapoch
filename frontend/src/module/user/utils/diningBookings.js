@@ -1,12 +1,14 @@
 const DINING_BOOKINGS_STORAGE_KEY = "userDiningBookings";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ACTIVE_BANNER_STATUSES = new Set(["pending", "confirmed"]);
 
 function parseTime(timeValue = "") {
   const raw = String(timeValue || "").trim();
   if (!raw) return { hours: 0, minutes: 0 };
 
-  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  // Accept variants like "1:00 PM", "1: 00 PM", "13:30", "7 PM"
+  const match = raw.match(/^(\d{1,2})(?:\s*:\s*(\d{1,2}))?\s*(AM|PM)?$/i);
   if (!match) return { hours: 0, minutes: 0 };
 
   let hours = Number(match[1] || 0);
@@ -18,7 +20,7 @@ function parseTime(timeValue = "") {
 
   return {
     hours: Number.isFinite(hours) ? hours : 0,
-    minutes: Number.isFinite(minutes) ? minutes : 0,
+    minutes: Number.isFinite(minutes) ? Math.min(Math.max(minutes, 0), 59) : 0,
   };
 }
 
@@ -127,6 +129,9 @@ export function parseBookingDateTime(dateValue, timeValue, referenceDate = new D
 }
 
 export function isDiningBookingActive(booking, referenceDate = new Date()) {
+  const normalizedStatus = String(booking?.bookingStatus || "").trim().toLowerCase();
+  if (!ACTIVE_BANNER_STATUSES.has(normalizedStatus)) return false;
+
   const bookingDateTime = parseBookingDateTime(booking?.date, booking?.time, referenceDate);
   if (!bookingDateTime) return false;
   return bookingDateTime.getTime() >= referenceDate.getTime();

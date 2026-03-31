@@ -42,6 +42,24 @@ const diningBookingSchema = new mongoose.Schema(
             enum: ["Pending", "Confirmed", "Rejected", "Cancelled", "Completed"],
             default: "Pending",
         },
+        cancellationReason: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        statusUpdatedAt: {
+            type: Date,
+            default: null
+        },
+        statusUpdatedByRole: {
+            type: String,
+            enum: ["user", "restaurant", "admin", ""],
+            default: ""
+        },
+        statusUpdatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            default: null
+        }
     },
     { timestamps: true }
 );

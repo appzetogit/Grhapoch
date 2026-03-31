@@ -1910,7 +1910,11 @@ export const orderAPI = {
 export const diningAPI = {
   // Get dining restaurants (with optional filters)
   getRestaurants: (params = {}, config = {}) => {
-    return apiClient.get(API_ENDPOINTS.DINING.RESTAURANTS, { ...config, params });
+    return apiClient.get(API_ENDPOINTS.DINING.RESTAURANTS, {
+      ...config,
+      params,
+      skipCache: true
+    });
   },
 
   // Get restaurant by slug
@@ -1966,6 +1970,12 @@ export const diningAPI = {
   },
   updateBookingStatus: (bookingId, status) => {
     return apiClient.patch(`/dining/bookings/${bookingId}/status`, { status });
+  },
+  getMyBookingById: (bookingId) => {
+    return apiClient.get(`/dining/bookings/${bookingId}`);
+  },
+  cancelMyBooking: (bookingId, reason = "") => {
+    return apiClient.patch(`/dining/bookings/${bookingId}/cancel`, { reason });
   },
   getMyBookings: () => {
     return apiClient.get(`/dining/bookings/user`);

@@ -127,6 +127,8 @@ export default function TableBookingsPage() {
                                                 ? "bg-green-100 text-green-700"
                                                 : booking.bookingStatus === "Rejected"
                                                     ? "bg-red-100 text-red-700"
+                                                    : booking.bookingStatus === "Cancelled"
+                                                        ? "bg-gray-100 text-gray-700"
                                                     : "bg-orange-100 text-orange-700"
                                                 }`}
                                         >
@@ -150,6 +152,12 @@ export default function TableBookingsPage() {
                                             <p className="text-xs font-bold text-gray-700">Table {booking.tableNumber}</p>
                                         </div>
                                     </div>
+
+                                    {booking.cancellationReason && (
+                                        <div className="text-xs rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-red-700 font-medium">
+                                            Cancellation reason: {booking.cancellationReason}
+                                        </div>
+                                    )}
 
                                     {booking.bookingStatus === "Pending" && (
                                         <div className="flex flex-col sm:flex-row gap-2 pt-1">

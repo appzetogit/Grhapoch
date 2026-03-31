@@ -591,26 +591,50 @@ export default function PocketPage() {
 
   // Auto-rotate carousel
   useEffect(() => {
+    const slidesCount = carouselSlides.length;
+
+    // No slides: reset and skip timer setup.
+    if (slidesCount === 0) {
+      setCurrentCarouselSlide(0);
+      if (carouselAutoRotateRef.current) {
+        clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
+      }
+      return;
+    }
+
     // Reset to first slide if current slide is out of bounds
     setCurrentCarouselSlide((prev) => {
-      if (prev >= carouselSlides.length) {
+      if (prev >= slidesCount) {
         return 0;
       }
       return prev;
     });
 
+    // Single slide: no auto-rotation needed.
+    if (slidesCount === 1) {
+      if (carouselAutoRotateRef.current) {
+        clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
+      }
+      return;
+    }
+
     carouselAutoRotateRef.current = setInterval(() => {
-      setCurrentCarouselSlide((prev) => (prev + 1) % carouselSlides.length);
+      setCurrentCarouselSlide((prev) => (prev + 1) % slidesCount);
     }, 3000);
+
     return () => {
       if (carouselAutoRotateRef.current) {
         clearInterval(carouselAutoRotateRef.current);
+        carouselAutoRotateRef.current = null;
       }
     };
   }, [carouselSlides]);
 
   // Reset auto-rotate timer after manual swipe
   const resetCarouselAutoRotate = () => {
+    if (carouselSlides.length <= 1) return;
     if (carouselAutoRotateRef.current) {
       clearInterval(carouselAutoRotateRef.current);
     }

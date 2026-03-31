@@ -16,6 +16,8 @@ import winston from 'winston';
 import mongoose from 'mongoose';
 import { uploadToCloudinary } from '../utils/cloudinaryService.js';
 import { initializeCloudinary } from '../config/cloudinary.js';
+import { cleanupRestaurantAdvertisements } from '../services/restaurantAdvertisementCleanupService.js';
+import { deactivateUserAdvertisements } from '../services/userAdvertisementCleanupService.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -1142,9 +1144,18 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
     user.isActive = isActive;
     await user.save();
 
+    let advertisementCleanup = null;
+    if (isActive === false) {
+      advertisementCleanup = await deactivateUserAdvertisements({
+        userId: user._id,
+        adminId: req.user?._id || null
+      });
+    }
+
     logger.info(`User status updated: ${id}`, {
       isActive,
-      updatedBy: req.user._id
+      updatedBy: req.user._id,
+      advertisementCleanup
     });
 
     return successResponse(res, 200, 'User status updated successfully', {
@@ -2071,6 +2082,10 @@ export const deleteRestaurant = asyncHandler(async (req, res) => {
       // 2. Delete Commission configuration
       await RestaurantCommission.findOneAndDelete({ restaurant: id });
       logger.info(`Associated commission configuration deleted for restaurant: ${id}`);
+
+      // 3. Delete restaurant advertisements and their media assets
+      const adCleanupResult = await cleanupRestaurantAdvertisements(id);
+      logger.info(`Associated advertisements deleted for restaurant: ${id}`, adCleanupResult);
     } catch (cleanupError) {
       logger.error(`Error deleting associated data for restaurant ${id}: ${cleanupError.message}`);
       // Continue with restaurant deletion even if cleanup fails

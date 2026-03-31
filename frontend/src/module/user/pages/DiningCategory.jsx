@@ -94,10 +94,12 @@ export default function DiningCategory() {
 
     // Apply URL category filtering
     if (category) {
+      const normalizeCategory = (value = "") => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "");
+      const c2 = normalizeCategory(category);
+
       filtered = filtered.filter(r => {
         if (!r.cuisine) return false;
-        const c1 = r.cuisine.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const c2 = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const c1 = normalizeCategory(r.cuisine);
 
         if (c1 === c2) return true;
 
@@ -275,7 +277,7 @@ export default function DiningCategory() {
             ) : filteredRestaurants.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {filteredRestaurants.map((restaurant, index) => {
-                  const restaurantSlug = restaurant.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+                  const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
                   const favorite = isFavorite(restaurantSlug)
 
                   const handleToggleFavorite = (e) => {

@@ -32,6 +32,9 @@ export default function DiningRestaurantDetail() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
   const [myBookings, setMyBookings] = useState([]);
+  const [selectedBookingDetails, setSelectedBookingDetails] = useState(null);
+  const [bookingDetailsLoading, setBookingDetailsLoading] = useState(false);
+  const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [platformFee, setPlatformFee] = useState(0);
 
   const copyToClipboard = async (text) => {
@@ -144,6 +147,73 @@ export default function DiningRestaurantDetail() {
       }
     } catch (error) {
 
+    }
+  };
+
+  const getStatusBadgeClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "confirmed" || normalized === "completed") {
+      return "bg-emerald-100 text-emerald-700";
+    }
+    if (normalized === "pending") {
+      return "bg-amber-100 text-amber-700";
+    }
+    if (normalized === "cancelled") {
+      return "bg-gray-100 text-gray-700";
+    }
+    if (normalized === "rejected") {
+      return "bg-red-100 text-red-700";
+    }
+    return "bg-blue-100 text-blue-700";
+  };
+
+  const canCancelBooking = (booking) => {
+    const status = String(booking?.bookingStatus || "").toLowerCase();
+    return status === "pending" || status === "confirmed";
+  };
+
+  const handleViewBookingDetails = async (booking) => {
+    if (!booking?.id && !booking?._id) return;
+    const bookingId = booking.id || booking._id;
+    setBookingDetailsLoading(true);
+    try {
+      const res = await diningAPI.getMyBookingById(bookingId);
+      if (res.data?.success && res.data?.data) {
+        const normalized = normalizeDiningBooking(res.data.data);
+        setSelectedBookingDetails(normalized);
+      } else {
+        setSelectedBookingDetails(normalizeDiningBooking(booking));
+      }
+    } catch (error) {
+      setSelectedBookingDetails(normalizeDiningBooking(booking));
+      toast.error(error.response?.data?.message || "Unable to fetch latest booking details");
+    } finally {
+      setBookingDetailsLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async (booking) => {
+    if (!canCancelBooking(booking)) return;
+    const bookingId = booking?.id || booking?._id;
+    if (!bookingId) return;
+
+    setCancellingBookingId(bookingId);
+    try {
+      const res = await diningAPI.cancelMyBooking(bookingId);
+      if (res.data?.success && res.data?.data) {
+        const updatedBooking = normalizeDiningBooking(res.data.data);
+        const mergedBookings = mergeDiningBookings(myBookings, [updatedBooking]);
+        setMyBookings(mergedBookings);
+        writeDiningBookings(mergedBookings);
+        window.dispatchEvent(new Event("diningBookingsUpdated"));
+      } else {
+        await syncMyBookings();
+      }
+      toast.success("Booking cancelled successfully");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to cancel booking");
+    } finally {
+      setCancellingBookingId(null);
     }
   };
 
@@ -407,7 +477,7 @@ export default function DiningRestaurantDetail() {
                         </div> :
           myBookings.map((b, idx) =>
           <div key={b._id || b.id || idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 relative">
-                            <span className="absolute top-4 right-4 bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">
+                            <span className={`absolute top-4 right-4 text-xs font-bold px-2 py-1 rounded-full ${getStatusBadgeClass(b.bookingStatus)}`}>
                                 {b.bookingStatus || 'Pending'}
                             </span>
                             <h3 className="font-bold text-lg text-gray-900 mb-4">{b.restaurantName || restaurant.name}</h3>
@@ -418,12 +488,56 @@ export default function DiningRestaurantDetail() {
                                 <div><span className="text-gray-500 block text-xs">Table</span><span className="font-medium">{b.tableNumber}</span></div>
                             </div>
                             <div className="pt-4 mt-4 border-t border-gray-50 flex gap-3">
-                                <Button className="flex-1 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl h-10 text-sm">View Details</Button>
-                                <Button className="flex-1 bg-white border border-red-200 text-red-500 font-bold rounded-xl h-10 text-sm hover:bg-red-50">Cancel Booking</Button>
+                                <Button
+                                  onClick={() => handleViewBookingDetails(b)}
+                                  disabled={bookingDetailsLoading}
+                                  className="flex-1 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl h-10 text-sm"
+                                >
+                                  {bookingDetailsLoading ? "Loading..." : "View Details"}
+                                </Button>
+                                <Button
+                                  onClick={() => handleCancelBooking(b)}
+                                  disabled={!canCancelBooking(b) || cancellingBookingId === (b.id || b._id)}
+                                  className="flex-1 bg-white border border-red-200 text-red-500 font-bold rounded-xl h-10 text-sm hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {cancellingBookingId === (b.id || b._id) ? "Cancelling..." : "Cancel Booking"}
+                                </Button>
                             </div>
                         </div>
           )}
                 </div>
+
+                <Dialog open={Boolean(selectedBookingDetails)} onOpenChange={(open) => { if (!open) setSelectedBookingDetails(null); }}>
+                  <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-2xl p-0 overflow-hidden">
+                    <DialogHeader className="px-4 pt-4 pb-3 border-b border-gray-100 pr-12">
+                      <DialogTitle className="text-lg">Booking Details</DialogTitle>
+                      <DialogDescription className="truncate">
+                        {selectedBookingDetails?.restaurantName || "Restaurant"}
+                      </DialogDescription>
+                    </DialogHeader>
+                    {selectedBookingDetails && (
+                      <div className="px-4 py-3 space-y-2.5 text-sm max-h-[60vh] overflow-y-auto">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-gray-500">Status</span>
+                          <span className={`font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(selectedBookingDetails.bookingStatus)}`}>
+                            {selectedBookingDetails.bookingStatus || "Pending"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Date</span><span className="font-semibold text-right">{selectedBookingDetails.date || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Time</span><span className="font-semibold text-right">{selectedBookingDetails.time || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guests</span><span className="font-semibold text-right">{selectedBookingDetails.guests || 0}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Table</span><span className="font-semibold text-right">{selectedBookingDetails.tableNumber || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guest Name</span><span className="font-semibold text-right">{selectedBookingDetails.guestName || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Phone</span><span className="font-semibold text-right break-all">{selectedBookingDetails.guestPhone || "-"}</span></div>
+                        {selectedBookingDetails.cancellationReason && (
+                          <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-xs text-red-700">
+                            Reason: {selectedBookingDetails.cancellationReason}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
             </AnimatedPage>);
 
   }

@@ -1448,12 +1448,18 @@ export const listPublicActiveUserAdvertisements = asyncHandler(async (req, res) 
     startDate: { $lte: now },
     endDate: { $gte: now }
   })
-    .populate('userId', 'name')
+    .populate({
+      path: 'userId',
+      select: 'name isActive',
+      match: { isActive: true }
+    })
     .sort({ position: 1, createdAt: -1 })
     .lean();
 
+  const filteredAds = ads.filter((ad) => Boolean(ad.userId));
+
   return successResponse(res, 200, 'Public active user advertisements fetched successfully', {
-    advertisements: ads.map((ad) => ({
+    advertisements: filteredAds.map((ad) => ({
       id: ad._id,
       adId: ad.adId,
       title: ad.title,

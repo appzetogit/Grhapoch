@@ -12,6 +12,7 @@ export const useDeliveryNotifications = () => {
   // Step 1: All refs first (unconditional)
   const socketRef = useRef(null);
   const audioRef = useRef(null);
+  const pendingSoundRef = useRef(false);
 
   // Step 2: All state hooks (unconditional)
   const [newOrder, setNewOrder] = useState(null);
@@ -48,16 +49,22 @@ export const useDeliveryNotifications = () => {
       }
 
       if (audioRef.current) {
-        // Only play if user has interacted with the page (browser autoplay policy)
-        if (!userInteractedRef.current) {
-
-          return;
+        // If browser already has user activation, unlock sound even if our local flag missed it.
+        if (!userInteractedRef.current && navigator?.userActivation?.hasBeenActive) {
+          userInteractedRef.current = true;
         }
-
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch((error) => {
-          // Don't log autoplay policy errors as they're expected
-          if (!error.message?.includes('user didn\'t interact') && !error.name?.includes('NotAllowedError')) {
+          const isAutoplayBlocked =
+            error?.name?.includes('NotAllowedError') ||
+            error?.message?.includes('user didn\'t interact');
+
+          if (isAutoplayBlocked) {
+            pendingSoundRef.current = true;
+            return;
+          }
+
+          if (!isAutoplayBlocked) {
             console.warn('Error playing notification sound:', error);
           }
         });
@@ -79,6 +86,13 @@ export const useDeliveryNotifications = () => {
   useEffect(() => {
     const handleUserInteraction = () => {
       userInteractedRef.current = true;
+      if (pendingSoundRef.current && audioRef.current) {
+        pendingSoundRef.current = false;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {
+          // ignore
+        });
+      }
       // Remove listeners after first interaction
       document.removeEventListener('click', handleUserInteraction);
       document.removeEventListener('touchstart', handleUserInteraction);

@@ -230,16 +230,19 @@ export const updateDiningSettings = async (req, res) => {
     const nextValue = Boolean(diningEnabled);
 
     if (nextValue === true) {
-        if (!hasActiveSubscription(restaurant)) {
+        // Allow saving settings when dining is already enabled (e.g. update guests/category)
+        if (restaurant.diningEnabled) {
+          restaurant.diningEnabled = true;
+        } else if (!hasActiveSubscription(restaurant)) {
           return errorResponse(res, 400, 'Direct dining enable is disabled. Use request approval flow.');
+        } else {
+          restaurant.diningRequested = true;
+          restaurant.diningStatus = DINING_STATUSES.PAYMENT_SUCCESSFUL;
+          restaurant.diningEnabled = true;
+          restaurant.diningActivationPaid = false;
+          restaurant.diningActivationAmount = 0;
+          restaurant.diningActivationDate = new Date();
         }
-
-        restaurant.diningRequested = true;
-        restaurant.diningStatus = DINING_STATUSES.PAYMENT_SUCCESSFUL;
-        restaurant.diningEnabled = true;
-        restaurant.diningActivationPaid = false;
-        restaurant.diningActivationAmount = 0;
-        restaurant.diningActivationDate = new Date();
       } else {
         restaurant.diningEnabled = false;
       }

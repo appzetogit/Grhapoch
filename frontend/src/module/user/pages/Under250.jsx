@@ -344,28 +344,33 @@ export default function Under250() {
   return (
 
     <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
-      {/* Banner Section with Navbar */}
-      <div className="relative w-full overflow-hidden min-h-[39vh] lg:min-h-[50vh] md:pt-16">
-        {/* Banner Image */}
-        {bannerImage &&
-          <div className="absolute top-0 left-0 right-0 bottom-0 z-0">
-            <OptimizedImage
-              src={bannerImage}
-              alt="Under 250 Banner"
-              className="w-full h-full"
-              objectFit="cover"
-              priority={true}
-              sizes="100vw" />
+      {/* Fixed Navbar */}
+      <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm border-b border-black/5 md:hidden">
+        <div className="pt-2 sm:pt-3 lg:pt-4">
+          <PageNavbar textColor="black" zIndex={30} showProfile={true} />
+        </div>
+      </div>
 
-          </div>
-        }
-        {!bannerImage && !loadingBanner &&
-          <div className="absolute top-0 left-0 right-0 bottom-0 z-0 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900" />
-        }
+      {/* Banner Section */}
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 mt-3 sm:mt-5 pt-16 sm:pt-20">
+        <div className="relative w-full overflow-hidden min-h-[30vh] lg:min-h-[40vh] rounded-2xl sm:rounded-3xl shadow-sm ring-1 ring-black/5">
+          {/* Banner Image */}
+          {bannerImage &&
+            <div className="absolute inset-0 z-0">
+              <OptimizedImage
+                src={bannerImage}
+                alt="Under 250 Banner"
+                className="w-full h-full"
+                objectFit="cover"
+                priority={true}
+                sizes="100vw" />
 
-        {/* Navbar */}
-        <div className="relative z-20 pt-2 sm:pt-3 lg:pt-4 md:hidden">
-          <PageNavbar textColor="black" zIndex={20} showProfile={true} />
+            </div>
+          }
+          {!bannerImage && !loadingBanner &&
+            <div className="absolute inset-0 z-0 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900" />
+          }
+          <div className="relative z-10 w-full h-full" />
         </div>
       </div>
 

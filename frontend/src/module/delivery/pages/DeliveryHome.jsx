@@ -67,6 +67,7 @@ const originalSound = "/assets/audio/original.mp3";
 import bikeLogo from "../../../assets/bikelogo.png";
 
 // Ola Maps API Key removed
+const DELIVERY_PENDING_COMPLETION_KEY = "delivery:pendingCompletionOrderId";
 
 // Mock restaurants data
 const mockRestaurants = [
@@ -758,6 +759,35 @@ export default function DeliveryHome() {
 
   // Use same localStorage key as FeedNavbar for online status
   const LS_KEY = "app:isOnline";
+  const completionRetryInFlightRef = useRef(false);
+
+  const getPendingCompletionOrderId = useCallback(() => {
+    try {
+      return localStorage.getItem(DELIVERY_PENDING_COMPLETION_KEY);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setPendingCompletionOrderId = useCallback((orderId) => {
+    if (!orderId) return;
+    try {
+      localStorage.setItem(DELIVERY_PENDING_COMPLETION_KEY, String(orderId));
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const clearPendingCompletionOrderId = useCallback((orderId = null) => {
+    try {
+      const current = localStorage.getItem(DELIVERY_PENDING_COMPLETION_KEY);
+      if (!current) return;
+      if (orderId && String(current) !== String(orderId)) return;
+      localStorage.removeItem(DELIVERY_PENDING_COMPLETION_KEY);
+    } catch {
+      // no-op
+    }
+  }, []);
 
   // Initialize online status from localStorage (same as FeedNavbar)
   const [isOnline, setIsOnline] = useState(() => {
@@ -3966,6 +3996,7 @@ export default function DeliveryHome() {
       const response = await deliveryAPI.completeDelivery(orderIdForApi, null, '');
 
       if (!response?.data?.success) {
+        setPendingCompletionOrderId(orderIdForApi);
         toast.error(response?.data?.message || 'Failed to complete delivery. Please try again.');
         return false;
       }
@@ -3983,18 +4014,62 @@ export default function DeliveryHome() {
       }
 
       window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
+      clearPendingCompletionOrderId(orderIdForApi);
       if (earnings > 0) {
         toast.success(`Rs ${earnings.toFixed(2)} added to your wallet!`);
       }
       return true;
     } catch (error) {
+      setPendingCompletionOrderId(orderIdForApi);
       const message = error?.response?.data?.message || 'Failed to complete delivery. Please try again.';
       toast.error(message);
       return false;
     } finally {
       setIsCompletingDelivery(false);
     }
-  }, [resolveOrderIdForApi, orderEarnings]);
+  }, [resolveOrderIdForApi, orderEarnings, clearPendingCompletionOrderId, setPendingCompletionOrderId]);
+
+  // Safety net: if delivery completion API fails (network/app close), retry automatically.
+  useEffect(() => {
+    let retryTimer = null;
+
+    const retryPendingCompletion = async () => {
+      if (completionRetryInFlightRef.current) return;
+      const pendingOrderId = getPendingCompletionOrderId();
+      if (!pendingOrderId) return;
+      if (deliveryStatus === 'pending' || deliveryStatus === 'blocked') return;
+
+      completionRetryInFlightRef.current = true;
+      try {
+        const response = await deliveryAPI.completeDelivery(pendingOrderId, null, '');
+        if (response?.data?.success) {
+          clearPendingCompletionOrderId(pendingOrderId);
+          window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
+        }
+      } catch {
+        // Keep retrying silently; user can continue using the app.
+      } finally {
+        completionRetryInFlightRef.current = false;
+      }
+    };
+
+    retryPendingCompletion();
+    retryTimer = setInterval(retryPendingCompletion, 15000);
+
+    const handleFocusOrOnline = () => {
+      retryPendingCompletion();
+    };
+    window.addEventListener('focus', handleFocusOrOnline);
+    window.addEventListener('online', handleFocusOrOnline);
+    document.addEventListener('visibilitychange', handleFocusOrOnline);
+
+    return () => {
+      if (retryTimer) clearInterval(retryTimer);
+      window.removeEventListener('focus', handleFocusOrOnline);
+      window.removeEventListener('online', handleFocusOrOnline);
+      document.removeEventListener('visibilitychange', handleFocusOrOnline);
+    };
+  }, [clearPendingCompletionOrderId, deliveryStatus, getPendingCompletionOrderId]);
 
   // Handle Order Delivered button swipe
   const handleOrderDeliveredTouchStart = (e) => {
@@ -4049,6 +4124,11 @@ export default function DeliveryHome() {
     const threshold = maxSwipe * 0.7; // 70% of max swipe
 
     if (deltaX > threshold) {
+      const pendingOrderId = resolveOrderIdForApi();
+      if (pendingOrderId) {
+        setPendingCompletionOrderId(pendingOrderId);
+      }
+
       // Animate to completion
       setOrderDeliveredIsAnimatingToComplete(true);
       setOrderDeliveredButtonProgress(1);

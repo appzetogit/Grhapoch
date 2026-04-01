@@ -23,6 +23,8 @@ import {
 import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
 import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
 import { resolveNotificationTemplate } from '../services/notificationTemplateService.js';
+import { findNearestDeliveryBoys } from '../services/deliveryAssignmentService.js';
+import { notifyMultipleDeliveryBoys } from '../services/deliveryNotificationService.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
 
@@ -145,6 +147,10 @@ export const getAvailableOrders = asyncHandler(async (req, res) => {
   try {
     const delivery = req.delivery;
     const { page = 1, limit = 20 } = req.query;
+
+    if (delivery?.availability?.isOnline !== true) {
+      return errorResponse(res, 403, 'You are offline. Please go online to view available orders.');
+    }
 
     const deliveryId = delivery?._id?.toString();
     if (!deliveryId) {
@@ -453,6 +459,10 @@ export const acceptOrder = asyncHandler(async (req, res) => {
     const delivery = req.delivery;
     const { orderId } = req.params;
 
+    if (delivery?.availability?.isOnline !== true) {
+      return errorResponse(res, 403, 'You are currently offline. Please go online to accept orders.');
+    }
+
     // Delivery boy's current location (frontend sends either { currentLat, currentLng } or { lat, lng })
     const { currentLat, currentLng, lat, lng } = req.body;
     const deliveryLatFromClient = currentLat ?? lat;
@@ -669,12 +679,125 @@ export const acceptOrder = asyncHandler(async (req, res) => {
         const wallet = await DeliveryWallet.findOne({ deliveryId: delivery._id });
         const cashInHand = Number(wallet?.cashInHand) || 0;
         const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
+        const deliveryIdStr = delivery?._id?.toString?.() || String(delivery?._id);
+        const currentOrderIdStr = order?._id?.toString?.() || '';
 
-        if ((cashInHand + codAmount) > cashLimit) {
+        // Include already assigned/unpaid COD exposure so multiple pending COD accepts
+        // cannot push actual cash-in-hand above configured cash limit after delivery.
+        let pendingCodReserve = 0;
+        const pendingAgg = await Order.aggregate([
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $eq: [
+                      { $toString: { $ifNull: ['$deliveryPartnerId', ''] } },
+                      deliveryIdStr
+                    ]
+                  },
+                  {
+                    $ne: [
+                      { $toString: { $ifNull: ['$_id', ''] } },
+                      currentOrderIdStr
+                    ]
+                  },
+                  {
+                    $or: [
+                      {
+                        $in: [
+                          { $toLower: { $ifNull: ['$payment.method', ''] } },
+                          ['cash', 'cod', 'cash on delivery']
+                        ]
+                      },
+                      {
+                        $in: [
+                          { $toLower: { $ifNull: ['$paymentMethod', ''] } },
+                          ['cash', 'cod', 'cash on delivery']
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    $not: {
+                      $in: [
+                        { $toLower: { $ifNull: ['$paymentStatus', ''] } },
+                        ['paid', 'completed', 'success', 'successful']
+                      ]
+                    }
+                  },
+                  {
+                    $not: {
+                      $in: [
+                        { $toLower: { $ifNull: ['$payment.status', ''] } },
+                        ['paid', 'completed', 'success', 'successful']
+                      ]
+                    }
+                  },
+                  {
+                    $not: {
+                      $in: [
+                        { $toLower: { $ifNull: ['$status', ''] } },
+                        ['delivered', 'cancelled']
+                      ]
+                    }
+                  },
+                  {
+                    $ne: [
+                      { $toLower: { $ifNull: ['$deliveryState.currentPhase', ''] } },
+                      'completed'
+                    ]
+                  },
+                  {
+                    $ne: [
+                      { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
+                      'delivered'
+                    ]
+                  },
+                  {
+                    // Reserve only for truly active COD in-transit orders.
+                    // Business rule: only out_for_delivery orders should consume COD reserve.
+                    $eq: [
+                      { $toLower: { $ifNull: ['$status', ''] } },
+                      'out_for_delivery'
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: {
+                $sum: {
+                  $ifNull: [
+                    '$pricing.total',
+                    { $ifNull: ['$total', 0] }
+                  ]
+                }
+              }
+            }
+          }
+        ]);
+        pendingCodReserve = Number(pendingAgg?.[0]?.total) || 0;
+
+        const projectedCodExposure = cashInHand + pendingCodReserve + codAmount;
+        if (projectedCodExposure > cashLimit) {
+          const availableLimit = Math.max(0, cashLimit - cashInHand - pendingCodReserve);
           return errorResponse(
             res,
             400,
-            `Cash limit exceeded (₹${cashLimit}). Please deposit collected cash before accepting more COD orders.`
+            `Cash limit exceeded (Rs ${cashLimit}). Please deposit collected cash before accepting more COD orders.`,
+            {
+              code: 'DELIVERY_CASH_LIMIT_EXCEEDED',
+              cashLimit,
+              cashInHand,
+              pendingCodReserve,
+              codAmount,
+              projectedCodExposure,
+              availableLimit
+            }
           );
         }
       } catch (limitError) {
@@ -1121,6 +1244,158 @@ export const acceptOrder = asyncHandler(async (req, res) => {
       deliveryId: req.delivery?._id
     });
     return errorResponse(res, 500, error.message || 'Failed to accept order');
+  }
+});
+
+/**
+ * Reject / Deny order (Delivery Boy denies incoming order request)
+ * PATCH /api/delivery/orders/:orderId/reject
+ */
+export const rejectOrder = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+    const reason = String(req.body?.reason || '').trim();
+    const currentDeliveryId = delivery?._id?.toString();
+
+    if (!currentDeliveryId) {
+      return errorResponse(res, 401, 'Delivery partner authentication required');
+    }
+
+    const orderLookup = mongoose.Types.ObjectId.isValid(orderId) && typeof orderId === 'string' && orderId.length === 24 ?
+      {
+        $or: [
+          { _id: orderId },
+          { orderId: orderId }]
+      } :
+      { orderId: orderId };
+
+    const order = await Order.findOne(orderLookup)
+      .populate('restaurantId', 'name location address phone ownerPhone')
+      .populate('userId', 'name phone')
+      .lean();
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    if (!['preparing', 'ready'].includes(order.status)) {
+      return errorResponse(res, 400, `Order cannot be denied. Current status: ${order.status}`);
+    }
+
+    const assignmentInfo = order.assignmentInfo || {};
+    const normalizeId = (id) => id ? id.toString() : null;
+    const priorityIds = (assignmentInfo.priorityDeliveryPartnerIds || []).map(normalizeId).filter(Boolean);
+    const expandedIds = (assignmentInfo.expandedDeliveryPartnerIds || []).map(normalizeId).filter(Boolean);
+    const rejectedIds = (assignmentInfo.rejectedDeliveryPartnerIds || []).map(normalizeId).filter(Boolean);
+
+    const orderDeliveryPartnerId = normalizeId(order.deliveryPartnerId);
+    const isAssignedToCurrent = orderDeliveryPartnerId === currentDeliveryId;
+    const wasNotified = priorityIds.includes(currentDeliveryId) || expandedIds.includes(currentDeliveryId);
+
+    if (!isAssignedToCurrent && !wasNotified) {
+      return errorResponse(res, 403, 'This order is not available for you');
+    }
+
+    const nextRejectedIds = Array.from(new Set([...rejectedIds, currentDeliveryId]));
+    const nextPriorityIds = priorityIds.filter((id) => id !== currentDeliveryId);
+    const nextExpandedIds = expandedIds.filter((id) => id !== currentDeliveryId);
+
+    const updateSet = {
+      'assignmentInfo.rejectedDeliveryPartnerIds': nextRejectedIds,
+      'assignmentInfo.lastRejectedAt': new Date(),
+      'assignmentInfo.priorityDeliveryPartnerIds': nextPriorityIds,
+      'assignmentInfo.expandedDeliveryPartnerIds': nextExpandedIds
+    };
+
+    if (reason) {
+      updateSet['assignmentInfo.lastRejectedReason'] = reason;
+    }
+
+    if (isAssignedToCurrent) {
+      updateSet.deliveryPartnerId = null;
+      updateSet['deliveryState.currentPhase'] = 'assigned';
+      updateSet['deliveryState.status'] = 'pending';
+      updateSet['assignmentInfo.deliveryPartnerId'] = '';
+      updateSet['assignmentInfo.assignedAt'] = new Date();
+      updateSet['assignmentInfo.assignedBy'] = 'manual';
+    }
+
+    let updatedOrder = await Order.findOneAndUpdate(orderLookup, { $set: updateSet }, { new: true }).lean();
+    if (!updatedOrder) {
+      return errorResponse(res, 500, 'Failed to update order rejection');
+    }
+
+    // Re-notify next eligible riders excluding already rejected riders.
+    const orderRestaurantId = updatedOrder.restaurantId;
+    let restaurantDoc = null;
+    if (mongoose.Types.ObjectId.isValid(orderRestaurantId)) {
+      restaurantDoc = await Restaurant.findById(orderRestaurantId).select('location').lean();
+    }
+    if (!restaurantDoc) {
+      restaurantDoc = await Restaurant.findOne({
+        $or: [{ restaurantId: orderRestaurantId }, { _id: orderRestaurantId }]
+      }).select('location').lean();
+    }
+
+    let notifiedCount = 0;
+    if (restaurantDoc?.location?.coordinates?.length >= 2) {
+      const [restaurantLng, restaurantLat] = restaurantDoc.location.coordinates;
+      const isCod = isCashPaymentMethod(updatedOrder.payment?.method);
+      const codAmount = Number(updatedOrder?.pricing?.total || 0);
+      const rejectedSet = new Set((updatedOrder.assignmentInfo?.rejectedDeliveryPartnerIds || []).map(String));
+
+      const fetchCandidates = async (radiusKm, maxPartners) => {
+        const candidates = await findNearestDeliveryBoys(
+          restaurantLat,
+          restaurantLng,
+          orderRestaurantId,
+          radiusKm,
+          maxPartners,
+          isCod,
+          codAmount
+        );
+        return (candidates || []).filter((partner) => !rejectedSet.has(String(partner.deliveryPartnerId)));
+      };
+
+      let candidates = await fetchCandidates(20, 10);
+      if (candidates.length === 0) {
+        candidates = await fetchCandidates(50, 20);
+      }
+
+      if (candidates.length > 0) {
+        const notifyIds = candidates.map((c) => String(c.deliveryPartnerId));
+        await Order.findByIdAndUpdate(updatedOrder._id, {
+          $set: {
+            'assignmentInfo.priorityDeliveryPartnerIds': notifyIds,
+            'assignmentInfo.priorityNotifiedAt': new Date(),
+            'assignmentInfo.notificationPhase': 'priority',
+            'assignmentInfo.assignedBy': 'manual',
+            'assignmentInfo.assignedAt': new Date()
+          }
+        });
+
+        const populatedOrder = await Order.findById(updatedOrder._id)
+          .populate('userId', 'name phone')
+          .populate('restaurantId', 'name location address phone ownerPhone')
+          .lean();
+
+        if (populatedOrder) {
+          await notifyMultipleDeliveryBoys(populatedOrder, notifyIds, 'priority');
+          notifiedCount = notifyIds.length;
+        }
+      }
+
+      updatedOrder = await Order.findById(updatedOrder._id).lean();
+    }
+
+    return successResponse(res, 200, 'Order denied successfully', {
+      order: updatedOrder,
+      notifiedCount
+    });
+  } catch (error) {
+    logger.error(`Error denying order: ${error.message}`);
+    return errorResponse(res, 500, error.message || 'Failed to deny order');
   }
 });
 

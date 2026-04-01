@@ -315,6 +315,9 @@ const orderSchema = new mongoose.Schema({
     priorityNotifiedAt: Date,
     expandedDeliveryPartnerIds: [String],
     expandedNotifiedAt: Date,
+    rejectedDeliveryPartnerIds: [String],
+    lastRejectedAt: Date,
+    lastRejectedReason: String,
     notificationPhase: {
       type: String,
       enum: ['priority', 'expanded', 'immediate']

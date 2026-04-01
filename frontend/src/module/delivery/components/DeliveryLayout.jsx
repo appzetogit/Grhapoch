@@ -33,13 +33,17 @@ export default function DeliveryLayout({
     }
   }, [location.pathname])
 
+  // Normalize trailing slash so "/delivery/" behaves same as "/delivery"
+  const normalizedPath =
+    location.pathname !== '/' ? location.pathname.replace(/\/+$/, '') : '/';
+
   // Pages where bottom navigation should be shown
   const showBottomNav = [
     '/delivery',
     '/delivery/requests',
     '/delivery/trip-history',
     '/delivery/profile'
-  ].includes(location.pathname)
+  ].includes(normalizedPath)
 
   return (
     <>

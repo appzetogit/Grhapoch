@@ -118,6 +118,16 @@ export default function PocketPage() {
     };
   }, []);
 
+  // Support deep-link opening of Deposit popup from other screens.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const shouldOpenDeposit = params.get("openDeposit");
+    if (shouldOpenDeposit === "1" || shouldOpenDeposit === "true") {
+      setShowDepositPopup(true);
+      navigate("/delivery/requests", { replace: true });
+    }
+  }, [location.search, navigate]);
+
   // Carousel slides data - only show bank details banner when not filled
   const carouselSlides = useMemo(() =>
     bankDetailsFilled ? [] : [{

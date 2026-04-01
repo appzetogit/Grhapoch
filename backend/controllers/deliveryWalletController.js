@@ -253,6 +253,14 @@ export const getWallet = asyncHandler(async (req, res) => {
                     { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
                     'delivered'
                   ]
+                },
+                {
+                  // Reserve only for truly active COD in-transit orders.
+                  // Business rule: only out_for_delivery orders should consume COD reserve.
+                  $eq: [
+                    { $toLower: { $ifNull: ['$status', ''] } },
+                    'out_for_delivery'
+                  ]
                 }
               ]
             }

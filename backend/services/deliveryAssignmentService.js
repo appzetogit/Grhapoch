@@ -43,45 +43,10 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
       'availability.currentLocation.coordinates': { $exists: true }
     };
 
-    // Filter by cash limit if order is COD
-    let eligibleIdsForCod = [];
-    if (isCod) {
-      try {
-        const BusinessSettings = (await import('../models/BusinessSettings.js')).default;
-        const DeliveryWallet = (await import('../models/DeliveryWallet.js')).default;
-
-        const settings = await BusinessSettings.getSettings();
-        const cashLimit = settings.deliveryCashLimit || 750;
-        const codAmountValue = Number(codAmount) || 0;
-        const maxCashInHand = cashLimit - codAmountValue;
-
-        if (maxCashInHand < 0) {
-          // Order itself exceeds cash limit; no one can accept
-          return [];
-        }
-
-        // Find wallets where cashInHand is below limit
-        const walletsUnderLimit = await DeliveryWallet.find({
-          cashInHand: { $lte: maxCashInHand }
-        }).select('deliveryId cashInHand').lean();
-
-        eligibleIdsForCod = walletsUnderLimit.map((w) => w.deliveryId);
-
-
-
-
-        if (eligibleIdsForCod.length > 0) {
-          // Add to query
-          deliveryQuery._id = { $in: eligibleIdsForCod };
-        } else {
-          // Strict: no partners under cash limit
-          return [];
-        }
-      } catch (limitError) {
-        console.error('Error filtering by cash limit in findNearestDeliveryBoys:', limitError);
-        return [];
-      }
-    }
+    // Important business rule:
+    // Do NOT filter riders by COD cash-limit at assignment/discovery stage.
+    // Let riders receive order notifications, and enforce cash-limit only
+    // when rider attempts to accept the order (with proper popup/error).
 
     // Geo-near filter (priority distance)
     deliveryQuery['availability.currentLocation'] = {
@@ -181,49 +146,10 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
       'availability.currentLocation.coordinates': { $exists: true }
     };
 
-    // Filter by cash limit if order is COD
-    if (isCod) {
-      try {
-        const BusinessSettings = (await import('../models/BusinessSettings.js')).default;
-        const DeliveryWallet = (await import('../models/DeliveryWallet.js')).default;
-
-        const settings = await BusinessSettings.getSettings();
-        const cashLimit = settings.deliveryCashLimit || 750;
-        const codAmountValue = Number(codAmount) || 0;
-        const maxCashInHand = cashLimit - codAmountValue;
-
-        if (maxCashInHand < 0) {
-          // Order itself exceeds cash limit; no one can accept
-          return null;
-        }
-
-        // Find wallets where cashInHand is below limit
-        const walletsUnderLimit = await DeliveryWallet.find({
-          cashInHand: { $lte: maxCashInHand }
-        }).select('deliveryId cashInHand').lean();
-
-        const eligibleIds = walletsUnderLimit.map((w) => w.deliveryId);
-
-
-
-        if (eligibleIds.length > 0) {
-          // Add to query (intersection with potentially existing _id query from excludeIds)
-          if (deliveryQuery._id) {
-            // If _id already exists (e.g., from excludeIds), combine them
-            const existingIds = deliveryQuery._id.$nin || [];
-            deliveryQuery._id = { $nin: existingIds, $in: eligibleIds };
-          } else {
-            deliveryQuery._id = { $in: eligibleIds };
-          }
-        } else {
-          // Strict: no partners under cash limit
-          return null;
-        }
-      } catch (limitError) {
-        console.error('Error filtering by cash limit in findNearestDeliveryBoy:', limitError);
-        return null;
-      }
-    }
+    // Important business rule:
+    // Do NOT filter riders by COD cash-limit at assignment/discovery stage.
+    // Let riders receive order notifications, and enforce cash-limit only
+    // when rider attempts to accept the order (with proper popup/error).
 
     // Exclude already notified delivery partners
     if (excludeIds && excludeIds.length > 0) {

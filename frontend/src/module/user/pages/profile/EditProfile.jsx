@@ -531,18 +531,10 @@ export default function EditProfile() {
         {/* Camera Modal */}
         {activeCamera && (
           <div className="fixed inset-0 z-[1000] flex flex-col bg-black overflow-hidden h-screen h-[100dvh] w-screen m-0 p-0 border-0 outline-none">
-            <div className="flex-shrink-0 flex items-center justify-between p-4 text-white z-[1001] bg-gradient-to-b from-black/80 to-transparent">
+            <div className="flex-shrink-0 flex items-center justify-between p-4 text-white z-[1001] bg-black">
               <h3 className="text-lg font-medium">Take Photo</h3>
               <div className="flex items-center gap-2">
-                {hasMultipleCameras && !capturedImage && (
-                  <button
-                    onClick={toggleFacingMode}
-                    className="p-3 hover:bg-white/20 rounded-full transition-colors active:bg-white/30"
-                    title="Switch Camera"
-                  >
-                    <RefreshCw className="w-6 h-6" />
-                  </button>
-                )}
+
                 <button onClick={() => { setActiveCamera(null); setCapturedImage(null); }} className="p-2">
                   <X className="w-6 h-6" />
                 </button>
@@ -561,12 +553,12 @@ export default function EditProfile() {
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  className={`w-full h-full object-cover sm:object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  className={`w-full h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
                 />
               )}
             </div>
 
-            <div className="flex-shrink-0 p-8 pb-12 bg-black flex items-center justify-center gap-6 border-0 m-0">
+            <div className="flex-shrink-0 p-8 pb-12 bg-black flex items-center justify-center border-0 m-0">
               {capturedImage ? (
                 <>
                   <button
@@ -589,14 +581,25 @@ export default function EditProfile() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={takePhoto}
-                  className="flex flex-col items-center gap-2 group"
-                >
-                  <div className="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center p-1.5 transition-transform group-active:scale-95 group-hover:scale-105">
-                    <div className="w-full h-full rounded-full bg-white shadow-inner"></div>
-                  </div>
-                </button>
+                <div className="relative flex items-center justify-center w-full">
+                  <button
+                    onClick={takePhoto}
+                    className="flex flex-col items-center gap-2 group"
+                  >
+                    <div className="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center p-1.5 transition-transform group-active:scale-95 group-hover:scale-105">
+                      <div className="w-full h-full rounded-full bg-white shadow-inner"></div>
+                    </div>
+                  </button>
+                  {!capturedImage && (
+                    <button
+                      onClick={toggleFacingMode}
+                      className="absolute right-0 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:bg-white/30"
+                      title="Switch Camera"
+                    >
+                      <RefreshCw className="w-6 h-6 text-white" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

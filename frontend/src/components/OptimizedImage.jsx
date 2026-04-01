@@ -36,8 +36,15 @@ const OptimizedImage = ({
   const supportsOptimization = (imageSrc) => {
     if (!imageSrc || typeof imageSrc !== 'string' || imageSrc === '') return false
     if (imageSrc.startsWith('data:') || imageSrc.startsWith('/')) return false
+    
     // Check if it's an external URL (http/https)
-    return /^https?:\/\//.test(imageSrc)
+    if (!/^https?:\/\//.test(imageSrc)) return false
+    
+    // Exclude domains known to be unreliable or not supporting these params
+    const excludedDomains = ['via.placeholder.com', 'placeholder.com'];
+    if (excludedDomains.some(domain => imageSrc.includes(domain))) return false
+    
+    return true
   }
 
   // Generate responsive srcset
@@ -108,8 +115,9 @@ const OptimizedImage = ({
   // Default blur placeholder (tiny gray square)
   const defaultBlurDataURL = blurDataURL || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjwvc3ZnPg=='
 
-  // Don't render if src is empty or null
-  if (!src || src === '') {
+  // Don't render if src is empty or known to be invalid/unreachable
+  const isInvalidSrc = !src || src === '' || src.includes('via.placeholder.com') || src.includes('placeholder.com')
+  if (isInvalidSrc) {
     return (
       <div className={`relative overflow-hidden ${className}`}>
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">

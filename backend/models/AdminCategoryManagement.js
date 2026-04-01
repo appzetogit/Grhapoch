@@ -9,7 +9,7 @@ const adminCategoryManagementSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      default: 'https://via.placeholder.com/40',
+      default: '',
     },
     type: {
       type: String,

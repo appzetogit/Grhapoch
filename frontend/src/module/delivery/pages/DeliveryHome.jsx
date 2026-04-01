@@ -27,6 +27,7 @@ import {
   IndianRupee,
   Loader2,
   Camera,
+  SwitchCamera,
   AlertTriangle
 } from
   "lucide-react";
@@ -719,6 +720,7 @@ export default function DeliveryHome() {
   const [billImageUrl, setBillImageUrl] = useState(null);
   const [isUploadingBill, setIsUploadingBill] = useState(false);
   const [billImageUploaded, setBillImageUploaded] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState('environment');
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const [orderDeliveredButtonProgress, setOrderDeliveredButtonProgress] = useState(0);
@@ -10269,7 +10271,7 @@ export default function DeliveryHome() {
               </p>
 
               {/* Camera Button */}
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center mb-4 gap-3">
                 <button
                   onClick={handleCameraCapture}
                   disabled={isUploadingBill}
@@ -10297,6 +10299,14 @@ export default function DeliveryHome() {
                       </>
                   }
                 </button>
+                <button
+                  onClick={() => setCameraFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
+                  disabled={isUploadingBill}
+                  className="flex items-center justify-center p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200"
+                  title="Flip Camera"
+                >
+                  <SwitchCamera className="w-5 h-5 text-gray-700" />
+                </button>
               </div>
 
               {/* Hidden file input for camera (sr-only keeps it in DOM for mobile camera) */}
@@ -10305,7 +10315,7 @@ export default function DeliveryHome() {
                 ref={cameraInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
+                capture={cameraFacingMode}
                 onChange={handleBillImageSelect}
                 className="sr-only" />
 

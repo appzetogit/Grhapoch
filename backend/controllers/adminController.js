@@ -1499,7 +1499,7 @@ export const getRestaurantJoinRequests = asyncHandler(async (req, res) => {
         _id: restaurant._id.toString(),
         sl: skip + index + 1,
         restaurantName: restaurant.name || 'N/A',
-        restaurantImage: restaurant.profileImage?.url || restaurant.onboarding?.step2?.profileImageUrl?.url || 'https://via.placeholder.com/40',
+        restaurantImage: restaurant.profileImage?.url || restaurant.onboarding?.step2?.profileImageUrl?.url || '',
         ownerName: restaurant.ownerName || 'N/A',
         ownerPhone: restaurant.ownerPhone || restaurant.phone || 'N/A',
         zone: zone,

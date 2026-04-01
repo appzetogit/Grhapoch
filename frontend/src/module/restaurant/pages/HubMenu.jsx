@@ -17,13 +17,15 @@ import {
   ArrowLeft,
   Trash2,
   RefreshCw,
-  Loader2 } from
-"lucide-react";
+  Loader2
+} from
+  "lucide-react";
 import BottomNavOrders from "../components/BottomNavOrders";
 // Removed foodManagement - now using backend API directly
 import { useNavigate } from "react-router-dom";
 import { restaurantAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
+import OptimizedImage from "@/components/OptimizedImage";
 
 export default function HubMenu() {
   const navigate = useNavigate();
@@ -45,7 +47,9 @@ export default function HubMenu() {
   const [customDateTime, setCustomDateTime] = useState('');
   const [isScheduling, setIsScheduling] = useState(false);
   const [menuData, setMenuData] = useState([]); // Store menu groups with state
+  const fetchedMenuDataRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const [debugInfo, setDebugInfo] = useState({ fetchStatus: 'idle', menuLength: 0, err: null });
   const [isScrolled, setIsScrolled] = useState(false);
   const mainScrollRef = useRef(null);
   const [isAddSubCategoryOpen, setIsAddSubCategoryOpen] = useState(false);
@@ -56,7 +60,15 @@ export default function HubMenu() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [restaurantData, setRestaurantData] = useState(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
   const [isAddAddonModalOpen, setIsAddAddonModalOpen] = useState(false);
+  const [isAddonDeleteConfirmOpen, setIsAddonDeleteConfirmOpen] = useState(false);
+  const [addonToDelete, setAddonToDelete] = useState(null);
+  const [isDeletingAddon, setIsDeletingAddon] = useState(false);
+  const [isItemDeleteConfirmOpen, setIsItemDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
   const [addons, setAddons] = useState([]);
   const [loadingAddons, setLoadingAddons] = useState(false);
 
@@ -74,8 +86,8 @@ export default function HubMenu() {
   // Restaurant info - fetch from backend
   const restaurantName = restaurantData?.name || "";
   const restaurantExpertise = restaurantData?.cuisines?.length > 0 ?
-  restaurantData.cuisines.join(", ") :
-  "";
+    restaurantData.cuisines.join(", ") :
+    "";
 
   // Handle scroll to change title
   useEffect(() => {
@@ -128,26 +140,26 @@ export default function HubMenu() {
 
   // Filter options with dynamic counts
   const filterOptions = useMemo(() => [
-  { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
-  { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
-  { id: "goods", label: "Goods", count: calculateFilterCounts.goods },
-  { id: "services", label: "Services", count: calculateFilterCounts.services },
-  { id: "item-not-live", label: "Item not live", count: calculateFilterCounts["item-not-live"] },
-  { id: "photos-rejected", label: "Photos rejected", count: calculateFilterCounts["photos-rejected"] },
-  { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
-  { id: "under-review", label: "Under review", count: calculateFilterCounts["under-review"] },
-  { id: "without-description", label: "Without description", count: calculateFilterCounts["without-description"] },
-  { id: "without-serving-info", label: "Without serving info", count: calculateFilterCounts["without-serving-info"] }],
-  [calculateFilterCounts]);
+    { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
+    { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
+    { id: "goods", label: "Goods", count: calculateFilterCounts.goods },
+    { id: "services", label: "Services", count: calculateFilterCounts.services },
+    { id: "item-not-live", label: "Item not live", count: calculateFilterCounts["item-not-live"] },
+    { id: "photos-rejected", label: "Photos rejected", count: calculateFilterCounts["photos-rejected"] },
+    { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
+    { id: "under-review", label: "Under review", count: calculateFilterCounts["under-review"] },
+    { id: "without-description", label: "Without description", count: calculateFilterCounts["without-description"] },
+    { id: "without-serving-info", label: "Without serving info", count: calculateFilterCounts["without-serving-info"] }],
+    [calculateFilterCounts]);
 
   // Quick filter buttons (horizontally scrollable) - only show filters with count > 0
   const quickFilters = useMemo(() => {
     const filters = [
-    { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
-    { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
-    { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
-    { id: "services", label: "Services", count: calculateFilterCounts.services },
-    { id: "photos-rejected", label: "Photos Rejected", count: calculateFilterCounts["photos-rejected"] }];
+      { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
+      { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
+      { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
+      { id: "services", label: "Services", count: calculateFilterCounts.services },
+      { id: "photos-rejected", label: "Photos Rejected", count: calculateFilterCounts["photos-rejected"] }];
 
     // Only return filters with count > 0
     return filters.filter((f) => f.count > 0);
@@ -186,11 +198,13 @@ export default function HubMenu() {
 
       if (response.data && response.data.success && response.data.data && response.data.data.menu) {
         const menuSections = response.data.data.menu.sections || [];
+        fetchedMenuDataRef.current = JSON.stringify(menuSections);
         setMenuData(menuSections);
 
         // Menu data is now directly from backend, no need to transform
       } else {
         // Empty menu - start fresh
+        fetchedMenuDataRef.current = JSON.stringify([]);
         setMenuData([]);
       }
     } catch (error) {
@@ -200,9 +214,7 @@ export default function HubMenu() {
         toast.error('Failed to load menu');
       }
 
-
-
-      setMenuData([]);
+      // DO NOT setMenuData to empty array on error to prevent auto-save from wiping existing data
     } finally {
       if (showLoading) {
         setLoadingMenu(false);
@@ -254,6 +266,11 @@ export default function HubMenu() {
   // Save menu to API whenever menuData changes (debounced)
   useEffect(() => {
     if (!loadingMenu && menuData.length >= 0) {
+      // Prevent auto-save if data is identical to what was fetched from the backend or if it hasn't fetched yet
+      if (fetchedMenuDataRef.current === null || fetchedMenuDataRef.current === JSON.stringify(menuData)) {
+        return;
+      }
+
       const timeoutId = setTimeout(async () => {
         try {
           // Normalize menuData before saving to ensure proper structure matching backend schema
@@ -365,9 +382,7 @@ export default function HubMenu() {
       if (showLoading) setLoadingAddons(true);
       const response = await restaurantAPI.getAddons();
       const data = response?.data?.data?.addons || response?.data?.addons || [];
-      // Filter to show only approved add-ons
-      const approvedAddons = data.filter((addon) => addon.approvalStatus === 'approved');
-      setAddons(approvedAddons);
+      setAddons(data);
     } catch (error) {
       console.error('Error fetching add-ons:', error);
       toast.error('Failed to load add-ons');
@@ -424,9 +439,7 @@ export default function HubMenu() {
   const handleAddonImageDelete = (index) => {
     if (index < 0 || index >= addonImages.length) return;
 
-    if (!window.confirm('Are you sure you want to delete this image?')) {
-      return;
-    }
+
 
     const imageToDelete = addonImages[index];
     const newImages = addonImages.filter((_, i) => i !== index);
@@ -439,7 +452,7 @@ export default function HubMenu() {
       setAddonImageFiles(new Map(addonImageFiles));
     }
 
-    toast.success('Image removed');
+
   };
 
   // Handle add-on save
@@ -460,9 +473,9 @@ export default function HubMenu() {
       const uploadedImageUrls = [];
 
       const existingImageUrls = addonImages.filter((img) =>
-      typeof img === 'string' && (
-      img.startsWith('http://') || img.startsWith('https://')) &&
-      !img.startsWith('blob:')
+        typeof img === 'string' && (
+          img.startsWith('http://') || img.startsWith('https://')) &&
+        !img.startsWith('blob:')
       );
 
       const filesToUpload = Array.from(addonImageFiles.values());
@@ -489,14 +502,14 @@ export default function HubMenu() {
       }
 
       const allImageUrls = [
-      ...existingImageUrls,
-      ...uploadedImageUrls].
-      filter((url, index, self) =>
-      url &&
-      typeof url === 'string' &&
-      url.trim() !== '' &&
-      self.indexOf(url) === index
-      );
+        ...existingImageUrls,
+        ...uploadedImageUrls].
+        filter((url, index, self) =>
+          url &&
+          typeof url === 'string' &&
+          url.trim() !== '' &&
+          self.indexOf(url) === index
+        );
 
       const addonData = {
         name: addonName.trim(),
@@ -509,11 +522,9 @@ export default function HubMenu() {
       if (editingAddon) {
         // Update existing add-on
         await restaurantAPI.updateAddon(editingAddon.id, addonData);
-        toast.success('Add-on updated successfully! Pending admin approval if previously approved.');
       } else {
         // Create new add-on
         await restaurantAPI.addAddon(addonData);
-        toast.success('Add-on added successfully! Pending admin approval.');
       }
 
       // Reset form
@@ -547,18 +558,25 @@ export default function HubMenu() {
   };
 
   // Handle delete add-on
-  const handleDeleteAddon = async (addon) => {
-    if (!window.confirm(`Are you sure you want to delete "${addon.name}"? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteAddon = (addon) => {
+    setAddonToDelete(addon);
+    setIsAddonDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteAddon = async () => {
+    if (!addonToDelete) return;
 
     try {
-      await restaurantAPI.deleteAddon(addon.id);
-      toast.success('Add-on deleted successfully');
+      setIsDeletingAddon(true);
+      await restaurantAPI.deleteAddon(addonToDelete.id);
+      setIsAddonDeleteConfirmOpen(false);
+      setAddonToDelete(null);
       fetchAddons(true);
     } catch (error) {
       console.error('Error deleting add-on:', error);
       toast.error(error?.response?.data?.message || 'Failed to delete add-on');
+    } finally {
+      setIsDeletingAddon(false);
     }
   };
 
@@ -599,7 +617,7 @@ export default function HubMenu() {
   // Prevent body scroll when popups are open
   useEffect(() => {
     if (isFilterOpen || isAddPopupOpen || isMenuOpen || isAvailabilityPopupOpen ||
-    isCategoryOptionsOpen || isEditCategoryOpen || isAddSubCategoryOpen || isAddCategoryPopupOpen || isSearchOpen || isAddAddonModalOpen) {
+      isCategoryOptionsOpen || isEditCategoryOpen || isAddSubCategoryOpen || isAddCategoryPopupOpen || isSearchOpen || isAddAddonModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -608,7 +626,7 @@ export default function HubMenu() {
       document.body.style.overflow = 'unset';
     };
   }, [isFilterOpen, isAddPopupOpen, isMenuOpen, isAvailabilityPopupOpen,
-  isCategoryOptionsOpen, isEditCategoryOpen, isAddSubCategoryOpen, isAddCategoryPopupOpen, isSearchOpen, isAddAddonModalOpen]);
+    isCategoryOptionsOpen, isEditCategoryOpen, isAddSubCategoryOpen, isAddCategoryPopupOpen, isSearchOpen, isAddAddonModalOpen]);
 
   // Filter menu based on active filter and search query
   const filteredMenuGroups = useMemo(() => {
@@ -643,8 +661,8 @@ export default function HubMenu() {
       filtered = filtered.map((group) => {
         const filteredItems = group.items.filter((item) => {
           return item.name.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query) ||
-          item.description && item.description.toLowerCase().includes(query);
+            item.category.toLowerCase().includes(query) ||
+            item.description && item.description.toLowerCase().includes(query);
         });
         return { ...group, items: filteredItems };
       }).filter((group) => group.items.length > 0);
@@ -680,7 +698,7 @@ export default function HubMenu() {
       setMenuData((prev) => prev.map((g) => ({
         ...g,
         items: g.items.map((i) =>
-        i.id === itemId ? { ...i, isAvailable: true } : i
+          i.id === itemId ? { ...i, isAvailable: true } : i
         )
       })));
     }
@@ -725,31 +743,17 @@ export default function HubMenu() {
             setMenuData((prev) => prev.map((g) => ({
               ...g,
               items: g.items.map((i) =>
-              i.id === switchingOffTarget.id ? { ...i, isAvailable: false } : i
+                i.id === switchingOffTarget.id ? { ...i, isAvailable: false } : i
               ),
               subsections: g.subsections?.map((sub) => ({
                 ...sub,
                 items: sub.items.map((i) =>
-                i.id === switchingOffTarget.id ? { ...i, isAvailable: false } : i
+                  i.id === switchingOffTarget.id ? { ...i, isAvailable: false } : i
                 )
               }))
             })));
           }
-
-          toast.success(
-            availabilityReason === 'manual' ?
-            'Item availability updated' :
-            'Item availability scheduled successfully'
-          );
-        } else {
-          throw new Error(response.data?.message || 'Failed to schedule availability');
         }
-      } else if (switchingOffTarget.type === 'group') {
-        // For groups, just update locally (no API support yet)
-        setMenuData((prev) => prev.map((g) =>
-        g.id === switchingOffTarget.id ? { ...g, isEnabled: false } : g
-        ));
-        toast.success('Category availability updated');
       }
 
       setIsAvailabilityPopupOpen(false);
@@ -761,6 +765,39 @@ export default function HubMenu() {
       toast.error(error.response?.data?.message || 'Failed to schedule item availability');
     } finally {
       setIsScheduling(false);
+    }
+  };
+
+  // Handle delete item
+  const handleDeleteItem = (item, groupId) => {
+    setItemToDelete({ ...item, groupId });
+    setIsItemDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      setIsDeletingItem(true);
+      // Update local state - the auto-save useEffect will handle the backend sync
+      setMenuData(prev => prev.map(group => {
+        if (group.id === itemToDelete.groupId) {
+          return {
+            ...group,
+            items: group.items.filter(i => i.id !== itemToDelete.id)
+          };
+        }
+        return group;
+      }));
+
+      setIsItemDeleteConfirmOpen(false);
+      setItemToDelete(null);
+      // No toast needed as per user preference for clean UI
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast.error('Failed to delete item');
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -868,8 +905,6 @@ export default function HubMenu() {
           setMenuData(menuResponse.data.data.menu.sections || []);
         }
 
-        toast.success('Category added successfully!');
-
         // Navigate to new item page with new category
         navigate('/restaurant/hub-menu/item/new', {
           state: {
@@ -891,14 +926,17 @@ export default function HubMenu() {
     setNewCategoryName("");
   };
 
-  const handleDeleteCategory = async () => {
+  const handleDeleteCategory = () => {
+    if (!selectedCategory) return;
+    setIsDeleteConfirmOpen(true);
+    setIsCategoryOptionsOpen(false);
+  };
+
+  const handleConfirmDeleteCategory = async () => {
     if (!selectedCategory) return;
 
-    if (!window.confirm(`Are you sure you want to delete the category "${selectedCategory.name}"? This will delete all items in this category.`)) {
-      return;
-    }
-
     try {
+      setIsDeletingCategory(true);
       // Remove section from menuData and update backend
       const updatedSections = menuData.filter((section) => section.id !== selectedCategory.id);
 
@@ -906,15 +944,14 @@ export default function HubMenu() {
 
       // Update local state
       setMenuData(updatedSections);
-      toast.success('Category deleted successfully');
     } catch (error) {
       console.error('Error deleting category:', error);
       toast.error('Failed to delete category');
-      return;
+    } finally {
+      setIsDeletingCategory(false);
+      setIsDeleteConfirmOpen(false);
+      setSelectedCategory(null);
     }
-
-    setIsCategoryOptionsOpen(false);
-    setSelectedCategory(null);
   };
 
   // Scroll to category
@@ -935,25 +972,25 @@ export default function HubMenu() {
             <div className="relative h-8 flex items-center flex-1 min-w-0 pr-3">
               <AnimatePresence mode="wait">
                 {!isScrolled ?
-                <motion.h1
-                  key="menu"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="text-2xl font-bold text-gray-900 absolute">
+                  <motion.h1
+                    key="menu"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="text-2xl font-bold text-gray-900 absolute">
 
                     Menu
                   </motion.h1> :
 
-                <motion.h1
-                  key="restaurant"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="text-lg font-bold text-gray-900 absolute truncate max-w-full"
-                  title={restaurantName}>
+                  <motion.h1
+                    key="restaurant"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="text-lg font-bold text-gray-900 absolute truncate max-w-full"
+                    title={restaurantName}>
 
                     {restaurantName.length > 25 ? `${restaurantName.substring(0, 25)}...` : restaurantName}
                   </motion.h1>
@@ -989,12 +1026,12 @@ export default function HubMenu() {
           {/* Restaurant name and expertise */}
           <AnimatePresence>
             {!isScrolled &&
-            <motion.div
-              initial={{ opacity: 1, height: "auto" }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="mb-3 px-4 py-1 overflow-hidden">
+              <motion.div
+                initial={{ opacity: 1, height: "auto" }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="mb-3 px-4 py-1 overflow-hidden">
 
                 <h2 className="text-lg font-bold text-gray-900">{restaurantName}</h2>
                 <p className="text-sm text-gray-600">{restaurantExpertise}</p>
@@ -1010,25 +1047,25 @@ export default function HubMenu() {
               }
             `}</style>
             {activeFilter &&
-            <button
-              onClick={() => {
-                setActiveFilter(null);
-                setSelectedFilter(null);
-              }}
-              className="flex items-center gap-2 px-2 py-1 text-semibold border-2 border-gray-300 rounded-md text-sm font-medium whitespace-nowrap shrink-0 bg-white text-gray-900">
+              <button
+                onClick={() => {
+                  setActiveFilter(null);
+                  setSelectedFilter(null);
+                }}
+                className="flex items-center gap-2 px-2 py-1 text-semibold border-2 border-gray-300 rounded-md text-sm font-medium whitespace-nowrap shrink-0 bg-white text-gray-900">
 
                 <X className="w-3 h-3" />
                 <span>Clear</span>
               </button>
             }
             {quickFilters.map((filter) =>
-            <button
-              key={filter.id}
-              onClick={() => handleFilterSelect(filter.id)}
-              className={`flex items-center gap-2 px-2 py-1 text-semibold border-2 rounded-md text-sm font-medium whitespace-nowrap shrink-0 ${activeFilter === filter.id ?
-              "bg-gray-900 text-white border-gray-900" :
-              "bg-white border-gray-200 text-gray-900"}`
-              }>
+              <button
+                key={filter.id}
+                onClick={() => handleFilterSelect(filter.id)}
+                className={`flex items-center gap-2 px-2 py-1 text-semibold border-2 rounded-md text-sm font-medium whitespace-nowrap shrink-0 ${activeFilter === filter.id ?
+                  "bg-gray-900 text-white border-gray-900" :
+                  "bg-white border-gray-200 text-gray-900"}`
+                }>
 
                 <span>{filter.label}</span>
                 <span className="bg-red-100 border-2 border-red-400 text-red-400 text-xs  font-bold p-0.5 py-0.25 rounded-sm">
@@ -1054,8 +1091,8 @@ export default function HubMenu() {
         <button
           onClick={() => setActiveTab("all")}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeTab === "all" ?
-          "bg-white text-black" :
-          " text-gray-600"}`
+            "bg-white text-black" :
+            " text-gray-600"}`
           }>
 
           All items
@@ -1063,264 +1100,289 @@ export default function HubMenu() {
         <button
           onClick={() => setActiveTab("add-ons")}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeTab === "add-ons" ?
-          "bg-white text-black" :
-          " text-gray-600"}`
+            "bg-white text-black" :
+            " text-gray-600"}`
           }>
 
           Add-ons
         </button>
       </div>
+
       {/* Content */}
-      <div className="flex-1 space-y-4 pt-8 pb-24 overflow-y-auto">
-        {activeTab === "add-ons" ?
-        <div className="px-4">
-            {/* Add Add-on Button */}
-            <div className="mb-6">
-              <button
-              onClick={() => setIsAddAddonModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+      <div className="flex-1 space-y-4 pt-4 pb-24 overflow-y-auto">
+        {activeTab === "add-ons" ? (
+          <>
+            <div className="px-4">
+              {/* Add Add-on Button */}
+              <div className="mb-6">
+                <button
+                  onClick={() => setIsAddAddonModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
 
-                <Plus className="h-5 w-5" />
-                <span>Add Add-on</span>
-              </button>
-            </div>
-
-            {/* Add-ons List */}
-            {loadingAddons ?
-          <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div> :
-          addons.length === 0 ?
-          <div className="flex flex-col items-center justify-center py-20 px-4">
-                <div className="text-center">
-                  <p className="text-lg font-medium text-gray-500">No add-ons available</p>
-                  <p className="text-sm text-gray-400 mt-2">Add-ons will appear here when you create them</p>
-                </div>
-              </div> :
-
-          <div className="space-y-4">
-                {addons.map((addon) =>
-            <div
-              key={addon.id}
-              className="bg-white rounded-lg border border-gray-200 p-4">
-
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-base font-semibold text-gray-900">{addon.name}</h3>
-                          {addon.approvalStatus === 'pending' &&
-                    <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">Pending</span>
-                    }
-                          {addon.approvalStatus === 'approved' &&
-                    <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">Approved</span>
-                    }
-                          {addon.approvalStatus === 'rejected' &&
-                    <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded">Rejected</span>
-                    }
-                        </div>
-                        {addon.description &&
-                  <p className="text-sm text-gray-600 mb-2">{addon.description}</p>
-                  }
-                        <p className="text-base font-bold text-gray-900">₹{addon.price}</p>
-                        {addon.rejectionReason &&
-                  <p className="text-xs text-red-600 mt-1">Reason: {addon.rejectionReason}</p>
-                  }
-                      </div>
-                      <div className="flex items-start gap-2">
-                        {addon.images && addon.images.length > 0 && addon.images[0] &&
-                  <img
-                    src={addon.images[0]}
-                    alt={addon.name}
-                    className="w-20 h-20 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }} />
-
-                  }
-                        <div className="flex flex-col gap-2">
-                          <button
-                      onClick={() => handleEditAddon(addon)}
-                      className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                      title="Edit add-on">
-
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                      onClick={() => handleDeleteAddon(addon)}
-                      className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                      title="Delete add-on">
-
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-            )}
+                  <Plus className="h-5 w-5" />
+                  <span>Add Add-on</span>
+                </button>
               </div>
-          }
-          </div> :
 
-        <div className="px-4 space-y-4">
-            {filteredMenuGroups.map((group) => {
-            const isExpanded = expandedGroups.has(group.id);
-            const itemCount = group.items.length;
-            const enabledItems = group.items.filter((item) => item.isAvailable).length;
-
-            return (
-              <div
-                key={group.id}
-                id={`group-${group.id}`}
-                className="bg-white rounded-lg overflow-hidden">
-
-                  {/* Group Header */}
-                  <div className="py-3 flex items-center justify-between px-4">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-1 h-6 bg-red-500 rounded-r-full" />
-                      <h3 className="text-base font-bold text-gray-900">
-                        {group.name} ({enabledItems})
-                      </h3>
+              {/* Add-ons List */}
+              {loadingAddons ?
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div> :
+                addons.length === 0 ?
+                  <div className="flex flex-col items-center justify-center py-20 px-4">
+                    <div className="text-center">
+                      <p className="text-lg font-medium text-gray-500">No add-ons available</p>
+                      <p className="text-sm text-gray-400 mt-2">Add-ons will appear here when you create them</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleGroup(group.id);
-                      }}
-                      className="p-1 rounded-full hover:bg-gray-100 transition-colors z-10 relative"
-                      aria-label={isExpanded ? "Collapse section" : "Expand section"}>
+                  </div> :
 
-                        {isExpanded ?
-                      <ChevronUp className="w-5 h-5 text-gray-600" /> :
+                  <div className="space-y-4">
+                    {addons.map((addon) =>
+                      <div
+                        key={addon.id}
+                        className="bg-white rounded-lg border border-gray-200 p-4">
 
-                      <ChevronDown className="w-5 h-5 text-gray-600" />
-                      }
-                      </button>
-                      <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleOpenCategoryOptions(group);
-                      }}
-                      className="p-1 rounded-full hover:bg-gray-100 transition-colors z-10 relative"
-                      aria-label="Category options">
-
-                        <MoreVertical className="w-5 h-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {isExpanded &&
-                <div className="p-4 space-y-2">
-                      {/* Items */}
-                      <div className="space-y-4">
-                        {group.items.map((item) =>
-                    <div key={item.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                            <div className="flex items-start gap-3">
-                              {/* Left: Veg/Non-veg icon, name, price */}
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div
-                              className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${item.foodType === "Veg" ?
-                              "bg-green-50 border-green-600" :
-                              "bg-red-50 border-red-600"}`
-                              }>
-
-                                    <div className={`w-2 h-2 rounded-full ${item.foodType === "Veg" ?
-                              "bg-green-600" :
-                              "bg-red-600"}`
-                              } />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-base font-bold text-gray-900">{item.name}</h5>
-                                  {/* Approval Status Tag */}
-                                  {item.approvalStatus &&
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.approvalStatus === 'approved' ?
-                              'bg-green-100 text-green-700 border border-green-300' :
-                              item.approvalStatus === 'rejected' ?
-                              'bg-red-100 text-red-700 border border-red-300' :
-                              'bg-yellow-100 text-yellow-700 border border-yellow-300'}`
-                              }>
-
-                                      {item.approvalStatus === 'approved' ?
-                              'Approved' :
-                              item.approvalStatus === 'rejected' ?
-                              'Rejected' :
-                              'Pending'}
-                                    </span>
-                            }
-                                </div>
-                                <p className="text-sm font-medium text-gray-700 mb-3">₹{item.price}</p>
-                              </div>
-
-                              {/* Right: Image */}
-                              <div className="relative">
-                                <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-20 h-20 rounded-lg object-cover" />
-
-                                <div className="absolute bottom-1 right-1 bg-black/60 rounded-full p-1">
-                                  <div className="flex items-center gap-1">
-                                    <Camera className="w-3 h-3 text-white" />
-                                    <span className="text-white text-xs font-semibold">{item.photoCount}</span>
-                                  </div>
-                                </div>
-                              </div>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-base font-semibold text-gray-900">{addon.name}</h3>
+                              {addon.approvalStatus && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${addon.approvalStatus === 'approved' ?
+                                    'bg-green-100 text-green-700 border border-green-300' :
+                                    addon.approvalStatus === 'rejected' ?
+                                      'bg-red-100 text-red-700 border border-red-300' :
+                                      'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                                    }`}
+                                >
+                                  {addon.approvalStatus === 'approved' ? 'Approved' :
+                                    addon.approvalStatus === 'rejected' ? 'Rejected' :
+                                      'Pending'}
+                                </span>
+                              )}
                             </div>
+                            {addon.description &&
+                              <p className="text-sm text-gray-600 mb-2">{addon.description}</p>
+                            }
+                            <p className="text-base font-bold text-gray-900">₹{addon.price}</p>
+                            {addon.rejectionReason &&
+                              <p className="text-xs text-red-600 mt-1">Reason: {addon.rejectionReason}</p>
+                            }
+                          </div>
+                          <div className="flex items-start gap-2">
+                            {addon.images && addon.images.length > 0 && addon.images[0] &&
+                              <img
+                                src={addon.images[0]}
+                                alt={addon.name}
+                                className="w-20 h-20 object-cover rounded-lg"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }} />
 
-                            {/* Action buttons - below image */}
-                            <div className="flex items-center justify-center gap-3 mt-4">
+                            }
+                            <div className="flex flex-col gap-2">
                               <button
-                          onClick={() => navigate(`/restaurant/hub-menu/item/${item.id}`, { state: { item, groupId: group.id } })}
-                          className="flex items-center gap-1.5 bg-transparent text-gray-700 text-sm font-medium">
+                                onClick={() => handleEditAddon(addon)}
+                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Edit add-on">
 
-                                <Edit className="w-3.5 h-3.5" />
-                                <span>Edit</span>
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAddon(addon)}
+                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                title="Delete add-on">
+
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
-                    )}
+                        </div>
                       </div>
+                    )}
+                  </div>
+              }
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="px-4 space-y-4">
+              {loadingMenu ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : filteredMenuGroups.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 px-4">
+                  <div className="text-center">
+                    <p className="text-lg font-medium text-gray-500">No menu items yet</p>
+                    <p className="text-sm text-gray-400 mt-2">Tap + ADD to add your first item</p>
+                  </div>
+                </div>
+              ) : filteredMenuGroups.map((group) => {
+                const isExpanded = expandedGroups.has(group.id);
+                const itemCount = group.items.length;
+                const enabledItems = group.items.filter((item) => item.isAvailable).length;
 
+                return (
+                  <div
+                    key={group.id}
+                    id={`group-${group.id}`}
+                    className="bg-white rounded-lg overflow-hidden">
+
+                    {/* Group Header */}
+                    <div className="py-3 flex items-center justify-between px-4">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="w-1 h-6 bg-red-500 rounded-r-full" />
+                        <h3 className="text-base font-bold text-gray-900">
+                          {group.name} ({enabledItems})
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleGroup(group.id);
+                          }}
+                          className="p-1 rounded-full hover:bg-gray-100 transition-colors z-10 relative"
+                          aria-label={isExpanded ? "Collapse section" : "Expand section"}>
+
+                          {isExpanded ?
+                            <ChevronUp className="w-5 h-5 text-gray-600" /> :
+
+                            <ChevronDown className="w-5 h-5 text-gray-600" />
+                          }
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenCategoryOptions(group);
+                          }}
+                          className="p-1 rounded-full hover:bg-gray-100 transition-colors z-10 relative"
+                          aria-label="Category options">
+
+                          <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </button>
+                      </div>
                     </div>
-                }
-                </div>);
 
-          })}
-          </div>
-        }
+                    {(isExpanded || expandedGroups.size === 0) &&
+                      <div className="p-4 space-y-2">
+                        {/* Items */}
+                        <div className="space-y-4">
+                          {group.items.map((item) =>
+                            <div key={item.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                              <div className="flex items-start gap-3">
+                                {/* Left: Veg/Non-veg icon, name, price */}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div
+                                      className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${item.foodType === "Veg" ?
+                                        "bg-green-50 border-green-600" :
+                                        "bg-red-50 border-red-600"}`
+                                      }>
+
+                                      <div className={`w-2 h-2 rounded-full ${item.foodType === "Veg" ?
+                                        "bg-green-600" :
+                                        "bg-red-600"}`
+                                      } />
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h5 className="text-base font-bold text-gray-900">{item.name}</h5>
+                                    {/* Approval Status Tag */}
+                                    {item.approvalStatus &&
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.approvalStatus === 'approved' ?
+                                          'bg-green-100 text-green-700 border border-green-300' :
+                                          item.approvalStatus === 'rejected' ?
+                                            'bg-red-100 text-red-700 border border-red-300' :
+                                            'bg-yellow-100 text-yellow-700 border border-yellow-300'}`
+                                        }>
+
+                                        {item.approvalStatus === 'approved' ?
+                                          'Approved' :
+                                          item.approvalStatus === 'rejected' ?
+                                            'Rejected' :
+                                            'Pending'}
+                                      </span>
+                                    }
+                                  </div>
+                                  <p className="text-sm font-medium text-gray-700 mb-3">₹{item.price}</p>
+                                </div>
+
+                                {/* Right: Image & Actions */}
+                                <div className="flex items-start gap-2">
+                                  <div className="relative">
+                                    <img
+                                      src={item.image}
+                                      alt={item.name}
+                                      className="w-20 h-20 rounded-lg object-cover" />
+                                    <div className="absolute bottom-1 right-1 bg-black/60 rounded-full p-1">
+                                      <div className="flex items-center gap-1">
+                                        <Camera className="w-3 h-3 text-white" />
+                                        <span className="text-white text-xs font-semibold">{item.photoCount}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-2">
+                                    <button
+                                      onClick={() => navigate(`/restaurant/hub-menu/item/${item.id}`, { state: { item, groupId: group.id } })}
+                                      className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                      title="Edit item">
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(item, group.id)}
+                                      className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                      title="Delete item">
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Filter Popup */}
       <AnimatePresence>
         {isFilterOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsFilterOpen(false)}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFilterOpen(false)}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Filters</h2>
                 <button
-                onClick={() => setIsFilterOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => setIsFilterOpen(false)}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1328,42 +1390,42 @@ export default function HubMenu() {
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 <div className="space-y-1">
                   {filterOptions.map((filter, index) =>
-                <label
-                  key={filter.id}
-                  className="flex items-center justify-between py-3 cursor-pointer border-b border-gray-100 last:border-0">
+                    <label
+                      key={filter.id}
+                      className="flex items-center justify-between py-3 cursor-pointer border-b border-gray-100 last:border-0">
 
                       <span className="text-sm font-medium text-gray-900">
                         {filter.label} ({filter.count})
                       </span>
                       <input
-                    type="radio"
-                    name="filter"
-                    value={filter.id}
-                    checked={activeFilter === filter.id}
-                    onChange={() => handleFilterSelect(filter.id)}
-                    className="w-5 h-5 text-black border-gray-400 focus:ring-black"
-                    style={{ accentColor: "#000000" }} />
+                        type="radio"
+                        name="filter"
+                        value={filter.id}
+                        checked={activeFilter === filter.id}
+                        onChange={() => handleFilterSelect(filter.id)}
+                        className="w-5 h-5 text-black border-gray-400 focus:ring-black"
+                        style={{ accentColor: "#000000" }} />
 
                     </label>
-                )}
+                  )}
                 </div>
               </div>
               <div className="px-4 py-4 border-t border-gray-200 space-y-2">
                 {activeFilter &&
-              <button
-                onClick={() => {
-                  setActiveFilter(null);
-                  setSelectedFilter(null);
-                  setIsFilterOpen(false);
-                }}
-                className="w-full py-2 rounded-lg font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                  <button
+                    onClick={() => {
+                      setActiveFilter(null);
+                      setSelectedFilter(null);
+                      setIsFilterOpen(false);
+                    }}
+                    className="w-full py-2 rounded-lg font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
 
                     Clear filter
                   </button>
-              }
+                }
                 <button
-                onClick={() => setIsFilterOpen(false)}
-                className="w-full py-3 rounded-lg font-semibold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-colors">
+                  onClick={() => setIsFilterOpen(false)}
+                  className="w-full py-3 rounded-lg font-semibold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-colors">
 
                   Confirm
                 </button>
@@ -1376,31 +1438,31 @@ export default function HubMenu() {
       {/* Add Popup */}
       <AnimatePresence>
         {isAddPopupOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsAddPopupOpen(false)}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddPopupOpen(false)}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900 text-center">Add item</h2>
               </div>
               <div className="px-4 py-4 space-y-2">
                 <button
-                onClick={() => {
-                  navigate(`/restaurant/hub-menu/item/new`);
-                }}
-                className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors">
+                  onClick={() => {
+                    navigate(`/restaurant/hub-menu/item/new`);
+                  }}
+                  className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors">
 
                   <span className="text-sm font-medium text-gray-900">Add item</span>
                 </button>
@@ -1413,23 +1475,23 @@ export default function HubMenu() {
       {/* Availability Popup */}
       <div>
         {isAvailabilityPopupOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white z-[9999]">
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-white z-[9999]">
 
               {/* Header */}
               <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
                 <button
-                onClick={() => {
-                  setIsAvailabilityPopupOpen(false);
-                  setAvailabilityReason(null);
-                  setCustomDateTime('');
-                  setSwitchingOffTarget(null);
-                }}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => {
+                    setIsAvailabilityPopupOpen(false);
+                    setAvailabilityReason(null);
+                    setCustomDateTime('');
+                    setSwitchingOffTarget(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <ArrowLeft className="w-5 h-5 text-gray-700" />
                 </button>
@@ -1443,41 +1505,41 @@ export default function HubMenu() {
                   <h3 className="text-base font-bold text-gray-900 mb-4">Auto turn-on after</h3>
                   <div className="space-y-4">
                     {[
-                  { id: "2-hours", label: "2 Hours" },
-                  { id: "4-hours", label: "4 Hours" },
-                  { id: "next-business-day", label: "Next business day" },
-                  { id: "custom", label: "Custom date & time (upto 7 days)" }].
-                  map((option) =>
-                  <div key={option.id}>
-                        <label
-                      className="flex items-center gap-3 cursor-pointer py-2">
+                      { id: "2-hours", label: "2 Hours" },
+                      { id: "4-hours", label: "4 Hours" },
+                      { id: "next-business-day", label: "Next business day" },
+                      { id: "custom", label: "Custom date & time (upto 7 days)" }].
+                      map((option) =>
+                        <div key={option.id}>
+                          <label
+                            className="flex items-center gap-3 cursor-pointer py-2">
 
-                          <input
-                        type="radio"
-                        name="availability"
-                        value={option.id}
-                        checked={availabilityReason === option.id}
-                        onChange={() => setAvailabilityReason(option.id)}
-                        className="w-5 h-5 text-black border-gray-400 focus:ring-black"
-                        style={{ accentColor: "#000000" }} />
-
-                          <span className="text-sm font-medium text-gray-900">{option.label}</span>
-                        </label>
-                        {option.id === "custom" && availabilityReason === "custom" &&
-                    <div className="ml-8 mt-2 mb-4">
                             <input
-                        type="datetime-local"
-                        value={customDateTime}
-                        onChange={(e) => setCustomDateTime(e.target.value)}
-                        min={new Date().toISOString().slice(0, 16)}
-                        max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                        required />
+                              type="radio"
+                              name="availability"
+                              value={option.id}
+                              checked={availabilityReason === option.id}
+                              onChange={() => setAvailabilityReason(option.id)}
+                              className="w-5 h-5 text-black border-gray-400 focus:ring-black"
+                              style={{ accentColor: "#000000" }} />
 
-                          </div>
-                    }
-                      </div>
-                  )}
+                            <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                          </label>
+                          {option.id === "custom" && availabilityReason === "custom" &&
+                            <div className="ml-8 mt-2 mb-4">
+                              <input
+                                type="datetime-local"
+                                value={customDateTime}
+                                onChange={(e) => setCustomDateTime(e.target.value)}
+                                min={new Date().toISOString().slice(0, 16)}
+                                max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                                required />
+
+                            </div>
+                          }
+                        </div>
+                      )}
                   </div>
                 </div>
 
@@ -1490,13 +1552,13 @@ export default function HubMenu() {
                   <div className="space-y-4">
                     <label className="flex items-center gap-3 cursor-pointer py-2">
                       <input
-                      type="radio"
-                      name="availability"
-                      value="manual"
-                      checked={availabilityReason === "manual"}
-                      onChange={() => setAvailabilityReason("manual")}
-                      className="w-5 h-5 text-black border-gray-400 focus:ring-black"
-                      style={{ accentColor: "#000000" }} />
+                        type="radio"
+                        name="availability"
+                        value="manual"
+                        checked={availabilityReason === "manual"}
+                        onChange={() => setAvailabilityReason("manual")}
+                        className="w-5 h-5 text-black border-gray-400 focus:ring-black"
+                        style={{ accentColor: "#000000" }} />
 
                       <span className="text-sm font-medium text-gray-900">I will turn it on myself</span>
                     </label>
@@ -1510,12 +1572,12 @@ export default function HubMenu() {
               {/* Footer */}
               <div className="px-4 py-4 border-t border-gray-200">
                 <button
-                onClick={handleAvailabilityConfirm}
-                disabled={!availabilityReason || isScheduling || availabilityReason === 'custom' && !customDateTime}
-                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${availabilityReason && !isScheduling && (availabilityReason !== 'custom' || customDateTime) ?
-                "bg-gray-900 text-white hover:bg-gray-800" :
-                "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-                }>
+                  onClick={handleAvailabilityConfirm}
+                  disabled={!availabilityReason || isScheduling || availabilityReason === 'custom' && !customDateTime}
+                  className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${availabilityReason && !isScheduling && (availabilityReason !== 'custom' || customDateTime) ?
+                    "bg-gray-900 text-white hover:bg-gray-800" :
+                    "bg-gray-300 text-gray-500 cursor-not-allowed"}`
+                  }>
 
                   {isScheduling ? 'Scheduling...' : 'Confirm'}
                 </button>
@@ -1530,49 +1592,49 @@ export default function HubMenu() {
         {/* ADD Button */}
 
         {activeTab !== "add-ons" &&
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={handleAddItemClick}
-          className="px-4 py-2 border bg-black text-white border-gray-800 rounded-lg text-sm font-bold">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleAddItemClick}
+            className="px-4 py-2 border bg-black text-white border-gray-800 rounded-lg text-sm font-bold">
 
             + ADD
           </motion.button>}
 
         {/* Menu Button */}
         {activeTab !== "add-ons" &&
-        <>
+          <>
             <motion.button
-            type="button"
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-800 bg-white text-sm font-medium shadow-sm">
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-800 bg-white text-sm font-medium shadow-sm">
 
               <span className="w-5 h-5 flex items-center justify-center">
                 {isMenuOpen ?
-              <X className="w-4 h-4 text-gray-900" /> :
+                  <X className="w-4 h-4 text-gray-900" /> :
 
-              <Utensils className="w-4 h-4 text-gray-900" />
-              }
+                  <Utensils className="w-4 h-4 text-gray-900" />
+                }
               </span>
               <span>{isMenuOpen ? "Close" : "Menu"}</span>
             </motion.button>
 
             <AnimatePresence>
               {isMenuOpen &&
-            <>
+                <>
                   <motion.div
-                className="fixed inset-0 bg-black/40 z-30"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMenuOpen(false)} />
+                    className="fixed inset-0 bg-black/40 z-30"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsMenuOpen(false)} />
 
                   <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.2 }}
-                className="fixed right-4 bottom-36 z-30 w-[60vw] max-w-sm h-[45vh] bg-white rounded-3xl shadow-lg overflow-hidden">
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed right-4 bottom-36 z-30 w-[60vw] max-w-sm h-[45vh] bg-white rounded-3xl shadow-lg overflow-hidden">
 
                     <div className="h-full flex flex-col">
                       <div className="px-4 pt-4 pb-2">
@@ -1581,18 +1643,18 @@ export default function HubMenu() {
                       <div className="h-px bg-gray-200 mx-4" />
                       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
                         {menuData.map((category, index) => {
-                      const itemCount = category.items.filter((item) => item.isAvailable).length;
-                      const isLast = index === menuData.length - 1;
+                          const itemCount = category.items.filter((item) => item.isAvailable).length;
+                          const isLast = index === menuData.length - 1;
 
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            setTimeout(() => scrollToCategory(category.id), 200);
-                          }}
-                          className="w-full text-left py-3 focus:outline-none">
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => {
+                                setIsMenuOpen(false);
+                                setTimeout(() => scrollToCategory(category.id), 200);
+                              }}
+                              className="w-full text-left py-3 focus:outline-none">
 
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium text-gray-900">
@@ -1603,16 +1665,16 @@ export default function HubMenu() {
                                 </span>
                               </div>
                               {!isLast &&
-                          <div className="mt-3 border-t border-dashed border-gray-200" />
-                          }
+                                <div className="mt-3 border-t border-dashed border-gray-200" />
+                              }
                             </button>);
 
-                    })}
+                        })}
                       </div>
                     </div>
                   </motion.div>
                 </>
-            }
+              }
             </AnimatePresence>
           </>
         }
@@ -1623,27 +1685,27 @@ export default function HubMenu() {
       {/* Category Options Popup */}
       <AnimatePresence>
         {isCategoryOptionsOpen && selectedCategory &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsCategoryOptionsOpen(false)}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCategoryOptionsOpen(false)}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[50vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[50vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">{selectedCategory.name}</h2>
                 <button
-                onClick={() => setIsCategoryOptionsOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => setIsCategoryOptionsOpen(false)}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1651,15 +1713,15 @@ export default function HubMenu() {
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 <div className="space-y-2">
                   <button
-                  onClick={handleEditCategory}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-gray-900 bg-gray-50 hover:bg-gray-100 transition-colors">
+                    onClick={handleEditCategory}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-gray-900 bg-gray-50 hover:bg-gray-100 transition-colors">
 
                     <Edit className="w-5 h-5 text-gray-600" />
                     <span>Edit category name</span>
                   </button>
                   <button
-                  onClick={handleDeleteCategory}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-red-600 bg-gray-50 hover:bg-red-50 transition-colors">
+                    onClick={handleDeleteCategory}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-red-600 bg-gray-50 hover:bg-red-50 transition-colors">
 
                     <Trash2 className="w-5 h-5 text-red-600" />
                     <span>Delete category</span>
@@ -1674,35 +1736,35 @@ export default function HubMenu() {
       {/* Edit Category Name Popup */}
       <AnimatePresence>
         {isEditCategoryOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-              setIsEditCategoryOpen(false);
-              setEditCategoryName("");
-              setSelectedCategory(null);
-            }}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsEditCategoryOpen(false);
+                setEditCategoryName("");
+                setSelectedCategory(null);
+              }}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Edit category name</h2>
                 <button
-                onClick={() => {
-                  setIsEditCategoryOpen(false);
-                  setEditCategoryName("");
-                  setSelectedCategory(null);
-                }}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => {
+                    setIsEditCategoryOpen(false);
+                    setEditCategoryName("");
+                    setSelectedCategory(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1714,32 +1776,32 @@ export default function HubMenu() {
                       Category name
                     </label>
                     <input
-                    type="text"
-                    value={editCategoryName}
-                    onChange={(e) => setEditCategoryName(e.target.value)}
-                    placeholder="Enter category name"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus />
+                      type="text"
+                      value={editCategoryName}
+                      onChange={(e) => setEditCategoryName(e.target.value)}
+                      placeholder="Enter category name"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus />
 
                   </div>
                   <div className="flex gap-3 pt-2">
                     <button
-                    onClick={() => {
-                      setIsEditCategoryOpen(false);
-                      setEditCategoryName("");
-                      setSelectedCategory(null);
-                    }}
-                    className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-900 bg-white hover:bg-gray-50 transition-colors">
+                      onClick={() => {
+                        setIsEditCategoryOpen(false);
+                        setEditCategoryName("");
+                        setSelectedCategory(null);
+                      }}
+                      className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-900 bg-white hover:bg-gray-50 transition-colors">
 
                       Cancel
                     </button>
                     <button
-                    onClick={handleSaveCategoryName}
-                    disabled={!editCategoryName.trim()}
-                    className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${editCategoryName.trim() ?
-                    "bg-black text-white hover:bg-gray-800" :
-                    "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-                    }>
+                      onClick={handleSaveCategoryName}
+                      disabled={!editCategoryName.trim()}
+                      className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${editCategoryName.trim() ?
+                        "bg-black text-white hover:bg-gray-800" :
+                        "bg-gray-300 text-gray-500 cursor-not-allowed"}`
+                      }>
 
                       Save
                     </button>
@@ -1754,35 +1816,35 @@ export default function HubMenu() {
       {/* Add Sub-Category Popup */}
       <AnimatePresence>
         {isAddSubCategoryOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-              setIsAddSubCategoryOpen(false);
-              setSubCategoryName("");
-              setSelectedGroupForSubCategory(null);
-            }}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsAddSubCategoryOpen(false);
+                setSubCategoryName("");
+                setSelectedGroupForSubCategory(null);
+              }}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Add sub-category</h2>
                 <button
-                onClick={() => {
-                  setIsAddSubCategoryOpen(false);
-                  setSubCategoryName("");
-                  setSelectedGroupForSubCategory(null);
-                }}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => {
+                    setIsAddSubCategoryOpen(false);
+                    setSubCategoryName("");
+                    setSelectedGroupForSubCategory(null);
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1794,31 +1856,31 @@ export default function HubMenu() {
                       Sub-category name
                     </label>
                     <input
-                    type="text"
-                    value={subCategoryName}
-                    onChange={(e) => setSubCategoryName(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && subCategoryName.trim()) {
-                        handleContinueSubCategory();
-                      }
-                    }}
-                    placeholder="Enter sub-category name"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus />
+                      type="text"
+                      value={subCategoryName}
+                      onChange={(e) => setSubCategoryName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && subCategoryName.trim()) {
+                          handleContinueSubCategory();
+                        }
+                      }}
+                      placeholder="Enter sub-category name"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus />
 
                     {selectedGroupForSubCategory &&
-                  <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         Category: <span className="font-medium">{selectedGroupForSubCategory.name}</span>
                       </p>
-                  }
+                    }
                   </div>
                   <button
-                  onClick={handleContinueSubCategory}
-                  disabled={!subCategoryName.trim()}
-                  className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${subCategoryName.trim() ?
-                  "bg-black text-white hover:bg-gray-800" :
-                  "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-                  }>
+                    onClick={handleContinueSubCategory}
+                    disabled={!subCategoryName.trim()}
+                    className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${subCategoryName.trim() ?
+                      "bg-black text-white hover:bg-gray-800" :
+                      "bg-gray-300 text-gray-500 cursor-not-allowed"}`
+                    }>
 
                     Continue
                   </button>
@@ -1832,33 +1894,33 @@ export default function HubMenu() {
       {/* Add Category Popup */}
       <AnimatePresence>
         {isAddCategoryPopupOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-              setIsAddCategoryPopupOpen(false);
-              setNewCategoryName("");
-            }}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsAddCategoryPopupOpen(false);
+                setNewCategoryName("");
+              }}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[40vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Add category</h2>
                 <button
-                onClick={() => {
-                  setIsAddCategoryPopupOpen(false);
-                  setNewCategoryName("");
-                }}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => {
+                    setIsAddCategoryPopupOpen(false);
+                    setNewCategoryName("");
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1870,26 +1932,26 @@ export default function HubMenu() {
                       Category name
                     </label>
                     <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && newCategoryName.trim()) {
-                        handleContinueAddCategory();
-                      }
-                    }}
-                    placeholder="Enter category name"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus />
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newCategoryName.trim()) {
+                          handleContinueAddCategory();
+                        }
+                      }}
+                      placeholder="Enter category name"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus />
 
                   </div>
                   <button
-                  onClick={handleContinueAddCategory}
-                  disabled={!newCategoryName.trim()}
-                  className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${newCategoryName.trim() ?
-                  "bg-black text-white hover:bg-gray-800" :
-                  "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-                  }>
+                    onClick={handleContinueAddCategory}
+                    disabled={!newCategoryName.trim()}
+                    className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${newCategoryName.trim() ?
+                      "bg-black text-white hover:bg-gray-800" :
+                      "bg-gray-300 text-gray-500 cursor-not-allowed"}`
+                    }>
 
                     Continue
                   </button>
@@ -1903,33 +1965,33 @@ export default function HubMenu() {
       {/* Search Popup */}
       <AnimatePresence>
         {isSearchOpen &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-              setIsSearchOpen(false);
-              setSearchQuery("");
-            }}
-            className="fixed inset-0 bg-black/50 z-50" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchQuery("");
+              }}
+              className="fixed inset-0 bg-black/50 z-50" />
 
             <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
 
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Search Menu</h2>
                 <button
-                onClick={() => {
-                  setIsSearchOpen(false);
-                  setSearchQuery("");
-                }}
-                className="p-1 rounded-full hover:bg-gray-100">
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
 
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
@@ -1938,61 +2000,61 @@ export default function HubMenu() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for food items..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoFocus />
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search for food items..."
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    autoFocus />
 
                   {searchQuery &&
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
 
                       <X className="w-4 h-4 text-gray-600" />
                     </button>
-                }
+                  }
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 {searchQuery.trim() ?
-              filteredMenuGroups.length > 0 ?
-              <div className="space-y-4">
+                  filteredMenuGroups.length > 0 ?
+                    <div className="space-y-4">
                       {filteredMenuGroups.map((group) =>
-                <div key={group.id} className="space-y-3">
+                        <div key={group.id} className="space-y-3">
                           <h3 className="text-sm font-bold text-gray-900 uppercase">
                             {group.name} ({group.items.length})
                           </h3>
                           <div className="space-y-3">
                             {group.items.map((item) =>
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setIsSearchOpen(false);
-                        navigate(`/restaurant/hub-menu/item/${item.id}`, {
-                          state: { item, groupId: group.id }
-                        });
-                      }}
-                      className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                              <div
+                                key={item.id}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  navigate(`/restaurant/hub-menu/item/${item.id}`, {
+                                    state: { item, groupId: group.id }
+                                  });
+                                }}
+                                className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
 
-                                <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-16 h-16 rounded-lg object-cover" />
+                                <OptimizedImage
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="w-16 h-16 rounded-lg object-cover" />
 
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <div
-                            className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${item.foodType === "Veg" ?
-                            "bg-green-50 border-green-600" :
-                            "bg-red-50 border-red-600"}`
-                            }>
+                                      className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${item.foodType === "Veg" ?
+                                        "bg-green-50 border-green-600" :
+                                        "bg-red-50 border-red-600"}`
+                                      }>
 
                                       <div className={`w-2 h-2 rounded-full ${item.foodType === "Veg" ?
-                            "bg-green-600" :
-                            "bg-red-600"}`
-                            } />
+                                        "bg-green-600" :
+                                        "bg-red-600"}`
+                                      } />
                                     </div>
                                     <h4 className="text-sm font-bold text-gray-900 truncate">
                                       {item.name}
@@ -2000,17 +2062,17 @@ export default function HubMenu() {
                                   </div>
                                   <p className="text-sm font-medium text-gray-700">₹{item.price}</p>
                                   {!item.isAvailable &&
-                        <span className="text-xs text-red-600 font-medium">Out of stock</span>
-                        }
+                                    <span className="text-xs text-red-600 font-medium">Out of stock</span>
+                                  }
                                 </div>
                               </div>
-                    )}
+                            )}
                           </div>
                         </div>
-                )}
+                      )}
                     </div> :
 
-              <div className="flex flex-col items-center justify-center py-20 px-4">
+                    <div className="flex flex-col items-center justify-center py-20 px-4">
                       <div className="text-center">
                         <p className="text-lg font-medium text-gray-500">No items found</p>
                         <p className="text-sm text-gray-400 mt-2">
@@ -2020,7 +2082,7 @@ export default function HubMenu() {
                     </div> :
 
 
-              <div className="flex flex-col items-center justify-center py-20 px-4">
+                  <div className="flex flex-col items-center justify-center py-20 px-4">
                     <div className="text-center">
                       <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                       <p className="text-lg font-medium text-gray-500">Start searching</p>
@@ -2029,39 +2091,215 @@ export default function HubMenu() {
                       </p>
                     </div>
                   </div>
-              }
+                }
               </div>
               {searchQuery.trim() && filteredMenuGroups.length > 0 &&
-            <div className="px-4 py-3 border-t border-gray-200">
+                <div className="px-4 py-3 border-t border-gray-200">
                   <button
-                onClick={() => setIsSearchOpen(false)}
-                className="w-full py-3 rounded-lg font-semibold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-colors">
+                    onClick={() => setIsSearchOpen(false)}
+                    className="w-full py-3 rounded-lg font-semibold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-colors">
 
                     View Results ({filteredMenuGroups.reduce((acc, group) => acc + group.items.length, 0)} items)
                   </button>
                 </div>
-            }
+              }
             </motion.div>
           </>
         }
       </AnimatePresence>
 
+      {/* Delete Category Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteConfirmOpen && selectedCategory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingCategory && setIsDeleteConfirmOpen(false)}
+              className="fixed inset-0 bg-black/50 z-[60] transition-opacity backdrop-blur-sm"
+            />
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Trash2 className="w-10 h-10 text-red-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Delete category?</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Are you sure you want to delete the category <span className="font-bold text-gray-900">"{selectedCategory.name}"</span>?
+                    This will delete all items in this category.
+                  </p>
+                </div>
+
+                <div className="flex px-6 pb-6 gap-3">
+                  <button
+                    onClick={() => setIsDeleteConfirmOpen(false)}
+                    disabled={isDeletingCategory}
+                    className="flex-1 py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl text-sm font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDeleteCategory}
+                    disabled={isDeletingCategory}
+                    className="flex-1 py-4 px-4 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeletingCategory ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+
+      {/* Delete Add-on Confirmation Modal */}
+      <AnimatePresence>
+        {isAddonDeleteConfirmOpen && addonToDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingAddon && setIsAddonDeleteConfirmOpen(false)}
+              className="fixed inset-0 bg-black/50 z-[60] transition-opacity backdrop-blur-sm"
+            />
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Trash2 className="w-10 h-10 text-red-500" />
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Are you sure you want to delete <span className="font-bold text-gray-900">"{addonToDelete.name}"</span>?
+                    This action cannot be undone.
+                  </p>
+                </div>
+
+                <div className="flex px-6 pb-6 gap-3">
+                  <button
+                    onClick={() => setIsAddonDeleteConfirmOpen(false)}
+                    disabled={isDeletingAddon}
+                    className="flex-1 py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl text-sm font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDeleteAddon}
+                    disabled={isDeletingAddon}
+                    className="flex-1 py-4 px-4 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeletingAddon ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+
+      {/* Delete Item Confirmation Modal */}
+      <AnimatePresence>
+        {isItemDeleteConfirmOpen && itemToDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingItem && setIsItemDeleteConfirmOpen(false)}
+              className="fixed inset-0 bg-black/50 z-[60] transition-opacity backdrop-blur-sm"
+            />
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Trash2 className="w-10 h-10 text-red-500" />
+                  </div>
+                  <p className="text-sm text-gray-600 font-medium leading-relaxed">
+                    Are you sure you want to delete <span className="text-gray-900 font-bold">"{itemToDelete.name}"</span>?
+                  </p>
+                </div>
+
+                <div className="flex px-6 pb-6 gap-3">
+                  <button
+                    onClick={() => setIsItemDeleteConfirmOpen(false)}
+                    disabled={isDeletingItem}
+                    className="flex-1 py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl text-sm font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDeleteItem}
+                    disabled={isDeletingItem}
+                    className="flex-1 py-4 px-4 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeletingItem ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Add Add-on Modal */}
       <AnimatePresence>
         {isAddAddonModalOpen &&
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setIsAddAddonModalOpen(false)}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setIsAddAddonModalOpen(false)}>
 
             <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}>
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}>
 
               {/* Modal Header */}
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
@@ -2069,8 +2307,8 @@ export default function HubMenu() {
                   {editingAddon ? 'Edit Add-on' : 'Add New Add-on'}
                 </h2>
                 <button
-                onClick={() => setIsAddAddonModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  onClick={() => setIsAddAddonModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors">
 
                   <X className="h-5 w-5 text-gray-600" />
                 </button>
@@ -2084,11 +2322,11 @@ export default function HubMenu() {
                     Add-on Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                  type="text"
-                  value={addonName}
-                  onChange={(e) => setAddonName(e.target.value)}
-                  placeholder="e.g., Coke, Chips, Sauce"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                    type="text"
+                    value={addonName}
+                    onChange={(e) => setAddonName(e.target.value)}
+                    placeholder="e.g., Coke, Chips, Sauce"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
 
                 </div>
 
@@ -2098,11 +2336,11 @@ export default function HubMenu() {
                     Description
                   </label>
                   <textarea
-                  value={addonDescription}
-                  onChange={(e) => setAddonDescription(e.target.value)}
-                  placeholder="Describe the add-on..."
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none" />
+                    value={addonDescription}
+                    onChange={(e) => setAddonDescription(e.target.value)}
+                    placeholder="Describe the add-on..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none" />
 
                 </div>
 
@@ -2112,13 +2350,13 @@ export default function HubMenu() {
                     Price (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
-                  type="number"
-                  value={addonPrice}
-                  onChange={(e) => setAddonPrice(e.target.value)}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                    type="number"
+                    value={addonPrice}
+                    onChange={(e) => setAddonPrice(e.target.value)}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
 
                 </div>
 
@@ -2130,43 +2368,43 @@ export default function HubMenu() {
 
                   {/* Image Preview Grid */}
                   {addonImages.length > 0 &&
-                <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="grid grid-cols-3 gap-3 mb-3">
                       {addonImages.map((img, index) =>
-                  <div key={index} className="relative group">
+                        <div key={index} className="relative group">
                           {img &&
-                    <img
-                      src={img}
-                      alt={`Add-on ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }} />
+                            <OptimizedImage
+                              src={img}
+                              alt={`Add-on ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }} />
 
-                    }
+                          }
                           <button
-                      onClick={() => handleAddonImageDelete(index)}
-                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            onClick={() => handleAddonImageDelete(index)}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full shadow-lg z-10 transition-all hover:bg-red-600 active:scale-90">
 
                             <X className="h-4 w-4" />
                           </button>
                         </div>
-                  )}
+                      )}
                     </div>
-                }
+                  }
 
                   {/* Add Image Button */}
                   <input
-                  ref={addonFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAddonImageAdd}
-                  className="hidden"
-                  id="addon-image-upload" />
+                    ref={addonFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAddonImageAdd}
+                    className="hidden"
+                    id="addon-image-upload" />
 
                   <label
-                  htmlFor="addon-image-upload"
-                  className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors">
+                    htmlFor="addon-image-upload"
+                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors">
 
                     <Camera className="h-5 w-5 text-gray-500" />
                     <span className="text-sm font-medium text-gray-700">Add Images</span>
@@ -2178,24 +2416,24 @@ export default function HubMenu() {
               {/* Modal Footer */}
               <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center gap-3">
                 <button
-                onClick={() => setIsAddAddonModalOpen(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                  onClick={() => setIsAddAddonModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
 
                   Cancel
                 </button>
                 <button
-                onClick={handleSaveAddon}
-                disabled={!addonName.trim() || !addonPrice || uploadingAddonImages}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2">
+                  onClick={handleSaveAddon}
+                  disabled={!addonName.trim() || !addonPrice || uploadingAddonImages}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2">
 
                   {uploadingAddonImages ?
-                <>
+                    <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Uploading...</span>
                     </> :
 
-                <span>{editingAddon ? 'Update Add-on' : 'Add Add-on'}</span>
-                }
+                    <span>{editingAddon ? 'Update Add-on' : 'Add Add-on'}</span>
+                  }
                 </button>
               </div>
             </motion.div>

@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import api from "@/lib/api";
 import { restaurantAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
+import OptimizedImage from "@/components/OptimizedImage";
 
 export default function ItemDetailsPage() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function ItemDetailsPage() {
   const location = useLocation();
   const isNewItem = id === "new";
   const groupId = location.state?.groupId;
-  const defaultCategory = location.state?.category || "Varieties";
+  const defaultCategory = location.state?.category || "Select Category";
   const fileInputRef = useRef(null);
 
   // Initialize state with empty values - will be populated from API
@@ -40,9 +41,10 @@ export default function ItemDetailsPage() {
   const [itemSizeUnit, setItemSizeUnit] = useState("piece");
   const [itemDescription, setItemDescription] = useState("");
   const [foodType, setFoodType] = useState("Veg");
-  const [basePrice, setBasePrice] = useState("0");
+  const [basePrice, setBasePrice] = useState("");
   const [preparationTime, setPreparationTime] = useState("");
   const [gst, setGst] = useState("5.0");
+  const [isPriceFocused, setIsPriceFocused] = useState(false);
   const [isRecommended, setIsRecommended] = useState(false);
   const [isInStock, setIsInStock] = useState(true);
   const [weightPerServing, setWeightPerServing] = useState("");
@@ -64,12 +66,14 @@ export default function ItemDetailsPage() {
   const carouselRef = useRef(null);
   const [isCategoryPopupOpen, setIsCategoryPopupOpen] = useState(false);
   const [isServesPopupOpen, setIsServesPopupOpen] = useState(false);
+  const [isPrepTimePopupOpen, setIsPrepTimePopupOpen] = useState(false);
   const [isItemSizePopupOpen, setIsItemSizePopupOpen] = useState(false);
   const [isGstPopupOpen, setIsGstPopupOpen] = useState(false);
   const [isTagsPopupOpen, setIsTagsPopupOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingItem, setLoadingItem] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const maxNameLength = 70;
   const maxDescriptionLength = 1000;
@@ -94,7 +98,7 @@ export default function ItemDetailsPage() {
         setItemSizeUnit(item.itemSizeUnit || "piece");
         setItemDescription(item.description || "");
         setFoodType(item.foodType === "Veg" ? "Veg" : item.foodType === "Egg" ? "Egg" : "Non-Veg");
-        setBasePrice(item.price?.toString() || "0");
+        setBasePrice(item.price?.toString() || "");
         setPreparationTime(item.preparationTime || "");
         setGst(item.gst?.toString() || "5.0");
         setIsRecommended(item.isRecommended || false);
@@ -185,7 +189,7 @@ export default function ItemDetailsPage() {
             setItemSizeUnit(foundItem.itemSizeUnit || "piece");
             setItemDescription(foundItem.description || "");
             setFoodType(foundItem.foodType === "Veg" ? "Veg" : foundItem.foodType === "Egg" ? "Egg" : "Non-Veg");
-            setBasePrice(foundItem.price?.toString() || "0");
+            setBasePrice(foundItem.price?.toString() || "");
             setPreparationTime(foundItem.preparationTime || "");
             setGst(foundItem.gst?.toString() || "5.0");
             setIsRecommended(foundItem.isRecommended || false);
@@ -343,6 +347,7 @@ export default function ItemDetailsPage() {
 
     setImages([...images, ...newImagePreviews]);
     setImageFiles(newImageFilesMap);
+    if (errors.images) setErrors({ ...errors, images: null });
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -353,9 +358,7 @@ export default function ItemDetailsPage() {
     if (index < 0 || index >= images.length) return;
 
     // Confirm deletion
-    if (!window.confirm('Are you sure you want to delete this image?')) {
-      return;
-    }
+
 
     const imageToDelete = images[index];
     const newImages = images.filter((_, i) => i !== index);
@@ -389,11 +392,7 @@ export default function ItemDetailsPage() {
       setCurrentImageIndex(newImages.length - 1);
     }
 
-
-
-
-    toast.success('Image deleted successfully');
-
+    if (newImages.length > 0 && errors.images) setErrors({ ...errors, images: null });
   };
 
   // Swipe handlers
@@ -438,8 +437,9 @@ export default function ItemDetailsPage() {
   const handleCategorySelect = (catId, subCat) => {
     const selectedCategory = categories.find((c) => c.id === catId);
     setCategory(selectedCategory.name);
-    setSubCategory(subCat);
+    setSubCategory(subCat || "");
     setIsCategoryPopupOpen(false);
+    if (errors.category) setErrors({ ...errors, category: null });
   };
 
   const handleServesSelect = (option) => {
@@ -465,11 +465,77 @@ export default function ItemDetailsPage() {
     );
   };
 
+  const validateField = (name, value) => {
+    let error = "";
+    switch (name) {
+      case "itemName":
+        if (!value || !value.trim()) error = "Item name is required";
+        break;
+      case "category":
+        if (!value || value === "Select Category" || value === "Varieties" || value === "") error = "Please select a category";
+        break;
+      case "itemDescription":
+        if (!value || value.length < minDescriptionLength) error = `Min ${minDescriptionLength} characters required`;
+        break;
+      case "basePrice":
+        const price = parseFloat(value);
+        if (!value || isNaN(price) || price <= 0) error = "Please enter a valid price greater than 0";
+        break;
+      case "preparationTime":
+        if (!value) error = "Please select preparation time";
+        break;
+      default:
+        break;
+    }
+    setErrors((prev) => ({ ...prev, [name]: error || null }));
+  };
+
+  const handlePrepTimeSelect = (time) => {
+    setPreparationTime(time);
+    setIsPrepTimePopupOpen(false);
+    if (errors.preparationTime) setErrors({ ...errors, preparationTime: null });
+  };
+
   const handleSave = async () => {
+    // Validation checks
+    const newErrors = {};
     if (!itemName.trim()) {
-      toast.error("Please enter an item name");
+      newErrors.itemName = "Item name is required";
+    }
+
+    if (!category || category === "Select Category" || category === "Varieties" || category === "") {
+      newErrors.category = "Please select a category";
+    }
+
+    if (images.length === 0) {
+      newErrors.images = "Please add at least one image";
+    }
+
+    if (itemDescription.length < minDescriptionLength) {
+      newErrors.itemDescription = `Min ${minDescriptionLength} characters required`;
+    }
+
+    const priceValue = parseFloat(basePrice);
+    if (!basePrice || isNaN(priceValue) || priceValue <= 0) {
+      newErrors.basePrice = "Please enter a valid price greater than 0";
+    }
+
+    if (!preparationTime) {
+      newErrors.preparationTime = "Please select preparation time";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Optional: scroll to the first error
+      const firstErrorField = Object.keys(newErrors)[0];
+      const element = document.getElementById(`error-${firstErrorField}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
+
+    setErrors({});
 
     try {
       setUploadingImages(true);
@@ -715,12 +781,6 @@ export default function ItemDetailsPage() {
       const updateResponse = await restaurantAPI.updateMenu({ sections });
 
       if (updateResponse.data?.success) {
-        const imageCount = allImageUrls.length;
-        toast.success(
-          isNewItem ?
-          `Item created successfully with ${imageCount} image(s)` :
-          `Item updated successfully with ${imageCount} image(s)`
-        );
         // Small delay to ensure backend has processed the update
         await new Promise((resolve) => setTimeout(resolve, 300));
         // Navigate back to HubMenu with replace to prevent back navigation issues
@@ -798,7 +858,7 @@ export default function ItemDetailsPage() {
                   className="absolute inset-0">
                   
                     {images[currentImageIndex] ?
-                  <img
+                  <OptimizedImage
                     src={images[currentImageIndex]}
                     alt={`${itemName} - Image ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover" /> :
@@ -888,13 +948,18 @@ export default function ItemDetailsPage() {
             
             <label
               htmlFor="image-upload"
-              className="flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-sm font-semibold cursor-pointer hover:from-gray-800 hover:to-gray-700 transition-all shadow-md hover:shadow-lg active:scale-95">
+              className={`flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-sm font-semibold cursor-pointer hover:from-gray-800 hover:to-gray-700 transition-all shadow-md hover:shadow-lg active:scale-95 ${
+                errors.images ? "ring-2 ring-red-500 ring-offset-2" : ""
+              }`}>
               
               <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
                 <Plus className="w-4 h-4" />
               </div>
-              <span>Add Images</span>
+              <span id="error-images">Add Images</span> <span className="text-red-500 ml-1">*</span>
             </label>
+            {errors.images && (
+              <p className="text-xs text-red-500 mt-2 text-center">{errors.images}</p>
+            )}
           </div>
         </div>
 
@@ -903,37 +968,51 @@ export default function ItemDetailsPage() {
           {/* Category Selector */}
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Category
+              Category <span className="text-red-500">*</span>
             </label>
             <button
               onClick={() => setIsCategoryPopupOpen(true)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-left flex items-center justify-between bg-white hover:bg-gray-50 transition-colors">
+              className={`w-full px-4 py-3 border rounded-lg text-left flex items-center justify-between bg-white hover:bg-gray-50 transition-colors ${
+                errors.category ? "border-red-500" : "border-gray-300"
+              }`}>
               
               <span className="text-sm text-gray-900">
-                {category} ({subCategory})
+                {category} {subCategory && subCategory !== category ? `(${subCategory})` : ""}
               </span>
               <ChevronDown className="w-5 h-5 text-gray-500" />
             </button>
+            {errors.category && (
+              <p id="error-category" className="text-xs text-red-500 mt-1">{errors.category}</p>
+            )}
           </div>
 
           {/* Item Name */}
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Item name
+              Item name <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
+                onChange={(e) => {
+                  setItemName(e.target.value);
+                  if (errors.itemName) setErrors({ ...errors, itemName: null });
+                }}
                 maxLength={maxNameLength}
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 pr-12 border rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.itemName ? "border-red-500" : "border-gray-300"
+                }`}
+                onBlur={(e) => validateField("itemName", e.target.value)}
                 placeholder="Enter item name" />
               
               <button className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
                 <EditIcon className="w-4 h-4 text-gray-500" />
               </button>
             </div>
+            {errors.itemName && (
+              <p id="error-itemName" className="text-xs text-red-500 mt-1">{errors.itemName}</p>
+            )}
             <div className="text-right mt-1">
               <span className="text-xs text-gray-500">
                 {nameLength} / {maxNameLength}
@@ -945,26 +1024,32 @@ export default function ItemDetailsPage() {
           {/* Item Description */}
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Item description
+              Item description <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <textarea
                 value={itemDescription}
-                onChange={(e) => setItemDescription(e.target.value)}
+                onChange={(e) => {
+                  setItemDescription(e.target.value);
+                  if (errors.itemDescription) setErrors({ ...errors, itemDescription: null });
+                }}
                 maxLength={maxDescriptionLength}
                 rows={4}
                 placeholder="Eg: Yummy veg paneer burger with a soft patty, veggies, cheese, and special sauce"
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+                className={`w-full px-4 py-3 pr-12 border rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                  errors.itemDescription ? "border-red-500" : "border-gray-300"
+                }`}
+                onBlur={(e) => validateField("itemDescription", e.target.value)} />
               
               <button className="absolute right-3 top-3 p-1 rounded-full hover:bg-gray-100">
                 <EditIcon className="w-4 h-4 text-gray-500" />
               </button>
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className={`text-xs ${descriptionLength < minDescriptionLength ? "text-red-500" : "text-gray-500"}`}>
-                {descriptionLength < minDescriptionLength ? "Min 5 characters required" : ""}
+              <span className={`text-xs ${(errors.itemDescription || (descriptionLength > 0 && descriptionLength < minDescriptionLength)) ? "text-red-500" : "text-gray-500"}`}>
+                {errors.itemDescription || (descriptionLength > 0 && descriptionLength < minDescriptionLength ? "Min 5 characters required" : "")}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500" id="error-itemDescription">
                 {descriptionLength} / {maxDescriptionLength}
               </span>
             </div>
@@ -1013,54 +1098,62 @@ export default function ItemDetailsPage() {
             </label>
             <div className="space-y-3">
               <div className="relative">
-                <label className="block text-xs text-gray-600 mb-1">Base price</label>
+                <label className="block text-xs text-gray-600 mb-1">Base price <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type="text"
                     value={basePrice}
                     onChange={(e) => {
-                      // Remove rupee symbol and any non-numeric characters except decimal point
                       const value = e.target.value.replace(/[₹\s,]/g, '').replace(/[^0-9.]/g, '');
-                      // Allow only one decimal point
                       const parts = value.split('.');
                       const cleanedValue = parts.length > 2 ?
                       parts[0] + '.' + parts.slice(1).join('') :
                       value;
                       setBasePrice(cleanedValue);
+                      if (errors.basePrice) setErrors({ ...errors, basePrice: null });
                     }}
                     onFocus={(e) => {
-                      // Remove rupee symbol when focused for easier editing
+                      setIsPriceFocused(true);
                       if (e.target.value.startsWith('₹')) {
                         e.target.value = e.target.value.replace(/₹\s*/g, '');
                       }
                     }}
-                    placeholder="Enter price"
-                    className="w-full pl-8 pr-12 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    onBlur={(e) => {
+                      setIsPriceFocused(false);
+                      validateField("basePrice", e.target.value);
+                    }}
+                    placeholder={isPriceFocused ? "" : "0"}
+                    className={`w-full pl-8 pr-12 py-3 border rounded-lg text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.basePrice ? "border-red-500" : "border-gray-300"
+                    }`} />
                   
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600">₹</span>
                   <button className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
                     <EditIcon className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
+                {errors.basePrice && (
+                  <p id="error-basePrice" className="text-xs text-red-500 mt-1">{errors.basePrice}</p>
+                )}
               </div>
               
-              {/* Preparation Time */}
-              <div className="relative">
-                <label className="block text-xs text-gray-600 mb-1">Preparation Time</label>
-                <div className="relative">
-                  <select
-                    value={preparationTime}
-                    onChange={(e) => setPreparationTime(e.target.value)}
-                    className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none">
-                    
-                    <option value="">Select timing</option>
-                    <option value="10-20 mins">10-20 mins</option>
-                    <option value="20-25 mins">20-25 mins</option>
-                    <option value="25-35 mins">25-35 mins</option>
-                    <option value="35-45 mins">35-45 mins</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
+              <div className="relative overflow-hidden w-full">
+                <label className="block text-xs text-gray-600 mb-1">Preparation Time <span className="text-red-500">*</span></label>
+                <div className="relative w-full">
+                  <button
+                    onClick={() => setIsPrepTimePopupOpen(true)}
+                    className={`w-full px-4 py-3 border rounded-lg text-left flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors ${
+                      errors.preparationTime ? "border-red-500" : "border-gray-300"
+                    }`}>
+                    <span className="text-sm text-gray-900">
+                      {preparationTime || "Select timing"}
+                    </span>
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  </button>
                 </div>
+                {errors.preparationTime && (
+                  <p id="error-preparationTime" className="text-xs text-red-500 mt-1">{errors.preparationTime}</p>
+                )}
               </div>
               {/* <div>
                  <label className="block text-xs text-gray-600 mb-1">GST</label>
@@ -1111,7 +1204,10 @@ export default function ItemDetailsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsCategoryPopupOpen(false)}
+            onClick={() => {
+              setIsCategoryPopupOpen(false);
+              validateField("category", category);
+            }}
             className="fixed inset-0 bg-black/50 z-50" />
           
             <motion.div
@@ -1125,19 +1221,23 @@ export default function ItemDetailsPage() {
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-bold text-gray-900">Select category</h2>
                 <div className="flex items-center gap-2">
-                  <button
+                  {categories.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setIsCategoryPopupOpen(false);
+                        navigate('/restaurant/menu-categories', { state: { openAddModal: true } });
+                      }}
+                      className="p-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-1.5"
+                      title="Add Category">
+                      <Plus className="w-4 h-4" />
+                      <span className="text-sm font-medium">Add</span>
+                    </button>
+                  )}
+                <button
                   onClick={() => {
                     setIsCategoryPopupOpen(false);
-                    navigate('/restaurant/menu-categories');
+                    validateField("category", category);
                   }}
-                  className="p-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-1.5"
-                  title="Add Category">
-                  
-                    <Plus className="w-4 h-4" />
-                    <span className="text-sm font-medium">Add</span>
-                  </button>
-                <button
-                  onClick={() => setIsCategoryPopupOpen(false)}
                   className="p-1 rounded-full hover:bg-gray-100">
                   
                   <X className="w-5 h-5 text-gray-600" />
@@ -1153,10 +1253,10 @@ export default function ItemDetailsPage() {
               <div className="text-center py-12 space-y-4">
                     <p className="text-sm text-gray-500">No categories available</p>
                     <button
-                  onClick={() => {
-                    setIsCategoryPopupOpen(false);
-                    navigate('/restaurant/menu-categories');
-                  }}
+                      onClick={() => {
+                        setIsCategoryPopupOpen(false);
+                        navigate('/restaurant/menu-categories', { state: { openAddModal: true } });
+                      }}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors">
                   
                       <Plus className="w-5 h-5" />
@@ -1180,6 +1280,60 @@ export default function ItemDetailsPage() {
                 )}
                   </div>
               }
+              </div>
+            </motion.div>
+          </>
+        }
+      </AnimatePresence>
+
+      {/* Preparation Time Selection Popup */}
+      <AnimatePresence>
+        {isPrepTimePopupOpen &&
+        <>
+            <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setIsPrepTimePopupOpen(false);
+              validateField("preparationTime", preparationTime);
+            }}
+            className="fixed inset-0 bg-black/50 z-50" />
+          
+            <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[60vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+            
+              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900">Select timing</h2>
+                <button
+                  onClick={() => {
+                    setIsPrepTimePopupOpen(false);
+                    validateField("preparationTime", preparationTime);
+                  }}
+                  className="p-1 rounded-full hover:bg-gray-100">
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="space-y-2">
+                  {["10-20 mins", "20-25 mins", "25-35 mins", "35-45 mins"].map((time) =>
+                  <button
+                    key={time}
+                    onClick={() => handlePrepTimeSelect(time)}
+                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    preparationTime === time ?
+                    "bg-gray-900 text-white" :
+                    "bg-gray-50 text-gray-900 hover:bg-gray-100"}`
+                    }>
+                    {time}
+                  </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           </>
@@ -1237,36 +1391,49 @@ export default function ItemDetailsPage() {
          )}
         </AnimatePresence> */}
 
-
       {/* Bottom Sticky Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200  z-40">
-        <div className={`flex gap-3 px-4 py-4 ${isNewItem ? 'justify-end' : ''}`}>
-          {!isNewItem &&
-          <button
-            onClick={handleDelete}
-            className="flex-1 py-3 px-4 border border-black rounded-lg text-sm font-semibold text-black bg-white hover:bg-gray-50 transition-colors">
-            
-              Delete
-            </button>
-          }
-          <button
-            onClick={handleSave}
-            disabled={uploadingImages}
-            className={`${isNewItem ? 'w-full' : 'flex-1'} py-3 px-4 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-            !uploadingImages ?
-            "bg-black text-white hover:bg-black" :
-            "bg-gray-300 text-gray-500 cursor-not-allowed"}`
-            }>
-            
-            {uploadingImages ?
+        <div className="flex gap-3 px-4 py-4">
+          {!isNewItem ? (
             <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Uploading...</span>
-              </> :
-
-            "Save"
-            }
-          </button>
+              <button
+                onClick={() => navigate(-1)}
+                className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={uploadingImages}
+                className="flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 bg-black text-white hover:bg-gray-900 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+              >
+                {uploadingImages ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  "Update"
+                )}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={uploadingImages}
+              className="w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 bg-black text-white hover:bg-gray-900 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+            >
+              {uploadingImages ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>);

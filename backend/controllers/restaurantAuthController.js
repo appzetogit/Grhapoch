@@ -1042,7 +1042,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
     const email = decoded.email || null;
     const name = decoded.name || decoded.display_name || 'Restaurant';
     const picture = decoded.picture || decoded.photo_url || null;
-    const emailVerified = !!decoded.email_verified;
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
 
     // Validate email is present
     if (!email) {
@@ -1057,45 +1057,102 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Invalid email format received from Google.');
     }
 
-    // Find existing restaurant by firebase UID (stored in googleId) or email
+    // Build unique slug helper for collision-safe create.
+    const buildBaseSlug = (value) => {
+      const normalized = (value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      return normalized || 'restaurant';
+    };
+
+    const findUniqueSlug = async (baseSlug) => {
+      let candidate = baseSlug;
+      let counter = 1;
+      while (await Restaurant.findOne({ slug: candidate })) {
+        candidate = `${baseSlug}-${counter}`;
+        counter++;
+      }
+      return candidate;
+    };
+
+    // Find existing restaurant by firebase UID, canonical email or ownerEmail fallback.
+    // ownerEmail fallback keeps old phone-only accounts compatible with Google linking.
     let restaurant = await Restaurant.findOne({
       $or: [
         { googleId: firebaseUid },
-        { email }
+        { email: normalizedEmail },
+        { ownerEmail: normalizedEmail }
       ]
     });
 
     if (restaurant) {
-      // If restaurant exists but googleId not linked yet, link it
+      // Link Google + backfill canonical email for legacy phone-only accounts.
+      let shouldSave = false;
       if (!restaurant.googleId) {
         restaurant.googleId = firebaseUid;
-        restaurant.googleEmail = email;
-        if (!restaurant.profileImage && picture) {
-          restaurant.profileImage = { url: picture };
+        shouldSave = true;
+      }
+      if (!restaurant.googleEmail) {
+        restaurant.googleEmail = normalizedEmail;
+        shouldSave = true;
+      }
+      if (!restaurant.email) {
+        restaurant.email = normalizedEmail;
+        shouldSave = true;
+      }
+      if (!restaurant.ownerEmail) {
+        restaurant.ownerEmail = normalizedEmail;
+        shouldSave = true;
+      }
+      if (!restaurant.profileImage && picture) {
+        restaurant.profileImage = { url: picture };
+        shouldSave = true;
+      }
+      if (!restaurant.signupMethod) {
+        restaurant.signupMethod = 'google';
+        shouldSave = true;
+      }
+
+      if (shouldSave) {
+        try {
+          await restaurant.save();
+        } catch (linkError) {
+          // If canonical email is already occupied by another record, keep login working.
+          if (!(linkError.code === 11000 && linkError.keyPattern && linkError.keyPattern.email)) {
+            throw linkError;
+          }
+          logger.warn('Google linked but canonical email backfill skipped due to duplicate email', {
+            restaurantId: restaurant._id,
+            email: normalizedEmail
+          });
+          const emailAlreadySet = !!restaurant.email;
+          restaurant.email = undefined;
+          if (!restaurant.googleId) restaurant.googleId = firebaseUid;
+          if (!restaurant.googleEmail) restaurant.googleEmail = normalizedEmail;
+          if (!emailAlreadySet) {
+            await restaurant.save();
+          }
         }
-        if (!restaurant.signupMethod) {
-          restaurant.signupMethod = 'google';
-        }
-        await restaurant.save();
-        logger.info('Linked Google account to existing restaurant', { restaurantId: restaurant._id, email });
+        logger.info('Linked Google account to existing restaurant', { restaurantId: restaurant._id, email: normalizedEmail });
       }
 
       logger.info('Existing restaurant logged in via Firebase Google', {
         restaurantId: restaurant._id,
-        email
+        email: normalizedEmail
       });
     } else {
       // Auto-register new restaurant based on Firebase data
       const restaurantData = {
         name: name.trim(),
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         googleId: firebaseUid,
-        googleEmail: email.toLowerCase().trim(),
+        googleEmail: normalizedEmail,
         signupMethod: 'google',
         businessModel: 'Commission Base',
         profileImage: picture ? { url: picture } : null,
         ownerName: name.trim(),
-        ownerEmail: email.toLowerCase().trim(),
+        ownerEmail: normalizedEmail,
         // Set isActive to false - restaurant needs admin approval before becoming active
         isActive: false
       };
@@ -1105,33 +1162,63 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
 
         logger.info('New restaurant registered via Firebase Google login', {
           firebaseUid,
-          email,
+          email: normalizedEmail,
           restaurantId: restaurant._id,
           name: restaurant.name
         });
       } catch (createError) {
         // Handle duplicate key error
         if (createError.code === 11000) {
-          logger.warn('Duplicate key error during restaurant creation, retrying find', { email });
-          restaurant = await Restaurant.findOne({ email });
-          if (!restaurant) {
-            logger.error('Restaurant not found after duplicate key error', { email });
-            throw createError;
-          }
-          // Link Google ID if not already linked
-          if (!restaurant.googleId) {
-            restaurant.googleId = firebaseUid;
-            restaurant.googleEmail = email;
+          if (createError.keyPattern && createError.keyPattern.slug) {
+            const baseSlug = buildBaseSlug(restaurantData.name || normalizedEmail);
+            restaurantData.slug = await findUniqueSlug(baseSlug);
+            restaurant = await Restaurant.create(restaurantData);
+            logger.info('New restaurant registered via Firebase Google with unique slug', {
+              firebaseUid,
+              email: normalizedEmail,
+              restaurantId: restaurant._id,
+              slug: restaurantData.slug
+            });
+          } else {
+            logger.warn('Duplicate key error during restaurant creation, retrying find', { email: normalizedEmail });
+            restaurant = await Restaurant.findOne({
+              $or: [
+                { email: normalizedEmail },
+                { ownerEmail: normalizedEmail }
+              ]
+            });
+            if (!restaurant) {
+              logger.error('Restaurant not found after duplicate key error', { email: normalizedEmail });
+              throw createError;
+            }
+            // Link Google ID if not already linked
+            let shouldSave = false;
+            if (!restaurant.googleId) {
+              restaurant.googleId = firebaseUid;
+              shouldSave = true;
+            }
+            if (!restaurant.googleEmail) {
+              restaurant.googleEmail = normalizedEmail;
+              shouldSave = true;
+            }
+            if (!restaurant.email) {
+              restaurant.email = normalizedEmail;
+              shouldSave = true;
+            }
             if (!restaurant.profileImage && picture) {
               restaurant.profileImage = { url: picture };
+              shouldSave = true;
             }
             if (!restaurant.signupMethod) {
               restaurant.signupMethod = 'google';
+              shouldSave = true;
             }
-            await restaurant.save();
+            if (shouldSave) {
+              await restaurant.save();
+            }
           }
         } else {
-          logger.error('Error creating restaurant via Firebase Google login', { error: createError.message, email });
+          logger.error('Error creating restaurant via Firebase Google login', { error: createError.message, email: normalizedEmail });
           throw createError;
         }
       }
@@ -1142,7 +1229,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
     if (!restaurant.isActive) {
       logger.info('Inactive restaurant authenticated via Google; pending approval flow', {
         restaurantId: restaurant._id,
-        email
+        email: normalizedEmail
       });
     }
 

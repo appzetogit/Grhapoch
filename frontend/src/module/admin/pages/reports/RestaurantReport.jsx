@@ -25,10 +25,19 @@ export default function RestaurantReport() {
       try {
         const response = await adminAPI.getZones({ limit: 1000 })
         if (response?.data?.success && response.data.data?.zones) {
-          setZones(response.data.data.zones)
+          const rawZones = response.data.data.zones
+          const normalizedZones = Array.isArray(rawZones)
+            ? rawZones
+            : Array.isArray(rawZones?.docs)
+              ? rawZones.docs
+              : []
+          setZones(normalizedZones)
+        } else {
+          setZones([])
         }
       } catch (error) {
         console.error("Error fetching zones:", error)
+        setZones([])
       }
     }
     fetchZones()
@@ -51,7 +60,21 @@ export default function RestaurantReport() {
         const response = await adminAPI.getRestaurantReport(params)
 
         if (response?.data?.success && response.data.data) {
-          setRestaurants(response.data.data.restaurants || [])
+          const safeRestaurants = (response.data.data.restaurants || []).map((restaurant, index) => ({
+            sl: restaurant?.sl ?? index + 1,
+            id: restaurant?.id || restaurant?._id || `restaurant-${index + 1}`,
+            restaurantName: restaurant?.restaurantName || restaurant?.name || "Unknown Restaurant",
+            icon: restaurant?.icon || null,
+            totalFood: restaurant?.totalFood ?? 0,
+            totalOrder: restaurant?.totalOrder ?? 0,
+            totalOrderAmount: String(restaurant?.totalOrderAmount ?? "0"),
+            totalDiscountGiven: String(restaurant?.totalDiscountGiven ?? "0"),
+            totalAdminCommission: String(restaurant?.totalAdminCommission ?? "0"),
+            totalVATTAX: String(restaurant?.totalVATTAX ?? "0"),
+            averageRatings: Number(restaurant?.averageRatings ?? 0),
+            reviews: Number(restaurant?.reviews ?? 0),
+          }))
+          setRestaurants(safeRestaurants)
         } else {
           setRestaurants([])
           if (response?.data?.message) {
@@ -115,14 +138,15 @@ export default function RestaurantReport() {
   }
 
   const activeFiltersCount = (filters.zone !== "All Zones" ? 1 : 0) + (filters.all !== "All" ? 1 : 0) + (filters.type !== "All types" ? 1 : 0) + (filters.time !== "All Time" ? 1 : 0)
-
   const renderStars = (rating, reviews) => {
-    if (rating === 0) {
+    const safeRating = Number(rating) || 0
+    const safeReviews = Number(reviews) || 0
+    if (safeRating === 0) {
       return "★0"
     }
-    const fullStars = Math.floor(rating)
-    const hasHalfStar = rating % 1 !== 0
-    return "★".repeat(fullStars) + (hasHalfStar ? "½" : "") + "☆".repeat(5 - Math.ceil(rating)) + ` (${reviews})`
+    const fullStars = Math.floor(safeRating)
+    const hasHalfStar = safeRating % 1 !== 0
+    return "★".repeat(fullStars) + (hasHalfStar ? "½" : "") + "☆".repeat(5 - Math.ceil(safeRating)) + ` (${safeReviews})`
   }
 
   if (loading) {
@@ -375,8 +399,8 @@ export default function RestaurantReport() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRestaurants.map((restaurant) => (
-                    <tr key={restaurant.sl} className="hover:bg-slate-50 transition-colors">
+                  filteredRestaurants.map((restaurant, index) => (
+                    <tr key={restaurant.id || restaurant.sl || index} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-medium text-slate-700">{restaurant.sl}</span>
                       </td>
@@ -389,9 +413,12 @@ export default function RestaurantReport() {
                                 alt={restaurant.restaurantName}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
+                                  const img = e.currentTarget;
+                                  img.onerror = null;
+                                  img.style.display = "none";
+                                  if (img.nextSibling) {
+                                    img.nextSibling.style.display = "flex";
+                                  }
                                 }}
                               />
                             ) : null}
@@ -416,7 +443,7 @@ export default function RestaurantReport() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`text-sm font-medium ${
-                          restaurant.totalAdminCommission.startsWith('₹-') || restaurant.totalAdminCommission.startsWith('-₹')
+                          String(restaurant.totalAdminCommission).startsWith("₹-") || String(restaurant.totalAdminCommission).startsWith("-₹")
                             ? 'text-red-600'
                             : 'text-slate-900'
                         }`}>
@@ -465,3 +492,4 @@ export default function RestaurantReport() {
     </div>
   )
 }
+

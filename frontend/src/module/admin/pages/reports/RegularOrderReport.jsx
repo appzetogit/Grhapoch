@@ -241,8 +241,15 @@ export default function RegularOrderReport() {
     [filteredOrders]
   )
 
-  const formatAmount = (amount) =>
-    `$ ${Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatAmount = (amount) => {
+    const numericAmount = Number(amount || 0)
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(numericAmount) ? numericAmount : 0)
+  }
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -547,7 +554,7 @@ export default function RegularOrderReport() {
                         <span className="text-[10px] text-slate-700 truncate block">{order.customerName}</span>
                       </td>
                       <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{formatAmount(order.totalAmount)}</span>
+                        <span className="text-[10px] text-slate-700">{formatAmount(order.totalItemAmount)}</span>
                       </td>
                       <td className="px-1.5 py-1">
                         <span className="text-[10px] text-slate-700">{formatAmount(order.itemDiscount)}</span>

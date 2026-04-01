@@ -15,7 +15,7 @@ import {
 } from
   "@/components/ui/select";
 import { uploadAPI, api, restaurantAPI } from "@/lib/api";
-import { setAuthData as setRestaurantAuthData } from "@/lib/utils/auth";
+import { clearModuleAuth } from "@/lib/utils/auth";
 import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -251,11 +251,9 @@ export default function RestaurantOnboarding() {
   const bannerTimeoutRef = useRef(null);
   const filePickedRef = useRef(false);
 
-  const handleExit = () => {
+  const handleExit = async () => {
     const cleanupAndRedirect = () => {
-      localStorage.removeItem("restaurant_accessToken");
-      localStorage.removeItem("restaurant_authenticated");
-      localStorage.removeItem("restaurant_user");
+      clearModuleAuth("restaurant");
       localStorage.removeItem("restaurant");
       localStorage.removeItem("restaurant_onboarding_data");
       localStorage.removeItem("pending_subscription_onboarding");
@@ -264,20 +262,33 @@ export default function RestaurantOnboarding() {
       navigate("/restaurant/login", { replace: true });
     };
 
-    const token = localStorage.getItem("restaurant_accessToken");
-    if (!token) {
+    try {
+      await restaurantAPI.logout?.();
+    } catch (err) {
+      // Ignore logout API errors and continue with local cleanup.
+    } finally {
       cleanupAndRedirect();
-      return;
     }
-
-    api.delete("/restaurant/profile", { skipErrorToast: true })
-      .catch((err) => {
-        console.warn("Failed to delete restaurant account on onboarding exit:", err);
-      })
-      .finally(() => {
-        cleanupAndRedirect();
-      });
   };
+
+  // Intercept browser/mobile back during onboarding and show exit confirmation modal.
+  useEffect(() => {
+    const pushOnboardingState = () => {
+      window.history.pushState({ onboardingGuard: true }, "", window.location.href);
+    };
+
+    pushOnboardingState();
+
+    const onPopState = () => {
+      setShowExitModal(true);
+      pushOnboardingState();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, []);
 
   // Helper to clear file input native value (fixes "file name still showing" bug)
   const clearFileInput = (id) => {

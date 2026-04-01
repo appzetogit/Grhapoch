@@ -35,6 +35,11 @@ export const getRestaurantCommissions = asyncHandler(async (req, res) => {
       ];
     }
 
+    // Hide orphan commission rows whose restaurant document was deleted.
+    // This keeps commission management consistent with active restaurant master data.
+    const existingRestaurantIds = await Restaurant.distinct('_id');
+    query.restaurant = { $in: existingRestaurantIds };
+
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);

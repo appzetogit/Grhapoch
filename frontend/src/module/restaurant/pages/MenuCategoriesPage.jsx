@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   ArrowLeft, 
@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 export default function MenuCategoriesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -25,10 +26,20 @@ export default function MenuCategoriesPage() {
     icon: '',
     color: '#000000'
   })
+  const [error, setError] = useState('')
 
   // Fetch categories
   useEffect(() => {
     fetchCategories()
+    
+    // Auto-open add modal if coming from item selection
+    if (location.state?.openAddModal) {
+      setTimeout(() => {
+        handleAddCategory();
+        // Clear state to prevent reopening on subsequent navigations
+        navigate(location.pathname, { replace: true, state: {} });
+      }, 100);
+    }
   }, [])
 
   const fetchCategories = async () => {
@@ -53,6 +64,7 @@ export default function MenuCategoriesPage() {
       icon: '',
       color: '#000000'
     })
+    setError('')
     setShowAddModal(true)
   }
 
@@ -63,29 +75,28 @@ export default function MenuCategoriesPage() {
       icon: category.icon || '',
       color: category.color || '#000000'
     })
+    setError('')
     setShowAddModal(true)
   }
 
   const handleSaveCategory = async () => {
     if (!formData.name.trim()) {
-      toast.error('Category name is required')
+      setError('Category name is required')
       return
     }
+    setError('')
 
     try {
       // Prepare data to send (only name is required, backend will handle order)
       const categoryData = {
         name: formData.name.trim()
       }
-
       if (editingCategory) {
         // Update existing category
         await restaurantAPI.updateCategory(editingCategory._id || editingCategory.id, categoryData)
-        toast.success('Category updated successfully')
       } else {
         // Create new category
         await restaurantAPI.createCategory(categoryData)
-        toast.success('Category created successfully')
       }
       setShowAddModal(false)
       fetchCategories()
@@ -258,11 +269,25 @@ export default function MenuCategoriesPage() {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value })
+                      if (error) setError('')
+                    }}
                     placeholder="e.g., Starters, Main Course, Desserts"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                    className={`w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-black'
+                    }`}
                     maxLength={100}
                   />
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-red-500 mt-1.5"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
                 </div>
               </div>
               <div className="px-4 py-4 border-t border-gray-200 flex gap-3">

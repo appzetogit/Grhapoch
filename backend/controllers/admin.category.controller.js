@@ -149,7 +149,7 @@ export const createCategory = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Category with this name already exists');
     }
 
-    let imageUrl = 'https://via.placeholder.com/40';
+    let imageUrl = '';
 
     // Handle image upload if file is provided (priority: file > URL string)
     if (req.file) {

@@ -1198,30 +1198,23 @@ export default function ProfileDetails() {
       {/* Custom Camera Modal */}
       {isCameraOpen && (
         <div className="fixed inset-0 z-[1100] flex flex-col bg-black">
-          <div className="flex items-center justify-between p-4 text-white">
+          <div className="flex-shrink-0 flex items-center justify-between p-4 text-white z-[1001] bg-black">
             <h3 className="text-lg font-medium">Take Photo</h3>
             <div className="flex items-center gap-2">
-              {hasMultipleCameras && !capturedImage && (
-                <button
-                  onClick={() => setFacingMode(p => p === "environment" ? "user" : "environment")}
-                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
-                >
-                  <RefreshCw className="w-6 h-6" />
-                </button>
-              )}
+
               <button onClick={() => { setIsCameraOpen(false); setCapturedImage(null); }} className="p-2">
                 <X className="w-6 h-6" />
               </button>
             </div>
           </div>
-          <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
             {capturedImage ? (
-              <img src={capturedImage} className={`max-w-full max-h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} alt="Captured" />
+              <img src={capturedImage} className={`w-full h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} alt="Captured" />
             ) : (
-              <video ref={videoRef} autoPlay playsInline className={`max-w-full max-h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
+              <video ref={videoRef} autoPlay playsInline className={`w-full h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
             )}
           </div>
-          <div className="p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center gap-6">
+          <div className="flex-shrink-0 p-8 pb-12 bg-black flex items-center justify-center border-0 m-0">
             {capturedImage ? (
               <>
                 <button onClick={() => setCapturedImage(null)} className="flex flex-col items-center gap-2 text-white">
@@ -1234,7 +1227,25 @@ export default function ProfileDetails() {
                 </button>
               </>
             ) : (
-              <button onClick={takePhoto} className="flex flex-col items-center gap-2"><div className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1"><div className="w-full h-full rounded-full bg-white transition-transform active:scale-90"></div></div></button>
+              <div className="relative flex items-center justify-center w-full">
+                <button
+                  onClick={takePhoto}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1">
+                    <div className="w-full h-full rounded-full bg-white transition-transform active:scale-95 group-hover:scale-105"></div>
+                  </div>
+                </button>
+                {!capturedImage && (
+                  <button
+                    onClick={() => setFacingMode(p => p === "environment" ? "user" : "environment")}
+                    className="absolute right-0 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:bg-white/30"
+                    title="Switch Camera"
+                  >
+                    <RefreshCw className="w-6 h-6 text-white" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

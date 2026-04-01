@@ -198,7 +198,6 @@ export default function HubMenu() {
 
       if (response.data && response.data.success && response.data.data && response.data.data.menu) {
         const menuSections = response.data.data.menu.sections || [];
-        console.log("=== FETCHED MENU DATA ===", JSON.stringify(menuSections, null, 2));
         fetchedMenuDataRef.current = JSON.stringify(menuSections);
         setMenuData(menuSections);
 

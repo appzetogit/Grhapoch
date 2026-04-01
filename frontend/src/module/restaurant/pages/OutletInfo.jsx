@@ -15,6 +15,10 @@ import {
   X,
   Trash2,
   CreditCard,
+  Camera,
+  Image as ImageIcon,
+  Check,
+  RefreshCw
 } from "lucide-react"
 import {
   Dialog,
@@ -50,8 +54,149 @@ export default function OutletInfo() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageType, setImageType] = useState(null) // 'profile' or 'menu'
   const [uploadingCount, setUploadingCount] = useState(0) // Track how many images are being uploaded
+  const [showImageSourceDialog, setShowImageSourceDialog] = useState(false)
+  const [activeImageTarget, setActiveImageTarget] = useState(null) // 'profile' or 'menu'
   const profileImageInputRef = useRef(null)
   const menuImageInputRef = useRef(null)
+  const profileCameraInputRef = useRef(null)
+  const menuCameraInputRef = useRef(null)
+
+  // Camera State
+  const [activeCamera, setActiveCamera] = useState(null);
+  const videoRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [facingMode, setFacingMode] = useState("environment");
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+
+  // Check for multiple cameras on mount
+  useEffect(() => {
+    const checkCameras = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setHasMultipleCameras(videoDevices.length > 1);
+      } catch (err) {
+      }
+    };
+    checkCameras();
+  }, []);
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+  };
+
+  const startCamera = async () => {
+    stopCamera();
+    try {
+      const constraints = {
+        video: { facingMode: facingMode },
+        audio: false
+      };
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      setStream(mediaStream);
+    } catch (err) {
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        setStream(fallbackStream);
+      } catch (fallbackErr) {
+        toast.error("Could not access camera. Please check permissions.");
+        setActiveCamera(null);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (stream && videoRef.current && !capturedImage) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => {});
+    }
+  }, [stream, capturedImage]);
+
+  useEffect(() => {
+    if (activeCamera) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [activeCamera, facingMode]);
+
+  const resizeImage = (dataUrl, maxWidth = 1200) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (maxWidth / width) * height;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = dataUrl;
+    });
+  };
+
+  const toggleFacingMode = () => {
+    setFacingMode(prev => prev === "environment" ? "user" : "environment");
+    setCapturedImage(null);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      
+      if (facingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      
+      ctx.drawImage(videoRef.current, 0, 0);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      setCapturedImage(dataUrl);
+    }
+  };
+
+  const usePhoto = async () => {
+    if (capturedImage) {
+      try {
+        const optimizedImage = await resizeImage(capturedImage);
+        const res = await fetch(optimizedImage);
+        const blob = await res.blob();
+        const fileName = activeCamera === 'profile' ? `profile_${Date.now()}.jpg` : `menu_${Date.now()}.jpg`;
+        const file = new File([blob], fileName, { type: "image/jpeg" });
+        
+        const mockEvent = { target: { files: [file] } };
+        
+        if (activeCamera === 'profile') {
+           handleProfileImageReplace(mockEvent);
+        } else {
+           handleCoverImageAdd(mockEvent);
+        }
+        
+        setActiveCamera(null);
+        setCapturedImage(null);
+      } catch (error) {
+        toast.error("Failed to process photo : " + error.message);
+        setActiveCamera(null);
+      }
+    }
+  };
+
 
   // Format address from location object
   const formatAddress = (location) => {
@@ -587,15 +732,15 @@ export default function OutletInfo() {
 
   // Prevent body scroll when dialog is open
   useEffect(() => {
-    if (showEditNameDialog) {
+    if (showEditNameDialog || activeCamera) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
     return () => {
-      document.body.style.overflow = 'unset'
+      if (!activeCamera) document.body.style.overflow = 'unset'
     }
-  }, [showEditNameDialog])
+  }, [showEditNameDialog, activeCamera])
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -630,7 +775,10 @@ export default function OutletInfo() {
 
         {/* Add Image Button - Black background with white text */}
         <button
-          onClick={() => menuImageInputRef.current?.click()}
+          onClick={() => {
+            setActiveImageTarget('menu');
+            setShowImageSourceDialog(true);
+          }}
           disabled={uploadingImage}
           className="absolute top-4 right-4 bg-black/90 hover:bg-black px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-medium text-white transition-colors shadow-lg z-10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -645,6 +793,15 @@ export default function OutletInfo() {
           ref={menuImageInputRef}
           type="file"
           accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleCoverImageAdd}
+        />
+        <input
+          ref={menuCameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           multiple
           className="hidden"
           onChange={handleCoverImageAdd}
@@ -688,24 +845,41 @@ export default function OutletInfo() {
 
         {/* Thumbnail Section - Overlapping bottom edge */}
         <div className="absolute bottom-0 left-4 -mb-[45px] flex flex-col gap-2 shrink-0 z-10">
-          <div className="relative w-[70px] h-[70px] rounded overflow-hidden">
+          <div className="relative w-[70px] h-[70px] rounded overflow-visible">
             <img
               src={thumbnailImage}
               alt="Restaurant thumbnail"
               className="w-full h-full rounded-xl object-cover"
             />
+            {/* Pencil Edit Icon for Thumbnail */}
+            <button
+              onClick={() => {
+                setActiveImageTarget('profile');
+                setShowImageSourceDialog(true);
+              }}
+              disabled={uploadingImage}
+              className="absolute -top-2 -right-2 bg-green-600 hover:bg-green-700 p-1.5 rounded-full flex items-center justify-center shadow-md border-2 border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20"
+              aria-label="Edit Profile image"
+            >
+              {uploadingImage && imageType === 'profile' ? (
+                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                 <Pencil className="w-3.5 h-3.5 text-white" />
+              )}
+            </button>
           </div>
-          <button
-            onClick={() => profileImageInputRef.current?.click()}
-            disabled={uploadingImage}
-            className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploadingImage && imageType === 'profile' ? 'Uploading...' : 'Edit photo'}
-          </button>
           <input
             ref={profileImageInputRef}
             type="file"
             accept="image/*"
+            className="hidden"
+            onChange={handleProfileImageReplace}
+          />
+          <input
+            ref={profileCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleProfileImageReplace}
           />
@@ -908,6 +1082,137 @@ export default function OutletInfo() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Image Source Selection Dialog */}
+      <Dialog open={showImageSourceDialog} onOpenChange={setShowImageSourceDialog}>
+        <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="text-xl font-bold text-gray-900 text-center">
+              {activeImageTarget === 'profile' ? 'Change Restaurant Logo' : 'Add Menu Image'}
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-gray-500">
+              Choose camera or gallery to upload photo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 pt-2 space-y-4">
+            <button
+              onClick={() => {
+                setShowImageSourceDialog(false);
+                setActiveCamera(activeImageTarget);
+              }}
+              className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all border border-gray-100 group"
+            >
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                <Camera className="h-6 w-6 text-blue-600 group-hover:text-white transition-colors" />
+              </div>
+              <div className="text-left">
+                <div className="text-base font-semibold text-gray-900">Take Photo</div>
+                <div className="text-sm text-gray-500">Use your camera</div>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setShowImageSourceDialog(false);
+                if (activeImageTarget === 'profile') profileImageInputRef.current?.click();
+                else menuImageInputRef.current?.click();
+              }}
+              className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all border border-gray-100 group"
+            >
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-600 transition-colors">
+                <ImageIcon className="h-6 w-6 text-green-600 group-hover:text-white transition-colors" />
+              </div>
+              <div className="text-left">
+                <div className="text-base font-semibold text-gray-900">Files & Gallery</div>
+                <div className="text-sm text-gray-500">Choose from your photos</div>
+              </div>
+            </button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowImageSourceDialog(false)}
+              className="w-full h-12 text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Camera Modal */}
+      {activeCamera && (
+        <div className="fixed inset-0 z-[1000] flex flex-col bg-black overflow-hidden h-screen h-[100dvh] w-screen m-0 p-0 border-0 outline-none">
+          <div className="flex-shrink-0 flex items-center justify-between p-4 text-white z-[1001] bg-black">
+            <h3 className="text-lg font-medium">Take Photo</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setActiveCamera(null); setCapturedImage(null); }} className="p-2">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+            {capturedImage ? (
+              <img
+                src={capturedImage}
+                className="w-full h-full object-contain"
+                alt="Captured"
+              />
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className={`w-full h-full object-contain ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+              />
+            )}
+          </div>
+
+          <div className="flex-shrink-0 p-8 pb-12 bg-black flex items-center justify-center border-0 m-0">
+            {capturedImage ? (
+              <>
+                <button
+                  onClick={() => setCapturedImage(null)}
+                  className="flex flex-col items-center gap-2 text-white"
+                >
+                  <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                    <X className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs font-medium text-white/80">Retake</span>
+                </button>
+                <button
+                  onClick={usePhoto}
+                  className="flex flex-col items-center gap-2 text-white"
+                >
+                  <div className="w-14 h-14 rounded-full bg-green-600 flex items-center justify-center hover:bg-green-700 transition-colors shadow-lg shadow-green-900/40">
+                    <Check className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs font-medium text-white/80">Use Photo</span>
+                </button>
+              </>
+            ) : (
+              <div className="relative flex items-center justify-center w-full">
+                <button
+                  onClick={takePhoto}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div className="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center p-1.5 transition-transform group-active:scale-95 group-hover:scale-105">
+                    <div className="w-full h-full rounded-full bg-white shadow-inner"></div>
+                  </div>
+                </button>
+                <div className="absolute right-0 pr-8">
+                  {!capturedImage && (
+                    <button
+                      onClick={toggleFacingMode}
+                      className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:bg-white/30"
+                      title="Switch Camera"
+                    >
+                      <RefreshCw className="w-8 h-8 text-white" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

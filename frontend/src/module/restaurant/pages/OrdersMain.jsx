@@ -486,6 +486,7 @@ export default function OrdersMain() {
   const shownOrdersRef = useRef(new Set()); // Track orders already shown in popup
   const [restaurantStatus, setRestaurantStatus] = useState({
     isActive: null,
+    isAcceptingOrders: false,
     rejectionReason: null,
     onboarding: null,
     isLoading: true
@@ -513,6 +514,7 @@ export default function OrdersMain() {
         if (restaurant) {
           setRestaurantStatus({
             isActive: restaurant.isActive,
+            isAcceptingOrders: restaurant.isAcceptingOrders === true,
             rejectionReason: restaurant.rejectionReason || null,
             onboarding: restaurant.onboarding || null,
             isLoading: false
@@ -565,6 +567,7 @@ export default function OrdersMain() {
       if (restaurant) {
         setRestaurantStatus({
           isActive: restaurant.isActive,
+          isAcceptingOrders: restaurant.isAcceptingOrders === true,
           rejectionReason: restaurant.rejectionReason || null,
           onboarding: restaurant.onboarding || null,
           isLoading: false
@@ -626,6 +629,19 @@ export default function OrdersMain() {
   // Show new order popup when real order notification arrives from Socket.IO
   useEffect(() => {
     if (newOrder) {
+      let persistedOnline = true;
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored !== null) persistedOnline = JSON.parse(stored) === true;
+      } catch (e) {
+        persistedOnline = true;
+      }
+      const canShowPopup = restaurantStatus.isAcceptingOrders === true && persistedOnline;
+      if (!canShowPopup) {
+        clearNewOrder();
+        return;
+      }
+
       const orderId = newOrder.orderId || newOrder.orderMongoId;
       if (orderId && !shownOrdersRef.current.has(orderId)) {
         shownOrdersRef.current.add(orderId);
@@ -641,7 +657,7 @@ export default function OrdersMain() {
         }
       }
     }
-  }, [newOrder]);
+  }, [newOrder, restaurantStatus.isAcceptingOrders, clearNewOrder]);
 
   // Track popup state with ref to avoid stale closures
   const showNewOrderPopupRef = useRef(showNewOrderPopup);
@@ -658,6 +674,8 @@ export default function OrdersMain() {
   // Check for confirmed orders that haven't been shown in popup yet (fallback if Socket.IO fails)
   useEffect(() => {
     const checkConfirmedOrders = async () => {
+      if (restaurantStatus.isAcceptingOrders !== true) return;
+
       // Skip if popup is already showing or Socket.IO order exists
       if (showNewOrderPopupRef.current || newOrderRef.current) return;
 
@@ -718,18 +736,18 @@ export default function OrdersMain() {
 
     // Check every 5 seconds for new confirmed orders (fallback mechanism)
     const interval = setInterval(() => {
-      if (restaurantStatus.isActive === true) {
+      if (restaurantStatus.isActive === true && restaurantStatus.isAcceptingOrders === true) {
         checkConfirmedOrders();
       }
     }, 5000);
 
     // Check immediately on mount if already known to be active
-    if (restaurantStatus.isActive === true) {
+    if (restaurantStatus.isActive === true && restaurantStatus.isAcceptingOrders === true) {
       checkConfirmedOrders();
     }
 
     return () => clearInterval(interval);
-  }, [restaurantStatus.isActive]); // Add dependency on restaurantStatus.isActive
+  }, [restaurantStatus.isActive, restaurantStatus.isAcceptingOrders]); // Add dependency on restaurant online status
 
   // Play audio when popup opens
   useEffect(() => {

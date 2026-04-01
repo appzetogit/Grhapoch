@@ -864,6 +864,9 @@ export const deliveryAPI = {
     }
     return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_ACCEPT.replace(':orderId', orderId), payload);
   },
+  rejectOrder: (orderId, payload = {}) => {
+    return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_REJECT.replace(':orderId', orderId), payload);
+  },
   confirmReachedPickup: (orderId) => {
     return apiClient.patch(API_ENDPOINTS.DELIVERY.ORDER_REACHED_PICKUP.replace(':orderId', orderId));
   },

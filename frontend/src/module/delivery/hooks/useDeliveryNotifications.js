@@ -13,6 +13,7 @@ export const useDeliveryNotifications = () => {
   const socketRef = useRef(null);
   const audioRef = useRef(null);
   const pendingSoundRef = useRef(false);
+  const suppressedSoundOrderIdsRef = useRef(new Set());
 
   // Step 2: All state hooks (unconditional)
   const [newOrder, setNewOrder] = useState(null);
@@ -77,8 +78,30 @@ export const useDeliveryNotifications = () => {
     }
   }, []);
 
+  const stopNotificationSound = useCallback(() => {
+    try {
+      pendingSoundRef.current = false;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    } catch (error) {
+      console.warn('Error stopping notification sound:', error);
+    }
+  }, []);
+
   const pushNewOrder = useCallback((orderData) => {
     setNewOrder(orderData || null);
+  }, []);
+
+  const suppressOrderSound = useCallback((orderId) => {
+    if (!orderId) return;
+    suppressedSoundOrderIdsRef.current.add(String(orderId));
+  }, []);
+
+  const unsuppressOrderSound = useCallback((orderId) => {
+    if (!orderId) return;
+    suppressedSoundOrderIdsRef.current.delete(String(orderId));
   }, []);
 
   // Step 4: All effects (unconditional hook calls, conditional logic inside)
@@ -326,6 +349,9 @@ export const useDeliveryNotifications = () => {
         return;
       }
       setNewOrder(orderData);
+      if (orderId && suppressedSoundOrderIdsRef.current.has(String(orderId))) {
+        return;
+      }
       playNotificationSound();
     });
 
@@ -337,6 +363,9 @@ export const useDeliveryNotifications = () => {
       }
       // Treat it the same as new_order for now - delivery boy can accept it
       setNewOrder(orderData);
+      if (orderId && suppressedSoundOrderIdsRef.current.has(String(orderId))) {
+        return;
+      }
       playNotificationSound();
     });
 
@@ -360,16 +389,16 @@ export const useDeliveryNotifications = () => {
   }, [deliveryPartnerId, playNotificationSound, rejectedOrderIds]);
 
   // Helper functions
-  const clearNewOrder = (orderId = null) => {
+  const clearNewOrder = useCallback((orderId = null) => {
     if (orderId) {
       setRejectedOrderIds(prev => new Set([...prev, String(orderId)]));
     }
     setNewOrder(null);
-  };
+  }, []);
 
-  const clearOrderReady = () => {
+  const clearOrderReady = useCallback(() => {
     setOrderReady(null);
-  };
+  }, []);
 
   return {
     newOrder,
@@ -379,6 +408,9 @@ export const useDeliveryNotifications = () => {
     isConnected,
     pushNewOrder,
     playNotificationSound,
-    rejectedOrderIds
+    stopNotificationSound,
+    rejectedOrderIds,
+    suppressOrderSound,
+    unsuppressOrderSound
   };
 };

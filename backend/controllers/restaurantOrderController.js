@@ -267,6 +267,10 @@ export const acceptOrder = asyncHandler(async (req, res) => {
       return errorResponse(res, 404, 'Order not found');
     }
 
+    if (!restaurant.isAcceptingOrders) {
+      return errorResponse(res, 403, 'You are currently offline. Please go online to accept orders.');
+    }
+
     if (!isPaymentCapturedForProcessing(order)) {
       return errorResponse(res, 400, PAYMENT_CAPTURE_REQUIRED_MESSAGE);
     }

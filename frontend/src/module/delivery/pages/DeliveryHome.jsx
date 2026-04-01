@@ -385,7 +385,22 @@ export default function DeliveryHome() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(() => getUnreadDeliveryNotificationCount());
 
   // Delivery notifications hook
-  const { newOrder, clearNewOrder, orderReady, clearOrderReady, isConnected, pushNewOrder } = useDeliveryNotifications();
+  const {
+    newOrder,
+    clearNewOrder,
+    orderReady,
+    clearOrderReady,
+    isConnected,
+    pushNewOrder,
+    stopNotificationSound,
+    suppressOrderSound,
+    unsuppressOrderSound
+  } = useDeliveryNotifications();
+  const newOrderRef = useRef(null);
+
+  useEffect(() => {
+    newOrderRef.current = newOrder;
+  }, [newOrder]);
 
   // Default location - will be set from saved location or GPS, not hardcoded
   const [riderLocation, setRiderLocation] = useState(null); // Will be set from GPS or saved location
@@ -621,6 +636,7 @@ export default function DeliveryHome() {
   const [isQrPolling, setIsQrPolling] = useState(false);
   const [customerRating, setCustomerRating] = useState(0);
   const [customerReviewText, setCustomerReviewText] = useState("");
+  const [isCompletingDelivery, setIsCompletingDelivery] = useState(false);
   const [orderEarnings, setOrderEarnings] = useState(0); // Store earnings from completed order
   const [routePolyline, setRoutePolyline] = useState([]);
   const [showRoutePath, setShowRoutePath] = useState(false); // Toggle to show/hide route path - disabled by default
@@ -1486,13 +1502,14 @@ export default function DeliveryHome() {
       };
     } else {
       // Stop audio when popup closes
+      stopNotificationSound();
       if (alertAudioRef.current) {
         alertAudioRef.current.pause();
         alertAudioRef.current.currentTime = 0;
         alertAudioRef.current = null;
       }
     }
-  }, [showNewOrderPopup, selectedRestaurant]);
+  }, [showNewOrderPopup, selectedRestaurant, stopNotificationSound]);
 
   // Reset countdown when popup closes
   useEffect(() => {
@@ -1542,7 +1559,8 @@ export default function DeliveryHome() {
     setShowRejectPopup(true);
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
+    stopNotificationSound();
     if (alertAudioRef.current) {
       alertAudioRef.current.pause();
       alertAudioRef.current.currentTime = 0;
@@ -1559,6 +1577,16 @@ export default function DeliveryHome() {
     setCountdownSeconds(0);
 
     const orderIdToReject = selectedRestaurant?.id || newOrder?.orderMongoId || newOrder?.orderId;
+    if (orderIdToReject && !String(orderIdToReject).startsWith('mock')) {
+      try {
+        await deliveryAPI.rejectOrder(orderIdToReject, {
+          reason: rejectReason || 'Other reason'
+        });
+      } catch (error) {
+        const message = error?.response?.data?.message || 'Failed to deny order. Please try again.';
+        toast.error(message);
+      }
+    }
     if (orderIdToReject) {
       clearNewOrder(orderIdToReject);
     }
@@ -2123,6 +2151,7 @@ export default function DeliveryHome() {
 
     if (deltaX > threshold) {
       // Stop audio immediately when user accepts
+      stopNotificationSound();
       if (alertAudioRef.current) {
         alertAudioRef.current.pause();
         alertAudioRef.current.currentTime = 0;
@@ -2221,6 +2250,7 @@ export default function DeliveryHome() {
 
           if (response.data?.success && response.data.data) {
             // Stop audio immediately when order is successfully accepted
+            stopNotificationSound();
             if (alertAudioRef.current) {
               alertAudioRef.current.pause();
               alertAudioRef.current.currentTime = 0;
@@ -2727,6 +2757,24 @@ export default function DeliveryHome() {
 
           } else {
             console.error('❌ Failed to accept order:', response.data);
+            const backendMessage = response.data?.message || "";
+            const backendErrors = response.data?.errors || response.data?.data?.errors || null;
+            const isCashLimitError =
+              backendErrors?.code === 'DELIVERY_CASH_LIMIT_EXCEEDED' ||
+              /cash limit exceeded/i.test(backendMessage);
+
+            if (isCashLimitError) {
+              const fallback = getCashLimitStatus(orderTotal, paymentMethod);
+              setCashLimitPopupData({
+                orderId,
+                total: Number(backendErrors?.codAmount) || fallback.total || Number(orderTotal) || 0,
+                available: Number(backendErrors?.availableLimit) || fallback.available || 0,
+                cashLimit: Number(backendErrors?.cashLimit) || fallback.cashLimit || 0,
+                cashInHand: Number(backendErrors?.cashInHand) || fallback.cashInHand || 0,
+                pendingReserve: fallback.pendingReserve || 0
+              });
+              setShowCashLimitPopup(true);
+            }
             // Show error message to user
             toast.error(response.data?.message || 'Failed to accept order. Please try again.');
             // Still close popup
@@ -2763,6 +2811,24 @@ export default function DeliveryHome() {
             }
           } else if (error.message) {
             errorMessage = error.message;
+          }
+
+          const backendErrors = error.response?.data?.errors || null;
+          const isCashLimitError =
+            backendErrors?.code === 'DELIVERY_CASH_LIMIT_EXCEEDED' ||
+            /cash limit exceeded/i.test(errorMessage || '');
+
+          if (isCashLimitError) {
+            const fallback = getCashLimitStatus(orderTotal, paymentMethod);
+            setCashLimitPopupData({
+              orderId,
+              total: Number(backendErrors?.codAmount) || fallback.total || Number(orderTotal) || 0,
+              available: Number(backendErrors?.availableLimit) || fallback.available || 0,
+              cashLimit: Number(backendErrors?.cashLimit) || fallback.cashLimit || 0,
+              cashInHand: Number(backendErrors?.cashInHand) || fallback.cashInHand || 0,
+              pendingReserve: fallback.pendingReserve || 0
+            });
+            setShowCashLimitPopup(true);
           }
 
           toast.error(errorMessage);
@@ -3031,13 +3097,24 @@ export default function DeliveryHome() {
               }, 300); // 300ms delay for smooth transition
             } else {
               console.error('❌ Failed to confirm reached pickup:', response.data);
+              const backendStatus = Number(response?.status) || Number(response?.data?.status) || 0;
+              const isNotAssignable = backendStatus === 404 || backendStatus === 403;
               toast.error(response.data?.message || 'Failed to confirm reached pickup. Please try again.');
               // Ensure reached pickup popup is closed
               setShowreachedPickupPopup(false);
-              // Still show order ID popup even if API call fails, after delay
-              setTimeout(() => {
-                setShowOrderIdConfirmationPopup(true);
-              }, 300);
+              if (isNotAssignable) {
+                // Order is no longer assigned/available for this rider; reset delivery flow.
+                setShowOrderIdConfirmationPopup(false);
+                setShowReachedDropPopup(false);
+                setSelectedRestaurant(null);
+                clearNewOrder();
+                localStorage.removeItem('deliveryActiveOrder');
+              } else {
+                // Non-assignment errors: allow retry path with order ID popup.
+                setTimeout(() => {
+                  setShowOrderIdConfirmationPopup(true);
+                }, 300);
+              }
             }
           } catch (error) {
             console.error('❌ Error confirming reached pickup:', error);
@@ -3056,10 +3133,20 @@ export default function DeliveryHome() {
 
             // Ensure reached pickup popup is closed
             setShowreachedPickupPopup(false);
-            // Still show order ID popup even if API call fails, after delay
-            setTimeout(() => {
-              setShowOrderIdConfirmationPopup(true);
-            }, 300);
+            const status = Number(error?.response?.status) || 0;
+            if (status === 404 || status === 403) {
+              // Order is no longer assigned/available for this rider; reset delivery flow.
+              setShowOrderIdConfirmationPopup(false);
+              setShowReachedDropPopup(false);
+              setSelectedRestaurant(null);
+              clearNewOrder();
+              localStorage.removeItem('deliveryActiveOrder');
+            } else {
+              // Non-assignment errors: allow retry path with order ID popup.
+              setTimeout(() => {
+                setShowOrderIdConfirmationPopup(true);
+              }, 300);
+            }
           }
         } else {
           console.error('❌ No order ID found for reached pickup confirmation');
@@ -3865,8 +3952,52 @@ export default function DeliveryHome() {
     };
   }, [isQrPolling, qrPaymentState.status, resolveOrderIdForApi]);
 
+  const completeDeliveryAfterSwipe = useCallback(async () => {
+    const orderIdForApi = resolveOrderIdForApi();
+    if (!orderIdForApi) {
+      toast.error('Order ID missing. Delivery complete nahi ho paayi. Please try again.');
+      return false;
+    }
+
+    try {
+      setIsCompletingDelivery(true);
+      const response = await deliveryAPI.completeDelivery(orderIdForApi, null, '');
+
+      if (!response?.data?.success) {
+        toast.error(response?.data?.message || 'Failed to complete delivery. Please try again.');
+        return false;
+      }
+
+      const earnings = response.data.data?.earnings?.amount ||
+        response.data.data?.totalEarning ||
+        orderEarnings;
+      setOrderEarnings(earnings);
+
+      if (response.data.data?.earnings?.breakdown) {
+        setSelectedRestaurant((prev) => ({
+          ...prev,
+          estimatedEarnings: response.data.data.earnings.breakdown
+        }));
+      }
+
+      window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
+      if (earnings > 0) {
+        toast.success(`Rs ${earnings.toFixed(2)} added to your wallet!`);
+      }
+      return true;
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Failed to complete delivery. Please try again.';
+      toast.error(message);
+      return false;
+    } finally {
+      setIsCompletingDelivery(false);
+    }
+  }, [resolveOrderIdForApi, orderEarnings]);
+
   // Handle Order Delivered button swipe
   const handleOrderDeliveredTouchStart = (e) => {
+    if (isCompletingDelivery) return;
+
     const paymentMethod = (selectedRestaurant?.paymentMethod || selectedRestaurant?.payment?.method || '').toLowerCase();
     const isCodOrder = paymentMethod === 'cash' || paymentMethod === 'cod';
     if (isCodOrder && qrPaymentState.qrCodeUrl && qrPaymentState.status !== 'paid') {
@@ -3920,8 +4051,8 @@ export default function DeliveryHome() {
       setOrderDeliveredIsAnimatingToComplete(true);
       setOrderDeliveredButtonProgress(1);
 
-      // Close popup after animation and show customer review (delivery will be completed when review is submitted)
-      setTimeout(() => {
+      // Complete delivery immediately after swipe success
+      setTimeout(async () => {
         setShowOrderDeliveredAnimation(false);
 
         // CRITICAL: Clear all pickup/delivery related popups
@@ -3929,8 +4060,13 @@ export default function DeliveryHome() {
         setShowreachedPickupPopup(false);
         setShowOrderIdConfirmationPopup(false);
 
-        // Show customer review popup instantly
-        setShowCustomerReviewPopup(true);
+        const completed = await completeDeliveryAfterSwipe();
+        if (completed) {
+          setShowPaymentPage(true);
+        } else {
+          // Bring back delivery confirmation popup so rider can retry
+          setShowOrderDeliveredAnimation(true);
+        }
 
         // Reset after animation
         setTimeout(() => {
@@ -4211,6 +4347,7 @@ export default function DeliveryHome() {
       const orderTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const cashLimitStatus = getCashLimitStatus(orderTotal, paymentMethodFromOrder);
       if (cashLimitStatus.blocked) {
+        suppressOrderSound(orderId);
         if (!cashLimitBlockedOrderIdsRef.current.has(orderId)) {
           cashLimitBlockedOrderIdsRef.current.add(orderId);
           setCashLimitPopupData({
@@ -4218,10 +4355,12 @@ export default function DeliveryHome() {
             ...cashLimitStatus
           });
           setShowCashLimitPopup(true);
+          toast.info('COD order available hai, lekin cash limit kam hone ki wajah se accept nahi hoga.');
         }
-        clearNewOrder(orderId);
+        clearNewOrder();
         return;
       }
+      unsuppressOrderSound(orderId);
 
       // Transform newOrder data to match selectedRestaurant format
       // Extract restaurant address with proper priority
@@ -4308,7 +4447,7 @@ export default function DeliveryHome() {
       setShowNewOrderPopup(true);
       setCountdownSeconds(300); // Reset countdown to 5 minutes
     }
-  }, [newOrder, calculateTimeAway, riderLocation, getCashLimitStatus, clearNewOrder, walletLoaded]);
+  }, [newOrder, calculateTimeAway, riderLocation, getCashLimitStatus, clearNewOrder, walletLoaded, suppressOrderSound, unsuppressOrderSound]);
 
   // Recalculate distance when rider location becomes available
   useEffect(() => {
@@ -4700,12 +4839,14 @@ export default function DeliveryHome() {
           const orderTotal = firstBlocked.pricing?.total ?? firstBlocked.total ?? 0;
           const cashLimitStatus = getCashLimitStatus(orderTotal, paymentMethod);
           if (cashLimitStatus.blocked && orderId && !cashLimitBlockedOrderIdsRef.current.has(orderId)) {
+            suppressOrderSound(orderId);
             cashLimitBlockedOrderIdsRef.current.add(orderId);
             setCashLimitPopupData({
               orderId,
               ...cashLimitStatus
             });
             setShowCashLimitPopup(true);
+            toast.info('COD order available hai, lekin cash limit kam hone ki wajah se accept nahi hoga.');
           }
           return;
         }
@@ -4715,6 +4856,7 @@ export default function DeliveryHome() {
           // Show the first eligible order as a new order notification
           const firstOrder = eligibleOrders[0];
           const orderId = firstOrder.orderId || firstOrder._id?.toString();
+          unsuppressOrderSound(orderId);
 
           // Check if this order is already being shown or accepted
           if (acceptedOrderIdsRef.current.has(orderId)) {
@@ -4783,6 +4925,7 @@ export default function DeliveryHome() {
               '0 km',
             pickupDistance: pickupDistance,
             estimatedEarnings: firstOrder.pricing?.deliveryFee || 0,
+            deliveryFee: firstOrder.pricing?.deliveryFee || 0,
             customerName: firstOrder.userId?.name || 'Customer',
             customerAddress: firstOrder.address?.formattedAddress || (
               firstOrder.address?.street ?
@@ -4793,13 +4936,13 @@ export default function DeliveryHome() {
             items: firstOrder.items || [],
             total: firstOrder.pricing?.total || 0,
             payment: firstOrder.payment?.method || 'cash',
-            amount: firstOrder.pricing?.total || 0
+            amount: firstOrder.pricing?.deliveryFee || 0
           };
 
           setSelectedRestaurant(restaurantData);
           setShowNewOrderPopup(true);
           setCountdownSeconds(300); // Reset countdown to 5 minutes
-        } else if (!newOrder) {
+        } else if (!newOrderRef.current) {
           try {
             const availableResponse = await deliveryAPI.getAvailableOrders({
               limit: 10,
@@ -4833,7 +4976,7 @@ export default function DeliveryHome() {
       console.error('❌ Error fetching assigned orders:', error);
       // Don't show error to user, just log it
     }
-  }, [isOnline, calculateTimeAway, getCashLimitStatus, newOrder, buildNotificationFromOrder, pushNewOrder]);
+  }, [isOnline, calculateTimeAway, getCashLimitStatus, buildNotificationFromOrder, pushNewOrder, suppressOrderSound, unsuppressOrderSound]);
 
   // Fetch assigned orders when delivery person goes online
   useEffect(() => {
@@ -4845,6 +4988,17 @@ export default function DeliveryHome() {
 
       return () => clearTimeout(timeoutId);
     }
+  }, [isOnline, fetchAssignedOrders]);
+
+  // Backup polling: if socket misses events, still fetch new orders without manual refresh
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const intervalId = setInterval(() => {
+      fetchAssignedOrders();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
   }, [isOnline, fetchAssignedOrders]);
 
   // Also fetch orders on initial page load if already online
@@ -8738,7 +8892,7 @@ export default function DeliveryHome() {
                         )}
                       </div>
                       <button
-                        onClick={() => navigate("/delivery/pocket-balance")}
+                        onClick={() => navigate("/delivery/requests?openDeposit=1")}
                         className="mt-3 inline-flex items-center justify-center rounded-lg bg-black text-white px-3 py-2 text-xs font-semibold hover:bg-gray-800 transition-colors">
                         Deposit now
                       </button>
@@ -9205,7 +9359,7 @@ export default function DeliveryHome() {
             <button
               onClick={() => {
                 setShowCashLimitPopup(false);
-                navigate("/delivery/pocket-balance");
+                navigate("/delivery/requests?openDeposit=1");
               }}
               className="flex-1 bg-black hover:bg-gray-800 text-white font-semibold py-3 rounded-lg transition-colors">
               Deposit now
@@ -9413,7 +9567,7 @@ export default function DeliveryHome() {
                     <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
-                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
+                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
                         const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
                         let value = 0;
 
@@ -9439,7 +9593,7 @@ export default function DeliveryHome() {
                     </p>
                     {/* Earnings Breakdown */}
                     {(() => {
-                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
+                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
                       const hasDeliveryFee = Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0;
                       const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
                       if (!hasDeliveryFee && typeof earnings === 'object' && earnings.breakdown) {
@@ -10567,130 +10721,7 @@ export default function DeliveryHome() {
         </div>
       </BottomPopup>
 
-      {/* Customer Review Popup - shown after Order Delivered */}
-      <BottomPopup
-        isOpen={showCustomerReviewPopup}
-        onClose={() => setShowCustomerReviewPopup(false)}
-        showCloseButton={false}
-        closeOnBackdropClick={false}
-        maxHeight="80vh"
-        showHandle={true}>
-
-        <div className="">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              Rate Your Experience
-            </h2>
-            <p className="text-gray-600 text-sm mb-6">
-              How was your delivery experience?
-            </p>
-
-            {/* Star Rating */}
-            <div className="flex justify-center gap-2 mb-6">
-              {[1, 2, 3, 4, 5].map((star) =>
-                <button
-                  key={star}
-                  onClick={() => setCustomerRating(star)}
-                  className="text-4xl transition-transform hover:scale-110">
-
-                  {star <= customerRating ?
-                    <span className="text-yellow-400">★</span> :
-
-                    <span className="text-gray-300">★</span>
-                  }
-                </button>
-              )}
-            </div>
-
-            {/* Optional Review Text */}
-            <div className="mb-6">
-              <label className="block text-left text-sm font-medium text-gray-700 mb-2">
-                Review (Optional)
-              </label>
-              <textarea
-                value={customerReviewText}
-                onChange={(e) => setCustomerReviewText(e.target.value)}
-                placeholder="Share your experience..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                rows={4} />
-
-            </div>
-
-            {/* Submit Button */}
-            <button
-              onClick={async () => {
-                // Get order ID - use MongoDB _id for API call
-                const orderIdForApi = selectedRestaurant?.id ||
-                  newOrder?.orderMongoId ||
-                  newOrder?._id ||
-                  selectedRestaurant?.orderId ||
-                  newOrder?.orderId;
-
-                // Save review by calling completeDelivery API with rating and review
-                if (orderIdForApi) {
-                  try {
-
-                    // Call completeDelivery API with rating and review
-                    const response = await deliveryAPI.completeDelivery(
-                      orderIdForApi,
-                      customerRating > 0 ? customerRating : null,
-                      customerReviewText.trim() || ''
-                    );
-
-                    if (response.data?.success) {
-                      // Get updated earnings from response
-                      // Note: completeDelivery API already adds earnings and COD cash collected to wallet
-                      const earnings = response.data.data?.earnings?.amount ||
-                        response.data.data?.totalEarning ||
-                        orderEarnings;
-                      setOrderEarnings(earnings);
-
-                      // Update selectedRestaurant with the final breakdown
-                      if (response.data.data?.earnings?.breakdown) {
-                        setSelectedRestaurant((prev) => ({
-                          ...prev,
-                          estimatedEarnings: response.data.data.earnings.breakdown
-                        }));
-                      }
-
-
-                      // Notify wallet listeners (Pocket balance, Pocket page) so cash collected updates
-                      window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
-
-                      // Show success message
-                      if (earnings > 0) {
-                        toast.success(`₹${earnings.toFixed(2)} added to your wallet! 💰`);
-                      }
-
-                      // Close review popup and show payment page
-                      setShowCustomerReviewPopup(false);
-                      setShowPaymentPage(true);
-                    } else {
-                      console.error('❌ Failed to submit review:', response.data);
-                      toast.error(response.data?.message || 'Failed to submit review. Please try again.');
-                    }
-                  } catch (error) {
-                    console.error('❌ Error submitting review:', error);
-                    toast.error('Failed to submit review. Please try again.');
-                    // Still show payment page even if review fails
-                    setShowCustomerReviewPopup(false);
-                    setShowPaymentPage(true);
-                  }
-                } else {
-                  // If no order ID, just show payment page
-                  setShowCustomerReviewPopup(false);
-                  setShowPaymentPage(true);
-                }
-              }}
-              className="w-full bg-green-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-green-700 transition-colors shadow-lg">
-
-              Submit Review
-            </button>
-          </div>
-        </div>
-      </BottomPopup>
-
-      {/* Payment Page - shown after Customer Review is submitted */}
+      {/* Payment Page - shown after delivery is completed */}
       <AnimatePresence>
         {showPaymentPage &&
           <motion.div

@@ -2061,7 +2061,6 @@ export default function RestaurantOnboarding() {
   } = {}) => {
     if (!hasFlutterCameraBridge()) return null;
 
-    let result = null;
     const payload = {
       source,
       accept: "image/*",
@@ -2069,17 +2068,28 @@ export default function RestaurantOnboarding() {
       quality: 0.8
     };
 
-    // Prefer a dedicated gallery handler when available in Flutter builds.
-    if (source === "gallery") {
+    const tryHandler = async (handlerName) => {
       try {
-        result = await window.flutter_inappwebview.callHandler("openGallery", payload);
+        return await window.flutter_inappwebview.callHandler(handlerName, payload);
       } catch (err) {
-        result = null;
+        return null;
       }
-    }
+    };
 
-    if (!result) {
-      result = await window.flutter_inappwebview.callHandler("openCamera", payload);
+    let result = null;
+    if (source === "gallery") {
+      const galleryHandlers = ["openGallery", "pickFromGallery", "openMediaPicker"];
+      for (const handlerName of galleryHandlers) {
+        result = await tryHandler(handlerName);
+        if (result) break;
+      }
+
+      // Important: Do NOT fallback to openCamera for gallery requests.
+      if (!result) {
+        throw new Error("GALLERY_HANDLER_MISSING");
+      }
+    } else {
+      result = await tryHandler("openCamera");
     }
 
     if (!result || result.success !== true) return null;
@@ -2134,6 +2144,10 @@ export default function RestaurantOnboarding() {
       if (!pickedFile) return;
       updateTargetFieldWithFile(targetField, pickedFile);
     } catch (error) {
+      if (error?.message === "GALLERY_HANDLER_MISSING") {
+        toast.error("Gallery upload not supported in this app build. Please update Flutter app.");
+        return;
+      }
       toast.error(`Failed to open ${source}. Please try again.`);
     }
   };

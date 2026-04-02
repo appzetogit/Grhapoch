@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Loader2, User, Mail, CheckCircle } from "lucide-react"
+import { ArrowLeft, Loader2, User } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { setAuthData as setUserAuthData } from "@/lib/utils/auth"
 
 export default function OTP() {
   const navigate = useNavigate()
+  const otpGuardPushedRef = useRef(false)
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -19,12 +20,28 @@ export default function OTP() {
   const [showNameInput, setShowNameInput] = useState(false)
   const [name, setName] = useState("")
   const [nameError, setNameError] = useState("")
-  const [email, setEmail] = useState("")
-  const [emailError, setEmailError] = useState("")
   const [verifiedOtp, setVerifiedOtp] = useState("")
   const [contactInfo, setContactInfo] = useState("")
   const [contactType, setContactType] = useState("phone")
+  const [showExitDialog, setShowExitDialog] = useState(false)
   const inputRefs = useRef([])
+
+  const exitOtpFlow = useCallback(() => {
+    const phone = authData?.method === "phone" ? authData?.phone : null
+    if (phone) {
+      sessionStorage.setItem(
+        "userSignInPrefillOnce",
+        JSON.stringify({ method: "phone", phone })
+      )
+    }
+    sessionStorage.removeItem("userAuthData")
+    navigate("/user/auth/sign-in", { replace: true })
+  }, [authData, navigate])
+
+  const openExitDialog = useCallback(() => {
+    if (success) return
+    setShowExitDialog(true)
+  }, [success])
 
   useEffect(() => {
     // Redirect to home if already authenticated
@@ -96,6 +113,28 @@ export default function OTP() {
       return () => clearTimeout(timer);
     }
   }, [error]);
+
+  useEffect(() => {
+    if (!authData || success || !showNameInput) {
+      otpGuardPushedRef.current = false
+      return
+    }
+
+    if (!otpGuardPushedRef.current) {
+      window.history.pushState({ userOtpGuard: true }, "", window.location.href)
+      otpGuardPushedRef.current = true
+    }
+
+    const handlePopState = () => {
+      setShowExitDialog(true)
+      window.history.pushState({ userOtpGuard: true }, "", window.location.href)
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [authData, success, showNameInput])
 
   const handleChange = (index, value) => {
     // Only allow digits
@@ -193,9 +232,10 @@ export default function OTP() {
       const phone = authData?.method === "phone" ? authData.phone : null
       const email = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
+      const signupName = authData?.isSignUp ? (authData?.name || null) : null
 
       // First attempt: verify OTP for login/register with user role
-      const response = await authAPI.verifyOTP(phone, code, purpose, null, email, "user")
+      const response = await authAPI.verifyOTP(phone, code, purpose, signupName, email, "user")
       const data = response?.data?.data || {}
 
       // If backend tells us this is a new user, ask for name
@@ -250,7 +290,6 @@ export default function OTP() {
 
   const handleSubmitName = async () => {
     const trimmedName = name.trim()
-    const trimmedEmail = email.trim()
 
     if (!trimmedName) {
       setNameError("Name is required")
@@ -262,11 +301,6 @@ export default function OTP() {
       return
     }
 
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setEmailError("Please enter a valid email address")
-      return
-    }
-
     if (!verifiedOtp) {
       setError("OTP verification step missing. Please request a new OTP.")
       return
@@ -275,21 +309,22 @@ export default function OTP() {
     setIsLoading(true)
     setError("")
     setNameError("")
-    setEmailError("")
 
     try {
       const phone = authData?.method === "phone" ? authData.phone : null
       const currentEmail = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
+      const verificationEmail = authData?.method === "email" ? currentEmail : null
 
-      // Second call with name (and email) to auto-register and login
+      // Second call with name to auto-register and login.
+      // For phone OTP flow, don't send optional email from this step.
       // authAPI.verifyOTP takes: phone, otp, purpose, name, email, role, password
       const response = await authAPI.verifyOTP(
         phone,
         verifiedOtp,
         purpose,
         trimmedName,
-        trimmedEmail || currentEmail,
+        verificationEmail,
         "user"
       )
       const data = response?.data?.data || {}
@@ -381,7 +416,13 @@ export default function OTP() {
       {/* Header */}
       <div className="relative flex items-center justify-center py-4 px-4 md:py-6 md:px-6 lg:px-8 border-b border-gray-200 dark:border-gray-800">
         <button
-          onClick={() => navigate("/user/auth/sign-in")}
+          onClick={() => {
+            if (showNameInput) {
+              openExitDialog()
+              return
+            }
+            navigate("/user/auth/sign-in")
+          }}
           className="absolute left-4 md:left-6 lg:left-8 top-1/2 -translate-y-1/2 hover:opacity-70 transition-opacity"
           aria-label="Go back"
         >
@@ -499,31 +540,6 @@ export default function OTP() {
                     {nameError && <p className="text-xs text-red-500 ml-1">{nameError}</p>}
                   </div>
 
-                  {/* Email */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center ml-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Email Address
-                      </label>
-                      <span className="text-[9px] uppercase tracking-tighter text-gray-400">(Optional)</span>
-                    </div>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#E23744] transition-colors" />
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value)
-                          if (emailError) setEmailError("")
-                        }}
-                        disabled={isLoading}
-                        placeholder="e.g. john@example.com"
-                        className={`h-12 pl-12 text-base border-2 ${emailError ? "border-red-500" : "border-gray-200 dark:border-gray-700"} bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-xl transition-all focus-visible:ring-0 focus-visible:border-[#E23744]`}
-                      />
-                    </div>
-                    {emailError && <p className="text-xs text-red-500 ml-1">{emailError}</p>}
-                  </div>
-
                   <div className="pt-1">
                     <Button
                       onClick={handleSubmitName}
@@ -553,6 +569,47 @@ export default function OTP() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showExitDialog && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowExitDialog(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.2 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[92%] max-w-sm rounded-2xl bg-white dark:bg-[#171717] p-6 border border-gray-200 dark:border-gray-800 shadow-xl"
+            >
+              <p className="text-center text-lg font-medium text-black dark:text-white leading-relaxed">
+                Are you sure you want to go back without completing the signup process?
+              </p>
+              <div className="mt-5 flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => setShowExitDialog(false)}
+                  className="flex-1 h-11 bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white"
+                >
+                  Stay Here
+                </Button>
+                <Button
+                  type="button"
+                  onClick={exitOtpFlow}
+                  className="flex-1 h-11 bg-[#E23744] hover:bg-[#d32f3d] text-white"
+                >
+                  Exit
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </AnimatedPage>
   )
 }

@@ -23,6 +23,7 @@ import { setAuthData } from "@/lib/utils/auth";
 import loginBanner from "@/assets/loginbanner.png";
 
 const GOOGLE_AUTH_PENDING_KEY = "user_google_auth_pending";
+const SIGNIN_PREFILL_ONCE_KEY = "userSignInPrefillOnce";
 let googleAuthPendingFallback = false;
 
 // Common country codes
@@ -270,6 +271,29 @@ export default function SignIn() {
 
     handleRedirectResult();
 
+    // One-time prefill set by OTP exit flow.
+    const prefillOnce = sessionStorage.getItem(SIGNIN_PREFILL_ONCE_KEY);
+    if (prefillOnce) {
+      try {
+        const parsedPrefill = JSON.parse(prefillOnce);
+        if (parsedPrefill?.method === "phone" && parsedPrefill?.phone) {
+          const parts = parsedPrefill.phone.split(" ");
+          if (parts.length >= 2) {
+            setFormData(prev => ({
+              ...prev,
+              countryCode: parts[0],
+              phone: parts[1]
+            }));
+            setAuthMethod("phone");
+          }
+        }
+      } catch (err) {
+        console.error("Error parsing one-time sign-in prefill:", err);
+      } finally {
+        sessionStorage.removeItem(SIGNIN_PREFILL_ONCE_KEY);
+      }
+    }
+
     // Check for existing auth data in sessionStorage (to pre-fill when coming back from OTP)
     const storedData = sessionStorage.getItem("userAuthData");
     if (storedData) {
@@ -297,6 +321,9 @@ export default function SignIn() {
         }
       } catch (err) {
         console.error("Error parsing stored auth data:", err);
+      } finally {
+        // One-time prefill only; avoid repopulating on hard refresh.
+        sessionStorage.removeItem("userAuthData");
       }
     }
 
@@ -666,6 +693,7 @@ export default function SignIn() {
                     id="phone"
                     name="phone"
                     type="tel"
+                    autoComplete="off"
                     placeholder="Enter Phone Number"
                     value={formData.phone}
                     onChange={handleChange}

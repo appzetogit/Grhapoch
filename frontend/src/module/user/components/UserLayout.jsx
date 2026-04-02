@@ -1,5 +1,6 @@
-import { Outlet, useLocation } from "react-router-dom"
-import { useEffect, useState, createContext, useContext } from "react"
+import { Outlet, useLocation, useNavigate } from "react-router-dom"
+import { useEffect, useState, useRef, createContext, useContext } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { ProfileProvider } from "../context/ProfileContext"
 import LocationPrompt from "./LocationPrompt"
 import { CartProvider } from "../context/CartContext"
@@ -10,6 +11,8 @@ import BottomNavigation from "./BottomNavigation"
 import DesktopNavbar from "./DesktopNavbar"
 import { UserLocationProvider } from "../context/UserLocationContext"
 import CartConflictModal from "./CartConflictModal"
+import { Button } from "@/components/ui/button"
+import { clearModuleAuth, isModuleAuthenticated } from "@/lib/utils/auth"
 
 // Create SearchOverlay context with default value
 const SearchOverlayContext = createContext({
@@ -103,6 +106,9 @@ function LocationSelectorProvider({ children }) {
 
 export default function UserLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const homeGuardPushedRef = useRef(false)
 
   useEffect(() => {
     // Reset scroll to top whenever location changes (pathname, search, or hash)
@@ -122,6 +128,39 @@ export default function UserLayout() {
     location.pathname === "/profile" ||
     location.pathname === "/user/profile" ||
     location.pathname.startsWith("/user/profile")
+
+  useEffect(() => {
+    const normalizedPath = location.pathname !== "/" ? location.pathname.replace(/\/+$/, "") : "/"
+    const isHomePath = normalizedPath === "/" || normalizedPath === "/user"
+    const isAuthenticated = isModuleAuthenticated("user")
+
+    if (!isHomePath || !isAuthenticated) {
+      homeGuardPushedRef.current = false
+      return
+    }
+
+    if (!homeGuardPushedRef.current) {
+      window.history.pushState({ userHomeGuard: true }, "", window.location.href)
+      homeGuardPushedRef.current = true
+    }
+
+    const onPopState = () => {
+      setShowLogoutDialog(true)
+      window.history.pushState({ userHomeGuard: true }, "", window.location.href)
+    }
+
+    window.addEventListener("popstate", onPopState)
+    return () => {
+      window.removeEventListener("popstate", onPopState)
+    }
+  }, [location.pathname])
+
+  const handleUserLogoutFromBackGuard = () => {
+    clearModuleAuth("user")
+    setShowLogoutDialog(false)
+    window.dispatchEvent(new Event("userAuthChanged"))
+    navigate("/user/auth/sign-in", { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a] transition-colors duration-200">
@@ -145,6 +184,46 @@ export default function UserLayout() {
           </ProfileProvider>
         </CartProvider>
       </UserLocationProvider>
+
+      <AnimatePresence>
+        {showLogoutDialog && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9998] bg-black/50"
+              onClick={() => setShowLogoutDialog(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 10 }}
+              className="fixed left-1/2 top-1/2 z-[9999] w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white dark:bg-[#171717] p-6 border border-gray-200 dark:border-gray-800 shadow-xl"
+            >
+              <h3 className="text-center text-lg font-semibold text-black dark:text-white">
+                Are you sure you want to log out?
+              </h3>
+              <div className="mt-5 flex flex-col gap-3">
+                <Button
+                  type="button"
+                  className="w-full h-11 bg-[#E23744] hover:bg-[#d32f3d] text-white"
+                  onClick={handleUserLogoutFromBackGuard}
+                >
+                  Logout
+                </Button>
+                <Button
+                  type="button"
+                  className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white"
+                  onClick={() => setShowLogoutDialog(false)}
+                >
+                  Stay Logged In
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

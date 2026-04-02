@@ -2185,7 +2185,7 @@ export default function RestaurantOnboarding() {
                   className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
                 >
                   <Upload className="w-4.5 h-4.5" />
-                  <span>Choose gallery</span>
+                  <span>Choose files</span>
                 </button>
                 <button
                   type="button"
@@ -2537,7 +2537,7 @@ export default function RestaurantOnboarding() {
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  Use gallery
+                  Upload
                 </button>
                 <button
                   type="button"
@@ -2669,7 +2669,7 @@ export default function RestaurantOnboarding() {
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    Use gallery
+                    Upload
                   </button>
                   <button
                     type="button"
@@ -2807,7 +2807,7 @@ export default function RestaurantOnboarding() {
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
               >
                 <Upload className="w-3.5 h-3.5" />
-                Use gallery
+                Upload
               </button>
               <button
                 type="button"

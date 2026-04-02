@@ -49,6 +49,12 @@ const normalizeBusinessModel = (businessModel) => {
   return 'Commission Base';
 };
 
+const normalizeEmail = (email) => {
+  if (typeof email !== 'string') return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized || null;
+};
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.json(),
@@ -65,6 +71,7 @@ const logger = winston.createLogger({
  */
 export const sendOTP = asyncHandler(async (req, res) => {
   const { phone, email, purpose = 'login' } = req.body;
+  const normalizedEmail = email ? normalizeEmail(email) : null;
 
   // Validate that either phone or email is provided
   if (!phone && !email) {
@@ -82,7 +89,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Validate email format if provided
   if (email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
       return errorResponse(res, 400, 'Invalid email format');
     }
   }
@@ -95,7 +102,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
     logger.info('[RESTAURANT][OTP][SEND]', {
       phoneOriginal: phone || null,
       phoneNormalized: normalizedPhone || null,
-      email: email || null,
+      email: normalizedEmail || null,
       purpose
     });
 
@@ -103,7 +110,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Invalid phone number format');
     }
 
-    const result = await otpService.generateAndSendOTP(normalizedPhone || null, purpose, email || null);
+    const result = await otpService.generateAndSendOTP(normalizedPhone || null, purpose, normalizedEmail || null);
     // console.log("my otp log",result);
     
     return successResponse(res, 200, result.message, {
@@ -122,6 +129,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
  */
 export const verifyOTP = asyncHandler(async (req, res) => {
   const { phone, email, otp, purpose = 'login', name, password, businessModel } = req.body;
+  const normalizedEmail = email ? normalizeEmail(email) : null;
 // log("my verify otp log", otp);
   // Validate that either phone or email is provided
   if ((!phone && !email) || !otp) {
@@ -136,7 +144,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Invalid phone number format');
     }
 
-    const identifier = normalizedPhone || email;
+    const identifier = normalizedPhone || normalizedEmail;
     const identifierType = normalizedPhone ? 'phone' : 'email';
 
     if (purpose === 'register') {
@@ -145,7 +153,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       // For phone, search in both formats (with and without country code) to handle old data
       const findQuery = normalizedPhone
         ? buildPhoneQuery(normalizedPhone)
-        : { email: email?.toLowerCase().trim() };
+        : { email: normalizedEmail };
       restaurant = await Restaurant.findOne(findQuery);
 
       if (restaurant) {
@@ -158,7 +166,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       }
 
       // Verify OTP (phone or email) before creating restaurant
-      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
 
       const restaurantData = {
         name,
@@ -173,13 +181,13 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         restaurantData.phoneVerified = true;
         restaurantData.ownerPhone = normalizedPhone;
         // For phone signup, set ownerEmail to empty string or phone-based email
-        restaurantData.ownerEmail = email || `${normalizedPhone}@restaurant.appzeto.com`;
+        restaurantData.ownerEmail = normalizedEmail || `${normalizedPhone}@restaurant.appzeto.com`;
         // CRITICAL: Do NOT set email field for phone signups to avoid null duplicate key error
         // Email field should be completely omitted, not set to null or undefined
       }
       if (email) {
-        restaurantData.email = email.toLowerCase().trim();
-        restaurantData.ownerEmail = email.toLowerCase().trim();
+        restaurantData.email = normalizedEmail;
+        restaurantData.ownerEmail = normalizedEmail;
       }
       // Ensure email is not set to null or undefined
       if (!email && !phone) {
@@ -308,7 +316,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
               // If still fails, check if restaurant exists
               const findQuery = normalizedPhone
                 ? { phone: normalizedPhone }
-                : { email: email?.toLowerCase().trim() };
+                : { email: normalizedEmail };
               restaurant = await Restaurant.findOne(findQuery);
               if (!restaurant) {
                 throw retryError;
@@ -319,7 +327,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
             // Other duplicate key errors (email, phone)
             const findQuery = normalizedPhone
               ? { phone: normalizedPhone }
-              : { email: email?.toLowerCase().trim() };
+              : { email: normalizedEmail };
             restaurant = await Restaurant.findOne(findQuery);
             if (!restaurant) {
               throw createError;
@@ -359,13 +367,13 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           };
         }
       } else {
-        findQuery = { email: email?.toLowerCase().trim() };
+        findQuery = { email: normalizedEmail };
       }
       restaurant = await Restaurant.findOne(findQuery);
 
       // Fix: Verify OTP first before checking if restaurant needs to provide a name
       // This ensures that wrong OTP results in an error instead of "needsName: true"
-      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
 
       if (!restaurant && !name) {
         // OTP has been verified. Now check if we need restaurant name to proceed with auto-registration.
@@ -401,12 +409,12 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           restaurantData.phoneVerified = true;
           restaurantData.ownerPhone = normalizedPhone;
           // For phone signup, set ownerEmail to empty string or phone-based email
-          restaurantData.ownerEmail = email || `${normalizedPhone}@restaurant.appzeto.com`;
+          restaurantData.ownerEmail = normalizedEmail || `${normalizedPhone}@restaurant.appzeto.com`;
           // Explicitly don't set email field for phone signups to avoid null duplicate key error
         }
         if (email) {
-          restaurantData.email = email.toLowerCase().trim();
-          restaurantData.ownerEmail = email.toLowerCase().trim();
+          restaurantData.email = normalizedEmail;
+          restaurantData.ownerEmail = normalizedEmail;
         }
         // Ensure email is not set to null or undefined
         if (!email && !phone) {
@@ -537,9 +545,9 @@ export const verifyOTP = asyncHandler(async (req, res) => {
                 });
               } catch (retryError) {
                 // If still fails, check if restaurant exists
-                const findQuery = phone
-                  ? { phone }
-                  : { email };
+                const findQuery = normalizedPhone
+                  ? buildPhoneQuery(normalizedPhone)
+                  : { email: normalizedEmail };
                 restaurant = await Restaurant.findOne(findQuery);
                 if (!restaurant) {
                   throw retryError;
@@ -548,9 +556,9 @@ export const verifyOTP = asyncHandler(async (req, res) => {
               }
             } else {
               // Other duplicate key errors (email, phone)
-              const findQuery = phone
-                ? { phone }
-                : { email };
+              const findQuery = normalizedPhone
+                ? buildPhoneQuery(normalizedPhone)
+                : { email: normalizedEmail };
               restaurant = await Restaurant.findOne(findQuery);
               if (!restaurant) {
                 throw createError;
@@ -614,8 +622,10 @@ export const verifyOTP = asyncHandler(async (req, res) => {
  */
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, phone, ownerName, ownerEmail, ownerPhone, businessModel } = req.body;
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedOwnerEmail = normalizeEmail(ownerEmail) || normalizedEmail;
 
-  if (!name || !email || !password) {
+  if (!name || !normalizedEmail || !password) {
     return errorResponse(res, 400, 'Restaurant name, email, and password are required');
   }
 
@@ -628,13 +638,13 @@ export const register = asyncHandler(async (req, res) => {
   // Check if restaurant already exists
   const existingRestaurant = await Restaurant.findOne({
     $or: [
-      { email: email.toLowerCase().trim() },
+      { email: normalizedEmail },
       ...(normalizedPhone ? [{ phone: normalizedPhone }] : [])
     ]
   });
 
   if (existingRestaurant) {
-    if (existingRestaurant.email === email.toLowerCase().trim()) {
+    if (existingRestaurant.email === normalizedEmail) {
       return errorResponse(res, 400, 'Restaurant with this email already exists. Please login.');
     }
     if (normalizedPhone && existingRestaurant.phone === normalizedPhone) {
@@ -645,10 +655,10 @@ export const register = asyncHandler(async (req, res) => {
   // Create new restaurant
   const restaurantData = {
     name,
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     password, // Will be hashed by pre-save hook
     ownerName: ownerName || name,
-    ownerEmail: (ownerEmail || email).toLowerCase().trim(),
+    ownerEmail: normalizedOwnerEmail,
     signupMethod: 'email',
     businessModel: normalizeBusinessModel(businessModel),
     // Set isActive to false - restaurant needs admin approval before becoming active
@@ -678,7 +688,7 @@ export const register = asyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 
-  logger.info(`New restaurant registered via email: ${restaurant._id}`, { email, restaurantId: restaurant._id });
+  logger.info(`New restaurant registered via email: ${restaurant._id}`, { email: normalizedEmail, restaurantId: restaurant._id });
 
   return successResponse(res, 201, 'Registration successful', {
     accessToken: tokens.accessToken,
@@ -703,12 +713,13 @@ export const register = asyncHandler(async (req, res) => {
  */
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !password) {
+  if (!normalizedEmail || !password) {
     return errorResponse(res, 400, 'Email and password are required');
   }
 
-  const restaurant = await Restaurant.findOne({ email }).select('+password');
+  const restaurant = await Restaurant.findOne({ email: normalizedEmail }).select('+password');
 
   if (!restaurant) {
     return errorResponse(res, 401, 'Invalid email or password');
@@ -745,7 +756,7 @@ export const login = asyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 
-  logger.info(`Restaurant logged in via email: ${restaurant._id}`, { email, restaurantId: restaurant._id });
+  logger.info(`Restaurant logged in via email: ${restaurant._id}`, { email: normalizedEmail, restaurantId: restaurant._id });
 
   return successResponse(res, 200, 'Login successful', {
     accessToken: tokens.accessToken,
@@ -771,8 +782,9 @@ export const login = asyncHandler(async (req, res) => {
  */
 export const resetPassword = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !otp || !newPassword) {
+  if (!normalizedEmail || !otp || !newPassword) {
     return errorResponse(res, 400, 'Email, OTP, and new password are required');
   }
 
@@ -780,7 +792,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
     return errorResponse(res, 400, 'Password must be at least 6 characters long');
   }
 
-  const restaurant = await Restaurant.findOne({ email }).select('+password');
+  const restaurant = await Restaurant.findOne({ email: normalizedEmail }).select('+password');
 
   if (!restaurant) {
     return errorResponse(res, 404, 'No restaurant account found with this email.');
@@ -788,7 +800,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
   // Verify OTP for reset-password purpose
   try {
-    await otpService.verifyOTP(null, otp, 'reset-password', email);
+    await otpService.verifyOTP(null, otp, 'reset-password', normalizedEmail);
   } catch (error) {
     logger.error(`OTP verification failed for password reset: ${error.message}`);
     return errorResponse(res, 400, 'Invalid or expired OTP. Please request a new one.');
@@ -798,7 +810,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   restaurant.password = newPassword; // Will be hashed by pre-save hook
   await restaurant.save();
 
-  logger.info(`Password reset successful for restaurant: ${restaurant._id}`, { email, restaurantId: restaurant._id });
+  logger.info(`Password reset successful for restaurant: ${restaurant._id}`, { email: normalizedEmail, restaurantId: restaurant._id });
 
   return successResponse(res, 200, 'Password reset successfully. Please login with your new password.');
 });
@@ -1042,18 +1054,18 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
     const email = decoded.email || null;
     const name = decoded.name || decoded.display_name || 'Restaurant';
     const picture = decoded.picture || decoded.photo_url || null;
-    const normalizedEmail = email ? email.toLowerCase().trim() : null;
+    const normalizedEmail = normalizeEmail(email);
 
     // Validate email is present
-    if (!email) {
+    if (!normalizedEmail) {
       logger.error('Firebase Google login failed: Email not found in token', { uid: firebaseUid });
       return errorResponse(res, 400, 'Email not found in Firebase user. Please ensure email is available in your Google account.');
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      logger.error('Firebase Google login failed: Invalid email format', { email });
+    if (!emailRegex.test(normalizedEmail)) {
+      logger.error('Firebase Google login failed: Invalid email format', { email: normalizedEmail });
       return errorResponse(res, 400, 'Invalid email format received from Google.');
     }
 

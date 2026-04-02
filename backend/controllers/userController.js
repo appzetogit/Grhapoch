@@ -7,6 +7,7 @@ import { uploadToCloudinary } from '../utils/cloudinaryService.js';
 import axios from 'axios';
 import winston from 'winston';
 import { updateUserLocationRealtime } from '../services/firebaseRealtimeService.js';
+import { normalizePhoneNumber } from '../utils/phoneUtils.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -17,6 +18,31 @@ const logger = winston.createLogger({
     })
   ]
 });
+
+const buildPhoneQuery = (normalizedPhone) => {
+  if (!normalizedPhone) return null;
+
+  if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+    const phoneWithoutCountryCode = normalizedPhone.substring(2);
+    return {
+      $or: [
+        { phone: normalizedPhone },
+        { phone: phoneWithoutCountryCode },
+        { phone: `+${normalizedPhone}` },
+        { phone: `+91${phoneWithoutCountryCode}` }
+      ]
+    };
+  }
+
+  return {
+    $or: [
+      { phone: normalizedPhone },
+      { phone: `91${normalizedPhone}` },
+      { phone: `+91${normalizedPhone}` },
+      { phone: `+${normalizedPhone}` }
+    ]
+  };
+};
 
 /**
  * Get user profile
@@ -76,20 +102,32 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     }
 
     if (phone !== undefined && phone !== null) {
-      // Check if phone already exists for another user
+      // Check if phone already exists for another user (normalized comparison).
       if (phone.trim() !== '') {
+        const normalizedPhone = normalizePhoneNumber(phone);
+        if (!normalizedPhone) {
+          return errorResponse(res, 400, 'Invalid phone number format');
+        }
+
         const existingUser = await User.findOne({
-          phone: phone.trim(),
+          ...buildPhoneQuery(normalizedPhone),
           _id: { $ne: user._id },
-          role: 'user'
+          role: user.role || 'user'
         });
 
         if (existingUser) {
           return errorResponse(res, 400, 'Phone number already in use');
         }
-      }
 
-      user.phone = phone ? phone.trim() : null;
+        const previousNormalizedPhone = user.phone ? normalizePhoneNumber(user.phone) : null;
+        user.phone = normalizedPhone;
+        if (previousNormalizedPhone !== normalizedPhone) {
+          user.phoneVerified = false;
+        }
+      } else {
+        user.phone = null;
+        user.phoneVerified = false;
+      }
     }
 
     // Update additional profile fields (if they exist in schema)
@@ -124,6 +162,9 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
       user: userResponse
     });
   } catch (error) {
+    if (error?.code === 11000 && error?.keyPattern?.phone) {
+      return errorResponse(res, 400, 'Phone number already in use');
+    }
     logger.error(`Error updating user profile: ${error.message}`, { error: error.stack });
     return errorResponse(res, 500, 'Failed to update profile');
   }

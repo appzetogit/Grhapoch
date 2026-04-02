@@ -5,6 +5,7 @@ import googleAuthService from '../services/googleAuthService.js';
 import firebaseAuthService from '../services/firebaseAuthService.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { normalizePhoneNumber } from '../utils/phoneUtils.js';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -17,12 +18,44 @@ const logger = winston.createLogger({
   ]
 });
 
+const buildPhoneQuery = (normalizedPhone) => {
+  if (!normalizedPhone) return null;
+
+  if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+    const phoneWithoutCountryCode = normalizedPhone.substring(2);
+    return {
+      $or: [
+        { phone: normalizedPhone },
+        { phone: phoneWithoutCountryCode },
+        { phone: `+${normalizedPhone}` },
+        { phone: `+91${phoneWithoutCountryCode}` }
+      ]
+    };
+  }
+
+  return {
+    $or: [
+      { phone: normalizedPhone },
+      { phone: `91${normalizedPhone}` },
+      { phone: `+91${normalizedPhone}` },
+      { phone: `+${normalizedPhone}` }
+    ]
+  };
+};
+
+const normalizeEmail = (email) => {
+  if (typeof email !== 'string') return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized || null;
+};
+
 /**
  * Send OTP for phone number or email
  * POST /api/auth/send-otp
  */
 export const sendOTP = asyncHandler(async (req, res) => {
   const { phone, email, purpose = 'login' } = req.body;
+  const normalizedEmail = email ? normalizeEmail(email) : null;
 
 
   // Validate that either phone or email is provided
@@ -41,13 +74,18 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Validate email format if provided
   if (email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
       return errorResponse(res, 400, 'Invalid email format');
     }
   }
 
   try {
-    const result = await otpService.generateAndSendOTP(phone || null, purpose, email || null);
+    const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+    if (phone && !normalizedPhone) {
+      return errorResponse(res, 400, 'Invalid phone number format');
+    }
+
+    const result = await otpService.generateAndSendOTP(normalizedPhone || null, purpose, normalizedEmail || null);
     return successResponse(res, 200, result.message, {
       expiresIn: result.expiresIn,
       identifierType: result.identifierType
@@ -64,6 +102,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
  */
 export const verifyOTP = asyncHandler(async (req, res) => {
   const { phone, email, otp, purpose = 'login', name, role = 'user', password } = req.body;
+  const normalizedEmail = email ? normalizeEmail(email) : null;
 
   // Validate that either phone or email is provided
   if ((!phone && !email) || !otp) {
@@ -84,15 +123,20 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
   try {
     let user;
-    const identifier = phone || email;
-    const identifierType = phone ? 'phone' : 'email';
+    const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+    if (phone && !normalizedPhone) {
+      return errorResponse(res, 400, 'Invalid phone number format');
+    }
+
+    const identifier = normalizedPhone || normalizedEmail;
+    const identifierType = normalizedPhone ? 'phone' : 'email';
 
     if (purpose === 'register') {
       // Registration flow
       // Check if user already exists with same email/phone AND role
-      const findQuery = phone 
-        ? { phone, role: userRole } 
-        : { email, role: userRole };
+      const findQuery = normalizedPhone
+        ? { ...buildPhoneQuery(normalizedPhone), role: userRole }
+        : { email: normalizedEmail, role: userRole };
       user = await User.findOne(findQuery);
 
       if (user) {
@@ -105,20 +149,20 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       }
 
       // Verify OTP (phone or email) before creating user
-      await otpService.verifyOTP(phone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
 
       const userData = {
         name,
         role: userRole,
-        signupMethod: phone ? 'phone' : 'email'
+        signupMethod: normalizedPhone ? 'phone' : 'email'
       };
 
-      if (phone) {
-        userData.phone = phone;
+      if (normalizedPhone) {
+        userData.phone = normalizedPhone;
         userData.phoneVerified = true;
       }
       if (email) {
-        userData.email = email;
+        userData.email = normalizedEmail;
         // Note: We could add emailVerified field if needed
       }
 
@@ -133,9 +177,9 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         // Handle duplicate key error - user might have been created between findOne and create
         if (createError.code === 11000) {
           // Try to find the user again
-          const findQuery = phone 
-            ? { phone, role: userRole } 
-            : { email, role: userRole };
+          const findQuery = normalizedPhone
+            ? { ...buildPhoneQuery(normalizedPhone), role: userRole }
+            : { email: normalizedEmail, role: userRole };
           user = await User.findOne(findQuery);
           if (!user) {
             throw createError; // Re-throw if still not found
@@ -155,14 +199,14 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     } else {
       // Login (with optional auto-registration)
       // Find user by email/phone AND role to ensure correct module access
-      const findQuery = phone 
-        ? { phone, role: userRole } 
-        : { email, role: userRole };
+      const findQuery = normalizedPhone
+        ? { ...buildPhoneQuery(normalizedPhone), role: userRole }
+        : { email: normalizedEmail, role: userRole };
       user = await User.findOne(findQuery);
 
       // Fix: Verify OTP first before checking if user needs to provide a name
       // This ensures that wrong OTP results in an error instead of "needsName: true"
-      await otpService.verifyOTP(phone || null, otp, purpose, email || null);
+      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
 
       if (!user && !name) {
         // OTP has been verified. Now check if we need user's name to proceed with auto-registration.
@@ -178,16 +222,16 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         const userData = {
           name,
           role: userRole,
-          signupMethod: phone ? 'phone' : 'email'
+          signupMethod: normalizedPhone ? 'phone' : 'email'
         };
 
-        if (phone) {
-          userData.phone = phone;
+        if (normalizedPhone) {
+          userData.phone = normalizedPhone;
           userData.phoneVerified = true;
         }
         // Only include email if provided (don't set to null)
         if (email) {
-          userData.email = email;
+          userData.email = normalizedEmail;
         }
 
         if (password && !phone) {
@@ -200,9 +244,9 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           // Handle duplicate key error - user might have been created between findOne and create
           if (createError.code === 11000) {
             // Try to find the user again
-            const findQuery = phone 
-              ? { phone, role: userRole } 
-              : { email, role: userRole };
+            const findQuery = normalizedPhone
+              ? { ...buildPhoneQuery(normalizedPhone), role: userRole }
+              : { email: normalizedEmail, role: userRole };
             user = await User.findOne(findQuery);
             if (!user) {
               throw createError; // Re-throw if still not found
@@ -221,7 +265,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         });
       } else {
         // Existing user login - update verification status if needed
-        if (phone && !user.phoneVerified) {
+        if (normalizedPhone && !user.phoneVerified) {
           user.phoneVerified = true;
           await user.save();
         }
@@ -323,8 +367,9 @@ export const logout = asyncHandler(async (req, res) => {
  */
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, phone, role = 'user' } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!name || !email || !password) {
+  if (!name || !normalizedEmail || !password) {
     return errorResponse(res, 400, 'Name, email, and password are required');
   }
 
@@ -335,20 +380,31 @@ export const register = asyncHandler(async (req, res) => {
     return errorResponse(res, 400, `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`);
   }
 
+  const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+  if (phone && !normalizedPhone) {
+    return errorResponse(res, 400, 'Invalid phone number format');
+  }
+
   // Check if user already exists with same email/phone AND role
   // Allow same email/phone for different roles
-  const findQuery = {};
-  if (email) findQuery.email = email;
-  if (phone) findQuery.phone = phone;
-  findQuery.role = userRole;
-  
-  const existingUser = await User.findOne(findQuery);
+  const queryVariants = [];
+  if (normalizedEmail) {
+    queryVariants.push({ email: normalizedEmail, role: userRole });
+  }
+  if (normalizedPhone) {
+    queryVariants.push({ ...buildPhoneQuery(normalizedPhone), role: userRole });
+  }
+
+  const existingUser = queryVariants.length
+    ? await User.findOne({ $or: queryVariants })
+    : null;
 
   if (existingUser) {
-    if (existingUser.email === email) {
+    if (existingUser.email === normalizedEmail) {
       return errorResponse(res, 400, `User with this email and role (${userRole}) already exists. Please login.`);
     }
-    if (existingUser.phone === phone) {
+    const existingNormalizedPhone = existingUser.phone ? normalizePhoneNumber(existingUser.phone) : null;
+    if (normalizedPhone && existingNormalizedPhone === normalizedPhone) {
       return errorResponse(res, 400, `User with this phone number and role (${userRole}) already exists. Please login.`);
     }
   }
@@ -356,9 +412,9 @@ export const register = asyncHandler(async (req, res) => {
   // Create new user
   const user = await User.create({
     name,
-    email,
+    email: normalizedEmail,
     password, // Will be hashed by pre-save hook
-    phone: phone || null,
+    phone: normalizedPhone || null,
     role: userRole,
     signupMethod: 'email' // Email/password registration
   });
@@ -378,7 +434,7 @@ export const register = asyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 
-  logger.info(`New user registered via email: ${user._id}`, { email, userId: user._id, role: userRole });
+  logger.info(`New user registered via email: ${user._id}`, { email: normalizedEmail, userId: user._id, role: userRole });
 
   return successResponse(res, 201, 'Registration successful', {
     accessToken: tokens.accessToken,
@@ -401,14 +457,15 @@ export const register = asyncHandler(async (req, res) => {
  */
 export const login = asyncHandler(async (req, res) => {
   const { email, password, role } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !password) {
+  if (!normalizedEmail || !password) {
     return errorResponse(res, 400, 'Email and password are required');
   }
 
   // Find user by email and role (if role provided) to ensure correct module access
   // If role not provided, find by email only (backward compatibility)
-  const findQuery = { email };
+  const findQuery = { email: normalizedEmail };
   if (role) {
     findQuery.role = role;
   }
@@ -455,7 +512,7 @@ export const login = asyncHandler(async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 
-  logger.info(`User logged in via email: ${user._id}`, { email, userId: user._id });
+  logger.info(`User logged in via email: ${user._id}`, { email: normalizedEmail, userId: user._id });
 
   return successResponse(res, 200, 'Login successful', {
     accessToken: tokens.accessToken,
@@ -478,8 +535,9 @@ export const login = asyncHandler(async (req, res) => {
  */
 export const resetPassword = asyncHandler(async (req, res) => {
   const { email, otp, newPassword, role } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !otp || !newPassword) {
+  if (!normalizedEmail || !otp || !newPassword) {
     return errorResponse(res, 400, 'Email, OTP, and new password are required');
   }
 
@@ -488,7 +546,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Find user by email and role (if role provided) to ensure correct module access
-  const findQuery = { email };
+  const findQuery = { email: normalizedEmail };
   if (role) {
     findQuery.role = role;
   }
@@ -508,7 +566,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
   // Verify OTP for reset-password purpose
   try {
-    await otpService.verifyOTP(null, otp, 'reset-password', email);
+    await otpService.verifyOTP(null, otp, 'reset-password', normalizedEmail);
   } catch (error) {
     logger.error(`OTP verification failed for password reset: ${error.message}`);
     return errorResponse(res, 400, 'Invalid or expired OTP. Please request a new one.');
@@ -518,7 +576,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   user.password = newPassword; // Will be hashed by pre-save hook
   await user.save();
 
-  logger.info(`Password reset successful for user: ${user._id}`, { email, userId: user._id });
+  logger.info(`Password reset successful for user: ${user._id}`, { email: normalizedEmail, userId: user._id });
 
   return successResponse(res, 200, 'Password reset successfully. Please login with your new password.');
 });
@@ -582,20 +640,21 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
 
     const firebaseUid = decoded.uid;
     const email = decoded.email || null;
+    const normalizedEmail = normalizeEmail(email);
     const name = decoded.name || decoded.display_name || 'Google User';
     const picture = decoded.picture || decoded.photo_url || null;
     const emailVerified = !!decoded.email_verified;
 
     // Validate email is present
-    if (!email) {
+    if (!normalizedEmail) {
       logger.error('Firebase Google login failed: Email not found in token', { uid: firebaseUid });
       return errorResponse(res, 400, 'Email not found in Firebase user. Please ensure email is available in your Google account.');
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      logger.error('Firebase Google login failed: Invalid email format', { email });
+    if (!emailRegex.test(normalizedEmail)) {
+      logger.error('Firebase Google login failed: Invalid email format', { email: normalizedEmail });
       return errorResponse(res, 400, 'Invalid email format received from Google.');
     }
 
@@ -603,7 +662,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
     let user = await User.findOne({
       $or: [
         { googleId: firebaseUid },
-        { email, role: userRole }
+        { email: normalizedEmail, role: userRole }
       ]
     });
 
@@ -611,7 +670,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       // If user exists but googleId not linked yet, link it
       if (!user.googleId) {
         user.googleId = firebaseUid;
-        user.googleEmail = email;
+        user.googleEmail = normalizedEmail;
         if (!user.profileImage && picture) {
           user.profileImage = picture;
         }
@@ -620,7 +679,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
           user.signupMethod = 'google';
         }
         await user.save();
-        logger.info('Linked Google account to existing user', { userId: user._id, email });
+        logger.info('Linked Google account to existing user', { userId: user._id, email: normalizedEmail });
       }
 
       // If this is a restaurant login, make sure role matches
@@ -635,16 +694,16 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
 
       logger.info('Existing user logged in via Firebase Google', {
         userId: user._id,
-        email,
+        email: normalizedEmail,
         role: user.role
       });
     } else {
       // Auto-register new user based on Firebase data
       const userData = {
         name: name.trim(),
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         googleId: firebaseUid,
-        googleEmail: email.toLowerCase().trim(),
+        googleEmail: normalizedEmail,
         role: userRole,
         signupMethod: 'google',
         profileImage: picture || null,
@@ -656,7 +715,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
 
         logger.info('New user registered via Firebase Google login', {
           firebaseUid,
-          email,
+          email: normalizedEmail,
           userId: user._id,
           role: userRole,
           name: user.name
@@ -664,16 +723,16 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       } catch (createError) {
         // Handle duplicate key error - user might have been created between findOne and create
         if (createError.code === 11000) {
-          logger.warn('Duplicate key error during user creation, retrying find', { email, role: userRole });
-          user = await User.findOne({ email, role: userRole });
+          logger.warn('Duplicate key error during user creation, retrying find', { email: normalizedEmail, role: userRole });
+          user = await User.findOne({ email: normalizedEmail, role: userRole });
           if (!user) {
-            logger.error('User not found after duplicate key error', { email, role: userRole });
+            logger.error('User not found after duplicate key error', { email: normalizedEmail, role: userRole });
             throw createError;
           }
           // Link Google ID if not already linked
           if (!user.googleId) {
             user.googleId = firebaseUid;
-            user.googleEmail = email;
+            user.googleEmail = normalizedEmail;
             if (!user.profileImage && picture) {
               user.profileImage = picture;
             }
@@ -683,7 +742,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
             await user.save();
           }
         } else {
-          logger.error('Error creating user via Firebase Google login', { error: createError.message, email, role: userRole });
+          logger.error('Error creating user via Firebase Google login', { error: createError.message, email: normalizedEmail, role: userRole });
           throw createError;
         }
       }
@@ -691,7 +750,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
 
     // Ensure user is active
     if (!user.isActive) {
-      logger.warn('Inactive user attempted login', { userId: user._id, email });
+      logger.warn('Inactive user attempted login', { userId: user._id, email: normalizedEmail });
       return errorResponse(res, 403, 'Your account has been deactivated. Please contact support.');
     }
 
@@ -807,8 +866,9 @@ export const googleCallback = asyncHandler(async (req, res) => {
     
     // Get user info from Google
     const googleUser = await googleAuthService.getUserInfoFromToken(tokens);
+    const normalizedGoogleEmail = normalizeEmail(googleUser?.email);
 
-    if (!googleUser.email) {
+    if (!normalizedGoogleEmail) {
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/restaurant/login?error=no_email`);
     }
 
@@ -816,7 +876,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
     let user = await User.findOne({
       $or: [
         { googleId: googleUser.googleId },
-        { email: googleUser.email }
+        { email: normalizedGoogleEmail }
       ]
     });
 
@@ -824,7 +884,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
       // Update Google info if not set
       if (!user.googleId) {
         user.googleId = googleUser.googleId;
-        user.googleEmail = googleUser.email;
+        user.googleEmail = normalizedGoogleEmail;
         if (!user.profileImage && googleUser.picture) {
           user.profileImage = googleUser.picture;
         }
@@ -843,9 +903,9 @@ export const googleCallback = asyncHandler(async (req, res) => {
       // Create new user
       const userData = {
         name: googleUser.name || 'Google User',
-        email: googleUser.email,
+        email: normalizedGoogleEmail,
         googleId: googleUser.googleId,
-        googleEmail: googleUser.email,
+        googleEmail: normalizedGoogleEmail,
         role: userRole,
         signupMethod: 'google',
         profileImage: googleUser.picture || null
@@ -853,7 +913,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
 
       user = await User.create(userData);
       logger.info(`New user registered via Google: ${user._id}`, { 
-        email: googleUser.email, 
+        email: normalizedGoogleEmail,
         userId: user._id, 
         role: userRole 
       });

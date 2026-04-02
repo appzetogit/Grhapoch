@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { deleteUserAdvertisements } from '../services/userAdvertisementCleanupService.js';
+import { normalizePhoneNumber } from '../utils/phoneUtils.js';
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -268,6 +269,21 @@ userSchema.index({ 'addresses.location': '2dsphere' });
 userSchema.index({ 'currentLocation.location': '2dsphere' }); // GeoJSON index for current location queries
 // Note: Single-field indexes on email/phone removed - compound indexes {email:1,role:1} and {phone:1,role:1} can serve as prefixes
 userSchema.index({ role: 1 });
+
+// Normalize phone before validation/save so all auth paths store a canonical value.
+userSchema.pre('validate', function (next) {
+  if (this.phone === null || this.phone === undefined || this.phone === '') {
+    return next();
+  }
+
+  const normalized = normalizePhoneNumber(String(this.phone));
+  if (!normalized) {
+    return next(new Error('Invalid phone number format'));
+  }
+
+  this.phone = normalized;
+  next();
+});
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

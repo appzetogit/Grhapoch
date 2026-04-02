@@ -30,29 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { restaurantAPI } from "@/lib/api"
 
-// Country codes
-const countryCodes = [
-  { code: "+1", country: "US/CA", flag: "🇺🇸" },
-  { code: "+44", country: "UK", flag: "🇬🇧" },
-  { code: "+91", country: "IN", flag: "🇮🇳" },
-  { code: "+86", country: "CN", flag: "🇨🇳" },
-  { code: "+81", country: "JP", flag: "🇯🇵" },
-  { code: "+49", country: "DE", flag: "🇩🇪" },
-  { code: "+33", country: "FR", flag: "🇫🇷" },
-  { code: "+39", country: "IT", flag: "🇮🇹" },
-  { code: "+34", country: "ES", flag: "🇪🇸" },
-  { code: "+61", country: "AU", flag: "🇦🇺" },
-  { code: "+7", country: "RU", flag: "🇷🇺" },
-  { code: "+55", country: "BR", flag: "🇧🇷" },
-  { code: "+52", country: "MX", flag: "🇲🇽" },
-  { code: "+82", country: "KR", flag: "🇰🇷" },
-  { code: "+65", country: "SG", flag: "🇸🇬" },
-  { code: "+971", country: "AE", flag: "🇦🇪" },
-  { code: "+966", country: "SA", flag: "🇸🇦" },
-  { code: "+27", country: "ZA", flag: "🇿🇦" },
-  { code: "+31", country: "NL", flag: "🇳🇱" },
-  { code: "+46", country: "SE", flag: "🇸🇪" },
-]
+const countryCodeDetails = { code: "+91", country: "IN", flag: "🇮🇳" };
 
 export default function InviteUser() {
   const navigate = useNavigate()
@@ -102,14 +80,26 @@ export default function InviteUser() {
     }
     // Remove any non-digit characters for validation
     const digitsOnly = phone.replace(/\D/g, "")
-    if (digitsOnly.length < 10) {
-      setPhoneError("Phone number must be at least 10 digits")
+    const requiredLength = 10;
+
+    if (digitsOnly.length < requiredLength) {
+      setPhoneError(`Phone number must be exactly ${requiredLength} digits`)
       return false
     }
-    if (digitsOnly.length > 15) {
-      setPhoneError("Phone number is too long")
+    if (digitsOnly.length > requiredLength) {
+      setPhoneError(`Phone number cannot exceed ${requiredLength} digits`)
       return false
     }
+
+    // India-specific validation
+    if (countryCode === "+91") {
+      const firstDigit = digitsOnly[0]
+      if (!["6", "7", "8", "9"].includes(firstDigit)) {
+        setPhoneError("Invalid Indian mobile number")
+        return false
+      }
+    }
+
     setPhoneError("")
     return true
   }
@@ -130,9 +120,11 @@ export default function InviteUser() {
   }
 
   const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, "") // Only allow digits
+    const value = e.target.value.replace(/\D/g, "").slice(0, 10) // Only allow digits and limit to 10
     setPhoneNumber(value)
-    if (value) {
+    
+    // Clear error while typing, only validate if 10 digits reached
+    if (value.length === 10) {
       validatePhone(value)
     } else {
       setPhoneError("")
@@ -253,7 +245,7 @@ export default function InviteUser() {
     }, 300)
   }
 
-  const selectedCountry = countryCodes.find(c => c.code === countryCode) || countryCodes[2]
+  const selectedCountry = countryCodeDetails;
 
   const isFormValid = name.trim().length >= 2 && !nameError && (
     addMethod === "phone" 
@@ -300,26 +292,13 @@ export default function InviteUser() {
         <div>
           <label className="text-sm font-medium text-gray-700 mb-2 block">Phone number *</label>
           <div className="flex gap-2 items-stretch">
-            <Select value={countryCode} onValueChange={setCountryCode}>
-              <SelectTrigger className="w-[100px] h-12! border-gray-200 rounded-lg flex items-center shrink-0">
-                <SelectValue>
-                  <span className="flex items-center gap-2">
-                    <span className="text-base">{selectedCountry.flag}</span>
-                    <span className="text-sm font-medium text-gray-900">{selectedCountry.code}</span>
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] overflow-y-auto">
-                {countryCodes.map((country) => (
-                  <SelectItem key={country.code} value={country.code}>
-                    <span className="flex items-center gap-2">
-                      <span>{country.flag}</span>
-                      <span>{country.code}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Country Code Display (Fixed to +91) */}
+            <div className="w-[100px] h-12 border border-gray-200 rounded-lg flex items-center justify-center shrink-0 bg-gray-50">
+                <span className="flex items-center gap-2">
+                  <span className="text-base">{selectedCountry.flag}</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedCountry.code}</span>
+                </span>
+            </div>
             <Input
               type="tel"
               value={phoneNumber}

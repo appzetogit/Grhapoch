@@ -26,29 +26,8 @@ const GOOGLE_AUTH_PENDING_KEY = "user_google_auth_pending";
 const SIGNIN_PREFILL_ONCE_KEY = "userSignInPrefillOnce";
 let googleAuthPendingFallback = false;
 
-// Common country codes
-const countryCodes = [
-  { code: "+1", country: "US/CA", fullName: "United States/Canada", flag: "🇺🇸", length: 10 },
-  { code: "+44", country: "UK", fullName: "United Kingdom", flag: "🇬🇧", length: 10 },
-  { code: "+91", country: "IN", fullName: "India", flag: "🇮🇳", length: 10 },
-  { code: "+86", country: "CN", fullName: "China", flag: "🇨🇳", length: 11 },
-  { code: "+81", country: "JP", fullName: "Japan", flag: "🇯🇵", length: 10 },
-  { code: "+49", country: "DE", fullName: "Germany", flag: "🇩🇪", length: 11 },
-  { code: "+33", country: "FR", fullName: "France", flag: "🇫🇷", length: 9 },
-  { code: "+39", country: "IT", fullName: "Italy", flag: "🇮🇹", length: 10 },
-  { code: "+34", country: "ES", fullName: "Spain", flag: "🇪🇸", length: 9 },
-  { code: "+61", country: "AU", fullName: "Australia", flag: "🇦🇺", length: 9 },
-  { code: "+7", country: "RU", fullName: "Russia", flag: "🇷🇺", length: 10 },
-  { code: "+55", country: "BR", fullName: "Brazil", flag: "🇧🇷", length: 11 },
-  { code: "+52", country: "MX", fullName: "Mexico", flag: "🇲🇽", length: 10 },
-  { code: "+82", country: "KR", fullName: "South Korea", flag: "🇰🇷", length: 10 },
-  { code: "+65", country: "SG", fullName: "Singapore", flag: "🇸🇬", length: 8 },
-  { code: "+971", country: "AE", fullName: "United Arab Emirates", flag: "🇦🇪", length: 9 },
-  { code: "+966", country: "SA", fullName: "Saudi Arabia", flag: "🇸🇦", length: 9 },
-  { code: "+27", country: "ZA", fullName: "South Africa", flag: "🇿🇦", length: 9 },
-  { code: "+31", country: "NL", fullName: "Netherlands", flag: "🇳🇱", length: 9 },
-  { code: "+46", country: "SE", fullName: "Sweden", flag: "🇸🇪", length: 10 }];
-
+// India is the only supported country code
+const countryCodeDetails = { code: "+91", country: "IN", fullName: "India", flag: "🇮🇳", length: 10 };
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -150,12 +129,6 @@ export default function SignIn() {
       return;
     }
 
-
-
-
-
-
-
     redirectHandledRef.current = true;
     setIsLoading(true);
     setApiError("");
@@ -178,12 +151,6 @@ export default function SignIn() {
 
       const response = await authAPI.firebaseGoogleLogin(idToken, "user");
       const data = response?.data?.data || {};
-
-
-
-
-
-
 
       const accessToken = data.accessToken;
       const appUser = data.user;
@@ -335,8 +302,8 @@ export default function SignIn() {
     };
   }, [processSignedInUser, searchParams]);
 
-  // Get selected country details dynamically
-  const selectedCountry = countryCodes.find((c) => c.code === formData.countryCode) || countryCodes[2]; // Default to India (+91)
+  // Fixed to Indiadetails
+  const selectedCountry = countryCodeDetails;
 
   const validateEmail = (email) => {
     if (!email.trim()) {
@@ -355,7 +322,7 @@ export default function SignIn() {
     }
 
     const digitsOnly = phone.replace(/\D/g, "");
-    const selectedCountry = countryCodes.find((c) => c.code === countryCode) || countryCodes[2];
+    const selectedCountry = countryCodeDetails;
     const requiredLength = selectedCountry.length || 10;
 
     if (digitsOnly.length < requiredLength) {
@@ -425,18 +392,6 @@ export default function SignIn() {
       setErrors({ ...errors, email: validateEmail(value) });
     } else if (name === "name") {
       setErrors({ ...errors, name: validateName(value) });
-    }
-  };
-
-  const handleCountryCodeChange = (value) => {
-    setFormData({
-      ...formData,
-      countryCode: value
-    });
-    // Re-validate phone with new country code length
-    if (formData.phone) {
-      const error = validatePhone(formData.phone, value);
-      setErrors(prev => ({ ...prev, phone: error }));
     }
   };
 
@@ -666,29 +621,13 @@ export default function SignIn() {
             {authMethod === "phone" &&
               <div className="space-y-2">
                 <div className="flex gap-2 items-stretch">
-                  <Select
-                    value={formData.countryCode}
-                    onValueChange={handleCountryCodeChange}>
-
-                    <SelectTrigger className="w-[100px] md:w-[120px] !h-12 md:!h-14 border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-lg flex items-center transition-colors" size="default">
-                      <SelectValue>
-                        <span className="flex items-center gap-2 text-sm md:text-base">
-                          <span>{selectedCountry.flag}</span>
-                          <span>{selectedCountry.code}</span>
-                        </span>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      {countryCodes.map((country) =>
-                        <SelectItem key={country.code} value={country.code}>
-                          <span className="flex items-center gap-2">
-                            <span>{country.flag}</span>
-                            <span>{country.code}</span>
-                          </span>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  {/* Static Country Code Display (Fixed to +91) */}
+                  <div className="w-[100px] md:w-[120px] h-12 md:h-14 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-lg flex items-center justify-center gap-2 select-none transition-colors">
+                    <span className="flex items-center gap-2 text-sm md:text-base">
+                      <span>{selectedCountry.flag}</span>
+                      <span>{selectedCountry.code}</span>
+                    </span>
+                  </div>
                   <Input
                     id="phone"
                     name="phone"

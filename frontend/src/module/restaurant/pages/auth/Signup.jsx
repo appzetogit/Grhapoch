@@ -15,29 +15,7 @@ import {
 } from "@/components/ui/select"
 import loginBg from "@/assets/loginbanner.png"
 
-// Common country codes
-const countryCodes = [
-  { code: "+1", country: "US/CA", flag: "🇺🇸" },
-  { code: "+44", country: "UK", flag: "🇬🇧" },
-  { code: "+91", country: "IN", flag: "🇮🇳" },
-  { code: "+86", country: "CN", flag: "🇨🇳" },
-  { code: "+81", country: "JP", flag: "🇯🇵" },
-  { code: "+49", country: "DE", flag: "🇩🇪" },
-  { code: "+33", country: "FR", flag: "🇫🇷" },
-  { code: "+39", country: "IT", flag: "🇮🇹" },
-  { code: "+34", country: "ES", flag: "🇪🇸" },
-  { code: "+61", country: "AU", flag: "🇦🇺" },
-  { code: "+7", country: "RU", flag: "🇷🇺" },
-  { code: "+55", country: "BR", flag: "🇧🇷" },
-  { code: "+52", country: "MX", flag: "🇲🇽" },
-  { code: "+82", country: "KR", flag: "🇰🇷" },
-  { code: "+65", country: "SG", flag: "🇸🇬" },
-  { code: "+971", country: "AE", flag: "🇦🇪" },
-  { code: "+966", country: "SA", flag: "🇸🇦" },
-  { code: "+27", country: "ZA", flag: "🇿🇦" },
-  { code: "+31", country: "NL", flag: "🇳🇱" },
-  { code: "+46", country: "SE", flag: "🇸🇪" },
-]
+const countryCodeDetails = { code: "+91", country: "IN", flag: "🇮🇳" };
 
 export default function RestaurantSignup() {
   const navigate = useNavigate()
@@ -58,11 +36,25 @@ export default function RestaurantSignup() {
     if (!phone.trim()) {
       return "Phone number is required"
     }
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "")
-    const phoneRegex = /^\d{7,15}$/
-    if (!phoneRegex.test(cleanPhone)) {
-      return "Phone number must be 7-15 digits"
+    const cleanPhone = phone.replace(/\D/g, "")
+    const requiredLength = 10;
+
+    if (cleanPhone.length < requiredLength) {
+      return `Phone number must be exactly ${requiredLength} digits`
     }
+
+    if (cleanPhone.length > requiredLength) {
+      return `Phone number cannot exceed ${requiredLength} digits`
+    }
+
+    // India-specific validation
+    if (formData.countryCode === "+91") {
+      const firstDigit = cleanPhone[0]
+      if (!["6", "7", "8", "9"].includes(firstDigit)) {
+        return "Invalid Indian mobile number"
+      }
+    }
+
     return ""
   }
 
@@ -81,25 +73,35 @@ export default function RestaurantSignup() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    
+    if (name === "phone") {
+      // Only allow digits and limit to 10
+      const numericValue = value.replace(/\D/g, "").slice(0, 10)
+      setFormData({
+        ...formData,
+        phone: numericValue,
+      })
+
+      // Clear error while typing, only show if it reaches valid length
+      if (numericValue.length === 10) {
+        setErrors({ ...errors, phone: validatePhone(numericValue) })
+      } else {
+        setErrors({ ...errors, phone: "" })
+      }
+      return
+    }
+
     setFormData({
       ...formData,
       [name]: value,
     })
 
     // Real-time validation
-    if (name === "phone") {
-      setErrors({ ...errors, phone: validatePhone(value) })
-    } else if (name === "name") {
+    if (name === "name") {
       setErrors({ ...errors, name: validateName(value) })
     }
   }
 
-  const handleCountryCodeChange = (value) => {
-    setFormData({
-      ...formData,
-      countryCode: value,
-    })
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -314,24 +316,13 @@ export default function RestaurantSignup() {
                 Phone Number
               </Label>
               <div className="flex gap-2">
-                <Select
-                  value={formData.countryCode}
-                  onValueChange={handleCountryCodeChange}
-                >
-                  <SelectTrigger className="w-20 sm:w-24 md:w-[100px] text-xs sm:text-sm">
-                    <SelectValue placeholder="Code" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countryCodes.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        <span className="flex items-center gap-2 text-xs sm:text-sm">
-                          <span>{country.flag}</span>
-                          <span>{country.code}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Country Code Display (Fixed to +91) */}
+                <div className="w-20 sm:w-24 md:w-[100px] h-11 border border-gray-300 rounded-md bg-gray-50 flex items-center justify-center shrink-0">
+                  <span className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-900">
+                    <span>{countryCodeDetails.flag}</span>
+                    <span>{countryCodeDetails.code}</span>
+                  </span>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="relative">
                     <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 pointer-events-none">
@@ -367,8 +358,12 @@ export default function RestaurantSignup() {
             {/* Sign up button */}
             <Button
               type="submit"
-              className="mt-2 h-11 w-full bg-primary-orange hover:bg-primary-orange/90 text-white text-base font-semibold rounded-md shadow-md transition-colors"
-              disabled={isLoading}
+              className={`mt-2 h-11 w-full text-white text-base font-semibold rounded-md shadow-md transition-colors ${
+                !formData.phone || formData.phone.length !== 10 || !formData.name || errors.phone || errors.name || isLoading
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-primary-orange hover:bg-primary-orange/90"
+              }`}
+              disabled={!formData.phone || formData.phone.length !== 10 || !formData.name || errors.phone || errors.name || isLoading}
             >
               {isLoading ? (
                 <>

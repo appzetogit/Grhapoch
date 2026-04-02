@@ -788,40 +788,45 @@ export default function RestaurantOnboarding() {
           }));
         }
 
-        // 2. Await file hydration from IndexedDB
-        try {
-          // Load Step 2 Files
-          const idbMenuImages = await getFileFromIDB('menuImages');
-          const idbProfileImage = await getFileFromIDB('profileImage');
-
-          if (idbMenuImages || idbProfileImage) {
-            setStep2(prev => ({
-              ...prev,
-              // Replace (not append) to avoid duplicating images on refresh.
-              // IDB is the authoritative source for File objects.
-              menuImages: idbMenuImages ? idbMenuImages : prev.menuImages,
-              profileImage: idbProfileImage || prev.profileImage
-            }));
-          }
-
-          // Load Step 3 Files
-          const idbPanImage = await getFileFromIDB('panImage');
-          const idbGstImage = await getFileFromIDB('gstImage');
-          const idbFssaiImage = await getFileFromIDB('fssaiImage');
-
-          if (idbPanImage || idbGstImage || idbFssaiImage) {
-            setStep3(prev => ({
-              ...prev,
-              panImage: idbPanImage || prev.panImage,
-              gstImage: idbGstImage || prev.gstImage,
-              fssaiImage: idbFssaiImage || prev.fssaiImage
-            }));
-          }
-        } catch (err) {
-          console.error("IDB Hydration Error:", err);
-        }
-
+        // Do not block onboarding restore on IndexedDB availability in app/webview.
         setHasLoadedLocal(true);
+
+        // 2. Hydrate File objects from IndexedDB in background (best effort)
+        const withTimeout = (promise, ms = 1200) =>
+          Promise.race([
+            promise,
+            new Promise((resolve) => setTimeout(() => resolve(null), ms))
+          ]);
+
+        (async () => {
+          try {
+            const idbMenuImages = await withTimeout(getFileFromIDB('menuImages'));
+            const idbProfileImage = await withTimeout(getFileFromIDB('profileImage'));
+
+            if (idbMenuImages || idbProfileImage) {
+              setStep2(prev => ({
+                ...prev,
+                menuImages: idbMenuImages ? idbMenuImages : prev.menuImages,
+                profileImage: idbProfileImage || prev.profileImage
+              }));
+            }
+
+            const idbPanImage = await withTimeout(getFileFromIDB('panImage'));
+            const idbGstImage = await withTimeout(getFileFromIDB('gstImage'));
+            const idbFssaiImage = await withTimeout(getFileFromIDB('fssaiImage'));
+
+            if (idbPanImage || idbGstImage || idbFssaiImage) {
+              setStep3(prev => ({
+                ...prev,
+                panImage: idbPanImage || prev.panImage,
+                gstImage: idbGstImage || prev.gstImage,
+                fssaiImage: idbFssaiImage || prev.fssaiImage
+              }));
+            }
+          } catch (err) {
+            console.error("IDB Hydration Error:", err);
+          }
+        })();
       } else if (!localData) {
         setHasLoadedLocal(true);
       }
@@ -2162,7 +2167,6 @@ export default function RestaurantOnboarding() {
               type="file"
               multiple
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
@@ -2312,7 +2316,6 @@ export default function RestaurantOnboarding() {
             id="profileImageInput"
             type="file"
             accept="image/*"
-            capture="environment"
             className="hidden"
             onChange={(e) => {
               filePickedRef.current = true;
@@ -2475,7 +2478,6 @@ export default function RestaurantOnboarding() {
               id="panImageInput"
               type="file"
               accept="image/*"
-              capture="environment"
               onClick={() => handleFileClick('panImage', 'panImageInput')}
               onChange={(e) => {
                 filePickedRef.current = true;
@@ -2596,7 +2598,6 @@ export default function RestaurantOnboarding() {
                 id="gstImageInput"
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onClick={() => handleFileClick('gstImage', 'gstImageInput')}
                 onChange={(e) => {
                   filePickedRef.current = true;
@@ -2723,7 +2724,6 @@ export default function RestaurantOnboarding() {
             id="fssaiImageInput"
             type="file"
             accept="image/*"
-            capture="environment"
             onClick={() => handleFileClick('fssaiImage', 'fssaiImageInput')}
             onChange={(e) => {
               filePickedRef.current = true;

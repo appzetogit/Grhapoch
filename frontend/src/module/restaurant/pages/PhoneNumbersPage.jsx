@@ -20,17 +20,7 @@ export default function PhoneNumbersPage() {
     restaurantPage: "+91-9981127415"
   })
 
-  // Country codes
-  const countryCodes = [
-    { code: "+91", country: "India", flag: "🇮🇳" },
-    { code: "+1", country: "USA", flag: "🇺🇸" },
-    { code: "+44", country: "UK", flag: "🇬🇧" },
-    { code: "+971", country: "UAE", flag: "🇦🇪" },
-    { code: "+65", country: "Singapore", flag: "🇸🇬" },
-    { code: "+86", country: "China", flag: "🇨🇳" },
-    { code: "+81", country: "Japan", flag: "🇯🇵" },
-    { code: "+61", country: "Australia", flag: "🇦🇺" },
-  ]
+  const countryCodeDetails = { code: "+91", country: "India", flag: "🇮🇳" }
 
   const handleEditClick = (type) => {
     const currentNumber = phoneData[type]
@@ -43,11 +33,17 @@ export default function PhoneNumbersPage() {
   const handleSaveEdit = () => {
     if (!editingNumber || !phoneNumber.trim()) return
     
+    // Validate 10 digits
+    if (phoneNumber.replace(/\D/g, "").length !== 10) {
+      // In a real app we'd show an error state, here we just return
+      return
+    }
+    
     // Store the data to save after OTP verification
     setPendingPhoneData({
       type: editingNumber,
-      value: `${countryCode}-${phoneNumber.trim()}`,
-      countryCode: countryCode,
+      value: `+91-${phoneNumber.trim()}`,
+      countryCode: "+91",
       phoneNumber: phoneNumber.trim()
     })
     
@@ -261,18 +257,12 @@ export default function PhoneNumbersPage() {
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       Country code
                     </label>
-                    <button
-                      onClick={() => setIsCountryCodeOpen(true)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-left flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">
-                          {countryCodes.find(c => c.code === countryCode)?.flag || "🇮🇳"}
-                        </span>
-                        <span className="text-sm text-gray-900">{countryCode}</span>
-                      </div>
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
-                    </button>
+                    <div className="w-full px-4 py-3 border border-gray-300 rounded-lg text-left flex items-center gap-2 bg-gray-50 select-none transition-colors">
+                      <span className="text-lg">
+                        {countryCodeDetails.flag}
+                      </span>
+                      <span className="text-sm text-gray-900">{countryCodeDetails.code}</span>
+                    </div>
                   </div>
 
                   {/* Phone Number Input */}
@@ -283,7 +273,7 @@ export default function PhoneNumbersPage() {
                     <input
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       placeholder="Enter phone number"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
@@ -299,9 +289,9 @@ export default function PhoneNumbersPage() {
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  disabled={!phoneNumber.trim()}
+                  disabled={phoneNumber.replace(/\D/g, "").length !== 10}
                   className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${
-                    phoneNumber.trim()
+                    phoneNumber.replace(/\D/g, "").length === 10
                       ? "bg-black text-white hover:bg-gray-800"
                       : "bg-gray-300 text-gray-500 cursor-not-allowed"
                   }`}
@@ -314,62 +304,6 @@ export default function PhoneNumbersPage() {
         )}
       </AnimatePresence>
 
-      {/* Country Code Selection Popup */}
-      <AnimatePresence>
-        {isCountryCodeOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCountryCodeOpen(false)}
-              className="fixed inset-0 bg-black/50 z-[60]"
-            />
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-[60] max-h-[60vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold text-gray-900">Select country code</h2>
-                <button
-                  onClick={() => setIsCountryCodeOpen(false)}
-                  className="p-1 rounded-full hover:bg-gray-100"
-                >
-                  <X className="w-5 h-5 text-gray-600" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto px-4 py-4">
-                <div className="space-y-2">
-                  {countryCodes.map((country) => (
-                    <button
-                      key={country.code}
-                      onClick={() => {
-                        setCountryCode(country.code)
-                        setIsCountryCodeOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${
-                        countryCode === country.code
-                          ? "bg-gray-900 text-white"
-                          : "bg-gray-50 text-gray-900 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="text-xl">{country.flag}</span>
-                      <span className="flex-1">{country.country}</span>
-                      <span className={countryCode === country.code ? "text-white" : "text-gray-600"}>
-                        {country.code}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* OTP Verification Popup */}
       <AnimatePresence>

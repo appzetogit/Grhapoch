@@ -13,29 +13,7 @@ import { deliveryAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
-// Common country codes
-const countryCodes = [
-  { code: "+1", country: "US/CA", flag: "🇺🇸" },
-  { code: "+44", country: "UK", flag: "🇬🇧" },
-  { code: "+91", country: "IN", flag: "🇮🇳" },
-  { code: "+86", country: "CN", flag: "🇨🇳" },
-  { code: "+81", country: "JP", flag: "🇯🇵" },
-  { code: "+49", country: "DE", flag: "🇩🇪" },
-  { code: "+33", country: "FR", flag: "🇫🇷" },
-  { code: "+39", country: "IT", flag: "🇮🇹" },
-  { code: "+34", country: "ES", flag: "🇪🇸" },
-  { code: "+61", country: "AU", flag: "🇦🇺" },
-  { code: "+7", country: "RU", flag: "🇷🇺" },
-  { code: "+55", country: "BR", flag: "🇧🇷" },
-  { code: "+52", country: "MX", flag: "🇲🇽" },
-  { code: "+82", country: "KR", flag: "🇰🇷" },
-  { code: "+65", country: "SG", flag: "🇸🇬" },
-  { code: "+971", country: "AE", flag: "🇦🇪" },
-  { code: "+966", country: "SA", flag: "🇸🇦" },
-  { code: "+27", country: "ZA", flag: "🇿🇦" },
-  { code: "+31", country: "NL", flag: "🇳🇱" },
-  { code: "+46", country: "SE", flag: "🇸🇪" },
-]
+const countryCodeDetails = { code: "+91", country: "IN", flag: "🇮🇳" };
 
 export default function DeliverySignIn() {
   const navigate = useNavigate()
@@ -113,8 +91,8 @@ export default function DeliverySignIn() {
     }
   }
 
-  // Get selected country details dynamically
-  const selectedCountry = countryCodes.find(c => c.code === formData.countryCode) || countryCodes[2] // Default to India (+91)
+  // Fixed to India details
+  const selectedCountry = countryCodeDetails;
 
   const validatePhone = (phone, countryCode) => {
     if (!phone || phone.trim() === "") {
@@ -204,12 +182,6 @@ export default function DeliverySignIn() {
     }
   }
 
-  const handleCountryCodeChange = (value) => {
-    setFormData({
-      ...formData,
-      countryCode: value,
-    })
-  }
 
   const isValid = !validatePhone(formData.phone, formData.countryCode)
 
@@ -257,29 +229,13 @@ export default function DeliverySignIn() {
           <div className="space-y-4">
             <div className="flex gap-2 items-stretch w-full">
               {/* Country Code Selector */}
-              <Select
-                value={formData.countryCode}
-                onValueChange={handleCountryCodeChange}
-              >
-                <SelectTrigger className="w-[100px] h-12 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center shrink-0">
-                  <SelectValue>
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-base">{selectedCountry.flag}</span>
-                      <span className="text-sm font-medium text-gray-900">{selectedCountry.code}</span>
-                    </span>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {countryCodes.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      <span className="flex items-center gap-2">
-                        <span>{country.flag}</span>
-                        <span>{country.code}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Country Code Display (Fixed to +91) */}
+              <div className="w-[100px] h-12 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-base">{selectedCountry.flag}</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedCountry.code}</span>
+                </span>
+              </div>
 
               {/* Phone Number Input */}
               <div className="flex-1 flex flex-col">

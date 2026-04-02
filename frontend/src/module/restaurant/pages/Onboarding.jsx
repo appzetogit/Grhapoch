@@ -2061,12 +2061,26 @@ export default function RestaurantOnboarding() {
   } = {}) => {
     if (!hasFlutterCameraBridge()) return null;
 
-    const result = await window.flutter_inappwebview.callHandler("openCamera", {
+    let result = null;
+    const payload = {
       source,
       accept: "image/*",
       multiple: false,
       quality: 0.8
-    });
+    };
+
+    // Prefer a dedicated gallery handler when available in Flutter builds.
+    if (source === "gallery") {
+      try {
+        result = await window.flutter_inappwebview.callHandler("openGallery", payload);
+      } catch (err) {
+        result = null;
+      }
+    }
+
+    if (!result) {
+      result = await window.flutter_inappwebview.callHandler("openCamera", payload);
+    }
 
     if (!result || result.success !== true) return null;
     if (result.file instanceof File) return result.file;
@@ -2157,7 +2171,7 @@ export default function RestaurantOnboarding() {
                   className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
                 >
                   <Upload className="w-4.5 h-4.5" />
-                  <span>Use gallery</span>
+                  <span>Choose gallery</span>
                 </button>
                 <button
                   type="button"
@@ -2313,7 +2327,7 @@ export default function RestaurantOnboarding() {
                 className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <Upload className="w-4.5 h-4.5" />
-                <span>Use gallery</span>
+                <span>Upload</span>
               </button>
               <button
                 type="button"

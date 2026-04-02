@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, CheckCircle, ArrowLeft, X } from "lucide-react";
+import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, CheckCircle, ArrowLeft, X, Camera } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -158,6 +158,20 @@ const NAME_REGEX = /^[A-Za-z\s]+$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const isValidDateInput = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+};
+
+const isPastDate = (value) => {
+  if (!isValidDateInput(value)) return false;
+  const selected = new Date(value);
+  selected.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selected < today;
+};
 
 const isValidName = (name) => {
   const v = name?.trim();
@@ -192,6 +206,27 @@ const FilePreview = ({ file, className, alt = "Preview" }) => {
   if (!previewUrl) return null;
 
   return <img src={previewUrl} alt={alt} className={className} />;
+};
+
+const hasFlutterCameraBridge = () => {
+  if (typeof window === "undefined") return false;
+  return !!(window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function");
+};
+
+const base64ToFile = (base64Input, mimeType = "image/jpeg", fileName = `capture-${Date.now()}.jpg`) => {
+  let normalized = base64Input || "";
+  if (normalized.includes(",")) {
+    normalized = normalized.split(",")[1];
+  }
+
+  const byteCharacters = atob(normalized);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  return new File([blob], fileName, { type: mimeType });
 };
 
 function TimeSelector({ label, value, onChange, disabled = false, onBlur }) {
@@ -250,6 +285,7 @@ export default function RestaurantOnboarding() {
   const [removingProfile, setRemovingProfile] = useState(false);
   const bannerTimeoutRef = useRef(null);
   const filePickedRef = useRef(false);
+  const stepTopRef = useRef(null);
 
   const handleExit = async () => {
     const cleanupAndRedirect = () => {
@@ -456,6 +492,8 @@ export default function RestaurantOnboarding() {
       case 'fssaiExpiry': {
         const d = newValue !== undefined ? newValue : step3.fssaiExpiry;
         if (!d) error = "FSSAI expiry is required";
+        else if (!isValidDateInput(d)) error = "Please select a valid expiry date.";
+        else if (isPastDate(d)) error = "FSSAI expiry date cannot be in the past.";
         break;
       }
       case 'fssaiImage': {
@@ -563,6 +601,8 @@ export default function RestaurantOnboarding() {
 
   const [isProspect, setIsProspect] = useState(false);
   const [pendingData, setPendingData] = useState(null);
+  const shouldPreserveLocalStepRef = useRef(false);
+  const isInitializingOnboardingRef = useRef(true);
 
   const [step1, setStep1] = useState({
     restaurantName: "",
@@ -664,6 +704,7 @@ export default function RestaurantOnboarding() {
   // Load from localStorage on mount and check URL parameter
   useEffect(() => {
     const initializeData = async () => {
+      isInitializingOnboardingRef.current = true;
       // Check if step is specified in URL (from OTP login redirect)
       const stepParam = searchParams.get("step");
       const localData = loadOnboardingFromLocalStorage();
@@ -674,6 +715,7 @@ export default function RestaurantOnboarding() {
           setStep(stepNum);
         }
       } else if (localData?.currentStep) {
+        shouldPreserveLocalStepRef.current = true;
         setStep(localData.currentStep);
       }
 
@@ -783,6 +825,11 @@ export default function RestaurantOnboarding() {
       } else if (!localData) {
         setHasLoadedLocal(true);
       }
+
+      // Unblock draft auto-save only after local hydration/state updates settle.
+      requestAnimationFrame(() => {
+        isInitializingOnboardingRef.current = false;
+      });
     };
 
     initializeData();
@@ -797,6 +844,8 @@ export default function RestaurantOnboarding() {
 
   // Synchronize step state with URL search parameters
   useEffect(() => {
+    if (!hasLoadedLocal) return;
+
     const currentStepInUrl = parseInt(searchParams.get("step"), 10);
     if (step && currentStepInUrl !== step) {
       // Create new search params to avoid mutating original
@@ -804,11 +853,26 @@ export default function RestaurantOnboarding() {
       newParams.set("step", step.toString());
       navigate(`?${newParams.toString()}`, { replace: true });
     }
-  }, [step, navigate]);
+  }, [step, navigate, searchParams, hasLoadedLocal]);
+
+  // Always start each onboarding step from the top.
+  useEffect(() => {
+    const scrollToStepTop = () => {
+      stepTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        if (document?.scrollingElement) {
+          document.scrollingElement.scrollTop = 0;
+        }
+      }
+    };
+
+    requestAnimationFrame(scrollToStepTop);
+  }, [step]);
 
   // Save to localStorage whenever step data changes
   useEffect(() => {
-    if (hasLoadedLocal) {
+    if (hasLoadedLocal && !isInitializingOnboardingRef.current) {
       saveOnboardingToLocalStorage(step1, step2, step3, step4, step5, step);
     }
   }, [step1, step2, step3, step4, step5, step, hasLoadedLocal]);
@@ -924,7 +988,7 @@ export default function RestaurantOnboarding() {
           const stepToShow = determineStepToShow(data);
           // Always respect the URL step param (use window.location to avoid stale closure)
           const currentUrlStep = new URLSearchParams(window.location.search).get("step");
-          if (!currentUrlStep) {
+          if (!currentUrlStep && !shouldPreserveLocalStepRef.current) {
             setStep(stepToShow || 1);
           }
         }
@@ -938,8 +1002,19 @@ export default function RestaurantOnboarding() {
         } else if (err?.response?.status === 403 && 
                   (err?.response?.data?.message?.includes("already completed") || 
                    err?.response?.data?.error?.includes("already completed"))) {
-          // If backend says already completed, don't stay here
-          // console.log("Onboarding already completed (403), redirecting to hub...");
+          // Keep local auth state in sync with backend to avoid onboarding<->hub redirect loops.
+          try {
+            const rawUser = localStorage.getItem("restaurant_user");
+            if (rawUser) {
+              const parsed = JSON.parse(rawUser);
+              parsed.onboardingCompleted = true;
+              if (!parsed.onboarding) parsed.onboarding = {};
+              parsed.onboarding.completedSteps = Math.max(Number(parsed.onboarding?.completedSteps || 0), 5);
+              localStorage.setItem("restaurant_user", JSON.stringify(parsed));
+            }
+          } catch {
+            // Ignore localStorage parse errors and continue redirect.
+          }
           navigate("/restaurant/to-hub", { replace: true });
         } else {
           console.error("Error fetching onboarding data:", err);
@@ -1173,6 +1248,10 @@ export default function RestaurantOnboarding() {
     }
     if (!step3.fssaiExpiry?.trim()) {
       errors.fssaiExpiry = "FSSAI expiry is required";
+    } else if (!isValidDateInput(step3.fssaiExpiry)) {
+      errors.fssaiExpiry = "Please select a valid expiry date.";
+    } else if (isPastDate(step3.fssaiExpiry)) {
+      errors.fssaiExpiry = "FSSAI expiry date cannot be in the past.";
     }
     // Validate FSSAI image
     if (!step3.fssaiImage) {
@@ -1302,13 +1381,10 @@ export default function RestaurantOnboarding() {
     });
 
     if (errorList.length > 0) {
-      // Show error toast for each validation error
-      errorList.forEach((error, index) => {
-        setTimeout(() => {
-          toast.error(error, {
-            duration: 4000
-          });
-        }, index * 100);
+      // Show only one toast to avoid stacking multiple alerts.
+      toast.error(errorList[0], {
+        id: "onboarding-validation-error",
+        duration: 4000
       });
 
       return;
@@ -1832,7 +1908,7 @@ export default function RestaurantOnboarding() {
             placeholder="Restaurant Contact Number" />
           {formErrors.primaryContactNumber && <p className="text-red-500 text-[10px] mt-1">{formErrors.primaryContactNumber}</p>}
           <p className="text-[11px] text-gray-500 mt-1">
-            Customers, delivery partners and Appzeto may call on this number for order
+            Customers, delivery partners and Grha Poch may call on this number for order
             support.
           </p>
         </div>
@@ -1973,6 +2049,74 @@ export default function RestaurantOnboarding() {
       clearFileInput("profileImageInput");
     }, 280);
   };
+
+  const requestCameraFileFromFlutter = async (fileNamePrefix = "capture") => {
+    if (!hasFlutterCameraBridge()) return null;
+
+    const result = await window.flutter_inappwebview.callHandler("openCamera", {
+      source: "camera",
+      accept: "image/*",
+      multiple: false,
+      quality: 0.8
+    });
+
+    if (!result || result.success !== true) return null;
+    if (result.file instanceof File) return result.file;
+    if (!result.base64) return null;
+
+    const mimeType = result.mimeType || "image/jpeg";
+    const fileName = result.fileName || `${fileNamePrefix}-${Date.now()}.jpg`;
+    return base64ToFile(result.base64, mimeType, fileName);
+  };
+
+  const openInputFallback = (inputId) => {
+    const inputEl = document.getElementById(inputId);
+    if (inputEl) inputEl.click();
+  };
+
+  const handleCameraCaptureForField = async (targetField, inputId) => {
+    try {
+      if (!hasFlutterCameraBridge()) {
+        openInputFallback(inputId);
+        return;
+      }
+
+      const capturedFile = await requestCameraFileFromFlutter(targetField);
+      if (!capturedFile) return;
+
+      if (targetField === "menuImages") {
+        const updatedMenuImages = [...(step2.menuImages || []), capturedFile];
+        setStep2((prev) => ({ ...prev, menuImages: updatedMenuImages }));
+        validateField("menuImages", updatedMenuImages);
+        return;
+      }
+
+      if (targetField === "profileImage") {
+        setStep2((prev) => ({ ...prev, profileImage: capturedFile }));
+        validateField("profileImage", capturedFile);
+        return;
+      }
+
+      if (targetField === "panImage") {
+        setStep3((prev) => ({ ...prev, panImage: capturedFile }));
+        validateField("panImage", capturedFile);
+        return;
+      }
+
+      if (targetField === "gstImage") {
+        setStep3((prev) => ({ ...prev, gstImage: capturedFile }));
+        validateField("gstImage", capturedFile);
+        return;
+      }
+
+      if (targetField === "fssaiImage") {
+        setStep3((prev) => ({ ...prev, fssaiImage: capturedFile }));
+        validateField("fssaiImage", capturedFile);
+      }
+    } catch (error) {
+      toast.error("Failed to open camera. Please try again.");
+    }
+  };
   const renderStep2 = () =>
     <div className="space-y-6">
       {/* Images section */}
@@ -2005,11 +2149,20 @@ export default function RestaurantOnboarding() {
               <Upload className="w-4.5 h-4.5" />
               <span>Choose files</span>
             </label>
+            <button
+              type="button"
+              onClick={() => handleCameraCaptureForField("menuImages", "menuImagesInput")}
+              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Use camera</span>
+            </button>
             <input
               id="menuImagesInput"
               type="file"
               multiple
               accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
@@ -2146,10 +2299,20 @@ export default function RestaurantOnboarding() {
             <Upload className="w-4.5 h-4.5" />
             <span>Upload</span>
           </label>
+          <button
+            type="button"
+            onClick={() => handleCameraCaptureForField("profileImage", "profileImageInput")}
+            disabled={!!step2.profileImage || removingProfile}
+            className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <Camera className="w-4 h-4" />
+            <span>Use camera</span>
+          </button>
           <input
             id="profileImageInput"
             type="file"
             accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={(e) => {
               filePickedRef.current = true;
@@ -2312,6 +2475,7 @@ export default function RestaurantOnboarding() {
               id="panImageInput"
               type="file"
               accept="image/*"
+              capture="environment"
               onClick={() => handleFileClick('panImage', 'panImageInput')}
               onChange={(e) => {
                 filePickedRef.current = true;
@@ -2320,6 +2484,14 @@ export default function RestaurantOnboarding() {
                 validateField('panImage', file);
               }}
               className={`bg-white text-sm text-black placeholder-black ${formErrors.panImage ? "border-red-500" : "border-gray-200"} ${step3.panImage ? "text-transparent" : ""}`} />
+            <button
+              type="button"
+              onClick={() => handleCameraCaptureForField("panImage", "panImageInput")}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Use camera
+            </button>
             {formErrors.panImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.panImage}</p>}
             {step3.panImage && (
               <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">
@@ -2424,6 +2596,7 @@ export default function RestaurantOnboarding() {
                 id="gstImageInput"
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onClick={() => handleFileClick('gstImage', 'gstImageInput')}
                 onChange={(e) => {
                   filePickedRef.current = true;
@@ -2432,6 +2605,14 @@ export default function RestaurantOnboarding() {
                   validateField('gstImage', file);
                 }}
                 className={`bg-white text-sm ${formErrors.gstImage ? "border-red-500" : "border-gray-200"} ${step3.gstImage ? "text-transparent" : ""}`} />
+              <button
+                type="button"
+                onClick={() => handleCameraCaptureForField("gstImage", "gstImageInput")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Use camera
+              </button>
               {formErrors.gstImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.gstImage}</p>}
               {step3.gstImage && (
                 <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">
@@ -2507,6 +2688,13 @@ export default function RestaurantOnboarding() {
                 <Calendar
                   mode="single"
                   selected={step3.fssaiExpiry ? new Date(step3.fssaiExpiry) : undefined}
+                  disabled={(date) => {
+                    const d = new Date(date);
+                    d.setHours(0, 0, 0, 0);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return d < today;
+                  }}
                   onSelect={(date) => {
                     if (date) {
                       // Fix: Use local date components instead of toISOString() to avoid timezone shift
@@ -2535,6 +2723,7 @@ export default function RestaurantOnboarding() {
             id="fssaiImageInput"
             type="file"
             accept="image/*"
+            capture="environment"
             onClick={() => handleFileClick('fssaiImage', 'fssaiImageInput')}
             onChange={(e) => {
               filePickedRef.current = true;
@@ -2543,6 +2732,14 @@ export default function RestaurantOnboarding() {
               validateField('fssaiImage', file);
             }}
             className={`bg-white text-sm ${formErrors.fssaiImage ? "border-red-500" : "border-gray-200"} ${step3.fssaiImage ? "text-transparent" : ""}`} />
+          <button
+            type="button"
+            onClick={() => handleCameraCaptureForField("fssaiImage", "fssaiImageInput")}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Use camera
+          </button>
           {formErrors.fssaiImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.fssaiImage}</p>}
           {step3.fssaiImage && (
             <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">
@@ -2930,6 +3127,7 @@ export default function RestaurantOnboarding() {
         )}
 
         <main className="flex-1 px-4 sm:px-6 py-4 space-y-4">
+          <div ref={stepTopRef} />
           {loading ?
             <p className="text-sm text-gray-600">Loading...</p> :
 

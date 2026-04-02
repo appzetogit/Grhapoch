@@ -185,16 +185,19 @@ export default function RestaurantNavbar({
 
   // Load status from localStorage on mount and listen for changes
   useEffect(() => {
+    const deriveOnlineStatus = (savedStatusValue) => {
+      const isRestaurantActive = restaurantData?.isActive === true;
+      if (!isRestaurantActive) return false;
+      if (savedStatusValue !== null) return savedStatusValue === true;
+      return restaurantData?.isAcceptingOrders === true;
+    };
+
     const updateStatus = () => {
       try {
         const savedStatus = localStorage.getItem('restaurant_online_status');
-        if (savedStatus !== null) {
-          const isOnline = JSON.parse(savedStatus);
-          setStatus(isOnline ? "Online" : "Offline");
-        } else {
-          // Default to Offline if not set
-          setStatus("Offline");
-        }
+        const parsedStatus = savedStatus !== null ? JSON.parse(savedStatus) : null;
+        const isOnline = deriveOnlineStatus(parsedStatus);
+        setStatus(isOnline ? "Online" : "Offline");
       } catch (error) {
         console.error("Error loading restaurant status:", error);
         setStatus("Offline");
@@ -206,7 +209,8 @@ export default function RestaurantNavbar({
 
     // Listen for status changes from RestaurantStatus page
     const handleStatusChange = (event) => {
-      const isOnline = event.detail?.isOnline ?? false;
+      const isRestaurantActive = restaurantData?.isActive === true;
+      const isOnline = isRestaurantActive && (event.detail?.isOnline === true);
       setStatus(isOnline ? "Online" : "Offline");
     };
 
@@ -219,7 +223,7 @@ export default function RestaurantNavbar({
       window.removeEventListener('restaurantStatusChanged', handleStatusChange);
       clearInterval(interval);
     };
-  }, []);
+  }, [restaurantData?.isActive, restaurantData?.isAcceptingOrders]);
 
   const handleStatusClick = () => {
     navigate("/restaurant/status");

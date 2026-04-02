@@ -514,7 +514,7 @@ export default function OrdersMain() {
         if (restaurant) {
           setRestaurantStatus({
             isActive: restaurant.isActive,
-            isAcceptingOrders: restaurant.isAcceptingOrders === true,
+            isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,
             rejectionReason: restaurant.rejectionReason || null,
             onboarding: restaurant.onboarding || null,
             isLoading: false
@@ -567,7 +567,7 @@ export default function OrdersMain() {
       if (restaurant) {
         setRestaurantStatus({
           isActive: restaurant.isActive,
-          isAcceptingOrders: restaurant.isAcceptingOrders === true,
+          isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,
           rejectionReason: restaurant.rejectionReason || null,
           onboarding: restaurant.onboarding || null,
           isLoading: false

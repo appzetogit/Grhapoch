@@ -180,10 +180,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         restaurantData.phone = normalizedPhone;
         restaurantData.phoneVerified = true;
         restaurantData.ownerPhone = normalizedPhone;
-        // For phone signup, set ownerEmail to empty string or phone-based email
-        restaurantData.ownerEmail = normalizedEmail || `${normalizedPhone}@restaurant.appzeto.com`;
-        // CRITICAL: Do NOT set email field for phone signups to avoid null duplicate key error
-        // Email field should be completely omitted, not set to null or undefined
+        // Do not set ownerEmail for phone-only signup.
+        // Keep it empty until user explicitly provides an email.
       }
       if (email) {
         restaurantData.email = normalizedEmail;
@@ -408,9 +406,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           restaurantData.phone = normalizedPhone;
           restaurantData.phoneVerified = true;
           restaurantData.ownerPhone = normalizedPhone;
-          // For phone signup, set ownerEmail to empty string or phone-based email
-          restaurantData.ownerEmail = normalizedEmail || `${normalizedPhone}@restaurant.appzeto.com`;
-          // Explicitly don't set email field for phone signups to avoid null duplicate key error
+          // Do not set ownerEmail for phone-only signup.
+          // Keep it empty until user explicitly provides an email.
         }
         if (email) {
           restaurantData.email = normalizedEmail;
@@ -943,6 +940,8 @@ export const getCurrentRestaurant = asyncHandler(async (req, res) => {
 
 
 
+  const effectiveIsAcceptingOrders = restaurant.isActive === true && restaurant.isAcceptingOrders === true;
+
   return successResponse(res, 200, 'Restaurant retrieved successfully', {
     restaurant: {
       id: restaurant._id,
@@ -966,7 +965,7 @@ export const getCurrentRestaurant = asyncHandler(async (req, res) => {
       deliveryTimings: restaurant.deliveryTimings,
       menuImages: restaurant.menuImages,
       slug: restaurant.slug,
-      isAcceptingOrders: restaurant.isAcceptingOrders,
+      isAcceptingOrders: effectiveIsAcceptingOrders,
       // Include verification status
       rejectionReason: restaurant.rejectionReason || null,
       approvedAt: restaurant.approvedAt || null,

@@ -214,12 +214,13 @@ export default function RestaurantStatus() {
         const response = await restaurantAPI.getCurrentRestaurant();
         const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
         if (restaurant?.isAcceptingOrders !== undefined) {
-          setDeliveryStatus(restaurant.isAcceptingOrders);
+          const effectiveOnline = restaurant.isActive === true && restaurant.isAcceptingOrders === true;
+          setDeliveryStatus(effectiveOnline);
           // Sync localStorage with backend
-          localStorage.setItem('restaurant_online_status', JSON.stringify(restaurant.isAcceptingOrders));
+          localStorage.setItem('restaurant_online_status', JSON.stringify(effectiveOnline));
           // Dispatch event to update navbar
           window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
-            detail: { isOnline: restaurant.isAcceptingOrders }
+            detail: { isOnline: effectiveOnline }
           }));
         } else {
           // Fallback to localStorage
@@ -274,6 +275,15 @@ export default function RestaurantStatus() {
 
   // Handle delivery status change
   const handleDeliveryStatusChange = async (checked) => {
+    if (restaurantData?.isActive !== true) {
+      setDeliveryStatus(false);
+      localStorage.setItem('restaurant_online_status', JSON.stringify(false));
+      window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
+        detail: { isOnline: false }
+      }));
+      return;
+    }
+
     // If day is closed in outlet timings, don't allow turning on
     if (checked && isDayClosed) {
       setShowOutletClosedDialog(true);

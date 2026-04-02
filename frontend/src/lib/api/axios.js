@@ -103,7 +103,7 @@ function forceRestaurantLogoutAndRedirect() {
   localStorage.removeItem('restaurant');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('pending_subscription_onboarding');
-  localStorage.removeItem('restaurant_onboarding_data');
+  // Preserve onboarding draft so refresh/re-login can continue from saved progress.
   sessionStorage.removeItem('restaurantAuthData');
 
   const redirectToastKey = getToastKey('Restaurant not found or inactive', 'auth-logout');

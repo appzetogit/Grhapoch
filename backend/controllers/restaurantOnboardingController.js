@@ -165,6 +165,18 @@ export const upsertOnboarding = async (req, res) => {
       if (fssaiNumber && (fssaiNumber.length !== 14 || !/^\d+$/.test(fssaiNumber))) {
         return errorResponse(res, 400, 'Invalid FSSAI number. It must contain exactly 14 digits.');
       }
+      if (fssaiExpiry) {
+        const expiryDate = new Date(fssaiExpiry);
+        if (Number.isNaN(expiryDate.getTime())) {
+          return errorResponse(res, 400, 'Invalid FSSAI expiry date.');
+        }
+        expiryDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expiryDate < today) {
+          return errorResponse(res, 400, 'FSSAI expiry date cannot be in the past.');
+        }
+      }
 
       // Bank Account Validation
       if (accountNumber) {

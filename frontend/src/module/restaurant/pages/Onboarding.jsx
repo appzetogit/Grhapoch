@@ -279,6 +279,7 @@ export default function RestaurantOnboarding() {
   const [error, setError] = useState("");
   const [showExitModal, setShowExitModal] = useState(false);
   const [hasLoadedLocal, setHasLoadedLocal] = useState(false);
+  const [hasHydratedFiles, setHasHydratedFiles] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [touchedFields, setTouchedFields] = useState({});
   const [removingImages, setRemovingImages] = useState(new Set());
@@ -834,16 +835,22 @@ export default function RestaurantOnboarding() {
             }
           } catch (err) {
             console.error("IDB Hydration Error:", err);
+          } finally {
+            setHasHydratedFiles(true);
+            // Unblock draft auto-save only after local hydration/state updates settle.
+            requestAnimationFrame(() => {
+              isInitializingOnboardingRef.current = false;
+            });
           }
         })();
       } else if (!localData) {
         setHasLoadedLocal(true);
+        setHasHydratedFiles(true);
+        // Unblock draft auto-save only after local hydration/state updates settle.
+        requestAnimationFrame(() => {
+          isInitializingOnboardingRef.current = false;
+        });
       }
-
-      // Unblock draft auto-save only after local hydration/state updates settle.
-      requestAnimationFrame(() => {
-        isInitializingOnboardingRef.current = false;
-      });
     };
 
     initializeData();
@@ -886,14 +893,14 @@ export default function RestaurantOnboarding() {
 
   // Save to localStorage whenever step data changes
   useEffect(() => {
-    if (hasLoadedLocal && !isInitializingOnboardingRef.current) {
+    if (hasLoadedLocal && hasHydratedFiles && !isInitializingOnboardingRef.current) {
       persistOnboardingDraft();
     }
-  }, [persistOnboardingDraft, hasLoadedLocal]);
+  }, [persistOnboardingDraft, hasLoadedLocal, hasHydratedFiles]);
 
   // Force-save draft on refresh/tab close/background to prevent data loss.
   useEffect(() => {
-    if (!hasLoadedLocal) return;
+    if (!hasLoadedLocal || !hasHydratedFiles) return;
 
     const handleBeforeUnload = () => {
       if (!isInitializingOnboardingRef.current) persistOnboardingDraft();
@@ -912,7 +919,7 @@ export default function RestaurantOnboarding() {
       window.removeEventListener("pagehide", handleVisibilityOrPageHide);
       document.removeEventListener("visibilitychange", handleVisibilityOrPageHide);
     };
-  }, [hasLoadedLocal, persistOnboardingDraft]);
+  }, [hasLoadedLocal, hasHydratedFiles, persistOnboardingDraft]);
 
   useEffect(() => {
     const fetchData = async () => {

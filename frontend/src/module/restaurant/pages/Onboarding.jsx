@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -699,6 +699,14 @@ export default function RestaurantOnboarding() {
     businessModel: ""
   });
 
+  const persistOnboardingDraft = useCallback(() => {
+    try {
+      saveOnboardingToLocalStorage(step1, step2, step3, step4, step5, step);
+    } catch (error) {
+      console.error("Failed to persist onboarding draft:", error);
+    }
+  }, [step1, step2, step3, step4, step5, step]);
+
   const fetchCalledRef = useRef(false);
 
   // Load from localStorage on mount and check URL parameter
@@ -712,6 +720,7 @@ export default function RestaurantOnboarding() {
       if (stepParam) {
         const stepNum = parseInt(stepParam, 10);
         if (stepNum >= 1 && stepNum <= 5) {
+          shouldPreserveLocalStepRef.current = true;
           setStep(stepNum);
         }
       } else if (localData?.currentStep) {
@@ -878,9 +887,32 @@ export default function RestaurantOnboarding() {
   // Save to localStorage whenever step data changes
   useEffect(() => {
     if (hasLoadedLocal && !isInitializingOnboardingRef.current) {
-      saveOnboardingToLocalStorage(step1, step2, step3, step4, step5, step);
+      persistOnboardingDraft();
     }
-  }, [step1, step2, step3, step4, step5, step, hasLoadedLocal]);
+  }, [persistOnboardingDraft, hasLoadedLocal]);
+
+  // Force-save draft on refresh/tab close/background to prevent data loss.
+  useEffect(() => {
+    if (!hasLoadedLocal) return;
+
+    const handleBeforeUnload = () => {
+      if (!isInitializingOnboardingRef.current) persistOnboardingDraft();
+    };
+
+    const handleVisibilityOrPageHide = () => {
+      if (!isInitializingOnboardingRef.current) persistOnboardingDraft();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleVisibilityOrPageHide);
+    document.addEventListener("visibilitychange", handleVisibilityOrPageHide);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleVisibilityOrPageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityOrPageHide);
+    };
+  }, [hasLoadedLocal, persistOnboardingDraft]);
 
   useEffect(() => {
     const fetchData = async () => {

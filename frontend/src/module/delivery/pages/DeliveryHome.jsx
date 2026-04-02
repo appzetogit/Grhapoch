@@ -1247,7 +1247,7 @@ export default function DeliveryHome() {
   // Listen for progress data updates from other components - reactivity handled by store
   useEffect(() => {
     // Redundant listener removed to prevent infinite loops
-    const handleProgressUpdate = () => {};
+    const handleProgressUpdate = () => { };
     window.addEventListener('progressDataUpdated', handleProgressUpdate);
     return () => {
       window.removeEventListener('progressDataUpdated', handleProgressUpdate);
@@ -4761,7 +4761,7 @@ export default function DeliveryHome() {
     {
       id: "idCard",
       title: "Show ID card",
-      subtitle: "See your Appzeto ID card",
+      subtitle: "See your Grhapoch ID card",
       icon: "idCard",
       path: "/delivery/help/id-card"
     }];
@@ -5732,13 +5732,8 @@ export default function DeliveryHome() {
 
 
       // Create or update bike marker IMMEDIATELY (blue dot की जगह bike icon)
+      // Allow createOrUpdateBikeMarker to handle centering safely based on panning state
       createOrUpdateBikeMarker(riderLocation[0], riderLocation[1], heading, true);
-
-      // Center map on bike location smoothly
-      window.deliveryMapInstance.panTo({
-        lat: riderLocation[0],
-        lng: riderLocation[1]
-      });
 
       // Initialize route history if empty
       if (routeHistoryRef.current.length === 0) {
@@ -5801,7 +5796,7 @@ export default function DeliveryHome() {
         console.warn('⚠️ Cannot create bike marker - invalid rider location:', riderLocation);
       }
     }
-  }, [isOnline, riderLocation, showHomeSections]);
+  }, [riderLocation, showHomeSections]);
 
   // Safeguard: Ensure bike marker and restaurant marker stay on map (prevent them from disappearing)
   // Always show bike marker regardless of online/offline status
@@ -8458,7 +8453,8 @@ export default function DeliveryHome() {
         isOnline={isOnline}
         onToggleOnline={handleToggleOnline}
         onEmergencyClick={() => setShowEmergencyPopup(true)}
-        onHelpClick={() => setShowHelpPopup(true)} />
+        onHelpClick={() => setShowHelpPopup(true)}
+        isApproved={deliveryStatus === 'approved'} />
 
 
       {/* Carousel - Only show if there are slides */}
@@ -9404,7 +9400,7 @@ export default function DeliveryHome() {
               Limit Exhausted / लिमिट खत्म हो गई है!
             </p>
             <p className="text-xs leading-relaxed">
-              Aapki cash limit khatm ho chuki hai, isliye aap naye COD orders accept nahi kar sakte. <br/>
+              Aapki cash limit khatm ho chuki hai, isliye aap naye COD orders accept nahi kar sakte. <br />
               Aap apne purane COD orders complete karein ya ₹700 deposit karein system update hone ke liye.
             </p>
           </div>

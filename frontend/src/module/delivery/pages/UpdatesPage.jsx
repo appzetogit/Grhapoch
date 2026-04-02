@@ -34,8 +34,8 @@ const stories = [
     ]
   },
   {
-    id: "Appzeto",
-    title: "Appzeto",
+    id: "Grhapoch",
+    title: "Grhapoch",
     image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=100&h=100&fit=crop",
     content: [
       { type: "image", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=1200&fit=crop" },

@@ -52,7 +52,7 @@ function BottomPopup({
 
 }
 
-export default function FeedNavbar({ className = "" }) {
+export default function FeedNavbar({ className = "", isApproved = true }) {
   const navigate = useNavigate();
 
   // 1) Init from localStorage (no toast on mount)
@@ -110,6 +110,16 @@ export default function FeedNavbar({ className = "" }) {
   const handleToggle = async (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+
+    // Block toggle if account is not yet approved by admin
+    if (!isApproved) {
+      toast.error("Your account is under verification. You can go online once the admin approves your profile.", {
+        id: "not-approved-toggle",
+        duration: 3000,
+        style: { marginTop: '80px' }
+      });
+      return;
+    }
 
     const next = !isOnline;
 
@@ -206,7 +216,7 @@ export default function FeedNavbar({ className = "" }) {
   {
     id: "idCard",
     title: "Show ID card",
-    subtitle: "See your Appzeto ID card",
+    subtitle: "See your Grhapoch ID card",
     icon: "idCard",
     path: "/delivery/help/id-card"
   }];
@@ -362,25 +372,26 @@ export default function FeedNavbar({ className = "" }) {
         <button
             onClick={handleToggle}
             onTouchStart={(e) => e.stopPropagation()}
-            className="focus:outline-none relative cursor-pointer"
+            className={`focus:outline-none relative ${isApproved ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
             type="button"
             role="switch"
-            aria-checked={isOnline}
+            aria-checked={isApproved ? isOnline : false}
+            title={!isApproved ? "Account pending approval" : undefined}
             style={{ pointerEvents: "auto", zIndex: 100, WebkitTapHighlightColor: "transparent" }}>
             
-            <div className={`relative w-20 h-8 rounded-full transition-colors duration-300 ${isOnline ? "bg-green-500" : "bg-gray-400"}`}>
+            <div className={`relative w-20 h-8 rounded-full transition-colors duration-300 ${isApproved && isOnline ? "bg-green-500" : "bg-gray-400"}`}>
             <span
                 className={`text-[11px] font-bold text-white absolute top-1/2 -translate-y-1/2 whitespace-nowrap transition-all duration-300 ${
-                isOnline ? "left-2" : "right-2"}`
+                isApproved && isOnline ? "left-2" : "right-2"}`
                 }
                 style={{ opacity: 1, zIndex: 2, pointerEvents: "none" }}>
                 
-                {isOnline ? "Online" : "Offline"}
+                {isApproved && isOnline ? "Online" : "Offline"}
             </span>
 
             <motion.div
                 className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg"
-                animate={{ x: isOnline ? 48 : 2 }}
+                animate={{ x: isApproved && isOnline ? 48 : 2 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 style={{ pointerEvents: "none", zIndex: 10 }} />
               

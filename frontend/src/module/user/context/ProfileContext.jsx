@@ -182,6 +182,8 @@ export function ProfileProvider({ children }) {
           if (dbCollData.restaurants) {
             const transformedFavs = dbCollData.restaurants.map(f => {
               const r = f.restaurantId;
+              if (!r) return null; // Skip if restaurantId is null
+
               const name = f.name || (typeof r === 'object' ? r.name : 'Unknown Restaurant');
               const slug = f.slug || (typeof r === 'object' ? r.slug : name.toLowerCase().replace(/\s+/g, "-"));
 
@@ -206,7 +208,7 @@ export function ProfileProvider({ children }) {
           // Sync Dishes
           if (dbCollData.dishes) {
             const transformedDishes = dbCollData.dishes.map(d => {
-              const dishObj = typeof d === 'object' ?
+              const dishObj = (d && typeof d === 'object') ?
                 (typeof d.toObject === 'function' ? d.toObject() : d) :
                 null;
 

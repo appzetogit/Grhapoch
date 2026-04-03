@@ -157,16 +157,23 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       restaurant = await Restaurant.findOne(findQuery);
 
       if (restaurant) {
-        return errorResponse(res, 400, `Restaurant already exists with this ${identifierType}. Please login.`);
-      }
+        // Restaurant already exists - verify OTP and log them in gracefully.
+        // If onboarding is complete  → OTP.jsx redirects to dashboard.
+        // If onboarding is incomplete → OTP.jsx redirects to continue onboarding.
+        await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
+        if (normalizedPhone && !restaurant.phoneVerified) {
+          restaurant.phoneVerified = true;
+          await restaurant.save();
+        }
+        // restaurant is already set → fall through to token generation below
+      } else {
+        // Name is mandatory for new registration
+        if (!name) {
+          return errorResponse(res, 400, 'Restaurant name is required for registration');
+        }
 
-      // Name is mandatory for explicit registration
-      if (!name) {
-        return errorResponse(res, 400, 'Restaurant name is required for registration');
-      }
-
-      // Verify OTP (phone or email) before creating restaurant
-      await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
+        // Verify OTP (phone or email) before creating restaurant
+        await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
 
       const restaurantData = {
         name,
@@ -336,6 +343,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           throw createError;
         }
       }
+      } // closes new-restaurant registration else branch
     } else {
       // Login (with optional auto-registration)
       // For phone, search in both formats (with and without country code) to handle old data

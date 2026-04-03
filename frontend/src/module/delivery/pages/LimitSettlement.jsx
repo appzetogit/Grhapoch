@@ -196,10 +196,6 @@ export default function LimitSettlement() {
             <p className="text-gray-900 text-lg font-semibold mb-2">
               No settlement transactions
             </p>
-            <p className="text-gray-600 text-sm text-center max-w-xs">
-              Jab bhi aap available limit settle karoge, uski payment
-              transactions yahan dikhenge.
-            </p>
           </div>
         )}
       </div>

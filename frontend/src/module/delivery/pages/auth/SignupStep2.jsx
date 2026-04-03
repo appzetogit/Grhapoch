@@ -5,11 +5,10 @@ import { deliveryAPI } from "@/lib/api"
 import apiClient from "@/lib/api/axios"
 import { toast } from "sonner"
 
-const DocumentUpload = ({ docType, label, required = true, documents, uploadedDocs, uploading, handleRemove, setActiveCamera, handleFileSelect }) => {
-  const file = documents[docType]
-  const uploaded = uploadedDocs[docType]
+const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploading, handleRemove, setActiveCamera, handleFileSelect, localPreviews }) => {
+  const displayUrl = localPreviews[docType] || uploadedDocs[docType]?.url
+  const uploaded = uploadedDocs[docType]  // only truthy after cloudinary upload
   const isUploading = uploading[docType]
-  const cameraInputRef = useRef(null)
   const galleryInputRef = useRef(null)
 
   return (
@@ -18,63 +17,66 @@ const DocumentUpload = ({ docType, label, required = true, documents, uploadedDo
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
-      {uploaded ? (
+      {displayUrl ? (
         <div className="relative">
           <img
-            src={uploaded.url}
+            src={displayUrl}
             alt={label}
             className="w-full h-48 object-cover rounded-lg"
           />
-          <button
-            type="button"
-            onClick={() => handleRemove(docType)}
-            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-lg"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full flex items-center gap-1 text-sm shadow-md">
-            <Check className="w-4 h-4" />
-            <span>Uploaded</span>
-          </div>
+          {isUploading ? (
+            // Centered spinner overlay on top of the preview image
+            <div className="absolute inset-0 bg-black/50 rounded-lg flex flex-col items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
+              <p className="text-white text-xs font-semibold tracking-wide">Uploading...</p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleRemove(docType)}
+                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-2 left-2 bg-green-500 text-white px-3 py-1 rounded-full flex items-center gap-1 text-sm shadow-md">
+                <Check className="w-4 h-4" />
+                <span>Uploaded</span>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50/50 transition-all hover:border-gray-400">
-          {isUploading ? (
-            <div className="flex flex-col items-center justify-center p-6">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mb-3"></div>
-              <p className="text-sm font-medium text-gray-600">Uploading Document...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center w-full p-4">
-              <p className="text-sm text-gray-500 mb-4">Select upload method</p>
-              <div className="flex items-center justify-center gap-6 w-full">
-                <button
-                  type="button"
-                  onClick={() => setActiveCamera(docType)}
-                  className="flex flex-col items-center justify-center gap-2 group"
-                >
-                  <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
-                    <Camera className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-600 group-hover:text-green-600 uppercase tracking-wider">Camera</span>
-                </button>
+          <div className="flex flex-col items-center w-full p-4">
+            <p className="text-sm text-gray-500 mb-4">Select upload method</p>
+            <div className="flex items-center justify-center gap-6 w-full">
+              <button
+                type="button"
+                onClick={() => setActiveCamera(docType)}
+                className="flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
+                  <Camera className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
+                </div>
+                <span className="text-xs font-semibold text-gray-600 group-hover:text-green-600 uppercase tracking-wider">Camera</span>
+              </button>
 
-                <div className="h-10 w-[1px] bg-gray-200"></div>
+              <div className="h-10 w-[1px] bg-gray-200"></div>
 
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-2 group"
-                >
-                  <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
-                    <Image className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-600 group-hover:text-green-600 uppercase tracking-wider">Gallery</span>
-                </button>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-6 font-medium">MAX SIZE 3MB (PNG, JPG)</p>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
+                  <Image className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
+                </div>
+                <span className="text-xs font-semibold text-gray-600 group-hover:text-green-600 uppercase tracking-wider">Gallery</span>
+              </button>
             </div>
-          )}
+            <p className="text-[10px] text-gray-400 mt-6 font-medium">MAX SIZE 3MB (PNG, JPG)</p>
+          </div>
 
           {/* Hidden Input for Gallery */}
           <input
@@ -85,7 +87,7 @@ const DocumentUpload = ({ docType, label, required = true, documents, uploadedDo
             onChange={(e) => {
               const selectedFile = e.target.files[0]
               if (selectedFile) handleFileSelect(docType, selectedFile)
-              e.target.value = '' // Clear input
+              e.target.value = ''
             }}
             disabled={isUploading}
           />
@@ -142,6 +144,14 @@ export default function SignupStep2() {
     drivingLicensePhoto: false
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Local blob previews for instant display before Cloudinary upload completes
+  const [localPreviews, setLocalPreviews] = useState({
+    profilePhoto: null,
+    aadharPhoto: null,
+    panPhoto: null,
+    drivingLicensePhoto: null
+  })
 
   // Scroll to top and fetch existing documents when page loads
   useEffect(() => {
@@ -204,38 +214,33 @@ export default function SignupStep2() {
       return
     }
 
+    // Show instant local preview before upload starts
+    const localPreviewUrl = URL.createObjectURL(file)
+    setLocalPreviews(prev => ({ ...prev, [docType]: localPreviewUrl }))
     setUploading(prev => ({ ...prev, [docType]: true }))
 
     try {
-      // Create FormData for file upload
       const formData = new FormData()
       formData.append('file', file)
       formData.append('folder', 'appzeto/delivery/documents')
 
-      // Upload to Cloudinary via backend
       const response = await apiClient.post('/upload/media', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
 
       if (response?.data?.success && response?.data?.data) {
         const { url, publicId } = response.data.data
 
-        setDocuments(prev => ({
-          ...prev,
-          [docType]: file
-        }))
-
-        setUploadedDocs(prev => ({
-          ...prev,
-          [docType]: { url, publicId }
-        }))
-
-        toast.success(`${docType.replace(/([A-Z])/g, ' $1').trim()} uploaded successfully`)
+        // Replace local preview with Cloudinary URL
+        URL.revokeObjectURL(localPreviewUrl)
+        setLocalPreviews(prev => ({ ...prev, [docType]: null }))
+        setUploadedDocs(prev => ({ ...prev, [docType]: { url, publicId } }))
       }
     } catch (error) {
       console.error(`Error uploading ${docType}:`, error)
+      // Revert local preview on failure
+      URL.revokeObjectURL(localPreviewUrl)
+      setLocalPreviews(prev => ({ ...prev, [docType]: null }))
       toast.error(`Failed to upload ${docType.replace(/([A-Z])/g, ' $1').trim()}`)
     } finally {
       setUploading(prev => ({ ...prev, [docType]: false }))
@@ -243,14 +248,12 @@ export default function SignupStep2() {
   }
 
   const handleRemove = (docType) => {
-    setDocuments(prev => ({
-      ...prev,
-      [docType]: null
-    }))
-    setUploadedDocs(prev => ({
-      ...prev,
-      [docType]: null
-    }))
+    // Clear local preview if any
+    if (localPreviews[docType]) {
+      URL.revokeObjectURL(localPreviews[docType])
+      setLocalPreviews(prev => ({ ...prev, [docType]: null }))
+    }
+    setUploadedDocs(prev => ({ ...prev, [docType]: null }))
   }
 
   // Camera States
@@ -498,10 +501,10 @@ export default function SignupStep2() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <DocumentUpload docType="profilePhoto" label="Profile Photo" required={true} documents={documents} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} />
-          <DocumentUpload docType="aadharPhoto" label="Aadhar Card Photo" required={true} documents={documents} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} />
-          <DocumentUpload docType="panPhoto" label="PAN Card Photo" required={true} documents={documents} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} />
-          <DocumentUpload docType="drivingLicensePhoto" label="Driving License Photo" required={true} documents={documents} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} />
+          <DocumentUpload docType="profilePhoto" label="Profile Photo" required={true} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} localPreviews={localPreviews} />
+          <DocumentUpload docType="aadharPhoto" label="Aadhar Card Photo" required={true} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} localPreviews={localPreviews} />
+          <DocumentUpload docType="panPhoto" label="PAN Card Photo" required={true} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} localPreviews={localPreviews} />
+          <DocumentUpload docType="drivingLicensePhoto" label="Driving License Photo" required={true} uploadedDocs={uploadedDocs} uploading={uploading} handleRemove={handleRemove} setActiveCamera={setActiveCamera} handleFileSelect={handleFileSelect} localPreviews={localPreviews} />
 
           {/* Submit Button */}
           <button

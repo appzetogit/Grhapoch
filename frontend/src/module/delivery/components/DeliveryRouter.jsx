@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import DeliveryLayout from "./DeliveryLayout"
 import ProtectedRoute from "./ProtectedRoute"
 
@@ -33,8 +33,6 @@ import ViewSupportTicket from "../pages/ViewSupportTicket"
 import ShowIdCard from "../pages/ShowIdCard"
 import ChangeLanguage from "../pages/ChangeLanguage"
 import SelectDropLocation from "../pages/SelectDropLocation"
-import ReferAndEarn from "../pages/ReferAndEarn"
-import YourReferrals from "../pages/YourReferrals"
 import Earnings from "../pages/Earnings"
 import TripHistory from "../pages/TripHistory"
 import TimeOnOrders from "../pages/TimeOnOrders"
@@ -103,26 +101,6 @@ export default function DeliveryRouter() {
           </ProtectedRoute>
         }
         path="/select-drop-location"
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DeliveryLayout>
-              <ReferAndEarn />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/refer-and-earn"
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DeliveryLayout>
-              <YourReferrals />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/your-referrals"
       />
       <Route
         element={
@@ -424,6 +402,8 @@ export default function DeliveryRouter() {
         }
         path="/help/language"
       />
+      {/* Catch-all route to redirect invalid URLs back to home */}
+      <Route path="*" element={<Navigate to="/delivery" replace />} />
     </Routes>
   )
 }

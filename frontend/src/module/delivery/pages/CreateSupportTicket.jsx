@@ -44,6 +44,23 @@ export default function CreateSupportTicket() {
     }
   };
 
+  const handleBlur = (field) => {
+    const value = formData[field].trim();
+    if (field === "subject") {
+      if (!value) {
+        setErrors(prev => ({ ...prev, subject: "Subject is required" }));
+      } else if (value.length < 3) {
+        setErrors(prev => ({ ...prev, subject: "Subject must be at least 3 characters" }));
+      }
+    } else if (field === "description") {
+      if (!value) {
+        setErrors(prev => ({ ...prev, description: "Description is required" }));
+      } else if (value.length < 10) {
+        setErrors(prev => ({ ...prev, description: "Description must be at least 10 characters" }));
+      }
+    }
+  };
+
   const handleCreateTicket = async () => {
     if (!validateForm()) {
       toast.error("Please fix the errors in the form");
@@ -159,6 +176,7 @@ export default function CreateSupportTicket() {
             <Input
               value={formData.subject}
               onChange={(e) => handleInputChange("subject", e.target.value)}
+              onBlur={() => handleBlur("subject")}
               placeholder="Enter ticket subject"
               maxLength={200}
               className={`w-full ${errors.subject ? "border-red-500" : ""}`} />
@@ -182,10 +200,11 @@ export default function CreateSupportTicket() {
             <Textarea
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
+              onBlur={() => handleBlur("description")}
               placeholder="Describe your issue in detail (minimum 10 characters)"
               rows={8}
               maxLength={2000}
-              className={`w-full resize-none ${errors.description ? "border-red-500" : ""}`} />
+              className={`w-full resize-none p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.description ? "border-red-500" : "border-gray-300"}`} />
             
             {errors.description &&
             <p className="text-xs text-red-500 mt-1">{errors.description}</p>

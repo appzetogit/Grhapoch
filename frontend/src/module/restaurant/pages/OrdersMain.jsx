@@ -512,6 +512,22 @@ export default function OrdersMain() {
         const response = await restaurantAPI.getCurrentRestaurant();
         const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
         if (restaurant) {
+          try {
+            const rawUser = localStorage.getItem("restaurant_user");
+            const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+            const syncedUser = {
+              ...parsedUser,
+              ...restaurant,
+              onboardingCompleted:
+                restaurant?.onboardingCompleted === true ||
+                Number(restaurant?.onboarding?.completedSteps || 0) >= 5
+            };
+            localStorage.setItem("restaurant_user", JSON.stringify(syncedUser));
+            localStorage.setItem("restaurant_authenticated", "true");
+          } catch (syncErr) {
+            console.error("Failed to sync local restaurant profile:", syncErr);
+          }
+
           setRestaurantStatus({
             isActive: restaurant.isActive,
             isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,
@@ -565,6 +581,22 @@ export default function OrdersMain() {
       const response = await restaurantAPI.getCurrentRestaurant();
       const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
       if (restaurant) {
+        try {
+          const rawUser = localStorage.getItem("restaurant_user");
+          const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+          const syncedUser = {
+            ...parsedUser,
+            ...restaurant,
+            onboardingCompleted:
+              restaurant?.onboardingCompleted === true ||
+              Number(restaurant?.onboarding?.completedSteps || 0) >= 5
+          };
+          localStorage.setItem("restaurant_user", JSON.stringify(syncedUser));
+          localStorage.setItem("restaurant_authenticated", "true");
+        } catch (syncErr) {
+          console.error("Failed to sync local restaurant profile after reverify:", syncErr);
+        }
+
         setRestaurantStatus({
           isActive: restaurant.isActive,
           isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,

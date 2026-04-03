@@ -50,10 +50,21 @@ export default function ProtectedRoute({ children, requiredRole, loginPath }) {
         const onboardingCompleted =
           user?.onboardingCompleted === true ||
           Number(user?.onboarding?.completedSteps || 0) >= 5;
+        const completedSteps = Number(user?.onboarding?.completedSteps || 0);
         const subscriptionStatus = String(user?.subscription?.status || "").toLowerCase();
         const hasActiveSubscription = subscriptionStatus === "active";
+        const activationTsRaw = localStorage.getItem("subscription_activation_pending");
+        const activationTs = activationTsRaw ? Number(activationTsRaw) : null;
+        const hasRecentActivation =
+          Number.isFinite(activationTs) && (Date.now() - activationTs) < 2 * 60 * 1000;
+        const isPendingVerification =
+          user?.isActive === false &&
+          !user?.rejectionReason &&
+          (onboardingCompleted || completedSteps >= 5 || !!user?.businessModel);
 
-        if (!onboardingCompleted && !hasActiveSubscription) {
+        // If restaurant is pending verification after onboarding submission,
+        // allow dashboard routes and avoid redirect loops to onboarding.
+        if (!onboardingCompleted && !hasActiveSubscription && !hasRecentActivation && !isPendingVerification) {
           let onboardingPath = "/restaurant/onboarding";
           try {
             const rawOnboarding = localStorage.getItem("restaurant_onboarding_data");

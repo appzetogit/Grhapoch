@@ -708,6 +708,27 @@ export default function RestaurantOnboarding() {
     }
   }, [step1, step2, step3, step4, step5, step]);
 
+  const syncLocalRestaurantUserOnOnboardingSuccess = useCallback((model = step5.businessModel) => {
+    try {
+      const rawUser = localStorage.getItem("restaurant_user");
+      const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+      const normalizedModel = model || parsedUser?.businessModel || "Commission Base";
+      const updatedUser = {
+        ...parsedUser,
+        onboardingCompleted: true,
+        businessModel: normalizedModel,
+        onboarding: {
+          ...(parsedUser?.onboarding || {}),
+          completedSteps: Math.max(Number(parsedUser?.onboarding?.completedSteps || 0), 5)
+        }
+      };
+      localStorage.setItem("restaurant_user", JSON.stringify(updatedUser));
+      localStorage.setItem("restaurant_authenticated", "true");
+    } catch (syncError) {
+      console.error("Failed to sync local restaurant user after onboarding success:", syncError);
+    }
+  }, [step5.businessModel]);
+
   const fetchCalledRef = useRef(false);
 
   // Load from localStorage on mount and check URL parameter
@@ -1809,6 +1830,7 @@ export default function RestaurantOnboarding() {
             // Keep localStorage data until payment is successful
             navigate("/restaurant/subscription-plans", { replace: true });
           } else {
+            syncLocalRestaurantUserOnOnboardingSuccess("Commission Base");
             toast.success("Registration Successful!");
             // Clear localStorage for Commission Base since it's already saved to DB
             clearOnboardingFromLocalStorage();
@@ -1821,6 +1843,7 @@ export default function RestaurantOnboarding() {
           (err?.response?.data?.message?.includes("already completed") || 
            err?.response?.data?.error?.includes("already completed"))) {
         // If it's already completed, treat as success and move to hub
+        syncLocalRestaurantUserOnOnboardingSuccess(step5.businessModel || "Commission Base");
         toast.success("Registration Successful!");
         clearOnboardingFromLocalStorage();
         navigate("/restaurant/to-hub", { replace: true });
@@ -3258,7 +3281,7 @@ export default function RestaurantOnboarding() {
 
         <main className="flex-1 px-4 sm:px-6 py-4 space-y-4">
           <div ref={stepTopRef} />
-          {loading ?
+          {(loading && !hasLoadedLocal) ?
             <p className="text-sm text-gray-600">Loading...</p> :
 
             renderStep()

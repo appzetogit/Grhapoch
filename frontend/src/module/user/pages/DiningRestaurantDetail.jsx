@@ -10,6 +10,7 @@ import OptimizedImage from "@/components/OptimizedImage";
 import { toast } from "sonner";
 import axios from "axios";
 import { getRazorpayKeyId } from "@/lib/utils/razorpayKey";
+import { shareContent } from "@/lib/utils/share";
 import { mergeDiningBookings, normalizeDiningBooking, readDiningBookings, writeDiningBookings } from "../utils/diningBookings";
 
 export default function DiningRestaurantDetail() {
@@ -37,36 +38,24 @@ export default function DiningRestaurantDetail() {
   const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [platformFee, setPlatformFee] = useState(0);
 
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Link copied to clipboard");
-    } catch {
-      toast.error("Failed to copy link");
-    }
-  };
-
   const handleShareRestaurant = async () => {
     const restaurantSlug = restaurant?.slug || slug || "";
     const restaurantName = restaurant?.name || "this restaurant";
     const shareUrl = `${window.location.origin}/user/dining/${category || 'all'}/${restaurantSlug}`;
     const shareText = `Check out ${restaurantName} on GrhaPoch! ${shareUrl}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: restaurantName,
-          text: shareText,
-          url: shareUrl
-        });
-        toast.success("Restaurant shared successfully");
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          await copyToClipboard(shareUrl);
-        }
-      }
-    } else {
-      await copyToClipboard(shareUrl);
+    const result = await shareContent({
+      title: restaurantName,
+      text: shareText,
+      url: shareUrl
+    });
+
+    if (result.status === "shared") {
+      toast.success("Restaurant shared successfully");
+    } else if (result.status === "copied") {
+      toast.success("Link copied to clipboard");
+    } else if (result.status === "unsupported") {
+      toast.error("Sharing is not supported on this device");
     }
   };
 

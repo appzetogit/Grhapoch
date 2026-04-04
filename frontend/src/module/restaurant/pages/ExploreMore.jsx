@@ -22,7 +22,6 @@ import {
   Lightbulb,
   Edit,
   IndianRupee,
-  Receipt,
   FileCheck,
   Building2,
   X,
@@ -694,8 +693,7 @@ export default function ExploreMore() {
 
 
   const accountingItems = [
-  { id: 1, label: "Payout", icon: IndianRupee, route: "/restaurant/hub-finance" },
-  { id: 2, label: "Invoices", icon: Receipt, route: "/restaurant/hub-finance?tab=invoices" }];
+  { id: 1, label: "Payout", icon: IndianRupee, route: "/restaurant/hub-finance" }];
 
 
   // All sections with their items

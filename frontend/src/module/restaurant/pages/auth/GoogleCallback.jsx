@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { setAuthData } from "@/lib/utils/auth"
+import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 export default function RestaurantGoogleCallback() {
   const navigate = useNavigate()
@@ -62,9 +63,15 @@ export default function RestaurantGoogleCallback() {
 
         setStatus("success")
 
-        // Redirect to restaurant home after short delay
-        setTimeout(() => {
-          navigate("/restaurant")
+        // Keep Google callback flow consistent with login flow:
+        // incomplete onboarding -> onboarding step, otherwise -> to-hub
+        setTimeout(async () => {
+          const incompleteStep = await checkOnboardingStatus()
+          if (incompleteStep) {
+            navigate(`/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
+          } else {
+            navigate("/restaurant/to-hub", { replace: true })
+          }
         }, 1200)
       } catch (err) {
         console.error("Restaurant Google auth error:", err)

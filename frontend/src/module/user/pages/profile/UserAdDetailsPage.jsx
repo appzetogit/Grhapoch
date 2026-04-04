@@ -155,60 +155,60 @@ export default function UserAdDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 overflow-x-hidden pb-6">
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0a] overflow-x-hidden pb-6">
+      <div className="bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-gray-800 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-200" />
         </button>
-        <h1 className="text-lg font-bold text-gray-900 flex-1">Ads Details</h1>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">Ads Details</h1>
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        {loading && <p className="text-sm text-gray-500 text-center py-10">Loading advertisement...</p>}
-        {!loading && !adData && <p className="text-sm text-gray-500 text-center py-10">Advertisement not found</p>}
+        {loading && <p className="text-sm text-gray-500 dark:text-gray-300 text-center py-10">Loading advertisement...</p>}
+        {!loading && !adData && <p className="text-sm text-gray-500 dark:text-gray-300 text-center py-10">Advertisement not found</p>}
 
         {!loading && adData && (
           <>
             <Motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="bg-white border border-gray-100">
+              <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800">
                 <CardContent className="p-4 flex items-center justify-between">
-                  <h2 className="text-base font-bold text-gray-900">Ads ID #{adData.adId}</h2>
-                  <span className="bg-slate-200 text-slate-700 text-xs font-medium px-3 py-1 rounded-full">
+                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Ads ID #{adData.adId}</h2>
+                  <span className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-medium px-3 py-1 rounded-full">
                     {labelStatus(adData.effectiveStatus || adData.status)}
                   </span>
                 </CardContent>
               </Card>
             </Motion.div>
 
-            <Card className="bg-white border border-gray-100">
+            <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-gray-900 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-gray-900 dark:text-gray-200 mt-0.5" />
                   <div>
-                    <p className="text-xs text-gray-500">Ads Created</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(adData.createdAt, true)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Ads Created</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatDate(adData.createdAt, true)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-gray-900 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-gray-900 dark:text-gray-200 mt-0.5" />
                   <div>
-                    <p className="text-xs text-gray-500">Duration</p>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Duration</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {formatDate(adData.startDate)} - {formatDate(adData.endDate)}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Megaphone className="w-5 h-5 text-gray-900 mt-0.5" />
+                  <Megaphone className="w-5 h-5 text-gray-900 dark:text-gray-200 mt-0.5" />
                   <div>
-                    <p className="text-xs text-gray-500">Ads Details</p>
-                    <p className="text-sm font-bold text-gray-900">Banner Promotion</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Ads Details</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Banner Promotion</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <DollarSign className="w-5 h-5 text-gray-900 mt-0.5" />
+                  <DollarSign className="w-5 h-5 text-gray-900 dark:text-gray-200 mt-0.5" />
                   <div>
-                    <p className="text-xs text-gray-500">Payment Status</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Payment Status</p>
                     <p className={`text-sm font-medium ${String(adData.paymentStatus).toLowerCase() === "paid" ? "text-emerald-600" : "text-red-600"}`}>
                       {labelStatus(adData.paymentStatus)}
                     </p>
@@ -248,14 +248,14 @@ export default function UserAdDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white border border-gray-100">
+            <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800">
               <CardContent className="p-4">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-1">Title</h3>
-                  <p className="text-sm text-gray-600">{adData.title}</p>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Title</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{adData.title}</p>
                 </div>
                 <div className="mt-3">
-                  <h3 className="text-sm font-bold text-gray-900 mb-1">Website URL</h3>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Website URL</h3>
                   {websiteUrl ? (
                     <a
                       href={websiteUrl}
@@ -267,17 +267,17 @@ export default function UserAdDetailsPage() {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   ) : (
-                    <p className="text-sm text-gray-500">Not available</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Not available</p>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white border border-gray-100">
+            <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800">
               <CardContent className="p-4 space-y-2">
-                <h3 className="text-sm font-bold text-gray-900">Banner / Media</h3>
-                <div className="w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50 aspect-[12/5]">
-                  {!coverMedia && <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No media</div>}
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Banner / Media</h3>
+                <div className="w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111111] aspect-[12/5]">
+                  {!coverMedia && <div className="w-full h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">No media</div>}
                   {coverMedia && <img src={coverMedia} alt="Advertisement banner" className="w-full h-full object-cover" />}
                 </div>
               </CardContent>
@@ -287,8 +287,8 @@ export default function UserAdDetailsPage() {
       </div>
 
       {!loading && adData && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4 z-40 md:relative md:bottom-auto md:border-t-0 md:px-4 md:py-4 md:mt-6">
-          <Button onClick={() => navigate("/user/profile/advertisements")} className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2">
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 px-4 py-4 z-40 md:relative md:bottom-auto md:border-t-0 md:px-4 md:py-4 md:mt-6">
+          <Button onClick={() => navigate("/user/profile/advertisements")} className="w-full bg-black dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2">
             <span>Back To Ad List</span>
           </Button>
         </div>

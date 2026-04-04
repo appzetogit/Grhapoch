@@ -16,7 +16,14 @@ export const createSafetyEmergency = asyncHandler(async (req, res) => {
 
     // Get user info from request (user is authenticated via middleware)
     const userId = req.user._id;
-    const userName = req.user.name || req.user.firstName || req.user.email?.split('@')[0] || 'User';
+    const userName =
+      req.user.name ||
+      req.user.firstName ||
+      req.user.email?.split('@')[0] ||
+      req.user.phone ||
+      req.user.mobile ||
+      'User';
+    // `userEmail` is required in schema; keep a non-empty fallback for phone-only users.
     const userEmail = req.user.email || '';
 
     // Auto-detect priority based on keywords
@@ -40,7 +47,11 @@ export const createSafetyEmergency = asyncHandler(async (req, res) => {
     return successResponse(res, 201, 'Safety emergency report submitted successfully', safetyEmergency);
   } catch (error) {
     console.error('Error creating safety emergency report:', error);
-    return errorResponse(res, 500, 'Failed to submit safety emergency report');
+    return errorResponse(
+      res,
+      500,
+      error?.message || 'Failed to submit safety emergency report'
+    );
   }
 });
 

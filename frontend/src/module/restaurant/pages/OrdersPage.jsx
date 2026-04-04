@@ -4,7 +4,6 @@ import Lenis from "lenis";
 import BottomNavbar from "../components/BottomNavbar";
 import MenuOverlay from "../components/MenuOverlay";
 import NewOrderNotification from "../components/NewOrderNotification";
-import { useRestaurantNotifications } from "../hooks/useRestaurantNotifications";
 import {
   Home,
   ShoppingBag,
@@ -29,9 +28,23 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [newOrder, setNewOrder] = useState(null);
 
-  // Restaurant notifications hook
-  const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications();
+  const clearNewOrder = () => setNewOrder(null);
+
+  // Receive new-order events from global restaurant sound listener.
+  useEffect(() => {
+    const handleNewOrder = (event) => {
+      if (event?.detail) {
+        setNewOrder(event.detail);
+      }
+    };
+
+    window.addEventListener('restaurant:new-order', handleNewOrder);
+    return () => {
+      window.removeEventListener('restaurant:new-order', handleNewOrder);
+    };
+  }, []);
 
   // Lenis smooth scrolling
   useEffect(() => {

@@ -130,7 +130,7 @@ export default function Cart() {
   }
 
   const { cart, updateQuantity, addToCart, getCartCount, clearCart, cleanCartForRestaurant } = cartContext;
-  const { getDefaultAddress, getDefaultPaymentMethod, addresses, paymentMethods, userProfile } = useProfile();
+  const { getDefaultAddress, getDefaultPaymentMethod, addresses, paymentMethods, userProfile, updateUserProfile } = useProfile();
   const { createOrder } = useOrders();
   const { location: currentLocation, setManualLocation, requestLocation } = useUserLocation(); // Get live location address
   const { zoneId } = useZone(currentLocation); // Get user's zone
@@ -152,6 +152,12 @@ export default function Cart() {
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState(null);
   const [showAddressSheet, setShowAddressSheet] = useState(false);
+  const [showContactSheet, setShowContactSheet] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [draftContactName, setDraftContactName] = useState("");
+  const [draftContactPhone, setDraftContactPhone] = useState("");
+  const [isSavingContact, setIsSavingContact] = useState(false);
 
   // Tip and Donation state
   const [tipAmount, setTipAmount] = useState(0);
@@ -208,6 +214,60 @@ export default function Cart() {
     return savedAddress;
   }, [currentLocation, savedAddress]);
   const defaultPayment = getDefaultPaymentMethod();
+
+  useEffect(() => {
+    const profileName = (userProfile?.name || "").trim();
+    const profilePhone = (userProfile?.phone || "").trim();
+    setContactName(profileName);
+    setContactPhone(profilePhone);
+  }, [userProfile?.name, userProfile?.phone]);
+
+  const formatPhoneForDisplay = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length >= 10) {
+      return `+91-${digits.slice(-10)}`;
+    }
+    return value || "+91-XXXXXXXXXX";
+  };
+
+  const openContactSheet = () => {
+    setDraftContactName(contactName || userProfile?.name || "");
+    setDraftContactPhone(contactPhone || userProfile?.phone || "");
+    setShowContactSheet(true);
+  };
+
+  const saveContactDetails = async () => {
+    const trimmedName = draftContactName.trim();
+    const cleanedPhone = draftContactPhone.replace(/\D/g, "").slice(-10);
+
+    if (!trimmedName) {
+      toast.error("Please enter your name");
+      return;
+    }
+
+    if (cleanedPhone.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    try {
+      setIsSavingContact(true);
+      await userAPI.updateProfile({
+        name: trimmedName,
+        phone: cleanedPhone
+      });
+
+      setContactName(trimmedName);
+      setContactPhone(cleanedPhone);
+      updateUserProfile({ name: trimmedName, phone: cleanedPhone });
+      setShowContactSheet(false);
+      toast.success("Contact details updated");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update contact details");
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
 
   // Get restaurant ID from cart or restaurant data
   // Priority: restaurantData > cart[0].restaurantId
@@ -1245,9 +1305,9 @@ export default function Cart() {
 
       // Get user info for Razorpay prefill
       const userInfo = userProfile || {};
-      const userPhone = userInfo.phone || defaultAddress?.phone || "";
+      const userPhone = contactPhone || userInfo.phone || defaultAddress?.phone || "";
       const userEmail = userInfo.email || "";
-      const userName = userInfo.name || "";
+      const userName = contactName || userInfo.name || "";
 
       // Format phone number (remove non-digits, take last 10 digits)
       const formattedPhone = userPhone.replace(/\D/g, "").slice(-10);
@@ -1540,7 +1600,7 @@ export default function Cart() {
                   className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 border rounded-lg md:rounded-xl text-sm md:text-base ${sendCutlery ? 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300' : 'border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'}`}>
 
                   <Utensils className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="whitespace-nowrap">{sendCutlery ? "Don't send cutlery" : "No cutlery"}</span>
+                  <span className="whitespace-nowrap">{sendCutlery ? "Send cutlery" : "No cutlery"}</span>
                 </button>
               </div>
 
@@ -1783,16 +1843,24 @@ export default function Cart() {
               </div>
 
               {/* Contact */}
-              <div className="bg-white dark:bg-[#1a1a1a] px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl">
-                <Link to="/user/profile" state={{ from: "cart" }} className="flex items-center justify-between">
+              <div
+                onClick={openContactSheet}
+                className="bg-white dark:bg-[#1a1a1a] px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl cursor-pointer"
+              >
+                <div className="w-full flex items-center justify-between">
                   <div className="flex items-center gap-3 md:gap-4">
                     <Phone className="h-4 w-4 md:h-5 md:w-5 text-gray-500 dark:text-gray-400" />
                     <p className="text-sm md:text-base text-gray-800 dark:text-gray-200">
-                      {userProfile?.name || "Your Name"}, <span className="font-medium">{userProfile?.phone || "+91-XXXXXXXXXX"}</span>
+                      {contactName || "Your Name"}, <span className="font-medium">{formatPhoneForDisplay(contactPhone)}</span>
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-tight">
+                      Change
+                    </span>
+                    <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                  </div>
+                </div>
               </div>
 
               {/* Tip Section */}
@@ -2061,20 +2129,20 @@ export default function Cart() {
 
           {/* Modal Sheet */}
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1a1a1a] rounded-t-3xl shadow-2xl overflow-hidden"
             style={{ animation: 'slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
             <div className="px-6 py-8">
               {/* Title */}
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Placing your order</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Placing your order</h2>
 
               {/* Payment Info */}
               <div className="flex items-center gap-4 mb-5">
-                <div className="w-14 h-14 rounded-xl border border-gray-200 flex items-center justify-center bg-white shadow-sm">
+                <div className="w-14 h-14 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-white dark:bg-[#0f0f0f] shadow-sm">
                   <CreditCard className="w-6 h-6 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {selectedPaymentMethod === "razorpay" ?
                       `Pay ₹${total.toFixed(2)} online (Razorpay)` :
                       selectedPaymentMethod === "wallet" ?
@@ -2086,18 +2154,18 @@ export default function Cart() {
 
               {/* Delivery Address */}
               <div className="flex items-center gap-4 mb-8">
-                <div className="w-14 h-14 rounded-xl border border-gray-200 flex items-center justify-center bg-gray-50">
+                <div className="w-14 h-14 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
                   <svg className="w-7 h-7 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path d="M9 22V12h6v10" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">Delivering to {getLocationDisplayName(defaultAddress)}</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivering to {getLocationDisplayName(defaultAddress)}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                     {defaultAddress ? formatFullAddress(defaultAddress) || defaultAddress?.formattedAddress || defaultAddress?.address || "Address" : "Add address"}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {defaultAddress ? formatFullAddress(defaultAddress) || "Address" : "Address"}
                   </p>
                 </div>
@@ -2147,7 +2215,7 @@ export default function Cart() {
       {
         showOrderSuccess &&
         <div
-          className="fixed inset-0 z-[70] bg-white flex flex-col items-center justify-center h-screen w-screen overflow-hidden"
+          className="fixed inset-0 z-[70] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center h-screen w-screen overflow-hidden"
           style={{ animation: 'fadeIn 0.3s ease-out' }}>
 
           {/* Confetti Background */}
@@ -2224,11 +2292,11 @@ export default function Cart() {
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {getLocationDisplayName(defaultAddress)}
                 </h2>
               </div>
-              <p className="text-gray-500 text-base">
+              <p className="text-gray-500 dark:text-gray-400 text-base">
                 {defaultAddress ? formatFullAddress(defaultAddress) || defaultAddress?.formattedAddress || defaultAddress?.address || "Delivery Address" : "Delivery Address"}
               </p>
             </div>
@@ -2239,7 +2307,7 @@ export default function Cart() {
               style={{ animation: 'slideUp 0.5s ease-out 0.8s both' }}>
 
               <h3 className="text-3xl font-bold text-green-600 mb-2">Order Placed!</h3>
-              <p className="text-gray-600">Your delicious food is on its way</p>
+              <p className="text-gray-600 dark:text-gray-300">Your delicious food is on its way</p>
             </div>
 
             {/* Action Button */}
@@ -2365,6 +2433,75 @@ export default function Cart() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Contact Details Bottom Slider */}
+      <AnimatePresence>
+        {showContactSheet && (
+          <motion.div
+            className="fixed inset-0 z-[9999] bg-black/40 flex items-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowContactSheet(false)}
+          >
+            <motion.div
+              className="w-full bg-white dark:bg-[#1a1a1a] rounded-t-3xl px-6 pt-6 pb-8 space-y-4"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-2" />
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Edit Contact Details</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Update contact details for this order</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                <input
+                  type="text"
+                  value={draftContactName}
+                  onChange={(e) => setDraftContactName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full h-11 px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mobile Number</label>
+                <input
+                  type="tel"
+                  value={draftContactPhone}
+                  onChange={(e) => setDraftContactPhone(e.target.value.replace(/\D/g, "").slice(-10))}
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full h-11 px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowContactSheet(false)}
+                  disabled={isSavingContact}
+                  className="h-11 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveContactDetails}
+                  disabled={isSavingContact}
+                  className="h-11 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-60"
+                >
+                  {isSavingContact ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Animation Styles */}
       <style>{`

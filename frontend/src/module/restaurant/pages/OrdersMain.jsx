@@ -9,7 +9,6 @@ import BottomNavOrders from "../components/BottomNavOrders";
 import RestaurantNavbar from "../components/RestaurantNavbar";
 import notificationSound from "@/assets/audio/alert.mp3";
 import { restaurantAPI } from "@/lib/api";
-import { useRestaurantNotifications } from "../hooks/useRestaurantNotifications";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -476,12 +475,14 @@ export default function OrdersMain() {
   const [isMuted, setIsMuted] = useState(false);
   const [prepTime, setPrepTime] = useState(11);
   const [countdown, setCountdown] = useState(600); // 10 minutes in seconds
+  const [isAcceptingOrder, setIsAcceptingOrder] = useState(false);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
   const [showRejectPopup, setShowRejectPopup] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [orderToCancel, setOrderToCancel] = useState(null);
+  const [newOrder, setNewOrder] = useState(null);
   const audioRef = useRef(null);
   const shownOrdersRef = useRef(new Set()); // Track orders already shown in popup
   const [restaurantStatus, setRestaurantStatus] = useState({
@@ -493,8 +494,21 @@ export default function OrdersMain() {
   });
   const [isReverifying, setIsReverifying] = useState(false);
 
-  // Restaurant notifications hook for real-time orders
-  const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications();
+  const clearNewOrder = () => setNewOrder(null);
+
+  // Receive new-order events from global restaurant sound listener.
+  useEffect(() => {
+    const handleNewOrder = (event) => {
+      if (event?.detail) {
+        setNewOrder(event.detail);
+      }
+    };
+
+    window.addEventListener('restaurant:new-order', handleNewOrder);
+    return () => {
+      window.removeEventListener('restaurant:new-order', handleNewOrder);
+    };
+  }, []);
 
   const rejectReasons = [
     "Restaurant is too busy",
@@ -512,6 +526,22 @@ export default function OrdersMain() {
         const response = await restaurantAPI.getCurrentRestaurant();
         const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
         if (restaurant) {
+          try {
+            const rawUser = localStorage.getItem("restaurant_user");
+            const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+            const syncedUser = {
+              ...parsedUser,
+              ...restaurant,
+              onboardingCompleted:
+                restaurant?.onboardingCompleted === true ||
+                Number(restaurant?.onboarding?.completedSteps || 0) >= 5
+            };
+            localStorage.setItem("restaurant_user", JSON.stringify(syncedUser));
+            localStorage.setItem("restaurant_authenticated", "true");
+          } catch (syncErr) {
+            console.error("Failed to sync local restaurant profile:", syncErr);
+          }
+
           setRestaurantStatus({
             isActive: restaurant.isActive,
             isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,
@@ -565,6 +595,22 @@ export default function OrdersMain() {
       const response = await restaurantAPI.getCurrentRestaurant();
       const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
       if (restaurant) {
+        try {
+          const rawUser = localStorage.getItem("restaurant_user");
+          const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+          const syncedUser = {
+            ...parsedUser,
+            ...restaurant,
+            onboardingCompleted:
+              restaurant?.onboardingCompleted === true ||
+              Number(restaurant?.onboarding?.completedSteps || 0) >= 5
+          };
+          localStorage.setItem("restaurant_user", JSON.stringify(syncedUser));
+          localStorage.setItem("restaurant_authenticated", "true");
+        } catch (syncErr) {
+          console.error("Failed to sync local restaurant profile after reverify:", syncErr);
+        }
+
         setRestaurantStatus({
           isActive: restaurant.isActive,
           isAcceptingOrders: restaurant.isActive === true && restaurant.isAcceptingOrders === true,
@@ -781,6 +827,10 @@ export default function OrdersMain() {
 
   // Handle accept order
   const handleAcceptOrder = async () => {
+    if (isAcceptingOrder) return;
+
+    setIsAcceptingOrder(true);
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -795,6 +845,7 @@ export default function OrdersMain() {
       clearNewOrder();
       setCountdown(600);
       setPrepTime(11);
+      setIsAcceptingOrder(false);
     };
 
     const normalizeStatus = (value) => (value == null ? '' : String(value).trim().toLowerCase());
@@ -817,6 +868,7 @@ export default function OrdersMain() {
       // If we already know payment is pending for online orders, avoid failing the API
       if (onlinePayment && paymentStatus && !isPaymentCaptured(paymentStatus)) {
         toast.info('Payment pending. Please wait a moment and try again.');
+        setIsAcceptingOrder(false);
         return;
       }
 
@@ -830,16 +882,28 @@ export default function OrdersMain() {
           toast.success('Order accepted successfully');
           finalizeAcceptSuccess();
         } catch (error) {
-          console.error('❌ Error accepting order:', error);
           const errorMessage = error.response?.data?.message ||
             error.message ||
             'Failed to accept order. Please try again.';
 
           const status = error.response?.status;
+          const normalizedErrorMessage = normalizeStatus(errorMessage);
           const isPaymentPending =
             status === 400 &&
-            normalizeStatus(errorMessage).includes('payment') &&
-            normalizeStatus(errorMessage).includes('complete');
+            normalizedErrorMessage.includes('payment') &&
+            normalizedErrorMessage.includes('complete');
+
+          const isAlreadyPreparing =
+            status === 400 &&
+            normalizedErrorMessage.includes('cannot be accepted') &&
+            normalizedErrorMessage.includes('current status') &&
+            normalizedErrorMessage.includes('preparing');
+
+          if (isAlreadyPreparing) {
+            toast.success('Order accepted successfully');
+            finalizeAcceptSuccess();
+            return;
+          }
 
           if (isPaymentPending && attempt < maxRetries) {
             if (!pendingToastShown) {
@@ -850,6 +914,8 @@ export default function OrdersMain() {
             return;
           }
 
+          console.error('❌ Error accepting order:', error);
+
           // Show specific error message
           if (status === 400) {
             toast.error(errorMessage);
@@ -858,11 +924,14 @@ export default function OrdersMain() {
           } else {
             toast.error(errorMessage);
           }
+          setIsAcceptingOrder(false);
           return;
         }
       };
 
       attemptAccept(0);
+    } else {
+      setIsAcceptingOrder(false);
     }
 
     // Note: PreparingOrders component will automatically refresh orders via its own useEffect
@@ -1568,6 +1637,14 @@ export default function OrdersMain() {
                     </AnimatePresence>
                   </div>
 
+                  {/* Customer note */}
+                  {Boolean((popupOrder || newOrder)?.note?.trim()) &&
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-xs text-yellow-800 font-medium mb-1">Note:</p>
+                      <p className="text-sm text-yellow-900 break-words">{(popupOrder || newOrder)?.note}</p>
+                    </div>
+                  }
+
                   {/* Send cutlery */}
                   {(popupOrder || newOrder)?.sendCutlery &&
                     <div className="mb-4 flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
@@ -1636,7 +1713,12 @@ export default function OrdersMain() {
                     <div className="relative">
                       <button
                         onClick={handleAcceptOrder}
-                        className="w-full bg-black text-white py-3.5 rounded-lg font-semibold text-sm hover:bg-gray-800 transition-colors relative overflow-hidden">
+                        disabled={isAcceptingOrder}
+                        className={`w-full text-white py-3.5 rounded-lg font-semibold text-sm transition-colors relative overflow-hidden ${
+                          isAcceptingOrder
+                            ? "bg-gray-500 cursor-not-allowed"
+                            : "bg-black hover:bg-gray-800"
+                        }`}>
 
                         {/* Loading background */}
                         <motion.div
@@ -1645,7 +1727,9 @@ export default function OrdersMain() {
                           animate={{ width: `${countdown / 600 * 100}%` }}
                           transition={{ duration: 1, ease: "linear" }} />
 
-                        <span className="relative z-10">Accept ({formatTime(countdown)})</span>
+                        <span className="relative z-10">
+                          {isAcceptingOrder ? "Accepting..." : `Accept (${formatTime(countdown)})`}
+                        </span>
                       </button>
                     </div>
 
@@ -1911,12 +1995,36 @@ export default function OrdersMain() {
                 </p>
               </div>
 
+              {selectedOrder.note &&
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Note</p>
+                  <p className="text-xs text-amber-700 break-words">{selectedOrder.note}</p>
+                </div>
+              }
+
+              {typeof selectedOrder.sendCutlery === 'boolean' &&
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-700 mb-1">Cutlery</p>
+                  <p className="text-xs text-gray-600">{selectedOrder.sendCutlery ? 'Send cutlery' : 'No cutlery'}</p>
+                </div>
+              }
+
               <div className="flex items-center justify-between text-[11px] text-gray-500 mb-4">
                 {/* Hide ETA for ready orders */}
                 {selectedOrder.status !== 'ready' && selectedOrder.eta &&
                   <span>ETA: <span className="font-medium text-black">{selectedOrder.eta}</span></span>
                 }
-                <span>Payment: <span className="font-medium text-black">Paid online</span></span>
+                {(() => {
+                  const rawMethod = selectedOrder.paymentMethod;
+                  const rawStatus = selectedOrder.paymentStatus;
+                  const method = rawMethod != null ? String(rawMethod).toLowerCase().trim() : '';
+                  const status = rawStatus != null ? String(rawStatus).toLowerCase().trim() : '';
+                  const isCod = method === 'cash' || method === 'cod' || method === 'cash on delivery' || method === 'cash_on_delivery';
+                  const isPaidOnline = status === 'paid' || status === 'captured' || status === 'completed' || status === 'success' || status === 'successful';
+                  const paymentText = !method && !status ? 'N/A' : isCod ? 'Cash on delivery' : isPaidOnline ? 'Paid online' : 'Online';
+
+                  return <span>Payment: <span className="font-medium text-black">{paymentText}</span></span>;
+                })()}
               </div>
 
               <button
@@ -2004,16 +2112,22 @@ function OrderCard({
   timePlaced,
   eta,
   itemsSummary,
+  note,
+  sendCutlery,
+  paymentMethod,
+  paymentStatus,
   photoUrl,
   photoAlt,
   deliveryPartnerId,
   onSelect,
-  onCancel
+  onCancel,
+  onMarkReady,
+  isMarkingReady = false
 }) {
   const isReady = status === "Ready";
 
   return (
-    <div className="w-full bg-white rounded-2xl p-4 mb-3 border border-gray-200 hover:border-gray-400 transition-colors relative">
+    <div className="w-full bg-white rounded-2xl p-3.5 mb-3 border border-gray-200 hover:border-gray-400 transition-colors relative">
       {/* Cancel button - only show for preparing orders */}
       {status === 'preparing' && onCancel &&
         <button
@@ -2038,13 +2152,17 @@ function OrderCard({
             tableOrToken,
             timePlaced,
             eta,
-            itemsSummary
+            itemsSummary,
+            note,
+            sendCutlery,
+            paymentMethod,
+            paymentStatus
           })
         }
-        className="w-full text-left flex gap-3 items-stretch cursor-pointer">
+        className={`w-full text-left flex gap-3 items-start cursor-pointer ${status === 'preparing' && onCancel ? 'pr-8' : ''}`}>
 
         {/* Photo */}
-        <div className="h-20 w-20 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 my-auto">
+        <div className="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 mt-1">
           {photoUrl ?
             <img
               src={photoUrl}
@@ -2061,14 +2179,14 @@ function OrderCard({
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col justify-between min-h-[80px]">
+        <div className="flex-1 min-w-0 flex flex-col">
           {/* Top row */}
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-black leading-tight">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-black leading-tight break-words">
                 Order #{orderId}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">
+              <p className="text-[11px] text-gray-500 mt-1 truncate">
                 {customerName}
               </p>
             </div>
@@ -2093,52 +2211,85 @@ function OrderCard({
           </div>
 
           {/* Middle row */}
-          <div className="mt-2">
-            <p className="text-xs text-gray-600 line-clamp-1">
+          <div className="mt-1.5">
+            <p className="text-xs text-gray-700 line-clamp-1">
               {itemsSummary}
+            </p>
+            {note &&
+              <p className="text-[10px] text-amber-700 mt-1 line-clamp-1">
+                Note: {note}
+              </p>
+            }
+            <p className="text-[10px] text-gray-500 mt-1">
+              {sendCutlery ? 'Cutlery: Send' : 'Cutlery: No'}
             </p>
           </div>
 
           {/* Bottom row */}
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <div className="flex flex-col gap-1">
+          <div className="mt-2.5 flex items-end justify-between gap-3">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <p className="text-[11px] text-gray-500">
                 {type}
                 {tableOrToken ? ` • ${tableOrToken}` : ""}
               </p>
               {/* Delivery Assignment Status - Only show for preparing orders */}
               {status === 'preparing' &&
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${deliveryPartnerId ?
-                    'bg-green-100 text-green-700 border border-green-300' :
-                    'bg-orange-100 text-orange-700 border border-orange-300'}`
-                  }>
-                    <span className={`h-1.5 w-1.5 rounded-full ${deliveryPartnerId ? 'bg-green-500' : 'bg-orange-500'}`
-                    } />
-                    {deliveryPartnerId ? 'Assigned' : 'Not Assigned'}
-                  </span>
-                  {deliveryPartnerId ?
-                    <ResendNotificationButton
-                      orderId={orderId}
-                      mongoId={mongoId}
-                      onSuccess={onSelect}
-                      mode="reassign"
-                    /> :
-                    <ResendNotificationButton
-                      orderId={orderId}
-                      mongoId={mongoId}
-                      onSuccess={onSelect}
-                      mode="resend"
-                    />
-                  }
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${deliveryPartnerId ?
+                      'bg-green-100 text-green-700 border border-green-300' :
+                      'bg-orange-100 text-orange-700 border border-orange-300'}`
+                    }>
+                      <span className={`h-1.5 w-1.5 rounded-full ${deliveryPartnerId ? 'bg-green-500' : 'bg-orange-500'}`
+                      } />
+                      {deliveryPartnerId ? 'Assigned' : 'Not Assigned'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {deliveryPartnerId ?
+                      <ResendNotificationButton
+                        orderId={orderId}
+                        mongoId={mongoId}
+                        onSuccess={onSelect}
+                        mode="reassign"
+                      /> :
+                      <ResendNotificationButton
+                        orderId={orderId}
+                        mongoId={mongoId}
+                        onSuccess={onSelect}
+                        mode="resend"
+                      />
+                    }
+                    {onMarkReady &&
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkReady({ orderId, mongoId, customerName });
+                        }}
+                        disabled={isMarkingReady}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Mark order as ready for pickup">
+
+                        {isMarkingReady ?
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Marking...</span>
+                          </> :
+
+                          <span>Mark Ready</span>
+                        }
+                      </button>
+                    }
+                  </div>
                 </div>
               }
             </div>
             {/* Hide ETA for ready orders */}
             {status !== 'ready' && eta &&
-              <div className="flex items-baseline gap-1">
-                <span className="text-[11px] text-gray-500">ETA</span>
-                <span className="text-xs font-medium text-black">
+              <div className="flex flex-col items-end leading-tight shrink-0 min-w-[56px]">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wide">ETA</span>
+                <span className="text-sm font-semibold text-black">
                   {eta}
                 </span>
               </div>
@@ -2155,6 +2306,8 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [markingReadyOrderKey, setMarkingReadyOrderKey] = useState(null);
+  const markedReadyOrdersRef = useRef(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -2197,6 +2350,10 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
               initialETA, // Store initial ETA in minutes
               preparingTimestamp, // Store when order started preparing
               itemsSummary: order.items?.map((item) => `${item.quantity}x ${item.name}`).join(', ') || 'No items',
+              note: order.note || '',
+              sendCutlery: order.sendCutlery !== false,
+              paymentMethod: order.paymentMethod ?? order.payment?.method ?? null,
+              paymentStatus: order.payment?.status ?? null,
               photoUrl: order.items?.[0]?.image || null,
               photoAlt: order.items?.[0]?.name || 'Order',
               deliveryPartnerId: order.deliveryPartnerId || null // Track if delivery partner is assigned
@@ -2257,9 +2414,6 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
       }
     };
   }, [isActive]); // Add isActive to dependencies
-
-  // Track which orders have been marked as ready to avoid duplicate API calls
-  const markedReadyOrdersRef = useRef(new Set());
 
   // Auto-mark orders as ready when ETA reaches 0
   useEffect(() => {
@@ -2330,6 +2484,32 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
     }
   }, [orders]);
 
+  const handleMarkReady = async (order) => {
+    const orderKey = order?.mongoId || order?.orderId;
+    if (!orderKey || markingReadyOrderKey === orderKey) return;
+
+    try {
+      setMarkingReadyOrderKey(orderKey);
+      await restaurantAPI.markOrderReady(orderKey);
+      markedReadyOrdersRef.current.add(orderKey);
+      setOrders((prevOrders) => prevOrders.filter((o) => (o.mongoId || o.orderId) !== orderKey));
+      toast.success(`Order ${order.orderId || ''} marked ready`);
+    } catch (error) {
+      const status = error.response?.status;
+      const message = error.response?.data?.message || error.message || 'Failed to mark order as ready';
+
+      if (status === 400 && message.toLowerCase().includes('current status')) {
+        markedReadyOrdersRef.current.add(orderKey);
+        setOrders((prevOrders) => prevOrders.filter((o) => (o.mongoId || o.orderId) !== orderKey));
+        toast.info('Order is already updated');
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setMarkingReadyOrderKey((current) => current === orderKey ? null : current);
+    }
+  };
+
   if (loading) {
     return (
       <div className="pt-4 pb-6">
@@ -2387,11 +2567,17 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
                 timePlaced={order.timePlaced}
                 eta={etaDisplay}
                 itemsSummary={order.itemsSummary}
+                note={order.note}
+                sendCutlery={order.sendCutlery}
+                paymentMethod={order.paymentMethod}
+                paymentStatus={order.paymentStatus}
                 photoUrl={order.photoUrl}
                 photoAlt={order.photoAlt}
                 deliveryPartnerId={order.deliveryPartnerId}
                 onSelect={onSelectOrder}
-                onCancel={onCancel} />);
+                onCancel={onCancel}
+                onMarkReady={handleMarkReady}
+                isMarkingReady={markingReadyOrderKey === (order.mongoId || order.orderId)} />);
 
 
           })}

@@ -531,8 +531,8 @@ export const restaurantAPI = {
   },
 
   // Get restaurant by ID or slug
-  getRestaurantById: (id) => {
-    return apiClient.get(API_ENDPOINTS.RESTAURANT.BY_ID.replace(':id', id));
+  getRestaurantById: (id, config = {}) => {
+    return apiClient.get(API_ENDPOINTS.RESTAURANT.BY_ID.replace(':id', id), config);
   },
   // Get coupons for item (public - for user cart)
   getCouponsByItemIdPublic: (restaurantId, itemId) => {
@@ -1751,8 +1751,8 @@ export const campaignAPI = {
   },
 
   // Public side
-  getActiveAdvertisementsPublic: () => {
-    return apiClient.get('/advertisements/active');
+  getActiveAdvertisementsPublic: (params = {}) => {
+    return apiClient.get('/advertisements/active', { params });
   },
 };
 

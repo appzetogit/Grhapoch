@@ -87,17 +87,17 @@ export default function UserOrderDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600 text-sm">Loading order details...</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
+        <p className="text-gray-600 dark:text-gray-300 text-sm">Loading order details...</p>
       </div>);
 
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="text-gray-700 text-sm font-medium">Order not found</p>
+          <p className="text-gray-700 dark:text-gray-200 text-sm font-medium">Order not found</p>
           <button
             onClick={() => navigate("/user/orders")}
             className="px-4 py-2 rounded-lg bg-[#E23744] text-white text-sm font-semibold">
@@ -304,30 +304,30 @@ export default function UserOrderDetails() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24 font-sans relative">
       {/* Header */}
-      <div className="bg-white p-4 flex items-center sticky top-0 z-20 shadow-sm">
+      <div className="bg-white dark:bg-[#1a1a1a] p-4 flex items-center sticky top-0 z-20 shadow-sm border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="p-1 rounded-full hover:bg-gray-100">
+            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
             
-            <ArrowLeft className="w-6 h-6 text-gray-700 cursor-pointer" />
+            <ArrowLeft className="w-6 h-6 text-gray-700 dark:text-white cursor-pointer" />
           </button>
-          <h1 className="text-lg font-semibold text-gray-800">Order Details</h1>
+          <h1 className="text-lg font-semibold text-gray-800 dark:text-white">Order Details</h1>
         </div>
       </div>
 
       {/* Scrollable Content */}
       <div className="p-4 space-y-4">
         {/* Status Card */}
-        <div className="bg-white p-4 rounded-xl flex items-center gap-3 shadow-sm">
-          <div className="bg-gray-100 p-2 rounded-lg">
-            <ShoppingBag className="w-6 h-6 text-gray-600" />
+        <div className="bg-white dark:bg-[#1a1a1a] p-4 rounded-xl flex items-center gap-3 shadow-sm border border-gray-100 dark:border-gray-800">
+          <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
+            <ShoppingBag className="w-6 h-6 text-gray-600 dark:text-gray-300" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-800">
+            <h2 className="font-semibold text-gray-800 dark:text-gray-100">
               {order.status === "delivered" ?
               "Order was delivered" :
               "Order status: " + (order.status || "Processing")}
@@ -336,7 +336,7 @@ export default function UserOrderDetails() {
         </div>
 
         {/* Restaurant Info Card */}
-        <div className="bg-white p-4 rounded-xl shadow-sm">
+        <div className="bg-white dark:bg-[#1a1a1a] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <img
@@ -352,41 +352,41 @@ export default function UserOrderDetails() {
                 className="w-10 h-10 rounded-lg object-cover" />
               
               <div>
-                <h3 className="font-semibold text-gray-800">{restaurantName}</h3>
-                <p className="text-xs text-gray-500">{restaurantLocation}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-white">{restaurantName}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{restaurantLocation}</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleCallRestaurant}
-              className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-[#E23744] hover:bg-red-50">
+              className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-700 flex items-center justify-center text-[#E23744] hover:bg-red-50 dark:hover:bg-red-900/20">
               
               <Phone className="w-4 h-4" />
             </button>
           </div>
 
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+            <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">
               Order ID: #{orderIdDisplay}
             </span>
             <button type="button" onClick={handleCopyOrderId}>
-              <Copy className="w-3 h-3 text-gray-400 cursor-pointer" />
+              <Copy className="w-3 h-3 text-gray-400 dark:text-gray-500 cursor-pointer" />
             </button>
           </div>
 
-          <div className="border-t border-dashed border-gray-200 my-3" />
+          <div className="border-t border-dashed border-gray-200 dark:border-gray-700 my-3" />
 
           {/* Items */}
           {items.map((item, idx) =>
           <div key={idx} className="flex justify-between items-start mt-2">
               <div className="flex items-center gap-2">
                 <FoodTypeIcon isVeg={item.isVeg} size="sm" />
-                <span className="text-sm text-gray-700 font-medium">
+                <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">
                   {item.quantity || item.qty || 1} x {item.name}
                 </span>
               </div>
-              <span className="text-sm text-gray-800 font-medium">
+              <span className="text-sm text-gray-800 dark:text-gray-100 font-medium">
                 ₹{(item.price || 0).toFixed(2)}
               </span>
             </div>
@@ -394,11 +394,11 @@ export default function UserOrderDetails() {
         </div>
 
         {/* Bill Summary Card */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 flex justify-between items-center border-b border-gray-100">
+        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-800">
+          <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-gray-600" />
-              <h3 className="font-semibold text-gray-800">Bill Summary</h3>
+              <FileText className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <h3 className="font-semibold text-gray-800 dark:text-gray-100">Bill Summary</h3>
             </div>
             <button
               type="button"
@@ -411,29 +411,29 @@ export default function UserOrderDetails() {
 
           <div className="p-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">Item total</span>
+              <span className="text-gray-500 dark:text-gray-400">Item total</span>
               <div>
                 {pricing.originalItemTotal &&
-                <span className="text-gray-400 line-through mr-1">
+                <span className="text-gray-400 dark:text-gray-500 line-through mr-1">
                     ₹{Number(pricing.originalItemTotal).toFixed(2)}
                   </span>
                 }
-                <span className="text-gray-800">
+                <span className="text-gray-800 dark:text-gray-200">
                   ₹{Number(pricing.subtotal || pricing.total || 0).toFixed(2)}
                 </span>
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">GST (govt. taxes)</span>
-              <span className="text-gray-800">
+              <span className="text-gray-500 dark:text-gray-400">GST (govt. taxes)</span>
+              <span className="text-gray-800 dark:text-gray-200">
                 ₹{Number(pricing.tax || 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Delivery partner fee</span>
+              <span className="text-gray-500 dark:text-gray-400">Delivery partner fee</span>
               <div>
                 {pricing.originalDeliveryFee &&
-                <span className="text-gray-400 line-through mr-1">
+                <span className="text-gray-400 dark:text-gray-500 line-through mr-1">
                     ₹{Number(pricing.originalDeliveryFee).toFixed(2)}
                   </span>
                 }
@@ -443,21 +443,21 @@ export default function UserOrderDetails() {
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Platform fee</span>
-              <span className="text-gray-800">
+              <span className="text-gray-500 dark:text-gray-400">Platform fee</span>
+              <span className="text-gray-800 dark:text-gray-200">
                 ₹{Number(pricing.platformFee || 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Subscription / other fees</span>
-              <span className="text-gray-800">
+              <span className="text-gray-500 dark:text-gray-400">Subscription / other fees</span>
+              <span className="text-gray-800 dark:text-gray-200">
                 ₹{Number(pricing.subscriptionFee || 0).toFixed(2)}
               </span>
             </div>
 
-            <div className="border-t border-gray-100 my-2 pt-2 flex justify-between items-center">
-              <span className="font-bold text-gray-800">Paid</span>
-              <span className="font-bold text-gray-800">
+            <div className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 flex justify-between items-center">
+              <span className="font-bold text-gray-800 dark:text-gray-100">Paid</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">
                 ₹{Number(pricing.total || 0).toFixed(2)}
               </span>
             </div>
@@ -492,30 +492,30 @@ export default function UserOrderDetails() {
         </div>
 
         {/* User & Delivery Details */}
-        <div className="bg-white p-4 rounded-xl shadow-sm space-y-5">
+        <div className="bg-white dark:bg-[#1a1a1a] p-4 rounded-xl shadow-sm space-y-5 border border-gray-100 dark:border-gray-800">
           {/* User */}
           <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <User className="w-5 h-5 text-gray-500" />
+            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+              <User className="w-5 h-5 text-gray-500 dark:text-gray-300" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-800 text-sm">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                 {userName || "Customer"}
               </h4>
-              <p className="text-gray-500 text-xs">{userPhone}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs">{userPhone}</p>
             </div>
           </div>
 
           {/* Payment */}
           <div className="flex gap-3">
             <div className="mt-0.5">
-              <CreditCard className="w-5 h-5 text-gray-500" />
+              <CreditCard className="w-5 h-5 text-gray-500 dark:text-gray-300" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-800 text-sm">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                 Payment method
               </h4>
-              <p className="text-gray-500 text-xs mt-0.5">
+              <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
                 Paid via: {paymentMethod.toUpperCase()}
               </p>
             </div>
@@ -524,26 +524,26 @@ export default function UserOrderDetails() {
           {/* Date */}
           <div className="flex gap-3">
             <div className="mt-0.5">
-              <Calendar className="w-5 h-5 text-gray-500" />
+              <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-300" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-800 text-sm">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                 Payment date
               </h4>
-              <p className="text-gray-500 text-xs mt-0.5">{paymentDate}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{paymentDate}</p>
             </div>
           </div>
 
           {/* Address */}
           <div className="flex gap-3">
             <div className="mt-0.5">
-              <MapPin className="w-5 h-5 text-gray-500" />
+              <MapPin className="w-5 h-5 text-gray-500 dark:text-gray-300" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-800 text-sm">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
                 Delivery address
               </h4>
-              <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">
+              <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 leading-relaxed">
                 {addressText || "Address not available"}
               </p>
             </div>
@@ -552,7 +552,7 @@ export default function UserOrderDetails() {
       </div>
 
       {/* Fixed Bottom Buttons */}
-      <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 p-4 flex gap-3 z-20">
+      <div className="fixed bottom-0 w-full bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 p-4 flex gap-3 z-20">
         <button
           type="button"
           onClick={() => {
@@ -569,7 +569,7 @@ export default function UserOrderDetails() {
         <button
           type="button"
           onClick={handleDownloadSummary}
-          className="flex-1 bg-white border border-[#E23744] text-[#E23744] py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors">
+          className="flex-1 bg-white dark:bg-transparent border border-[#E23744] text-[#E23744] py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
           
           <Download className="w-4 h-4" />
           Invoice
@@ -603,7 +603,7 @@ export default function UserOrderDetails() {
 
             navigate(`/user/complaints/submit/${encodeURIComponent(orderIdString)}`);
           }}
-          className="w-full bg-orange-50 border border-orange-200 text-orange-700 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-orange-100 transition-colors">
+          className="w-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
           
             <FileText className="w-4 h-4" />
             Restaurant Complaint

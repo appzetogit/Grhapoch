@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Advertisement from '../models/Advertisement.js';
 import AdvertisementSetting from '../models/AdvertisementSetting.js';
 import RazorpayWebhookEvent from '../models/RazorpayWebhookEvent.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinaryService.js';
@@ -69,6 +70,51 @@ const parseDate = (value) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
+};
+
+const parseCoordinate = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const getRestaurantCoordinates = (restaurant = {}) => {
+  const geoCoords = restaurant?.geoLocation?.coordinates;
+  if (Array.isArray(geoCoords) && geoCoords.length >= 2) {
+    const lng = Number(geoCoords[0]);
+    const lat = Number(geoCoords[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  const locationCoords = restaurant?.location?.coordinates;
+  if (Array.isArray(locationCoords) && locationCoords.length >= 2) {
+    const lng = Number(locationCoords[0]);
+    const lat = Number(locationCoords[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  const lat = Number(restaurant?.location?.latitude);
+  const lng = Number(restaurant?.location?.longitude);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng };
+  }
+
+  return null;
+};
+
+const haversineDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 };
 
 const startOfToday = () => {
@@ -1740,6 +1786,18 @@ export const deleteAdvertisementByAdmin = asyncHandler(async (req, res) => {
 
 export const listPublicActiveAdvertisements = asyncHandler(async (req, res) => {
   const now = new Date();
+  const userLat = parseCoordinate(req.query?.lat ?? req.query?.latitude);
+  const userLng = parseCoordinate(req.query?.lng ?? req.query?.longitude);
+  const hasUserCoordinates = userLat !== null && userLng !== null;
+
+  // Strict service-area behavior:
+  // Without viewer coordinates, do not show restaurant advertisements.
+  if (!hasUserCoordinates) {
+    return successResponse(res, 200, 'Active advertisements fetched successfully', {
+      advertisements: [],
+      serviceRadiusKm: null
+    });
+  }
 
   const ads = await Advertisement.find({
     adType: 'restaurant_banner',
@@ -1749,12 +1807,33 @@ export const listPublicActiveAdvertisements = asyncHandler(async (req, res) => {
     startDate: { $lte: now },
     endDate: { $gte: now }
   })
-    .populate('restaurant', 'name')
+    .populate('restaurant', 'name slug restaurantId location geoLocation isActive')
     .sort({ priority: 1, createdAt: -1 })
     .lean();
 
+  let filteredAds = ads;
+  let serviceRadiusKm = null;
+
+  try {
+    const settings = await ServiceSettings.getSettings();
+    serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+  } catch (e) {
+    serviceRadiusKm = 10;
+  }
+
+  filteredAds = ads.filter((ad) => {
+    const restaurant = ad?.restaurant;
+    if (!restaurant || restaurant.isActive === false) return false;
+
+    const coords = getRestaurantCoordinates(restaurant);
+    if (!coords) return false;
+
+    const distanceKm = haversineDistanceKm(userLat, userLng, coords.lat, coords.lng);
+    return distanceKm <= serviceRadiusKm;
+  });
+
   return successResponse(res, 200, 'Active advertisements fetched successfully', {
-    advertisements: ads.map((ad) => ({
+    advertisements: filteredAds.map((ad) => ({
       id: ad._id,
       adId: ad.adId,
       title: ad.title || ad.restaurant?.name || '',
@@ -1766,9 +1845,12 @@ export const listPublicActiveAdvertisements = asyncHandler(async (req, res) => {
       restaurant: ad.restaurant
         ? {
           id: ad.restaurant._id,
-          name: ad.restaurant.name || ''
+          name: ad.restaurant.name || '',
+          slug: ad.restaurant.slug || '',
+          restaurantId: ad.restaurant.restaurantId || ''
         }
         : null
-    }))
+    })),
+    serviceRadiusKm
   });
 });

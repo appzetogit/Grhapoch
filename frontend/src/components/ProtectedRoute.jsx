@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { isModuleAuthenticated } from "@/lib/utils/auth";
+import RestaurantGlobalOrderSoundListener from "@/module/restaurant/components/RestaurantGlobalOrderSoundListener";
 
 /**
  * Role-based Protected Route Component
@@ -50,10 +51,21 @@ export default function ProtectedRoute({ children, requiredRole, loginPath }) {
         const onboardingCompleted =
           user?.onboardingCompleted === true ||
           Number(user?.onboarding?.completedSteps || 0) >= 5;
+        const completedSteps = Number(user?.onboarding?.completedSteps || 0);
         const subscriptionStatus = String(user?.subscription?.status || "").toLowerCase();
         const hasActiveSubscription = subscriptionStatus === "active";
+        const activationTsRaw = localStorage.getItem("subscription_activation_pending");
+        const activationTs = activationTsRaw ? Number(activationTsRaw) : null;
+        const hasRecentActivation =
+          Number.isFinite(activationTs) && (Date.now() - activationTs) < 2 * 60 * 1000;
+        const isPendingVerification =
+          user?.isActive === false &&
+          !user?.rejectionReason &&
+          (onboardingCompleted || completedSteps >= 5 || !!user?.businessModel);
 
-        if (!onboardingCompleted && !hasActiveSubscription) {
+        // If restaurant is pending verification after onboarding submission,
+        // allow dashboard routes and avoid redirect loops to onboarding.
+        if (!onboardingCompleted && !hasActiveSubscription && !hasRecentActivation && !isPendingVerification) {
           let onboardingPath = "/restaurant/onboarding";
           try {
             const rawOnboarding = localStorage.getItem("restaurant_onboarding_data");
@@ -71,6 +83,15 @@ export default function ProtectedRoute({ children, requiredRole, loginPath }) {
         // If parsing fails, do not block route here.
       }
     }
+  }
+
+  if (requiredRole === "restaurant") {
+    return (
+      <>
+        <RestaurantGlobalOrderSoundListener />
+        {children}
+      </>
+    );
   }
 
   return children;

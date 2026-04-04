@@ -503,15 +503,30 @@ export default function SubscriptionPage() {
                         localStorage.removeItem(ACTIVATION_FLAG_KEY);
                         setSubmittingPlanId(null);
 
-                        // Navigate to success page with data
-                        const subDataForNav = verifyRes?.data?.data?.subscription;
-                        navigate('/restaurant/subscription-success', {
-                            replace: true,
-                            state: {
-                                planName: plan.name,
-                                endDate: subDataForNav?.endDate
-                            }
-                        });
+                        // Keep local auth/profile state in sync so ProtectedRoute doesn't send user back to onboarding.
+                        try {
+                            const rawUser = localStorage.getItem("restaurant_user");
+                            const parsedUser = rawUser ? JSON.parse(rawUser) : {};
+                            const updatedUser = {
+                                ...parsedUser,
+                                onboardingCompleted: true,
+                                businessModel: "Subscription Base",
+                                onboarding: {
+                                    ...(parsedUser?.onboarding || {}),
+                                    completedSteps: Math.max(Number(parsedUser?.onboarding?.completedSteps || 0), 5)
+                                },
+                                subscription: {
+                                    ...(parsedUser?.subscription || {}),
+                                    ...(subData || {}),
+                                    status: "active"
+                                }
+                            };
+                            localStorage.setItem("restaurant_user", JSON.stringify(updatedUser));
+                            localStorage.setItem("restaurant_authenticated", "true");
+                        } catch (syncError) {
+                            console.error("Failed to sync local restaurant user after subscription:", syncError);
+                        }
+
                         // Directly take restaurant to dashboard (no back to onboarding)
                         navigate('/restaurant/to-hub', { replace: true });
                     } catch (error) {

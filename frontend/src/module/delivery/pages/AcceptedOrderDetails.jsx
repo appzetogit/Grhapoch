@@ -133,7 +133,7 @@ export default function AcceptedOrderDetails() {
       type: item.isVeg ? "Veg" : "Non Veg",
       image: item.image || "https://images.unsplash.com/photo-1544025162-d76694265947?w=100&h=100&fit=crop&q=80"
     })) || [],
-    cutlery: order.notes?.cutlery ? "Yes" : "No",
+    cutlery: order.sendCutlery ? "Yes" : "No",
     paymentMethod: {
       status: order.payment?.status || paymentStatus,
       method: order.paymentMethod === 'cash' ? 'Cash' : 'Online'

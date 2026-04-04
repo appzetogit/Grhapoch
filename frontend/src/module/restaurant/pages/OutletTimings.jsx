@@ -7,8 +7,29 @@ import { Switch } from "@/components/ui/switch";
 import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { restaurantAPI } from "@/lib/api";
 
 const STORAGE_KEY = "restaurant_outlet_timings";
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_ALIAS_TO_FULL = {
+  mon: "Monday",
+  monday: "Monday",
+  tue: "Tuesday",
+  tues: "Tuesday",
+  tuesday: "Tuesday",
+  wed: "Wednesday",
+  wednesday: "Wednesday",
+  thu: "Thursday",
+  thur: "Thursday",
+  thurs: "Thursday",
+  thursday: "Thursday",
+  fri: "Friday",
+  friday: "Friday",
+  sat: "Saturday",
+  saturday: "Saturday",
+  sun: "Sunday",
+  sunday: "Sunday"
+};
 
 // Helper function to convert "HH:mm" string to Date object
 const stringToTime = (timeString) => {
@@ -52,6 +73,64 @@ const getDefaultDays = () => ({
   Sunday: { isOpen: true, openingTime: "09:00", closingTime: "22:00" }
 });
 
+const normalizeTo24Hour = (value, fallback) => {
+  if (!value || typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+
+  // Already 24-hour format (HH:mm)
+  if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(trimmed)) {
+    const [h, m] = trimmed.split(":").map(Number);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // 12-hour format (h:mm AM/PM)
+  const match = trimmed.match(/^([0]?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i);
+  if (!match) return fallback;
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const buildDaysFromRestaurantData = (restaurant) => {
+  const opening = normalizeTo24Hour(restaurant?.deliveryTimings?.openingTime, "09:00");
+  const closing = normalizeTo24Hour(restaurant?.deliveryTimings?.closingTime, "22:00");
+
+  // If backend has no timings, do not override local/default state.
+  if (!restaurant?.deliveryTimings?.openingTime || !restaurant?.deliveryTimings?.closingTime) {
+    return null;
+  }
+
+  const openDaySet = new Set(
+    (Array.isArray(restaurant?.openDays) ? restaurant.openDays : [])
+      .map((d) => String(d || "").trim().toLowerCase())
+      .map((d) => DAY_ALIAS_TO_FULL[d])
+      .filter(Boolean)
+  );
+  const hasOpenDays = openDaySet.size > 0;
+
+  return DAY_NAMES.reduce((acc, day) => {
+    acc[day] = {
+      isOpen: hasOpenDays ? openDaySet.has(day) : true,
+      openingTime: opening,
+      closingTime: closing
+    };
+    return acc;
+  }, {});
+};
+
+const isDefaultOutletTimings = (data) => {
+  if (!data || typeof data !== "object") return false;
+  return DAY_NAMES.every((day) => {
+    const d = data[day];
+    return d && d.isOpen === true && d.openingTime === "09:00" && d.closingTime === "22:00";
+  });
+};
+
 export default function OutletTimings() {
   const navigate = useNavigate();
   const [expandedDay, setExpandedDay] = useState("Monday");
@@ -62,9 +141,8 @@ export default function OutletTimings() {
       if (saved) {
         const parsed = JSON.parse(saved);
         // Validate and ensure all days have proper structure
-        const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
         const validated = {};
-        dayNames.forEach((day) => {
+        DAY_NAMES.forEach((day) => {
           if (parsed[day]) {
             // Migrate from old slot-based format to new time-based format
             if (parsed[day].slots && Array.isArray(parsed[day].slots) && parsed[day].slots.length > 0) {
@@ -101,6 +179,43 @@ export default function OutletTimings() {
     }
     return getDefaultDays();
   });
+
+  // On first visit, hydrate timings from restaurant onboarding/profile data
+  // when local outlet timings are not already saved.
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromBackend = async () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        let parsedSaved = null;
+        if (saved) {
+          try {
+            parsedSaved = JSON.parse(saved);
+          } catch {
+            parsedSaved = null;
+          }
+          // Preserve customized timings, but allow migration from pure defaults.
+          if (parsedSaved && !isDefaultOutletTimings(parsedSaved)) return;
+        }
+
+        const response = await restaurantAPI.getCurrentRestaurant();
+        const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant;
+        const hydratedDays = buildDaysFromRestaurantData(restaurant);
+        if (!isMounted || !hydratedDays) return;
+
+        isInternalUpdate.current = true;
+        setDays(hydratedDays);
+      } catch (error) {
+        // Keep page usable with existing defaults if backend fetch fails.
+      }
+    };
+
+    hydrateFromBackend();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Save to localStorage whenever days change (but only if it's an internal update)
   useEffect(() => {
@@ -202,8 +317,6 @@ export default function OutletTimings() {
     }));
   };
 
-  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <div className="min-h-screen bg-white overflow-x-hidden">
@@ -233,7 +346,7 @@ export default function OutletTimings() {
 
           {/* Day-wise Accordion */}
           <div className="space-y-2">
-            {dayNames.map((day, index) => {
+            {DAY_NAMES.map((day, index) => {
               const dayData = days[day] || { isOpen: true, openingTime: "09:00", closingTime: "22:00" };
               const isExpanded = expandedDay === day;
 

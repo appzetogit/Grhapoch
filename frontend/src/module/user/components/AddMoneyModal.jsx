@@ -168,8 +168,8 @@ export default function AddMoneyModal({ open, onOpenChange, onSuccess }) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-2xl p-0 gap-0 overflow-hidden bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800">
+        <DialogHeader className="px-5 pt-6 pb-3">
           <DialogTitle className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
             Add Money to Wallet
           </DialogTitle>
@@ -178,7 +178,7 @@ export default function AddMoneyModal({ open, onOpenChange, onSuccess }) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 px-5 pb-5 pt-2">
           {/* Amount Input */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -193,7 +193,7 @@ export default function AddMoneyModal({ open, onOpenChange, onSuccess }) {
                 value={amount}
                 onChange={handleAmountChange}
                 placeholder="Enter amount"
-                className="pl-10 h-12 text-lg"
+                className="pl-10 h-12 text-lg text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-[#1a1a1a] border-gray-300 dark:border-gray-700"
                 disabled={loading || processing} />
               
             </div>
@@ -213,7 +213,10 @@ export default function AddMoneyModal({ open, onOpenChange, onSuccess }) {
                 key={quickAmount}
                 type="button"
                 variant={amount === quickAmount.toString() ? "default" : "outline"}
-                className="h-10"
+                className={`h-10 border transition-colors ${amount === quickAmount.toString()
+                  ? "bg-green-600 border-green-600 text-white hover:bg-green-700 hover:text-white dark:bg-green-600 dark:border-green-600 dark:text-white"
+                  : "bg-white dark:bg-[#1a1a1a] border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#232323]"
+                }`}
                 onClick={() => handleAmountSelect(quickAmount)}
                 disabled={loading || processing}>
                 

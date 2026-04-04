@@ -138,6 +138,17 @@ export default function SafetyEmergencyReports() {
     )
   }, [reports, searchQuery])
 
+  const isSyntheticEmail = (email) => {
+    if (!email) return true
+    return String(email).toLowerCase().endsWith('@no-email.local')
+  }
+
+  const getDisplayEmail = (report) => {
+    const email = report?.userEmail || ''
+    if (isSyntheticEmail(email)) return 'Not provided'
+    return email
+  }
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       unread: { label: 'Unread', className: 'bg-blue-100 text-blue-700' },
@@ -202,13 +213,14 @@ export default function SafetyEmergencyReports() {
                 setPriorityFilter(e.target.value)
                 setCurrentPage(1)
               }}
-              className="px-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+              className="px-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+              style={{ color: '#0f172a' }}
             >
-              <option value="all">All Priority</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
+              <option value="all" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>All Priority</option>
+              <option value="low" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Low</option>
+              <option value="medium" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Medium</option>
+              <option value="high" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>High</option>
+              <option value="critical" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Critical</option>
             </select>
 
             {/* Status Filter */}
@@ -218,13 +230,14 @@ export default function SafetyEmergencyReports() {
                 setStatusFilter(e.target.value)
                 setCurrentPage(1)
               }}
-              className="px-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+              className="px-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+              style={{ color: '#0f172a' }}
             >
-              <option value="all">All Status</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-              <option value="urgent">Urgent</option>
-              <option value="resolved">Resolved</option>
+              <option value="all" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>All Status</option>
+              <option value="unread" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Unread</option>
+              <option value="read" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Read</option>
+              <option value="urgent" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Urgent</option>
+              <option value="resolved" style={{ color: '#0f172a', backgroundColor: '#ffffff' }}>Resolved</option>
             </select>
 
             {/* Search */}
@@ -332,7 +345,7 @@ export default function SafetyEmergencyReports() {
                       <span className="text-sm font-medium text-slate-900">{report.userName}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-slate-700">{report.userEmail}</span>
+                      <span className="text-sm text-slate-700">{getDisplayEmail(report)}</span>
                     </td>
                     <td className="px-6 py-4 max-w-md">
                       <span className="text-sm text-slate-700 line-clamp-2">
@@ -352,24 +365,33 @@ export default function SafetyEmergencyReports() {
                             <Settings className="w-4 h-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewReport(report)}>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={8}
+                          className="z-[9999] min-w-[220px] bg-white border border-slate-200 shadow-xl text-slate-900"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => handleViewReport(report)}
+                            className="text-slate-800 focus:bg-slate-100 focus:text-slate-900 cursor-pointer"
+                          >
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleUpdateStatus(report._id, report.status === 'unread' ? 'read' : 'unread')}
+                            className="text-slate-800 focus:bg-slate-100 focus:text-slate-900 cursor-pointer"
                           >
                             Mark as {report.status === 'unread' ? 'Read' : 'Unread'}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleUpdatePriority(report._id, report.priority === 'critical' ? 'high' : 'critical')}
+                            className="text-slate-800 focus:bg-slate-100 focus:text-slate-900 cursor-pointer"
                           >
                             Set Priority: {report.priority === 'critical' ? 'High' : 'Critical'}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(report._id)}
-                            className="text-red-600"
+                            className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
@@ -439,7 +461,7 @@ export default function SafetyEmergencyReports() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email Address</label>
-                    <p className="text-base font-semibold text-slate-900 dark:text-white break-all">{selectedReport.userEmail || 'N/A'}</p>
+                    <p className="text-base font-semibold text-slate-900 dark:text-white break-all">{getDisplayEmail(selectedReport)}</p>
                   </div>
                   {selectedReport.userId?.phone && (
                     <div className="space-y-1">

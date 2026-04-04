@@ -17,7 +17,7 @@ import { authenticate } from '../middleware/auth.js';
 import { uploadMiddleware } from '../utils/cloudinaryService.js';
 import { createDonationOrder, verifyDonation } from '../controllers/donationController.js';
 import userWalletRoutes from './userWalletRoutes.js';
-import complaintRoutes from './complaintRoutes.js';
+import userComplaintRoutes from './userComplaintRoutes.js';
 
 const router = express.Router();
 
@@ -54,7 +54,7 @@ router.post('/favorites/dish', toggleDishFavorite);
 router.use('/wallet', userWalletRoutes);
 
 // Complaint routes
-router.use('/complaints', complaintRoutes);
+router.use('/complaints', userComplaintRoutes);
 
 // Donation routes
 router.post('/donation/create', createDonationOrder);

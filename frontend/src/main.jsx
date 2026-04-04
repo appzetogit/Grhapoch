@@ -85,7 +85,9 @@ window.__googleMapsLoaded = window.__googleMapsLoaded || false;
 
 // Apply theme on app initialization
 const savedTheme = localStorage.getItem('appTheme') || 'light';
-if (savedTheme === 'dark') {
+const currentPath = window.location.pathname || '/';
+const isUserRoute = currentPath === '/' || currentPath.startsWith('/user');
+if (isUserRoute && savedTheme === 'dark') {
   document.documentElement.classList.add('dark');
 } else {
   document.documentElement.classList.remove('dark');

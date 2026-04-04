@@ -203,6 +203,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const { location, loading, requestLocation } = useLocation();
   const [heroSearch, setHeroSearch] = useState("");
   const { openSearch, closeSearch, searchValue, setSearchValue } = useSearchOverlay();
   const { openLocationSelector } = useLocationSelector();
@@ -210,7 +211,14 @@ export default function Home() {
   const [prevVegMode, setPrevVegMode] = useState(vegMode);
   const [showVegModePopup, setShowVegModePopup] = useState(false);
   const [showSwitchOffPopup, setShowSwitchOffPopup] = useState(false);
-  const [vegModeOption, setVegModeOption] = useState("all"); // "all" or "pure-veg"
+  const [vegModeOption, setVegModeOption] = useState(() => {
+    try {
+      const savedOption = localStorage.getItem("userVegModeOption");
+      return savedOption === "pure-veg" ? "pure-veg" : "all";
+    } catch {
+      return "all";
+    }
+  }); // "all" or "pure-veg"
   const [isApplyingVegMode, setIsApplyingVegMode] = useState(false);
   const [isSwitchingOffVegMode, setIsSwitchingOffVegMode] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ top: 0, right: 0 });
@@ -246,6 +254,14 @@ export default function Home() {
       setPrevVegMode(vegMode);
     }
   }, [vegMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("userVegModeOption", vegModeOption === "pure-veg" ? "pure-veg" : "all");
+    } catch {
+      // ignore storage errors
+    }
+  }, [vegModeOption]);
 
   // Handle vegMode toggle - show popup when turned ON or OFF
   const handleVegModeChange = (newValue) => {
@@ -376,8 +392,14 @@ export default function Home() {
 
     const loadActiveCampaignAds = async () => {
       try {
+        const campaignAdParams = {};
+        if (location?.latitude && location?.longitude) {
+          campaignAdParams.lat = location.latitude;
+          campaignAdParams.lng = location.longitude;
+        }
+
         const [campaignAdsResult, userAdsResult] = await Promise.allSettled([
-          campaignAPI.getActiveAdvertisementsPublic(),
+          campaignAPI.getActiveAdvertisementsPublic(campaignAdParams),
           userAdvertisementAPI.getPublicActiveUserAdvertisements()]
         );
 
@@ -412,7 +434,7 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [location?.latitude, location?.longitude]);
 
   // Auto-slide active campaign ads
   useEffect(() => {
@@ -595,7 +617,6 @@ export default function Home() {
 
   const { addFavorite, removeFavorite, isFavorite, getFavorites } = profileContext;
   const { addToCart, cart } = useCart();
-  const { location, loading, requestLocation } = useLocation();
   const isOutOfService = false;
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
@@ -1752,7 +1773,7 @@ export default function Home() {
           transition={{ duration: 0.5 }}>
 
           <motion.h2
-            className="text-xs sm:text-sm lg:text-base font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase mb-2 sm:mb-3 lg:mb-4 px-1"
+            className="text-xs sm:text-sm lg:text-base font-semibold text-gray-500 dark:text-gray-300 tracking-widest uppercase mb-2 sm:mb-3 lg:mb-4 px-1"
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
@@ -1893,10 +1914,10 @@ export default function Home() {
             transition={{ duration: 0.5 }}>
 
             <div className="flex flex-col gap-0.5 lg:gap-1">
-              <h2 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-400 tracking-widest uppercase">
+              <h2 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-500 dark:text-gray-300 tracking-widest uppercase">
                 {filteredRestaurants.length} Restaurants Delivering to You
               </h2>
-              <span className="text-base sm:text-lg lg:text-2xl text-gray-500 font-normal">Featured</span>
+              <span className="text-base sm:text-lg lg:text-2xl text-gray-600 dark:text-gray-200 font-normal">Featured</span>
             </div>
           </motion.div>
           <div className="relative">
@@ -2559,6 +2580,7 @@ export default function Home() {
                 // Revert veg mode to OFF if popup is closed without applying
                 setVegModeContext(false);
                 setPrevVegMode(false);
+                setVegModeOption("all");
               }}
               className="fixed inset-0 bg-black/30 z-[9998] backdrop-blur-sm" />
 
@@ -2661,6 +2683,11 @@ export default function Home() {
                   // Confirm veg mode is ON by updating context and prevVegMode
                   setVegModeContext(true);
                   setPrevVegMode(true);
+                  try {
+                    localStorage.setItem("userVegModeOption", vegModeOption === "pure-veg" ? "pure-veg" : "all");
+                  } catch {
+                    // ignore storage errors
+                  }
                   // Simulate applying veg mode settings
                   setTimeout(() => {
                     setIsApplyingVegMode(false);
@@ -2678,6 +2705,7 @@ export default function Home() {
                   // Revert veg mode to OFF if popup is closed without applying
                   setVegModeContext(false);
                   setPrevVegMode(false);
+                  setVegModeOption("all");
                 }}
                 className="w-full text-green-600 dark:text-green-400 font-medium text-xs hover:text-green-700 dark:hover:text-green-500 transition-colors">
 
@@ -2701,7 +2729,7 @@ export default function Home() {
               onClick={() => {
                 setShowSwitchOffPopup(false);
                 isHandlingSwitchOff.current = false;
-                setVegMode(true);
+                setVegModeContext(true);
                 // prevVegMode stays true (from before), which is correct
               }}
               className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm" />
@@ -2751,6 +2779,7 @@ export default function Home() {
                         isHandlingSwitchOff.current = false;
                         setVegModeContext(false);
                         setPrevVegMode(false); // Set to false to match current state (veg mode is OFF)
+                        setVegModeOption("all");
                       }, 2000);
                     }}
                     className="w-full bg-transparent text-red-600 font-normal py-1 text-normal rounded-xl hover:bg-red-50 transition-colors text-base">

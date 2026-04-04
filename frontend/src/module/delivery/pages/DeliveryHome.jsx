@@ -639,6 +639,8 @@ export default function DeliveryHome() {
   const [customerRating, setCustomerRating] = useState(0);
   const [customerReviewText, setCustomerReviewText] = useState("");
   const [isCompletingDelivery, setIsCompletingDelivery] = useState(false);
+  const completeDeliveryInFlightRef = useRef(false);
+  const reachedDropInFlightRef = useRef(false);
   const [orderEarnings, setOrderEarnings] = useState(0); // Store earnings from completed order
   const [routePolyline, setRoutePolyline] = useState([]);
   const [showRoutePath, setShowRoutePath] = useState(false); // Toggle to show/hide route path - disabled by default
@@ -663,15 +665,22 @@ export default function DeliveryHome() {
   const orderIdConfirmIsSwiping = useRef(false);
 
   const resolveOrderIdForApi = useCallback(() => {
-    return (
-      selectedRestaurant?.id ||
-      selectedRestaurant?.orderMongoId ||
-      newOrder?.orderMongoId ||
-      newOrder?._id ||
-      selectedRestaurant?.orderId ||
-      newOrder?.orderId ||
-      null
-    );
+    const candidates = [
+      selectedRestaurant?.orderMongoId,
+      newOrder?.orderMongoId,
+      newOrder?._id,
+      selectedRestaurant?.id,
+      selectedRestaurant?.orderId,
+      newOrder?.orderId
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const value = String(candidate).trim();
+      if (!value || value === '[object Object]') continue;
+      return value;
+    }
+    return null;
   }, [selectedRestaurant, newOrder]);
 
   // Sync QR payment state from selected order
@@ -2450,6 +2459,7 @@ export default function DeliveryHome() {
 
               restaurantInfo = {
                 id: order._id || order.orderId,
+                orderMongoId: order._id || null,
                 orderId: order.orderId, // Correct order ID from backend
                 name: restaurantName, // Restaurant name from backend (priority: restaurantName > restaurantId.name)
                 address: restaurantAddress, // Restaurant address from backend
@@ -3266,18 +3276,14 @@ export default function DeliveryHome() {
 
         // API call in background (async, doesn't block popup)
         ; (async () => {
-          // Get order ID - prioritize MongoDB _id over orderId string for API call
-          // Backend expects _id (MongoDB ObjectId) in the URL parameter
-          // Use _id (MongoDB ObjectId) if available, otherwise fallback to orderId string
-          const orderIdForApi = selectedRestaurant?.id ||
-            newOrder?.orderMongoId ||
-            newOrder?._id ||
-            selectedRestaurant?.orderId ||
-            newOrder?.orderId;
+          if (reachedDropInFlightRef.current) return;
+
+          const orderIdForApi = resolveOrderIdForApi();
 
 
           if (orderIdForApi) {
             try {
+              reachedDropInFlightRef.current = true;
               // Call backend API to confirm reached drop (in background, don't block popup)
               // Use MongoDB _id for API call to avoid ObjectId casting errors
               const response = await deliveryAPI.confirmReachedDrop(orderIdForApi);
@@ -3289,6 +3295,17 @@ export default function DeliveryHome() {
               }
             } catch (error) {
               const status = error.response?.status;
+              const backendMessage = String(error.response?.data?.message || error.message || '').toLowerCase();
+
+              // Order can already move beyond this state via another successful attempt.
+              // Treat this as idempotent success and avoid noisy errors.
+              const isAlreadyProcessed =
+                status === 400 &&
+                (backendMessage.includes('not in valid state') ||
+                  backendMessage.includes('at_delivery') ||
+                  backendMessage.includes('completed') ||
+                  backendMessage.includes('delivered'));
+              const isNotFoundButLikelyDone = status === 404;
 
               // Handle 500 errors gracefully (server-side issue, popup already shown)
               if (status === 500) {
@@ -3298,6 +3315,14 @@ export default function DeliveryHome() {
                   message: error.response?.data?.message || error.message
                 });
                 // Don't show error toast or log as error - it's a server issue, not user action
+                return;
+              }
+
+              if (isAlreadyProcessed || isNotFoundButLikelyDone) {
+                console.warn('⚠️ Reached-drop API returned idempotent response, skipping noisy error.', {
+                  status,
+                  orderIdForApi
+                });
                 return;
               }
 
@@ -3321,6 +3346,8 @@ export default function DeliveryHome() {
               }
 
               toast.error(errorMessage);
+            } finally {
+              reachedDropInFlightRef.current = false;
             }
           }
         })();
@@ -3985,6 +4012,8 @@ export default function DeliveryHome() {
   }, [isQrPolling, qrPaymentState.status, resolveOrderIdForApi]);
 
   const completeDeliveryAfterSwipe = useCallback(async () => {
+    if (completeDeliveryInFlightRef.current) return false;
+
     const orderIdForApi = resolveOrderIdForApi();
     if (!orderIdForApi) {
       toast.error('Order ID missing. Delivery complete nahi ho paayi. Please try again.');
@@ -3992,6 +4021,7 @@ export default function DeliveryHome() {
     }
 
     try {
+      completeDeliveryInFlightRef.current = true;
       setIsCompletingDelivery(true);
       const response = await deliveryAPI.completeDelivery(orderIdForApi, null, '');
 
@@ -4020,12 +4050,29 @@ export default function DeliveryHome() {
       }
       return true;
     } catch (error) {
-      setPendingCompletionOrderId(orderIdForApi);
       const message = error?.response?.data?.message || 'Failed to complete delivery. Please try again.';
-      toast.error(message);
+      const status = error?.response?.status;
+      const normalizedMessage = String(message).toLowerCase();
+
+      const shouldStopRetrying =
+        status === 404 ||
+        (status === 400 &&
+          (normalizedMessage.includes('cannot be completed') ||
+            normalizedMessage.includes('current status') ||
+            normalizedMessage.includes('already delivered') ||
+            normalizedMessage.includes('completed')));
+
+      if (shouldStopRetrying) {
+        clearPendingCompletionOrderId(orderIdForApi);
+        toast.info('Delivery status already updated. Refreshing latest order state.');
+      } else {
+        setPendingCompletionOrderId(orderIdForApi);
+        toast.error(message);
+      }
       return false;
     } finally {
       setIsCompletingDelivery(false);
+      completeDeliveryInFlightRef.current = false;
     }
   }, [resolveOrderIdForApi, orderEarnings, clearPendingCompletionOrderId, setPendingCompletionOrderId]);
 
@@ -4046,8 +4093,22 @@ export default function DeliveryHome() {
           clearPendingCompletionOrderId(pendingOrderId);
           window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
         }
-      } catch {
-        // Keep retrying silently; user can continue using the app.
+      } catch (error) {
+        const status = error?.response?.status;
+        const message = String(error?.response?.data?.message || error?.message || '').toLowerCase();
+        const terminalState =
+          status === 404 ||
+          (status === 400 &&
+            (message.includes('cannot be completed') ||
+              message.includes('current status') ||
+              message.includes('already delivered') ||
+              message.includes('completed')));
+
+        if (terminalState) {
+          clearPendingCompletionOrderId(pendingOrderId);
+          return;
+        }
+        // Keep retrying silently for transient failures; user can continue using the app.
       } finally {
         completionRetryInFlightRef.current = false;
       }
@@ -4124,11 +4185,6 @@ export default function DeliveryHome() {
     const threshold = maxSwipe * 0.7; // 70% of max swipe
 
     if (deltaX > threshold) {
-      const pendingOrderId = resolveOrderIdForApi();
-      if (pendingOrderId) {
-        setPendingCompletionOrderId(pendingOrderId);
-      }
-
       // Animate to completion
       setOrderDeliveredIsAnimatingToComplete(true);
       setOrderDeliveredButtonProgress(1);
@@ -4503,6 +4559,7 @@ export default function DeliveryHome() {
       const normalizedTotal = newOrder.total ?? newOrder.totalAmount ?? newOrder.pricing?.total ?? newOrder.fullOrder?.pricing?.total ?? newOrder.fullOrder?.total ?? 0;
       const restaurantData = {
         id: newOrder.orderMongoId || newOrder.orderId,
+        orderMongoId: newOrder.orderMongoId || newOrder._id || null,
         orderId: newOrder.orderId,
         paymentMethod: paymentMethodFromOrder,
         name: newOrder.restaurantName,
@@ -4994,6 +5051,7 @@ export default function DeliveryHome() {
 
           const restaurantData = {
             id: firstOrder._id?.toString() || firstOrder.orderId,
+            orderMongoId: firstOrder._id?.toString() || null,
             orderId: firstOrder.orderId,
             paymentMethod: firstOrder.payment?.method || 'cash',
             name: firstOrder.restaurantId?.name || 'Restaurant',

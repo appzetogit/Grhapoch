@@ -1,7 +1,150 @@
 import Delivery from '../models/Delivery.js';
 import Order from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
+import DeliveryWallet from '../models/DeliveryWallet.js';
+import BusinessSettings from '../models/BusinessSettings.js';
 import mongoose from 'mongoose';
+
+const COD_METHODS = ['cash', 'cod', 'cash on delivery'];
+
+async function filterCodEligiblePartners(partners = [], codAmount = 0) {
+  if (!Array.isArray(partners) || partners.length === 0) return [];
+
+  let cashLimit = 750;
+  try {
+    const settings = await BusinessSettings.getSettings();
+    const configured = Number(settings?.deliveryCashLimit);
+    if (Number.isFinite(configured) && configured >= 0) {
+      cashLimit = configured;
+    }
+  } catch (e) {
+    cashLimit = 750;
+  }
+
+  const partnerIds = partners
+    .map((p) => p?._id)
+    .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (partnerIds.length === 0) return [];
+
+  const partnerIdStrings = partnerIds.map((id) => id.toString());
+
+  const wallets = await DeliveryWallet.find({ deliveryId: { $in: partnerIds } })
+    .select('deliveryId cashInHand')
+    .lean();
+
+  const cashInHandByPartner = new Map(
+    wallets.map((w) => [w.deliveryId?.toString(), Number(w.cashInHand) || 0])
+  );
+
+  let pendingReserveByPartner = new Map();
+  try {
+    const pendingAgg = await Order.aggregate([
+      {
+        $match: {
+          $expr: {
+            $and: [
+              {
+                $in: [
+                  { $toString: { $ifNull: ['$deliveryPartnerId', ''] } },
+                  partnerIdStrings
+                ]
+              },
+              {
+                $or: [
+                  {
+                    $in: [
+                      { $toLower: { $ifNull: ['$payment.method', ''] } },
+                      COD_METHODS
+                    ]
+                  },
+                  {
+                    $in: [
+                      { $toLower: { $ifNull: ['$paymentMethod', ''] } },
+                      COD_METHODS
+                    ]
+                  }
+                ]
+              },
+              {
+                $not: {
+                  $in: [
+                    { $toLower: { $ifNull: ['$paymentStatus', ''] } },
+                    ['paid', 'completed', 'success', 'successful']
+                  ]
+                }
+              },
+              {
+                $not: {
+                  $in: [
+                    { $toLower: { $ifNull: ['$payment.status', ''] } },
+                    ['paid', 'completed', 'success', 'successful']
+                  ]
+                }
+              },
+              {
+                $not: {
+                  $in: [
+                    { $toLower: { $ifNull: ['$status', ''] } },
+                    ['delivered', 'cancelled']
+                  ]
+                }
+              },
+              {
+                $ne: [
+                  { $toLower: { $ifNull: ['$deliveryState.currentPhase', ''] } },
+                  'completed'
+                ]
+              },
+              {
+                $ne: [
+                  { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
+                  'delivered'
+                ]
+              },
+              {
+                $eq: [
+                  { $toLower: { $ifNull: ['$status', ''] } },
+                  'out_for_delivery'
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $toString: '$deliveryPartnerId' },
+          total: {
+            $sum: {
+              $ifNull: ['$pricing.total', { $ifNull: ['$total', 0] }]
+            }
+          }
+        }
+      }
+    ]);
+
+    pendingReserveByPartner = new Map(
+      (pendingAgg || []).map((row) => [String(row._id), Number(row.total) || 0])
+    );
+  } catch (e) {
+    pendingReserveByPartner = new Map();
+  }
+
+  const orderCodAmount = Number(codAmount) || 0;
+  return partners.filter((partner) => {
+    const partnerId = partner?._id?.toString();
+    if (!partnerId) return false;
+    const cashInHand = cashInHandByPartner.get(partnerId) || 0;
+    const pendingReserve = pendingReserveByPartner.get(partnerId) || 0;
+    const projectedExposure = cashInHand + pendingReserve + orderCodAmount;
+
+    if (cashInHand >= cashLimit) return false;
+    if (projectedExposure > cashLimit) return false;
+    return true;
+  });
+}
 
 /**
  * Calculate distance between two coordinates using Haversine formula
@@ -42,11 +185,6 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
       isActive: { $ne: false }, // include partners where isActive is true OR undefined/null
       'availability.currentLocation.coordinates': { $exists: true }
     };
-
-    // Important business rule:
-    // Do NOT filter riders by COD cash-limit at assignment/discovery stage.
-    // Let riders receive order notifications, and enforce cash-limit only
-    // when rider attempts to accept the order (with proper popup/error).
 
     // Geo-near filter (priority distance)
     deliveryQuery['availability.currentLocation'] = {
@@ -100,8 +238,17 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
       console.warn(`   Approved partners: ${approvedPartners}`);
       return [];
     }
+    let codEligiblePartners = deliveryPartnersWithDistance;
+    if (isCod) {
+      codEligiblePartners = await filterCodEligiblePartners(deliveryPartnersWithDistance, codAmount);
+    }
+
+    if (codEligiblePartners.length === 0) {
+      return [];
+    }
+
     // Sort by distance (nearest first)
-    let results = deliveryPartnersWithDistance.sort((a, b) => a.distance - b.distance);
+    let results = codEligiblePartners.sort((a, b) => a.distance - b.distance);
 
     // Apply limit if provided
     if (limit && typeof limit === 'number' && limit > 0) {
@@ -145,11 +292,6 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
       isActive: { $ne: false }, // include partners where isActive is true OR undefined/null
       'availability.currentLocation.coordinates': { $exists: true }
     };
-
-    // Important business rule:
-    // Do NOT filter riders by COD cash-limit at assignment/discovery stage.
-    // Let riders receive order notifications, and enforce cash-limit only
-    // when rider attempts to accept the order (with proper popup/error).
 
     // Exclude already notified delivery partners
     if (excludeIds && excludeIds.length > 0) {
@@ -216,12 +358,21 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
     filter((partner) => partner !== null && partner.distance <= maxDistance);
 
     if (deliveryPartnersWithDistance.length === 0) {
+      return null;
+    }
+
+    let codEligiblePartners = deliveryPartnersWithDistance;
+    if (isCod) {
+      codEligiblePartners = await filterCodEligiblePartners(deliveryPartnersWithDistance, codAmount);
+    }
+
+    if (codEligiblePartners.length === 0) {
 
       return null;
     }
 
     // Sort by distance (nearest first)
-    const sortedPartners = deliveryPartnersWithDistance.sort((a, b) => a.distance - b.distance);
+    const sortedPartners = codEligiblePartners.sort((a, b) => a.distance - b.distance);
     const nearestPartner = sortedPartners[0];
 
 

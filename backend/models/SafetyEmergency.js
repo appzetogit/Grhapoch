@@ -14,7 +14,7 @@ const safetyEmergencySchema = new mongoose.Schema(
     },
     userEmail: {
       type: String,
-      required: true,
+      default: '',
       trim: true
     },
     message: {

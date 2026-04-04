@@ -1,4 +1,5 @@
 import BusinessSettings from '../models/BusinessSettings.js';
+import DeliveryWallet from '../models/DeliveryWallet.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 
@@ -36,6 +37,22 @@ export const updateDeliveryCashLimit = asyncHandler(async (req, res) => {
       if (!Number.isFinite(parsed) || parsed < 0) {
         return errorResponse(res, 400, 'deliveryCashLimit must be a number (>= 0)');
       }
+
+      // Guardrail: new dynamic limit cannot be below current cash-in-hand of any rider.
+      // This prevents an invalid state where cashInHand is already above configured limit.
+      const maxCashInHandWallet = await DeliveryWallet.findOne({})
+        .sort({ cashInHand: -1 })
+        .select('cashInHand deliveryId')
+        .lean();
+      const maxCashInHand = Number(maxCashInHandWallet?.cashInHand) || 0;
+      if (parsed < maxCashInHand) {
+        return errorResponse(
+          res,
+          400,
+          `deliveryCashLimit cannot be less than current max cash in hand (₹${maxCashInHand.toFixed(2)}). Ask rider to deposit first.`
+        );
+      }
+
       settings.deliveryCashLimit = parsed;
     }
 

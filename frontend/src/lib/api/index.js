@@ -1751,8 +1751,8 @@ export const campaignAPI = {
   },
 
   // Public side
-  getActiveAdvertisementsPublic: () => {
-    return apiClient.get('/advertisements/active');
+  getActiveAdvertisementsPublic: (params = {}) => {
+    return apiClient.get('/advertisements/active', { params });
   },
 };
 

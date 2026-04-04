@@ -120,6 +120,8 @@ function RestaurantWelcomeRedirect() {
 }
 
 export default function App() {
+  const location = useLocation()
+
   useEffect(() => {
     // Start foreground notification handler once on mount.
     // Returns an unsubscribe fn; clean up on unmount.
@@ -129,6 +131,23 @@ export default function App() {
     }).then((unsub) => { unsubscribe = unsub; });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const root = document.documentElement
+    const theme = localStorage.getItem("appTheme") || "light"
+    const path = location.pathname || "/"
+    const isNonUserModuleRoute =
+      path.startsWith("/admin") ||
+      path.startsWith("/restaurant") ||
+      path.startsWith("/delivery")
+    const isUserRoute = !isNonUserModuleRoute
+
+    if (isUserRoute && theme === "dark") {
+      root.classList.add("dark")
+    } else {
+      root.classList.remove("dark")
+    }
+  }, [location.pathname])
 
   return (
     <Routes>

@@ -35,6 +35,7 @@ import { useProfile } from "../../context/ProfileContext";
 import { useLocation as useUserLocation } from "../../hooks/useLocation";
 import DeliveryTrackingMap from "../../components/DeliveryTrackingMap";
 import { orderAPI, restaurantAPI } from "@/lib/api";
+import { shareContent } from "@/lib/utils/share";
 import circleIcon from "@/assets/circleicon.png";
 const AnimatedCheckmark = ({ delay = 0 }) =>
   <motion.svg
@@ -614,15 +615,11 @@ export default function OrderTracking() {
       url: window.location.href
     };
 
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Tracking link copied to clipboard!");
-      }
-    } catch (err) {
-      console.error("Error sharing:", err);
+    const result = await shareContent(shareData);
+    if (result.status === "copied") {
+      toast.success("Tracking link copied to clipboard!");
+    } else if (result.status === "unsupported") {
+      toast.error("Sharing is not supported on this device");
     }
   };
 

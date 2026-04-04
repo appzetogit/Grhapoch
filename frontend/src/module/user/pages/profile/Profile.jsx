@@ -29,7 +29,6 @@ import {
 
 import AnimatedPage from "../../components/AnimatedPage";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useProfile } from "../../context/ProfileContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import OptimizedImage from "@/components/OptimizedImage";
@@ -54,6 +53,7 @@ export default function Profile() {
   // Popup states
   const [vegModeOpen, setVegModeOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Settings states
@@ -256,61 +256,67 @@ export default function Profile() {
         {/* Profile Info Card */}
         <Card className="bg-white dark:bg-[#1a1a1a] mt-6 rounded-2xl py-0 pt-1 shadow-sm mb-0 border-0 dark:border-gray-800 overflow-hidden">
           <CardContent className="p-4 py-0 pt-2">
-            <div className="flex items-start gap-4 mb-4">
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                transition={{ duration: 0.3, type: "spring", stiffness: 300 }}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-start gap-4 min-w-0 flex-1">
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ duration: 0.3, type: "spring", stiffness: 300 }}>
 
-                <Avatar className="h-16 w-16 border-0 overflow-hidden bg-transparent">
-                  <AnimatePresence mode="wait">
-                    {userProfile?.profileImage && userProfile?.profileImage !== 'null' && userProfile?.profileImage !== 'undefined' ? (
-                      <motion.div
-                        key="image"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="w-full h-full"
-                      >
-                        <AvatarImage
-                          src={userProfile.profileImage.trim()}
-                          alt={displayName}
-                          className="object-cover w-full h-full"
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="initials"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex items-center justify-center w-full h-full bg-blue-500 text-white text-2xl font-semibold uppercase select-none"
-                      >
-                        {avatarInitial}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Avatar>
-              </motion.div>
-              <div className="flex-1 pt-1">
-                <h2 className="text-xl font-bold text-black dark:text-white mb-1">{displayName}</h2>
-                {hasValidEmail &&
-                  <p className="text-sm text-black dark:text-gray-300 mb-1">{userProfile.email}</p>
-                }
-                {userProfile?.phone &&
-                  <p className={`text-sm ${hasValidEmail ? 'text-gray-600 dark:text-gray-400' : 'text-black dark:text-white'} mb-3`}>
-                    {userProfile.phone}
-                  </p>
-                }
-                {!hasValidEmail && !userProfile?.phone &&
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Not available</p>
-                }
-                {/* <Link to="/user/profile/activity" className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                   View activity
-                   <ChevronRight className="h-4 w-4" />
-                  </Link> */}
+                  <Avatar className="h-16 w-16 border-0 overflow-hidden bg-transparent">
+                    <AnimatePresence mode="wait">
+                      {userProfile?.profileImage && userProfile?.profileImage !== 'null' && userProfile?.profileImage !== 'undefined' ? (
+                        <motion.div
+                          key="image"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="w-full h-full"
+                        >
+                          <AvatarImage
+                            src={userProfile.profileImage.trim()}
+                            alt={displayName}
+                            className="object-cover w-full h-full"
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="initials"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex items-center justify-center w-full h-full bg-blue-500 text-white text-2xl font-semibold uppercase select-none"
+                        >
+                          {avatarInitial}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </Avatar>
+                </motion.div>
+                <div className="flex-1 pt-1 min-w-0">
+                  <h2 className="text-xl font-bold text-black dark:text-white mb-1 truncate">{displayName}</h2>
+                  {hasValidEmail &&
+                    <p className="text-sm text-black dark:text-gray-300 mb-1 truncate">{userProfile.email}</p>
+                  }
+                  {userProfile?.phone &&
+                    <p className={`text-sm ${hasValidEmail ? 'text-gray-600 dark:text-gray-400' : 'text-black dark:text-white'} mb-3`}>
+                      {userProfile.phone}
+                    </p>
+                  }
+                  {!hasValidEmail && !userProfile?.phone &&
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Not available</p>
+                  }
+                </div>
               </div>
+              <Link to="/user/profile/edit" className="shrink-0">
+                <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.2 }}>
+                  <div className="h-9 px-3 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white inline-flex items-center text-sm font-medium">
+                    <PenSquare className="h-4 w-4 mr-1.5" />
+                    Edit
+                  </div>
+                </motion.div>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -773,7 +779,7 @@ export default function Profile() {
 
               <Card
                 className="bg-white dark:bg-[#1a1a1a] py-0 rounded-xl shadow-sm border-0 dark:border-gray-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleLogout}>
+                onClick={() => !isLoggingOut && setLogoutConfirmOpen(true)}>
 
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -921,6 +927,39 @@ export default function Profile() {
                 <p className="font-medium text-gray-900 dark:text-white text-sm">Dark</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Dark theme</p>
               </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logout Confirmation Popup */}
+      <Dialog open={logoutConfirmOpen} onOpenChange={(open) => !isLoggingOut && setLogoutConfirmOpen(open)}>
+        <DialogContent className="max-w-sm w-[calc(100%-2rem)] rounded-2xl p-0 overflow-hidden bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-800">
+          <DialogHeader className="p-5 pb-3">
+            <DialogTitle className="text-lg font-bold text-gray-900 dark:text-white">Log Out</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+              Do you want to log out?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 pb-5 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setLogoutConfirmOpen(false)}
+              disabled={isLoggingOut}
+              className="h-11 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              No
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setLogoutConfirmOpen(false);
+                await handleLogout();
+              }}
+              disabled={isLoggingOut}
+              className="h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? "Logging out..." : "Yes"}
             </button>
           </div>
         </DialogContent>

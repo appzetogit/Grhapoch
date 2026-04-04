@@ -461,7 +461,7 @@ export default function EditProfile() {
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 pt-6 pb-24 sm:pt-8 sm:pb-32 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
+      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 pt-6 pb-[calc(96px+env(safe-area-inset-bottom))] sm:pt-8 sm:pb-36 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
         {/* Avatar Section */}
         <div className="flex justify-center">
           <div className="relative">
@@ -787,8 +787,10 @@ export default function EditProfile() {
                       className: "w-full",
                       sx: {
                         '& .MuiOutlinedInput-root': {
-                          height: '48px',
+                          height: '50px',
                           borderRadius: '8px',
+                          color: '#111827',
+                          backgroundColor: '#ffffff',
                           '& fieldset': {
                             borderColor: '#d1d5db'
                           },
@@ -800,10 +802,68 @@ export default function EditProfile() {
                             borderWidth: '1px'
                           }
                         },
+                        'html.dark & .MuiOutlinedInput-root': {
+                          color: '#f9fafb !important',
+                          backgroundColor: '#1a1a1a'
+                        },
+                        'html.dark & .MuiOutlinedInput-root fieldset': {
+                          borderColor: '#4b5563 !important'
+                        },
+                        'html.dark & .MuiOutlinedInput-root:hover fieldset': {
+                          borderColor: '#6b7280 !important'
+                        },
                         '& .MuiInputBase-input': {
-                          padding: '12px 14px',
-                          fontSize: '16px'
-                        }
+                          padding: '13px 14px',
+                          lineHeight: '24px',
+                          fontSize: '16px',
+                          color: '#111827 !important',
+                          WebkitTextFillColor: '#111827 !important',
+                          '&::placeholder': {
+                            color: '#9ca3af',
+                            opacity: 1
+                          }
+                        },
+                        'html.dark & .MuiInputBase-input': {
+                          color: '#f9fafb !important',
+                          WebkitTextFillColor: '#f9fafb !important'
+                        },
+                        '& .MuiPickersInputBase-root': {
+                          color: '#111827 !important'
+                        },
+                        '& .MuiPickersSectionList-root': {
+                          color: '#111827 !important'
+                        },
+                        '& .MuiPickersSectionList-section': {
+                          color: '#111827 !important',
+                          WebkitTextFillColor: '#111827 !important'
+                        },
+                        '& .MuiPickersInputBase-sectionsContainer': {
+                          padding: '0 14px !important',
+                          alignItems: 'center'
+                        },
+                        'html.dark & .MuiPickersInputBase-root': {
+                          color: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersSectionList-root': {
+                          color: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersSectionList-section': {
+                          color: '#f9fafb !important',
+                          WebkitTextFillColor: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersInputBase-sectionsContainer': {
+                          padding: '0 14px !important'
+                        },
+                        'html.dark & .MuiInputBase-input::placeholder': {
+                          color: '#6b7280',
+                          opacity: 1
+                        },
+                        '& .MuiSvgIcon-root': {
+                          color: '#111827'
+                        },
+                        'html.dark & .MuiSvgIcon-root': {
+                          color: '#f9fafb !important'
+                        },
                       }
                     }
                   }} />
@@ -814,7 +874,7 @@ export default function EditProfile() {
             {/* Anniversary Field */}
             <div className="space-y-1.5">
               <Label htmlFor="anniversary" className="text-sm font-medium text-gray-700 dark:text-white">
-                Anniversary <span className="text-gray-400 dark:text-gray-500 font-normal">(Optional)</span>
+                Anniversary <span className="text-gray-500 dark:text-gray-300 font-normal">(Optional)</span>
               </Label>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
@@ -825,8 +885,10 @@ export default function EditProfile() {
                       className: "w-full",
                       sx: {
                         '& .MuiOutlinedInput-root': {
-                          height: '48px',
+                          height: '50px',
                           borderRadius: '8px',
+                          color: '#111827',
+                          backgroundColor: '#ffffff',
                           '& fieldset': {
                             borderColor: '#d1d5db'
                           },
@@ -838,10 +900,68 @@ export default function EditProfile() {
                             borderWidth: '1px'
                           }
                         },
+                        'html.dark & .MuiOutlinedInput-root': {
+                          color: '#f9fafb !important',
+                          backgroundColor: '#1a1a1a'
+                        },
+                        'html.dark & .MuiOutlinedInput-root fieldset': {
+                          borderColor: '#4b5563 !important'
+                        },
+                        'html.dark & .MuiOutlinedInput-root:hover fieldset': {
+                          borderColor: '#6b7280 !important'
+                        },
                         '& .MuiInputBase-input': {
-                          padding: '12px 14px',
-                          fontSize: '16px'
-                        }
+                          padding: '13px 14px',
+                          lineHeight: '24px',
+                          fontSize: '16px',
+                          color: '#111827 !important',
+                          WebkitTextFillColor: '#111827 !important',
+                          '&::placeholder': {
+                            color: '#9ca3af',
+                            opacity: 1
+                          }
+                        },
+                        'html.dark & .MuiInputBase-input': {
+                          color: '#f9fafb !important',
+                          WebkitTextFillColor: '#f9fafb !important'
+                        },
+                        '& .MuiPickersInputBase-root': {
+                          color: '#111827 !important'
+                        },
+                        '& .MuiPickersSectionList-root': {
+                          color: '#111827 !important'
+                        },
+                        '& .MuiPickersSectionList-section': {
+                          color: '#111827 !important',
+                          WebkitTextFillColor: '#111827 !important'
+                        },
+                        '& .MuiPickersInputBase-sectionsContainer': {
+                          padding: '0 14px !important',
+                          alignItems: 'center'
+                        },
+                        'html.dark & .MuiPickersInputBase-root': {
+                          color: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersSectionList-root': {
+                          color: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersSectionList-section': {
+                          color: '#f9fafb !important',
+                          WebkitTextFillColor: '#f9fafb !important'
+                        },
+                        'html.dark & .MuiPickersInputBase-sectionsContainer': {
+                          padding: '0 14px !important'
+                        },
+                        'html.dark & .MuiInputBase-input::placeholder': {
+                          color: '#6b7280',
+                          opacity: 1
+                        },
+                        '& .MuiSvgIcon-root': {
+                          color: '#111827'
+                        },
+                        'html.dark & .MuiSvgIcon-root': {
+                          color: '#f9fafb !important'
+                        },
                       }
                     }
                   }} />
@@ -861,9 +981,13 @@ export default function EditProfile() {
                 <SelectTrigger className="h-12 text-base border border-gray-300 dark:border-gray-700 focus:border-green-600 focus:ring-1 focus:ring-green-600 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white">
                   <SelectValue placeholder="Gender" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                   {genderOptions.map((option) =>
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-800 focus:text-gray-900 dark:focus:text-white"
+                  >
                       {option.label}
                     </SelectItem>
                   )}
@@ -877,7 +1001,7 @@ export default function EditProfile() {
         <Button
           onClick={handleUpdate}
           disabled={!hasChanges || isSaving || isUploadingImage}
-          className={`w-full h-14 rounded-xl font-semibold text-base transition-all ${
+          className={`w-full h-14 mb-[calc(78px+env(safe-area-inset-bottom))] md:mb-0 rounded-xl font-semibold text-base transition-all ${
           hasChanges && !isSaving && !isUploadingImage ?
           'bg-green-600 hover:bg-green-700 text-white' :
           'bg-gray-200 text-gray-400 cursor-not-allowed'}`

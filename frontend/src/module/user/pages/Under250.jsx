@@ -345,7 +345,7 @@ export default function Under250() {
 
     <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
       {/* Fixed Navbar */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm border-b border-black/5 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-black/5 dark:border-white/10 md:hidden">
         <div className="pt-2 sm:pt-3 lg:pt-4">
           <PageNavbar textColor="black" zIndex={30} showProfile={true} />
         </div>

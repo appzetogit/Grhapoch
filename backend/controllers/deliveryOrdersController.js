@@ -674,7 +674,10 @@ export const acceptOrder = asyncHandler(async (req, res) => {
       try {
         const BusinessSettings = (await import('../models/BusinessSettings.js')).default;
         const settings = await BusinessSettings.getSettings();
-        const cashLimit = settings.deliveryCashLimit || 750;
+        const configuredCashLimit = Number(settings?.deliveryCashLimit);
+        const cashLimit = Number.isFinite(configuredCashLimit) && configuredCashLimit >= 0 ?
+          configuredCashLimit :
+          750;
 
         const wallet = await DeliveryWallet.findOne({ deliveryId: delivery._id });
         const cashInHand = Number(wallet?.cashInHand) || 0;
@@ -783,7 +786,7 @@ export const acceptOrder = asyncHandler(async (req, res) => {
         pendingCodReserve = Number(pendingAgg?.[0]?.total) || 0;
 
         const projectedCodExposure = cashInHand + pendingCodReserve + codAmount;
-        if (projectedCodExposure > cashLimit) {
+        if (cashInHand >= cashLimit || projectedCodExposure > cashLimit) {
           const availableLimit = Math.max(0, cashLimit - cashInHand - pendingCodReserve);
           return errorResponse(
             res,

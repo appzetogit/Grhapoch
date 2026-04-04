@@ -6,6 +6,7 @@ import { restaurantAPI, diningAPI } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api/config";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { shareContent } from "@/lib/utils/share";
 import { useLocation } from "../../hooks/useLocation";
 import {
   ArrowLeft,
@@ -84,6 +85,19 @@ export default function RestaurantDetails() {
     sortBy: null, // "low-to-high" | "high-to-low"
     vegNonVeg: null // "veg" | "non-veg"
   });
+  const isPureVegModeOnly = (() => {
+    if (vegMode !== true) return false;
+    try {
+      return localStorage.getItem("userVegModeOption") === "pure-veg";
+    } catch {
+      return false;
+    }
+  })();
+
+  useEffect(() => {
+    if (!isPureVegModeOnly) return;
+    setFilters((prev) => (prev.vegNonVeg ? { ...prev, vegNonVeg: null } : prev));
+  }, [isPureVegModeOnly]);
 
   // Restaurant data state
   const [restaurant, setRestaurant] = useState(null);
@@ -1065,26 +1079,20 @@ export default function RestaurantDetails() {
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}`;
     const shareText = `Check out ${restaurantName} on GrhaPoch! ${shareUrl}`;
 
-    // Try Web Share API first (mobile)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: restaurantName,
-          text: shareText,
-          url: shareUrl
-        });
-        toast.success("Restaurant shared successfully");
-        setShowMenuOptionsSheet(false);
-      } catch (error) {
-        // User cancelled or error occurred
-        if (error.name !== "AbortError") {
-          // Fallback to copy to clipboard
-          await copyToClipboard(shareUrl);
-        }
-      }
-    } else {
-      // Fallback to copy to clipboard
-      await copyToClipboard(shareUrl);
+    const result = await shareContent({
+      title: restaurantName,
+      text: shareText,
+      url: shareUrl
+    });
+
+    if (result.status === "shared") {
+      toast.success("Restaurant shared successfully");
+      setShowMenuOptionsSheet(false);
+    } else if (result.status === "copied") {
+      toast.success("Link copied to clipboard!");
+      setShowMenuOptionsSheet(false);
+    } else if (result.status === "unsupported") {
+      toast.error("Sharing is not supported on this device");
     }
   };
 
@@ -1092,7 +1100,6 @@ export default function RestaurantDetails() {
 
   // Handle share click
   const handleShareClick = async (item) => {
-    const restaurantId = restaurant?.restaurantId || restaurant?._id || restaurant?.id;
     const dishId = item.id || item._id;
     const restaurantSlug = restaurant?.slug || slug || "";
 
@@ -1100,48 +1107,18 @@ export default function RestaurantDetails() {
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}?dish=${dishId}`;
     const shareText = `Check out ${item.name} from ${restaurant?.name || "this restaurant"}! ${shareUrl}`;
 
-    // Try Web Share API first (mobile)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${item.name} - ${restaurant?.name || ""}`,
-          text: shareText,
-          url: shareUrl
-        });
-        toast.success("Dish shared successfully");
-      } catch (error) {
-        // User cancelled or error occurred
-        if (error.name !== "AbortError") {
-          // Fallback to copy to clipboard
-          await copyToClipboard(shareUrl);
-        }
-      }
-    } else {
-      // Fallback to copy to clipboard
-      await copyToClipboard(shareUrl);
-    }
-  };
+    const result = await shareContent({
+      title: `${item.name} - ${restaurant?.name || ""}`,
+      text: shareText,
+      url: shareUrl
+    });
 
-  // Copy to clipboard helper
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
+    if (result.status === "shared") {
+      toast.success("Dish shared successfully");
+    } else if (result.status === "copied") {
       toast.success("Link copied to clipboard!");
-    } catch (error) {
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        toast.success("Link copied to clipboard!");
-      } catch (err) {
-        toast.error("Failed to copy link");
-      }
-      document.body.removeChild(textArea);
+    } else if (result.status === "unsupported") {
+      toast.error("Sharing is not supported on this device");
     }
   };
 
@@ -1517,42 +1494,46 @@ export default function RestaurantDetails() {
                 }
                 <ChevronDown className="h-3 w-3" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "veg" ? "border-green-500 bg-green-50" : ""}`
-                }
-                onClick={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    vegNonVeg: prev.vegNonVeg === "veg" ? null : "veg"
-                  }))
-                }>
+              {!isPureVegModeOnly && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "veg" ? "border-green-500 bg-green-50" : ""}`
+                    }
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        vegNonVeg: prev.vegNonVeg === "veg" ? null : "veg"
+                      }))
+                    }>
 
-                <div className="h-3 w-3 rounded-full bg-green-500" />
-                Veg
-                {filters.vegNonVeg === "veg" &&
-                  <X className="h-3 w-3 text-gray-600" />
-                }
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "non-veg" ? "border-amber-700 bg-amber-50" : ""}`
-                }
-                onClick={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    vegNonVeg: prev.vegNonVeg === "non-veg" ? null : "non-veg"
-                  }))
-                }>
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
+                    Veg
+                    {filters.vegNonVeg === "veg" &&
+                      <X className="h-3 w-3 text-gray-600" />
+                    }
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "non-veg" ? "border-amber-700 bg-amber-50" : ""}`
+                    }
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        vegNonVeg: prev.vegNonVeg === "non-veg" ? null : "non-veg"
+                      }))
+                    }>
 
-                <div className="h-3 w-3 rounded-full bg-amber-700" />
-                Non-veg
-                {filters.vegNonVeg === "non-veg" &&
-                  <X className="h-3 w-3 text-gray-600" />
-                }
-              </Button>
+                    <div className="h-3 w-3 rounded-full bg-amber-700" />
+                    Non-veg
+                    {filters.vegNonVeg === "non-veg" &&
+                      <X className="h-3 w-3 text-gray-600" />
+                    }
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2223,41 +2204,43 @@ export default function RestaurantDetails() {
                     </div>
 
                     {/* Veg/Non-veg preference */}
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Veg/Non-veg preference:</h3>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              vegNonVeg: prev.vegNonVeg === "veg" ? null : "veg"
-                            }))
-                          }
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all flex-1 ${filters.vegNonVeg === "veg" ?
-                            "border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
-                            "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"}`
-                          }>
+                    {!isPureVegModeOnly && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Veg/Non-veg preference:</h3>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              setFilters((prev) => ({
+                                ...prev,
+                                vegNonVeg: prev.vegNonVeg === "veg" ? null : "veg"
+                              }))
+                            }
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all flex-1 ${filters.vegNonVeg === "veg" ?
+                              "border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
+                              "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"}`
+                            }>
 
-                          <div className="h-4 w-4 rounded-full bg-green-500 dark:bg-green-400" />
-                          <span className="font-medium">Veg</span>
-                        </button>
-                        <button
-                          onClick={() =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              vegNonVeg: prev.vegNonVeg === "non-veg" ? null : "non-veg"
-                            }))
-                          }
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all flex-1 ${filters.vegNonVeg === "non-veg" ?
-                            "border-amber-700 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" :
-                            "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"}`
-                          }>
+                            <div className="h-4 w-4 rounded-full bg-green-500 dark:bg-green-400" />
+                            <span className="font-medium">Veg</span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              setFilters((prev) => ({
+                                ...prev,
+                                vegNonVeg: prev.vegNonVeg === "non-veg" ? null : "non-veg"
+                              }))
+                            }
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all flex-1 ${filters.vegNonVeg === "non-veg" ?
+                              "border-amber-700 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" :
+                              "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"}`
+                            }>
 
-                          <div className="h-4 w-4 rounded-full bg-amber-700 dark:bg-amber-600" />
-                          <span className="font-medium">Non-veg</span>
-                        </button>
+                            <div className="h-4 w-4 rounded-full bg-amber-700 dark:bg-amber-600" />
+                            <span className="font-medium">Non-veg</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Top picks */}
                     <div className="space-y-2">

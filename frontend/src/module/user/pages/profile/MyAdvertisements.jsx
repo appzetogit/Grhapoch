@@ -360,12 +360,12 @@ export default function MyAdvertisements() {
   ]
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 overflow-x-hidden pb-6">
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-[#0a0a0a] overflow-x-hidden pb-6">
+      <div className="bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-gray-800 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-200" />
         </button>
-        <h1 className="text-lg font-bold text-gray-900 flex-1">My Advertisements</h1>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">My Advertisements</h1>
         <button
           onClick={() => setFormOpen((prev) => !prev)}
           className="px-3 py-1.5 rounded-lg bg-black text-white text-sm font-medium flex items-center gap-1"
@@ -379,32 +379,32 @@ export default function MyAdvertisements() {
         {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
 
         {formOpen && (
-          <Card className="bg-white border border-gray-100">
+          <Card className="bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800">
             <CardContent className="p-4 space-y-3">
-              <h2 className="text-base font-semibold text-gray-900">Create Advertisement Request</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Create Advertisement Request</h2>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111111] text-sm text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Website URL</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Website URL</label>
                 <input
                   type="url"
                   value={websiteUrl}
                   onChange={(e) => setWebsiteUrl(e.target.value)}
                   placeholder="https://example.com"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111111] text-sm text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
                 <div className="relative">
-                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                   <input
                     type="date"
                     value={startDate}
@@ -416,38 +416,38 @@ export default function MyAdvertisements() {
                         setEndDate(nextStartDate)
                       }
                     }}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111111] text-sm text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
                 <div className="relative">
-                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <CalendarDays className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                   <input
                     type="date"
                     value={endDate}
                     min={startDate || getTomorrowInputDate()}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111111] text-sm text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Banner Image</label>
-                <p className="text-[11px] text-gray-500 mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Banner Image</label>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
                   Required: JPG/PNG | Min 1200x300 | Ratio 4:1 (example 1200x300) | Max size: 2MB
                 </p>
-                <label className="border-2 border-dashed border-gray-300 rounded-lg p-3 block cursor-pointer hover:border-gray-500">
+                <label className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-3 block cursor-pointer hover:border-gray-500 dark:hover:border-gray-500">
                   <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
                   {bannerPreview ? (
-                    <div className="w-full rounded-md overflow-hidden border border-gray-200 bg-gray-50 aspect-[12/5]">
+                    <div className="w-full rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111111] aspect-[12/5]">
                       <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />
                     </div>
                   ) : (
                     <div className="text-center py-4">
-                      <Upload className="h-6 w-6 text-gray-500 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">
+                      <Upload className="h-6 w-6 text-gray-500 dark:text-gray-400 mx-auto mb-1" />
+                      <p className="text-xs text-gray-600 dark:text-gray-300">
                         {isOptimizingBanner ? "Optimizing banner..." : "Click to upload banner"}
                       </p>
                     </div>
@@ -456,21 +456,21 @@ export default function MyAdvertisements() {
                 {bannerOptimizationMessage && <p className="text-xs text-emerald-700 mt-2">{bannerOptimizationMessage}</p>}
                 {bannerErrorMessage && <p className="text-xs text-red-600 mt-2">{bannerErrorMessage}</p>}
               </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
                 <p className="text-xs font-semibold text-amber-900">Booked Dates (Cannot Select)</p>
                 {loadingBookedDates ? (
-                  <p className="text-xs text-amber-800 mt-1">Loading booked dates...</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">Loading booked dates...</p>
                 ) : bookedRanges.length === 0 ? (
-                  <p className="text-xs text-amber-800 mt-1">No booked ranges found for selected window.</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">No booked ranges found for selected window.</p>
                 ) : (
                   <div className="mt-1 space-y-1 max-h-24 overflow-auto">
                     {bookedRanges.slice(0, 8).map((range, index) => (
-                      <p key={`${range?.source || "ad"}-${range?.id || index}`} className="text-xs text-amber-800">
+                      <p key={`${range?.source || "ad"}-${range?.id || index}`} className="text-xs text-amber-800 dark:text-amber-300">
                         {formatDate(range?.startDate)} - {formatDate(range?.endDate)}
                       </p>
                     ))}
                     {bookedRanges.length > 8 && (
-                      <p className="text-xs text-amber-800">+ {bookedRanges.length - 8} more ranges</p>
+                      <p className="text-xs text-amber-800 dark:text-amber-300">+ {bookedRanges.length - 8} more ranges</p>
                     )}
                   </div>
                 )}
@@ -480,10 +480,10 @@ export default function MyAdvertisements() {
                   </p>
                 )}
               </div>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs text-gray-600">Price Per Day: INR {pricePerDay.toFixed(2)}</p>
-                <p className="text-xs text-gray-600">Selected Days: {selectedDays}</p>
-                <div className="mt-1 flex items-center gap-1 text-gray-900">
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111111] p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-300">Price Per Day: INR {pricePerDay.toFixed(2)}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">Selected Days: {selectedDays}</p>
+                <div className="mt-1 flex items-center gap-1 text-gray-900 dark:text-gray-100">
                   <IndianRupee className="h-4 w-4" />
                   <p className="text-sm font-semibold">Total: INR {totalAmount.toFixed(2)}</p>
                 </div>
@@ -515,12 +515,12 @@ export default function MyAdvertisements() {
               transition={{ duration: 0.2, delay: index * 0.03 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveFilter(filter.id)}
-              className={`relative z-10 flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeFilter === filter.id ? "text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              className={`relative z-10 flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeFilter === filter.id ? "text-white" : "bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800"}`}
             >
               {activeFilter === filter.id && (
                 <Motion.div
                   layoutId="userActiveFilter"
-                  className="absolute inset-0 bg-black rounded-full z-0"
+                  className="absolute inset-0 bg-black dark:bg-gray-700 rounded-full z-0"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}
@@ -532,10 +532,10 @@ export default function MyAdvertisements() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500 text-center py-10">Loading advertisements...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-300 text-center py-10">Loading advertisements...</p>
         ) : filteredAds.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-sm">No advertisements found</p>
+            <p className="text-gray-500 dark:text-gray-300 text-sm">No advertisements found</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -547,14 +547,14 @@ export default function MyAdvertisements() {
                 transition={{ duration: 0.25, delay: index * 0.03 }}
               >
                 <Card
-                  className="bg-white shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white dark:bg-[#1a1a1a] shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => navigate(`/user/profile/advertisements/${ad.id}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="text-base font-bold text-gray-900">Ads ID #{ad.adId || ad.id}</h3>
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white">Ads ID #{ad.adId || ad.id}</h3>
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeClass(ad.effectiveStatus || ad.status)}`}>
                             {formatStatus(ad.effectiveStatus || ad.status)}
                           </span>
@@ -565,9 +565,9 @@ export default function MyAdvertisements() {
                           </span>
                         </div>
 
-                        <p className="text-sm text-gray-700 mb-2">Banner Promotion</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">Banner Promotion</p>
 
-                        <div className="space-y-1 text-xs text-gray-600">
+                        <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                           <p>Ads Placed: {formatDate(ad.createdAt)}</p>
                           <p>Duration: {formatDate(ad.startDate)} - {formatDate(ad.endDate)}</p>
                         </div>
@@ -578,7 +578,7 @@ export default function MyAdvertisements() {
                           e.stopPropagation()
                           navigate(`/user/profile/advertisements/${ad.id}`)
                         }}
-                        className="p-2 bg-black hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                        className="p-2 bg-black dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
                       >
                         <ChevronRight className="w-5 h-5 text-white" />
                       </button>
@@ -592,21 +592,21 @@ export default function MyAdvertisements() {
 
         {!loading && filteredAds.length > 0 && (
           <div className="pt-1 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Page {currentPage} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 disabled:opacity-50"
               >
                 Prev
               </button>
               <button
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 disabled:opacity-50"
               >
                 Next
               </button>

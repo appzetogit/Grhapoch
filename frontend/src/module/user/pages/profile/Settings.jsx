@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
@@ -6,7 +7,36 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 
+const SETTINGS_STORAGE_KEY = "user_notification_preferences"
+
 export default function Settings() {
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [pushNotifications, setPushNotifications] = useState(true)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+      if (!raw) return
+
+      const parsed = JSON.parse(raw)
+      if (typeof parsed?.emailNotifications === "boolean") {
+        setEmailNotifications(parsed.emailNotifications)
+      }
+      if (typeof parsed?.pushNotifications === "boolean") {
+        setPushNotifications(parsed.pushNotifications)
+      }
+    } catch {
+      // Ignore invalid localStorage JSON and keep defaults
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ emailNotifications, pushNotifications })
+    )
+  }, [emailNotifications, pushNotifications])
+
   return (
     <AnimatedPage className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a] p-4">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -30,7 +60,10 @@ export default function Settings() {
                   Receive updates about your orders via email
                 </p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={emailNotifications}
+                onCheckedChange={setEmailNotifications}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -39,7 +72,10 @@ export default function Settings() {
                   Receive push notifications on your device
                 </p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={pushNotifications}
+                onCheckedChange={setPushNotifications}
+              />
             </div>
           </CardContent>
         </Card>

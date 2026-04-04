@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Menu, ChevronDown, Calendar, Download, ArrowRight, FileText, Wallet, X, Check, CreditCard, Smartphone } from "lucide-react";
 import BottomNavOrders from "../components/BottomNavOrders";
@@ -7,11 +7,7 @@ import { restaurantAPI } from "@/lib/api";
 
 export default function HubFinance() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => {
-    const tabParam = searchParams.get("tab");
-    return tabParam === "invoices" ? "invoices" : "payouts";
-  });
+  const [activeTab] = useState("payouts");
   const [selectedDateRange, setSelectedDateRange] = useState("14 Nov - 14 Dec'25");
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
@@ -643,7 +639,7 @@ export default function HubFinance() {
       <div className="px-4 py-3">
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab("payouts")}
+            disabled
             className={`flex-1 py-3 px-4 rounded-full font-medium text-sm transition-colors ${
             activeTab === "payouts" ?
             "bg-black text-white" :
@@ -651,16 +647,6 @@ export default function HubFinance() {
             }>
             
             Payouts
-          </button>
-          <button
-            onClick={() => setActiveTab("invoices")}
-            className={`flex-1 py-3 px-4 rounded-full font-medium text-sm transition-colors ${
-            activeTab === "invoices" ?
-            "bg-black text-white" :
-            "bg-white text-gray-600 border border-gray-300"}`
-            }>
-            
-            Invoices & Taxes
           </button>
         </div>
       </div>
@@ -962,14 +948,6 @@ export default function HubFinance() {
               }
               </div>
             </div>
-          </div>
-        }
-
-        {activeTab === "invoices" &&
-        <div className=" rounded-lg p-4">
-            <p className="text-sm text-gray-600 text-center py-8">
-              Invoices & Taxes content will be displayed here
-            </p>
           </div>
         }
       </div>

@@ -21,16 +21,10 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { determineStepToShow } from "../utils/onboardingUtils";
 import { saveFilesToIDB, getFileFromIDB, clearIDB } from "../utils/onboardingStorage";
+import { DEFAULT_RESTAURANT_CUISINES } from "../constants/cuisines";
 import { toast } from "sonner";
 
-const cuisinesOptions = [
-  "North Indian",
-  "South Indian",
-  "Chinese",
-  "Pizza",
-  "Burgers",
-  "Bakery",
-  "Cafe"];
+const cuisinesOptions = DEFAULT_RESTAURANT_CUISINES;
 
 
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

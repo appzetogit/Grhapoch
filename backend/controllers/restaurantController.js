@@ -116,6 +116,49 @@ const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
   return R * c;
 };
 
+const CUISINE_ALIAS_MAP = {
+  burgers: 'Burger'
+};
+
+const toTitleCaseCuisine = (value = '') => {
+  return String(value)
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const normalizeCuisine = (value) => {
+  const compact = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!compact) return '';
+  const alias = CUISINE_ALIAS_MAP[compact.toLowerCase()];
+  if (alias) return alias;
+  return toTitleCaseCuisine(compact);
+};
+
+const isCuisineValid = (value) => {
+  if (!value) return false;
+  if (value.length < 2 || value.length > 30) return false;
+  return /^[A-Za-z][A-Za-z\s&-]*$/.test(value);
+};
+
+const sanitizeCuisineList = (values, max = 8) => {
+  const seen = new Set();
+  const cleaned = [];
+  const list = Array.isArray(values) ? values : [];
+  for (const item of list) {
+    const normalized = normalizeCuisine(item);
+    if (!isCuisineValid(normalized)) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(normalized);
+    if (cleaned.length >= max) break;
+  }
+  return cleaned;
+};
+
 // Get all restaurants (for user module)
 export const getRestaurants = async (req, res) => {
   try {
@@ -622,8 +665,8 @@ export const createRestaurantFromOnboarding = async (onboardingData, restaurantI
       if (step2.menuImageUrls) {
         existing.menuImages = step2.menuImageUrls; // Update even if empty array
       }
-      if (step2.cuisines) {
-        existing.cuisines = step2.cuisines; // Update even if empty array
+      if (step2.cuisines !== undefined) {
+        existing.cuisines = sanitizeCuisineList(step2.cuisines, 8); // Update even if empty array
       }
       if (step2.deliveryTimings) {
         existing.deliveryTimings = step2.deliveryTimings;
@@ -737,7 +780,16 @@ export const updateRestaurantProfile = asyncHandler(async (req, res) => {
 
     // Update cuisines if provided
     if (cuisines !== undefined) {
-      updateData.cuisines = cuisines;
+      if (!Array.isArray(cuisines)) {
+        return errorResponse(res, 400, 'Cuisines must be an array of strings');
+      }
+      const cleanedCuisines = sanitizeCuisineList(cuisines, 8);
+      updateData.cuisines = cleanedCuisines;
+      // Keep onboarding step2 cuisine data in sync with profile cuisine edits.
+      if (!restaurant.onboarding) restaurant.onboarding = {};
+      if (!restaurant.onboarding.step2) restaurant.onboarding.step2 = {};
+      restaurant.onboarding.step2.cuisines = cleanedCuisines;
+      restaurant.markModified('onboarding');
     }
 
     // Update location if provided

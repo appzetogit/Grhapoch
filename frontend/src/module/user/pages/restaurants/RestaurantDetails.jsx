@@ -111,7 +111,10 @@ export default function RestaurantDetails() {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
 
         try {
-          response = await restaurantAPI.getRestaurantById(slug);
+          response = await restaurantAPI.getRestaurantById(slug, {
+            params: { _t: Date.now() },
+            skipCache: true
+          });
           if (response.data && response.data.success && response.data.data) {
             apiRestaurant = response.data.data;
           }
@@ -145,7 +148,10 @@ export default function RestaurantDetails() {
                 );
 
                 if (matchingRestaurant) {
-                  const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId);
+                  const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId, {
+                    params: { _t: Date.now() },
+                    skipCache: true
+                  });
                   if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
                     apiRestaurant = fullResponse.data.data;
                   }
@@ -319,14 +325,22 @@ export default function RestaurantDetails() {
 
           // Transform API data to match expected format with comprehensive fallbacks
           // Handle both dining restaurant and regular restaurant data structures
+          const resolvedCuisines = Array.isArray(actualRestaurant?.cuisines) && actualRestaurant.cuisines.length > 0 ?
+            actualRestaurant.cuisines :
+            Array.isArray(apiRestaurant?.cuisines) && apiRestaurant.cuisines.length > 0 ?
+              apiRestaurant.cuisines :
+              typeof actualRestaurant?.cuisine === "string" && actualRestaurant.cuisine.trim() ?
+                actualRestaurant.cuisine.split(",").map((item) => item.trim()).filter(Boolean) :
+                typeof apiRestaurant?.cuisine === "string" && apiRestaurant.cuisine.trim() ?
+                  apiRestaurant.cuisine.split(",").map((item) => item.trim()).filter(Boolean) :
+                  [];
+
           const transformedRestaurant = {
             id: actualRestaurant?.restaurantId || actualRestaurant?._id || actualRestaurant?.id || apiRestaurant?.restaurantId || apiRestaurant?._id || null,
             name: actualRestaurant?.name || apiRestaurant?.name || apiRestaurant?.restaurantName || "Unknown Restaurant",
-            cuisine: actualRestaurant?.cuisines && Array.isArray(actualRestaurant.cuisines) && actualRestaurant.cuisines.length > 0 ?
-              actualRestaurant.cuisines[0] :
-              apiRestaurant?.cuisines && Array.isArray(apiRestaurant.cuisines) && apiRestaurant.cuisines.length > 0 ?
-                apiRestaurant.cuisines[0] :
-                actualRestaurant?.cuisine || apiRestaurant?.cuisine || actualRestaurant?.category || apiRestaurant?.category || "Multi-cuisine",
+            cuisine: resolvedCuisines.length > 0 ?
+              resolvedCuisines[0] :
+                "",
             rating: actualRestaurant?.rating ?? apiRestaurant?.rating ?? actualRestaurant?.averageRating ?? apiRestaurant?.averageRating ?? 4.5,
             reviews: actualRestaurant?.totalRatings ?? apiRestaurant?.totalRatings ?? actualRestaurant?.reviewCount ?? apiRestaurant?.reviewCount ?? actualRestaurant?.reviews?.length ?? apiRestaurant?.reviews?.length ?? 0,
             deliveryTime: actualRestaurant?.estimatedDeliveryTime || apiRestaurant?.estimatedDeliveryTime || actualRestaurant?.deliveryTime || apiRestaurant?.deliveryTime || actualRestaurant?.avgDeliveryTime || apiRestaurant?.avgDeliveryTime || "25-30 mins",
@@ -375,7 +389,7 @@ export default function RestaurantDetails() {
               openingTime: "09:00",
               closingTime: "22:00"
             },
-            cuisines: Array.isArray(apiRestaurant?.cuisines) ? apiRestaurant.cuisines : [],
+            cuisines: resolvedCuisines,
             profileImage: apiRestaurant?.profileImage || null,
             menuImages: Array.isArray(apiRestaurant?.menuImages) ? apiRestaurant.menuImages : [],
             // Menu sections for display (will be populated from menu API)
@@ -1439,6 +1453,12 @@ export default function RestaurantDetails() {
               <span className="text-xs text-gray-500">By {(restaurant.reviews || 0).toLocaleString()}+</span>
             </div>
           </div>
+
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {Array.isArray(restaurant?.cuisines) && restaurant.cuisines.length > 0 ?
+              restaurant.cuisines.join(", ") :
+              restaurant?.cuisine || "No cuisines added"}
+          </p>
 
           {/* Location */}
           <div

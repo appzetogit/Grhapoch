@@ -831,25 +831,32 @@ export default function HubMenu() {
       return;
     }
 
-    // Update all foods in this category
-    const allFoods = getAllFoods();
-    const updatedFoods = allFoods.map((food) => {
-      if (food.category === selectedCategory.name) {
-        return { ...food, category: newCategoryName };
-      }
-      return food;
-    });
+    // Update category directly in menuData (API auto-save effect will persist this change)
+    setMenuData((prev) => prev.map((section) => {
+      if (section.id !== selectedCategory.id) return section;
 
-    // Save updated foods
-    try {
-      localStorage.setItem('restaurant_foods', JSON.stringify(updatedFoods));
-      window.dispatchEvent(new CustomEvent('foodsChanged'));
-      window.dispatchEvent(new Event('storage'));
-    } catch (error) {
-      console.error('Error updating category:', error);
-      alert('Error updating category name');
-      return;
-    }
+      return {
+        ...section,
+        name: newCategoryName,
+        items: Array.isArray(section.items)
+          ? section.items.map((item) => ({
+            ...item,
+            category: item.category === selectedCategory.name ? newCategoryName : item.category
+          }))
+          : [],
+        subsections: Array.isArray(section.subsections)
+          ? section.subsections.map((subsection) => ({
+            ...subsection,
+            items: Array.isArray(subsection.items)
+              ? subsection.items.map((item) => ({
+                ...item,
+                category: item.category === selectedCategory.name ? newCategoryName : item.category
+              }))
+              : []
+          }))
+          : []
+      };
+    }));
 
     setIsEditCategoryOpen(false);
     setSelectedCategory(null);

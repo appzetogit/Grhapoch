@@ -9,7 +9,6 @@ import BottomNavOrders from "../components/BottomNavOrders";
 import RestaurantNavbar from "../components/RestaurantNavbar";
 import notificationSound from "@/assets/audio/alert.mp3";
 import { restaurantAPI } from "@/lib/api";
-import { useRestaurantNotifications } from "../hooks/useRestaurantNotifications";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -482,6 +481,7 @@ export default function OrdersMain() {
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [orderToCancel, setOrderToCancel] = useState(null);
+  const [newOrder, setNewOrder] = useState(null);
   const audioRef = useRef(null);
   const shownOrdersRef = useRef(new Set()); // Track orders already shown in popup
   const [restaurantStatus, setRestaurantStatus] = useState({
@@ -493,8 +493,21 @@ export default function OrdersMain() {
   });
   const [isReverifying, setIsReverifying] = useState(false);
 
-  // Restaurant notifications hook for real-time orders
-  const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications();
+  const clearNewOrder = () => setNewOrder(null);
+
+  // Receive new-order events from global restaurant sound listener.
+  useEffect(() => {
+    const handleNewOrder = (event) => {
+      if (event?.detail) {
+        setNewOrder(event.detail);
+      }
+    };
+
+    window.addEventListener('restaurant:new-order', handleNewOrder);
+    return () => {
+      window.removeEventListener('restaurant:new-order', handleNewOrder);
+    };
+  }, []);
 
   const rejectReasons = [
     "Restaurant is too busy",
@@ -2040,7 +2053,9 @@ function OrderCard({
   photoAlt,
   deliveryPartnerId,
   onSelect,
-  onCancel
+  onCancel,
+  onMarkReady,
+  isMarkingReady = false
 }) {
   const isReady = status === "Ready";
 
@@ -2073,7 +2088,7 @@ function OrderCard({
             itemsSummary
           })
         }
-        className="w-full text-left flex gap-3 items-stretch cursor-pointer">
+        className={`w-full text-left flex gap-3 items-stretch cursor-pointer ${status === 'preparing' && onCancel ? 'pr-8' : ''}`}>
 
         {/* Photo */}
         <div className="h-20 w-20 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 my-auto">
@@ -2163,6 +2178,27 @@ function OrderCard({
                       mode="resend"
                     />
                   }
+                  {onMarkReady &&
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkReady({ orderId, mongoId, customerName });
+                      }}
+                      disabled={isMarkingReady}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Mark order as ready for pickup">
+
+                      {isMarkingReady ?
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Marking...</span>
+                        </> :
+
+                        <span>Mark Ready</span>
+                      }
+                    </button>
+                  }
                 </div>
               }
             </div>
@@ -2187,6 +2223,8 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [markingReadyOrderKey, setMarkingReadyOrderKey] = useState(null);
+  const markedReadyOrdersRef = useRef(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -2290,9 +2328,6 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
     };
   }, [isActive]); // Add isActive to dependencies
 
-  // Track which orders have been marked as ready to avoid duplicate API calls
-  const markedReadyOrdersRef = useRef(new Set());
-
   // Auto-mark orders as ready when ETA reaches 0
   useEffect(() => {
     if (!currentTime || orders.length === 0) return;
@@ -2362,6 +2397,32 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
     }
   }, [orders]);
 
+  const handleMarkReady = async (order) => {
+    const orderKey = order?.mongoId || order?.orderId;
+    if (!orderKey || markingReadyOrderKey === orderKey) return;
+
+    try {
+      setMarkingReadyOrderKey(orderKey);
+      await restaurantAPI.markOrderReady(orderKey);
+      markedReadyOrdersRef.current.add(orderKey);
+      setOrders((prevOrders) => prevOrders.filter((o) => (o.mongoId || o.orderId) !== orderKey));
+      toast.success(`Order ${order.orderId || ''} marked ready`);
+    } catch (error) {
+      const status = error.response?.status;
+      const message = error.response?.data?.message || error.message || 'Failed to mark order as ready';
+
+      if (status === 400 && message.toLowerCase().includes('current status')) {
+        markedReadyOrdersRef.current.add(orderKey);
+        setOrders((prevOrders) => prevOrders.filter((o) => (o.mongoId || o.orderId) !== orderKey));
+        toast.info('Order is already updated');
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setMarkingReadyOrderKey((current) => current === orderKey ? null : current);
+    }
+  };
+
   if (loading) {
     return (
       <div className="pt-4 pb-6">
@@ -2423,7 +2484,9 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
                 photoAlt={order.photoAlt}
                 deliveryPartnerId={order.deliveryPartnerId}
                 onSelect={onSelectOrder}
-                onCancel={onCancel} />);
+                onCancel={onCancel}
+                onMarkReady={handleMarkReady}
+                isMarkingReady={markingReadyOrderKey === (order.mongoId || order.orderId)} />);
 
 
           })}

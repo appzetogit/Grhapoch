@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { isModuleAuthenticated } from "@/lib/utils/auth";
+import RestaurantGlobalOrderSoundListener from "@/module/restaurant/components/RestaurantGlobalOrderSoundListener";
 
 /**
  * Role-based Protected Route Component
@@ -82,6 +83,15 @@ export default function ProtectedRoute({ children, requiredRole, loginPath }) {
         // If parsing fails, do not block route here.
       }
     }
+  }
+
+  if (requiredRole === "restaurant") {
+    return (
+      <>
+        <RestaurantGlobalOrderSoundListener />
+        {children}
+      </>
+    );
   }
 
   return children;

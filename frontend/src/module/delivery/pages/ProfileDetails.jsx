@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Edit2, Camera, Eye, X, AlertCircle, UploadCloud, RefreshCw, Check } from "lucide-react"
+import { ArrowLeft, Edit2, Camera, Eye, X, AlertCircle, UploadCloud, RefreshCw, Check, Loader2 } from "lucide-react"
 import BottomPopup from "../components/BottomPopup"
 import { toast } from "sonner"
 import { deliveryAPI, uploadAPI } from "@/lib/api"
@@ -102,6 +102,7 @@ export default function ProfileDetails() {
 
   const [bankTouched, setBankTouched] = useState({})
   const [confirmCloseAction, setConfirmCloseAction] = useState(null) // { type, onSave }
+  const isAccountApproved = ["active", "approved"].includes(profile?.status);
 
   // Custom Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false)
@@ -199,6 +200,7 @@ export default function ProfileDetails() {
         if (response?.data?.success && response?.data?.data?.profile) {
           const profileData = response.data.data.profile
           setProfile(profileData)
+          localStorage.setItem("app:deliveryStatus", profileData.status)
           setVehicleNumber(profileData?.vehicle?.number || "")
           setVehicleInput(profileData?.vehicle?.number || "")
           // Set bank details
@@ -447,6 +449,15 @@ export default function ProfileDetails() {
     }
   }
 
+  if (loading && !profile) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-green-600 mb-3" />
+        <p className="text-gray-500 font-medium">Getting your profile...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
@@ -503,7 +514,6 @@ export default function ProfileDetails() {
         }}
       />
 
-      {/* Content */}
       <div className="px-4 py-6 space-y-6">
         {/* Rider Details Section */}
         <div>
@@ -572,9 +582,9 @@ export default function ProfileDetails() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-gray-900 leading-tight">Aadhaar Card</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${profile?.documents?.aadhar?.verified ? 'bg-green-500' : profile?.documents?.aadhar?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full ${(profile?.documents?.aadhar?.verified || isAccountApproved) ? 'bg-green-500' : profile?.documents?.aadhar?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                    {profile?.documents?.aadhar?.verified ? "Verified" : profile?.documents?.aadhar?.document ? "Pending" : "Not uploaded"}
+                    {(profile?.documents?.aadhar?.verified || isAccountApproved) ? "Verified" : profile?.documents?.aadhar?.document ? "Pending" : "Not uploaded"}
                   </p>
                 </div>
               </div>
@@ -599,9 +609,9 @@ export default function ProfileDetails() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-gray-900 leading-tight">PAN Card</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${profile?.documents?.pan?.verified ? 'bg-green-500' : profile?.documents?.pan?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full ${(profile?.documents?.pan?.verified || isAccountApproved) ? 'bg-green-500' : profile?.documents?.pan?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                    {profile?.documents?.pan?.verified ? "Verified" : profile?.documents?.pan?.document ? "Pending" : "Not uploaded"}
+                    {(profile?.documents?.pan?.verified || isAccountApproved) ? "Verified" : profile?.documents?.pan?.document ? "Pending" : "Not uploaded"}
                   </p>
                 </div>
               </div>
@@ -626,9 +636,9 @@ export default function ProfileDetails() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-gray-900 leading-tight">Driving License</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${profile?.documents?.drivingLicense?.verified ? 'bg-green-500' : profile?.documents?.drivingLicense?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full ${(profile?.documents?.drivingLicense?.verified || isAccountApproved) ? 'bg-green-500' : profile?.documents?.drivingLicense?.document ? 'bg-yellow-500' : 'bg-red-500'}`} />
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                    {profile?.documents?.drivingLicense?.verified ? "Verified" : profile?.documents?.drivingLicense?.document ? "Pending" : "Not uploaded"}
+                    {(profile?.documents?.drivingLicense?.verified || isAccountApproved) ? "Verified" : profile?.documents?.drivingLicense?.document ? "Pending" : "Not uploaded"}
                   </p>
                 </div>
               </div>

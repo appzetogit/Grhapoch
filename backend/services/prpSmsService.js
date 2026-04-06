@@ -69,7 +69,10 @@ class PRPSMSService {
           apikey: apiKey,
           "Content-Type": "application/json"
         },
-        timeout: 20000
+        timeout: 20000,
+        // Bypass machine-level proxy env vars (HTTP_PROXY/HTTPS_PROXY) that can
+        // misroute this request to localhost and cause ECONNREFUSED.
+        proxy: false
       });
 
       const success = response.status >= 200 && response.status < 300;

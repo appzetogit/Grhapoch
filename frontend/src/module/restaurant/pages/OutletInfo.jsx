@@ -200,7 +200,7 @@ export default function OutletInfo() {
   const formatAddress = (location) => {
     if (!location) return "";
 
-    // Prefer using the full formatted address from Google Maps (Zone Setup updates this)
+    // Prefer using the full formatted address from Google Maps (Service Location setup updates this)
     if (location.formattedAddress && location.formattedAddress.trim() !== "") {
       return location.formattedAddress.trim();
     }

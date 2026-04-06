@@ -393,8 +393,8 @@ export default function ZoneSetup() {
               <MapPin className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Zone Setup</h1>
-              <p className="text-sm text-gray-600">Set your restaurant location on the map</p>
+              <h1 className="text-2xl font-bold text-gray-900">Service Location Setup</h1>
+              <p className="text-sm text-gray-600">Set your service location on the map</p>
             </div>
           </div>
         </div>
@@ -445,12 +445,12 @@ export default function ZoneSetup() {
 
         {/* Instructions */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">How to set your location:</h3>
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">How to set your service location:</h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li>Search for your location using the search bar above, or</li>
             <li>Click anywhere on the map to place a pin at that location</li>
             <li>You can drag the pin to adjust the exact position</li>
-            <li>Click "Save Location" to save your restaurant location</li>
+            <li>Click "Save Location" to save your service location</li>
           </ul>
         </div>
 

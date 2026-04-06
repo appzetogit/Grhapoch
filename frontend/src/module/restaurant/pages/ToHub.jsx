@@ -338,7 +338,7 @@ export default function ToHub() {
   { id: "complaints", label: "Complaints", icon: FaExclamationTriangle, route: "/restaurant/feedback?tab=complaints" },
   { id: "reviews", label: "Reviews", icon: FaStar, route: "/restaurant/feedback" },
   { id: "feedback", label: "Share your feedback", icon: FaCommentDots, route: "/restaurant/Share-Feedback" },
-  { id: "zone-setup", label: "Zone Setup", icon: MapPin, route: "/restaurant/zone-setup" },
+  { id: "zone-setup", label: "Service Location", icon: MapPin, route: "/restaurant/zone-setup" },
   { id: "settings", label: "Settings", icon: FaCog, route: "/restaurant/delivery-settings" },
   { id: "business-plan", label: "Business Plan", icon: Crown, route: "/restaurant/subscription-plans" },
   { id: "show-all", label: "Show all", icon: FaThLarge, route: "/restaurant/explore" }];

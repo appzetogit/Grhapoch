@@ -50,24 +50,72 @@ const resolveLngLatFromLocation = (location) => {
   return null;
 };
 
+const hasCoordinateInput = (location = {}) => {
+  if (!location || typeof location !== 'object') return false;
+  return (
+    location.latitude !== undefined ||
+    location.longitude !== undefined ||
+    location.lat !== undefined ||
+    location.lng !== undefined ||
+    location.coordinates !== undefined
+  );
+};
+
+const resolveLngLatFromRestaurant = (restaurant) => {
+  if (!restaurant) return null;
+  const fromLocation = resolveLngLatFromLocation(restaurant.location);
+  if (fromLocation) return fromLocation;
+
+  const geoCoords = restaurant.geoLocation?.coordinates;
+  if (Array.isArray(geoCoords) && geoCoords.length >= 2) {
+    const lng = parseNumber(geoCoords[0]);
+    const lat = parseNumber(geoCoords[1]);
+    if (isValidLongitude(lng) && isValidLatitude(lat)) {
+      return [lng, lat];
+    }
+  }
+
+  return null;
+};
+
+const normalizeLocationForSave = (incomingLocation, existingLocation = null) => {
+  if (!incomingLocation || typeof incomingLocation !== 'object') {
+    return { location: incomingLocation, error: null };
+  }
+
+  const normalized = { ...(existingLocation || {}), ...incomingLocation };
+  const coordinateInputProvided = hasCoordinateInput(incomingLocation);
+  const incomingCoords = resolveLngLatFromLocation(incomingLocation);
+  const fallbackCoords = resolveLngLatFromLocation(existingLocation);
+
+  if (coordinateInputProvided && !incomingCoords) {
+    return {
+      location: null,
+      error: 'Invalid location coordinates. Please select a valid pin on the map.'
+    };
+  }
+
+  const finalCoords = incomingCoords || fallbackCoords;
+  if (finalCoords) {
+    normalized.longitude = finalCoords[0];
+    normalized.latitude = finalCoords[1];
+    normalized.coordinates = finalCoords;
+  }
+
+  return { location: normalized, error: null };
+};
+
 const backfillGeoLocationForRestaurants = async (limit = 200) => {
   const candidates = await Restaurant.find({
     isActive: true,
-    $and: [
-      {
-        $or: [
-          { geoLocation: { $exists: false } },
-          { 'geoLocation.coordinates': { $exists: false } },
-          { 'geoLocation.coordinates.0': { $exists: false } }
-        ]
-      },
-      {
-        $or: [
-          { 'location.latitude': { $exists: true } },
-          { 'location.longitude': { $exists: true } },
-          { 'location.coordinates.0': { $exists: true } }
-        ]
-      }
+    $or: [
+      { geoLocation: { $exists: false } },
+      { 'geoLocation.coordinates': { $exists: false } },
+      { 'geoLocation.coordinates.0': { $exists: false } },
+      { 'location.coordinates': { $exists: false } },
+      { 'location.coordinates.0': { $exists: false } },
+      { 'location.latitude': { $exists: false } },
+      { 'location.longitude': { $exists: false } }
     ]
   })
     .select('_id location geoLocation')
@@ -78,7 +126,7 @@ const backfillGeoLocationForRestaurants = async (limit = 200) => {
 
   const ops = [];
   for (const candidate of candidates) {
-    const coords = resolveLngLatFromLocation(candidate.location);
+    const coords = resolveLngLatFromRestaurant(candidate);
     if (!coords) continue;
 
     ops.push({
@@ -655,7 +703,13 @@ export const createRestaurantFromOnboarding = async (onboardingData, restaurantI
     existing.ownerEmail = step1.ownerEmail || existing.ownerEmail;
     existing.ownerPhone = step1.ownerPhone || existing.ownerPhone;
     existing.primaryContactNumber = step1.primaryContactNumber || existing.primaryContactNumber;
-    if (step1.location) existing.location = step1.location;
+    if (step1.location) {
+      const normalizedLocationResult = normalizeLocationForSave(step1.location, existing.location);
+      if (normalizedLocationResult.error) {
+        throw new Error(normalizedLocationResult.error);
+      }
+      existing.location = normalizedLocationResult.location;
+    }
 
     // Update step2 data - always update even if empty arrays
     if (step2) {
@@ -794,18 +848,11 @@ export const updateRestaurantProfile = asyncHandler(async (req, res) => {
 
     // Update location if provided
     if (location) {
-      // Ensure coordinates array is set if latitude/longitude exist
-      if (location.latitude && location.longitude && !location.coordinates) {
-        location.coordinates = [location.longitude, location.latitude]; // GeoJSON format: [lng, lat]
+      const normalizedLocationResult = normalizeLocationForSave(location, restaurant.location);
+      if (normalizedLocationResult.error) {
+        return errorResponse(res, 400, normalizedLocationResult.error);
       }
-
-      // If coordinates array exists but no lat/lng, extract them
-      if (location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
-        if (!location.longitude) location.longitude = location.coordinates[0];
-        if (!location.latitude) location.latitude = location.coordinates[1];
-      }
-
-      updateData.location = location;
+      updateData.location = normalizedLocationResult.location;
     }
 
     // Update owner details if provided

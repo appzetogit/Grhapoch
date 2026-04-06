@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter
 } from
   "@/components/ui/dialog";
@@ -356,6 +357,9 @@ export default function PocketBalancePage() {
         <DialogContent className="max-w-sm bg-white p-0 rounded-xl">
           <DialogHeader className="px-5 pt-5 pb-3">
             <DialogTitle className="text-lg font-semibold text-black">Withdraw amount</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Review and submit your withdrawal request.
+            </DialogDescription>
           </DialogHeader>
           <div className="px-5 pb-5 space-y-4">
             <div>

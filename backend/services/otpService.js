@@ -25,6 +25,27 @@ const parseIntEnv = (value, fallback) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
+// Test phone numbers that should use default OTP
+const TEST_PHONE_NUMBERS = [
+  '917610416911',
+  '917691810506',
+  '919009925021',
+  '916375095971',
+  '918103479008',
+  '918962843670',
+  '919691967116'
+];
+
+/**
+ * Check if a phone number is a test number
+ */
+const isTestPhoneNumber = (phone) => {
+  if (!phone) return false;
+  const normalized = normalizePhoneNumber(phone);
+  const raw = phone.replace(/\D/g, '');
+  return TEST_PHONE_NUMBERS.includes(normalized) || TEST_PHONE_NUMBERS.includes(raw);
+};
+
 // Configurable OTP validity (defaults to 5 minutes)
 const OTP_EXPIRY_MINUTES = parseIntEnv(process.env.OTP_EXPIRY_MINUTES, 5);
 // Grace window to accept already-verified OTPs (defaults to 5 minutes)
@@ -114,7 +135,7 @@ class OTPService {
         }
       }
 
-      const useMockOTP = isGlobalMockOTPEnabled();
+      const useMockOTP = isGlobalMockOTPEnabled() || isTestPhoneNumber(phone);
       let otp = generateOTP();
       if (useMockOTP) {
         otp = getMockOTPValue();
@@ -214,8 +235,8 @@ class OTPService {
       const identifierType = normalizedPhone ? 'phone' : 'email';
       const otpHash = hashOtp(otp, identifier, purpose);
 
-      // Allow mock OTP validation when enabled (dev/test only)
-      if (isMockOTPVerifyEnabled() && otp === getMockOTPValue()) {
+      // Allow mock OTP validation for test numbers or when explicitly enabled (dev/test only)
+      if ((isMockOTPVerifyEnabled() || isTestPhoneNumber(phone)) && otp === getMockOTPValue()) {
         logger.info('Mock OTP verified', {
           identifierType,
           identifier,

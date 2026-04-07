@@ -10,7 +10,6 @@ import { useCart } from "../../context/CartContext";
 import { useProfile } from "../../context/ProfileContext";
 import { useOrders } from "../../context/OrdersContext";
 import { useLocation as useUserLocation } from "../../hooks/useLocation";
-import { useZone } from "../../hooks/useZone";
 import { useLocationSelector } from "../../components/UserLayout";
 import { orderAPI, restaurantAPI, publicAPI, userAPI, API_ENDPOINTS } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api/config";
@@ -133,7 +132,6 @@ export default function Cart() {
   const { getDefaultAddress, getDefaultPaymentMethod, addresses, paymentMethods, userProfile, updateUserProfile } = useProfile();
   const { createOrder } = useOrders();
   const { location: currentLocation, setManualLocation, requestLocation } = useUserLocation(); // Get live location address
-  const { zoneId } = useZone(currentLocation); // Get user's zone
   const { openLocationSelector } = useLocationSelector();
 
   const [showCoupons, setShowCoupons] = useState(false);
@@ -1219,8 +1217,7 @@ export default function Cart() {
         pricing: orderPricing,
         note: note || "",
         sendCutlery: sendCutlery !== false,
-        paymentMethod: selectedPaymentMethod,
-        zoneId: zoneId // CRITICAL: Pass zoneId for strict zone validation
+        paymentMethod: selectedPaymentMethod
       };
       // Log final order details (including paymentMethod for COD debugging)
 

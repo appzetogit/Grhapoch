@@ -17,6 +17,14 @@ let envCache = null;
 let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+const normalize = (value) => String(value || '').trim();
+
+const isLikelyRazorpayKeyId = (value) => {
+  const key = normalize(value);
+  // Razorpay key_id format examples: rzp_test_xxxxx / rzp_live_xxxxx
+  return /^rzp_(test|live)_[A-Za-z0-9]{8,}$/.test(key);
+};
+
 /**
  * Get environment variable value from database
  * Falls back to process.env if not found in database
@@ -91,13 +99,28 @@ export function clearEnvCache() {
  * @returns {Promise<Object>} { keyId, keySecret }
  */
 export async function getRazorpayCredentials() {
-  const apiKey = await getEnvVar('RAZORPAY_API_KEY');
-  const secretKey = await getEnvVar('RAZORPAY_SECRET_KEY');
-  
-  // Fallback to old env var names
+  const dbApiKey = normalize(await getEnvVar('RAZORPAY_API_KEY'));
+  const dbSecretKey = normalize(await getEnvVar('RAZORPAY_SECRET_KEY'));
+  const envApiKey = normalize(process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || '');
+  const envSecretKey = normalize(process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY || '');
+
+  let keyId = '';
+  if (isLikelyRazorpayKeyId(dbApiKey)) {
+    keyId = dbApiKey;
+  } else if (isLikelyRazorpayKeyId(envApiKey)) {
+    if (dbApiKey) {
+      logger.warn('Ignoring invalid RAZORPAY_API_KEY from DB; falling back to process.env RAZORPAY_KEY_ID');
+    }
+    keyId = envApiKey;
+  } else {
+    keyId = dbApiKey || envApiKey || '';
+  }
+
+  const keySecret = dbSecretKey || envSecretKey || '';
+
   return {
-    keyId: apiKey || process.env.RAZORPAY_KEY_ID || '',
-    keySecret: secretKey || process.env.RAZORPAY_KEY_SECRET || ''
+    keyId,
+    keySecret
   };
 }
 

@@ -1,7 +1,7 @@
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import EnvironmentVariable from '../models/EnvironmentVariable.js';
-import { clearEnvCache } from '../utils/envService.js';
+import { clearEnvCache, getRazorpayCredentials } from '../utils/envService.js';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -42,6 +42,7 @@ export const getEnvVariables = asyncHandler(async (req, res) => {
 export const getPublicEnvVariables = asyncHandler(async (req, res) => {
   try {
     const envVars = await EnvironmentVariable.getOrCreate();
+    const { keyId } = await getRazorpayCredentials();
 
     // Get decrypted Google Maps API key (toEnvObject already decrypts)
     const envData = envVars.toEnvObject();
@@ -50,7 +51,7 @@ export const getPublicEnvVariables = asyncHandler(async (req, res) => {
     // Fallback to process.env if database value is empty
     const publicEnvData = {
       VITE_GOOGLE_MAPS_API_KEY: envData.VITE_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
-      VITE_RAZORPAY_KEY_ID: envData.RAZORPAY_API_KEY || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || ''
+      VITE_RAZORPAY_KEY_ID: keyId || ''
     };
 
     return successResponse(res, 200, 'Public environment variables retrieved successfully', publicEnvData);

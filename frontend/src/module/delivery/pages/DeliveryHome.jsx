@@ -3267,12 +3267,9 @@ export default function DeliveryHome() {
       setReachedDropIsAnimatingToComplete(true);
       setReachedDropButtonProgress(1);
 
-      // Close popup, confirm reached drop, and show order delivered animation instantly (no delay)
-      // Close reached drop popup first
+      // Close popup first, then confirm reached drop.
+      // Show order delivered UI only after backend accepts the transition.
       setShowReachedDropPopup(false);
-
-      // Show Order Delivered popup instantly after Reached Drop is confirmed
-      setShowOrderDeliveredAnimation(true)
 
         // API call in background (async, doesn't block popup)
         ; (async () => {
@@ -3289,6 +3286,7 @@ export default function DeliveryHome() {
               const response = await deliveryAPI.confirmReachedDrop(orderIdForApi);
 
               if (response.data?.success) {
+                setShowOrderDeliveredAnimation(true);
               } else {
                 console.error('❌ Failed to confirm reached drop:', response.data);
                 toast.error(response.data?.message || 'Failed to confirm reached drop. Please try again.');
@@ -3301,28 +3299,28 @@ export default function DeliveryHome() {
               // Treat this as idempotent success and avoid noisy errors.
               const isAlreadyProcessed =
                 status === 400 &&
-                (backendMessage.includes('not in valid state') ||
-                  backendMessage.includes('at_delivery') ||
+                (backendMessage.includes('at_delivery') ||
+                  backendMessage.includes('already') ||
                   backendMessage.includes('completed') ||
                   backendMessage.includes('delivered'));
               const isNotFoundButLikelyDone = status === 404;
 
-              // Handle 500 errors gracefully (server-side issue, popup already shown)
+              // Handle 500 errors gracefully (server-side issue)
               if (status === 500) {
-                // For 500 errors, just log warning - popup is already shown, backend will sync later
-                console.warn('⚠️ Server error confirming reached drop (500), but popup is shown. Backend will sync status automatically.', {
+                console.warn('Server error confirming reached drop (500).', {
                   orderIdForApi: orderIdForApi || 'unknown',
                   message: error.response?.data?.message || error.message
                 });
-                // Don't show error toast or log as error - it's a server issue, not user action
+                toast.error('Server error while confirming reached drop. Please try again.');
                 return;
               }
 
               if (isAlreadyProcessed || isNotFoundButLikelyDone) {
-                console.warn('⚠️ Reached-drop API returned idempotent response, skipping noisy error.', {
+                console.warn('Reached-drop API returned idempotent response, skipping noisy error.', {
                   status,
                   orderIdForApi
                 });
+                setShowOrderDeliveredAnimation(true);
                 return;
               }
 
@@ -7634,8 +7632,7 @@ export default function DeliveryHome() {
       deliveryPhase === 'picked_up' ||
       deliveryPhase === 'at_delivery' ||
       deliveryStateStatus === 'order_confirmed' ||
-      deliveryStateStatus === 'en_route_to_delivery' ||
-      orderStatus === 'ready');
+      deliveryStateStatus === 'en_route_to_delivery');
 
     // Rider position: prefer riderLocation, fallback lastLocationRef
     const riderPos = riderLocation && riderLocation.length === 2 ? riderLocation : lastLocationRef.current && lastLocationRef.current.length === 2 ? lastLocationRef.current : null;

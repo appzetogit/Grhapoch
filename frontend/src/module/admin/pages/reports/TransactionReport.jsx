@@ -31,28 +31,20 @@ export default function TransactionReport() {
     deliverymanEarning: 0
   })
   const [filters, setFilters] = useState({
-    zone: "All Zones",
     restaurant: "All restaurants",
     time: "All Time",
   })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [zones, setZones] = useState([])
   const [restaurants, setRestaurants] = useState([])
   const metricFilter = useMemo(() => {
     const metric = new URLSearchParams(location.search).get("metric")
     return metric ? metric.toLowerCase() : ""
   }, [location.search])
 
-  // Fetch zones and restaurants for filters
+  // Fetch restaurants for filters
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        // Fetch zones
-        const zonesResponse = await adminAPI.getZones({ limit: 1000 })
-        if (zonesResponse?.data?.success && zonesResponse.data.data?.zones) {
-          setZones(zonesResponse.data.data.zones)
-        }
-
         // Fetch restaurants
         const restaurantsResponse = await adminAPI.getRestaurants({ limit: 1000 })
         if (restaurantsResponse?.data?.success && restaurantsResponse.data.data?.restaurants) {
@@ -91,7 +83,6 @@ export default function TransactionReport() {
 
         const params = {
           search: searchQuery || undefined,
-          zone: filters.zone !== "All Zones" ? filters.zone : undefined,
           restaurant: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
           fromDate: fromDate ? fromDate.toISOString() : undefined,
           toDate: toDate ? toDate.toISOString() : undefined,
@@ -205,13 +196,12 @@ export default function TransactionReport() {
 
   const handleResetFilters = () => {
     setFilters({
-      zone: "All Zones",
       restaurant: "All restaurants",
       time: "All Time",
     })
   }
 
-  const activeFiltersCount = (filters.zone !== "All Zones" ? 1 : 0) + (filters.restaurant !== "All restaurants" ? 1 : 0) + (filters.time !== "All Time" ? 1 : 0)
+  const activeFiltersCount = (filters.restaurant !== "All restaurants" ? 1 : 0) + (filters.time !== "All Time" ? 1 : 0)
 
   const formatCurrency = (amount) => {
     if (amount >= 1000) {
@@ -271,20 +261,6 @@ export default function TransactionReport() {
         {/* Search Data Section */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 mb-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <select
-                value={filters.zone}
-                onChange={(e) => setFilters(prev => ({ ...prev, zone: e.target.value }))}
-                className="w-full px-2.5 py-1.5 pr-5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs appearance-none cursor-pointer"
-              >
-                <option value="All Zones">All Zones</option>
-                {zones.map(zone => (
-                  <option key={zone._id} value={zone.name}>{zone.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
-            </div>
-
             <div className="relative flex-1 min-w-0">
               <select
                 value={filters.restaurant}

@@ -83,11 +83,18 @@ class PRPSMSService {
 
       if (response.data && typeof response.data === "object") {
         const data = response.data;
+        const returnMessage = typeof data.returnMessage === "string" ? data.returnMessage.toLowerCase() : "";
+        const statusText = typeof data.status === "string" ? data.status.toLowerCase() : "";
         const hasExplicitFailure =
           data.success === false ||
-          data.error ||
-          data.errors ||
-          (typeof data.status === "string" && data.status.toLowerCase().includes("fail"));
+          data.isSuccess === false ||
+          Boolean(data.error) ||
+          Boolean(data.errors) ||
+          statusText.includes("fail") ||
+          statusText.includes("error") ||
+          returnMessage.includes("fail") ||
+          returnMessage.includes("error") ||
+          returnMessage.includes("reject");
 
         if (hasExplicitFailure) {
           throw new Error(`PRPSMS rejected: ${JSON.stringify(data)}`);

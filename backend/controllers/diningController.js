@@ -47,6 +47,7 @@ export const getRestaurants = async (req, res) => {
             query.$or = [
                 { 'location.city': { $regex: city, $options: 'i' } },
                 { 'location.area': { $regex: city, $options: 'i' } },
+                { 'location.formattedAddress': { $regex: city, $options: 'i' } },
                 { 'zone': { $regex: city, $options: 'i' } },
                 { 'location.city': { $exists: false } },
                 { 'location.city': '' },

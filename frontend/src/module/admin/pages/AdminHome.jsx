@@ -33,32 +33,44 @@ export default function AdminHome() {
   const [selectedPeriod, setSelectedPeriod] = useState("overall");
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-  // Fetch dashboard stats on mount
+  // Fetch dashboard stats on mount and keep refreshing for live sections
   useEffect(() => {
-    const fetchDashboardStats = async () => {
+    let isMounted = true;
+
+    const fetchDashboardStats = async (showLoader = false) => {
       try {
-        setIsLoading(true);
+        if (showLoader) {
+          setIsLoading(true);
+        }
         const response = await adminAPI.getDashboardStats();
+        if (!isMounted) return;
+
         if (response.data?.success && response.data?.data) {
           setDashboardData(response.data.data);
-
-
-
-
-
-
+          setLastUpdatedAt(new Date());
         } else {
-          console.error('❌ Invalid response format:', response.data);
+          console.error("Invalid response format:", response.data);
         }
       } catch (error) {
-        console.error('❌ Error fetching dashboard stats:', error);
+        console.error("Error fetching dashboard stats:", error);
       } finally {
-        setIsLoading(false);
+        if (showLoader && isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchDashboardStats();
+    fetchDashboardStats(true);
+    const pollTimer = setInterval(() => {
+      fetchDashboardStats(false);
+    }, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollTimer);
+    };
   }, []);
 
   // Update loading state when filters change
@@ -181,7 +193,24 @@ export default function AdminHome() {
     fill: item.color
   }));
 
-  const activityFeed = [];
+  const recentActivity = dashboardData?.recentActivity || {};
+  const activityFeed = [
+    {
+      title: `${recentActivity.orders || 0} orders in last 24h`,
+      detail: "Incoming order flow",
+      time: "24h"
+    },
+    {
+      title: `${recentActivity.restaurants || 0} restaurants activated`,
+      detail: "Newly active outlets",
+      time: "24h"
+    },
+    {
+      title: `${dashboardData?.orders?.byStatus?.pending || 0} pending orders`,
+      detail: "Needs operational attention",
+      time: "Live"
+    }
+  ];
 
   return (
     <div className="px-4 pb-10 lg:px-6 pt-4">
@@ -555,7 +584,10 @@ export default function AdminHome() {
             <Card className="border-neutral-200 bg-white">
               <CardHeader className="border-b border-neutral-200 pb-4">
                 <CardTitle className="text-lg text-neutral-900">Live signals</CardTitle>
-                <p className="text-sm text-neutral-500">Ops notes and service health</p>
+                <p className="text-sm text-neutral-500">
+                  Ops notes and service health
+                  {lastUpdatedAt ? ` - Updated ${lastUpdatedAt.toLocaleTimeString("en-IN")}` : ""}
+                </p>
               </CardHeader>
               <CardContent className="space-y-3 pt-4">
                 {activityFeed.map((item, idx) =>

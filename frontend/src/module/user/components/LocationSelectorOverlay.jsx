@@ -44,7 +44,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   const inputRef = useRef(null);
   const [searchValue, setSearchValue] = useState("");
   const { location, loading, requestLocation, setManualLocation } = useGeoLocation();
-  const { addresses = [], addAddress, updateAddress, userProfile } = useProfile();
+  const { addresses = [], addAddress, updateAddress, userProfile, updateUserProfile } = useProfile();
   const [showAddressForm, setShowAddressForm] = useState(false);
   const getInitialMapPosition = () => {
     if (location?.latitude && location?.longitude) {
@@ -93,6 +93,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
   const locationUpdateTimeoutRef = useRef(null); // Timeout for location updates
   const [currentAddress, setCurrentAddress] = useState("");
   const [GOOGLE_MAPS_API_KEY, setGOOGLE_MAPS_API_KEY] = useState(null);
+  const [showReceiverEditor, setShowReceiverEditor] = useState(false);
+  const [receiverNameInput, setReceiverNameInput] = useState("");
+  const [receiverPhoneInput, setReceiverPhoneInput] = useState("");
+  const [receiverErrors, setReceiverErrors] = useState({ name: "", phone: "" });
 
   // Load Google Maps API key from backend.
   // Retry when selector opens so user doesn't need hard refresh if first fetch failed.
@@ -1272,6 +1276,70 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     });
   };
 
+  const validateReceiverDetails = (nameValue, phoneValue) => {
+    const errors = { name: "", phone: "" };
+    const trimmedName = (nameValue || "").trim();
+    const digits = (phoneValue || "").replace(/\D/g, "");
+
+    if (!trimmedName) {
+      errors.name = "Receiver name is required";
+    }
+
+    if (!digits) {
+      errors.phone = "Phone number is required";
+    } else if (!(digits.length === 10 || (digits.length === 12 && digits.startsWith("91")))) {
+      errors.phone = "Enter valid 10-digit phone (or 91 + 10 digits)";
+    }
+
+    return errors;
+  };
+
+  const handleOpenReceiverEditor = () => {
+    setReceiverNameInput((userProfile?.name || "").trim());
+    setReceiverPhoneInput((addressFormData.phone || userProfile?.phone || "").replace(/\D/g, ""));
+    setReceiverErrors({ name: "", phone: "" });
+    setShowReceiverEditor(true);
+  };
+
+  const handleSaveReceiverDetails = async () => {
+    const trimmedName = receiverNameInput.trim();
+    const normalizedPhone = receiverPhoneInput.replace(/\D/g, "");
+    const fieldErrors = validateReceiverDetails(trimmedName, normalizedPhone);
+    setReceiverErrors(fieldErrors);
+
+    if (fieldErrors.name || fieldErrors.phone) {
+      toast.error("Please fix receiver details");
+      return;
+    }
+
+    setAddressFormData((prev) => ({
+      ...prev,
+      phone: normalizedPhone
+    }));
+
+    if (typeof updateUserProfile === "function") {
+      updateUserProfile({
+        ...(trimmedName ? { name: trimmedName } : {}),
+        ...(normalizedPhone ? { phone: normalizedPhone } : {})
+      });
+    }
+
+    try {
+      await userAPI.updateProfile({
+        ...(trimmedName ? { name: trimmedName } : {}),
+        ...(normalizedPhone ? { phone: normalizedPhone } : {})
+      });
+    } catch (error) {
+      console.warn("Failed to persist receiver details to profile:", error);
+    }
+
+    setShowReceiverEditor(false);
+    toast.success("Receiver details updated");
+  };
+
+  const receiverValidation = validateReceiverDetails(receiverNameInput, receiverPhoneInput);
+  const isReceiverFormValid = !receiverValidation.name && !receiverValidation.phone;
+
   // Google Maps loading is handled by the Loader in the initialization useEffect above
 
   // OLD OLA MAPS INITIALIZATION - REMOVED (Replaced with Google Maps Loader above)
@@ -2205,9 +2273,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         zipCode: "",
         additionalDetails: "",
         label: "Home",
-        phone: ""
+        phone: userProfile?.phone || ""
       });
       setShowAddressForm(false);
+      setShowReceiverEditor(false);
       setLoadingAddress(false);
       onClose();
     } catch (error) {
@@ -2243,8 +2312,9 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
       zipCode: "",
       additionalDetails: "",
       label: "Home",
-      phone: ""
+      phone: userProfile?.phone || ""
     });
+    setShowReceiverEditor(false);
     onClose();
   };
 
@@ -2291,7 +2361,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         zipCode: address.zipCode || "",
         additionalDetails: address.additionalDetails || "",
         label: address.label || "Home",
-        phone: address.phone || ""
+        phone: address.phone || userProfile?.phone || ""
       });
 
       // Update Google Maps to show selected address
@@ -2501,7 +2571,6 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
                     "Select location on map"}
                   </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
               </div>
             </div>
 
@@ -2525,7 +2594,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
               <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
                 Receiver details for this address
               </Label>
-              <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleOpenReceiverEditor}
+                className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <Phone className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -2533,7 +2605,43 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
                   </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
-              </div>
+              </button>
+              {showReceiverEditor && <div className="mt-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] p-3 space-y-2">
+                  <Input
+                    placeholder="Receiver name"
+                    value={receiverNameInput}
+                    onChange={(e) => {
+                    const nextName = e.target.value;
+                    setReceiverNameInput(nextName);
+                    setReceiverErrors(validateReceiverDetails(nextName, receiverPhoneInput));
+                  }}
+                    className={`bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 ${receiverErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""}`} />
+                  {receiverErrors.name && <p className="text-xs text-red-600 dark:text-red-400">{receiverErrors.name}</p>}
+                  <Input
+                    placeholder="Phone number"
+                    value={receiverPhoneInput}
+                    onChange={(e) => {
+                    const nextPhone = e.target.value.replace(/\D/g, "").slice(0, 12);
+                    setReceiverPhoneInput(nextPhone);
+                    setReceiverErrors(validateReceiverDetails(receiverNameInput, nextPhone));
+                  }}
+                    inputMode="numeric"
+                    maxLength={12}
+                    className={`bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 ${receiverErrors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}`} />
+                  {receiverErrors.phone && <p className="text-xs text-red-600 dark:text-red-400">{receiverErrors.phone}</p>}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button type="button" variant="outline" onClick={() => setShowReceiverEditor(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleSaveReceiverDetails}
+                      disabled={!isReceiverFormValid}>
+                      Save
+                    </Button>
+                  </div>
+                </div>}
             </div>
 
             {/* Save Address As */}

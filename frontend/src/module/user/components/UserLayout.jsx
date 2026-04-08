@@ -87,6 +87,26 @@ function LocationSelectorProvider({ children }) {
     setIsLocationSelectorOpen(false)
   }
 
+  useEffect(() => {
+    if (!isLocationSelectorOpen) {
+      document.body.removeAttribute("data-location-selector-open")
+      return
+    }
+
+    document.body.setAttribute("data-location-selector-open", "true")
+    window.history.pushState({ locationSelectorOverlay: true }, "", window.location.href)
+
+    const handleBackWhileLocationOpen = () => {
+      setIsLocationSelectorOpen(false)
+    }
+
+    window.addEventListener("popstate", handleBackWhileLocationOpen)
+    return () => {
+      document.body.removeAttribute("data-location-selector-open")
+      window.removeEventListener("popstate", handleBackWhileLocationOpen)
+    }
+  }, [isLocationSelectorOpen])
+
   const value = {
     isLocationSelectorOpen,
     openLocationSelector,
@@ -145,6 +165,10 @@ export default function UserLayout() {
     }
 
     const onPopState = () => {
+      // If location selector is open, let that overlay consume the back press.
+      if (document.body?.getAttribute("data-location-selector-open") === "true") {
+        return
+      }
       setShowLogoutDialog(true)
       window.history.pushState({ userHomeGuard: true }, "", window.location.href)
     }

@@ -100,10 +100,17 @@ function LocationSelectorProvider({ children }) {
       setIsLocationSelectorOpen(false)
     }
 
+    const handleNativeBackWhileLocationOpen = (event) => {
+      if (event?.preventDefault) event.preventDefault()
+      setIsLocationSelectorOpen(false)
+    }
+
     window.addEventListener("popstate", handleBackWhileLocationOpen)
+    document.addEventListener("backbutton", handleNativeBackWhileLocationOpen, false)
     return () => {
       document.body.removeAttribute("data-location-selector-open")
       window.removeEventListener("popstate", handleBackWhileLocationOpen)
+      document.removeEventListener("backbutton", handleNativeBackWhileLocationOpen, false)
     }
   }, [isLocationSelectorOpen])
 

@@ -68,6 +68,12 @@ const isMockOTPVerifyEnabled = () => {
   return parseBooleanEnv(process.env.ALLOW_MOCK_OTP_VERIFY, false);
 };
 
+const isTestPhoneBypassEnabled = () => {
+  // Safety: never allow test-number OTP bypass in production
+  if (process.env.NODE_ENV === 'production') return false;
+  return parseBooleanEnv(process.env.ENABLE_TEST_PHONE_OTP_BYPASS, true);
+};
+
 const isPrpSmsDisabled = () => {
   // Allow disabling PRP SMS in dev/test without breaking OTP flow
   if (process.env.NODE_ENV === 'production') return false;
@@ -135,7 +141,9 @@ class OTPService {
         }
       }
 
-      const useMockOTP = isGlobalMockOTPEnabled() || isTestPhoneNumber(phone);
+      const useMockOTP =
+        isGlobalMockOTPEnabled() ||
+        (isTestPhoneBypassEnabled() && isTestPhoneNumber(phone));
       let otp = generateOTP();
       if (useMockOTP) {
         otp = getMockOTPValue();
@@ -236,7 +244,10 @@ class OTPService {
       const otpHash = hashOtp(otp, identifier, purpose);
 
       // Allow mock OTP validation for test numbers or when explicitly enabled (dev/test only)
-      if ((isMockOTPVerifyEnabled() || isTestPhoneNumber(phone)) && otp === getMockOTPValue()) {
+      if (
+        (isMockOTPVerifyEnabled() || (isTestPhoneBypassEnabled() && isTestPhoneNumber(phone))) &&
+        otp === getMockOTPValue()
+      ) {
         logger.info('Mock OTP verified', {
           identifierType,
           identifier,

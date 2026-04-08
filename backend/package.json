@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node --disable-warning=MONGOOSE server.js",
-    "dev": "SET \"USE_PSTREE=0\"&& nodemon --exec \"node --disable-warning=MONGOOSE server.js\"",
+    "dev": "node --watch --disable-warning=MONGOOSE server.js",
     "kill-port": "npx kill-port 5000 || (for /f \"tokens=5\" %a in ('netstat -ano ^| findstr LISTENING ^| findstr :5000') do taskkill /F /PID %a)",
     "fresh": "npm run kill-port && npm run dev",
     "test": "echo \"Error: no test specified\" && exit 1",

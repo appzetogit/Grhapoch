@@ -24,6 +24,24 @@ export default function PageNavbar({
   const cartCount = getCartCount()
   const [logoUrl, setLogoUrl] = useState(fallbackLogo)
   const [companyName, setCompanyName] = useState(null)
+  const [profileImageFailed, setProfileImageFailed] = useState(false)
+  const profileImageUrl =
+    typeof userProfile?.profileImage === "string"
+      ? userProfile.profileImage.trim()
+      : userProfile?.profileImage?.url || ""
+  const hasProfileImage =
+    Boolean(profileImageUrl) &&
+    profileImageUrl !== "null" &&
+    profileImageUrl !== "undefined" &&
+    !profileImageFailed
+  const profileInitial =
+    userProfile?.name?.charAt(0)?.toUpperCase() ||
+    userProfile?.phone?.charAt(1)?.toUpperCase() ||
+    "U"
+
+  useEffect(() => {
+    setProfileImageFailed(false)
+  }, [profileImageUrl])
 
   // Auto-trigger location fetch if we have placeholder values (only once on mount)
   useEffect(() => {
@@ -1007,9 +1025,19 @@ export default function PageNavbar({
                 title="Profile"
               >
                 <div className={`h-full w-full rounded-full bg-white flex items-center justify-center shadow-lg ring-2 ${ringColor}`}>
-                  <span className="text-black text-xs sm:text-sm font-extrabold rotate-2">
-                    {userProfile?.name?.charAt(0)?.toUpperCase() || userProfile?.phone?.charAt(1)?.toUpperCase() || 'U'}
-                  </span>
+                  {hasProfileImage ? (
+                    <img
+                      src={profileImageUrl}
+                      alt="Profile"
+                      className="h-full w-full rounded-full object-cover"
+                      loading="lazy"
+                      onError={() => setProfileImageFailed(true)}
+                    />
+                  ) : (
+                    <span className="text-black text-xs sm:text-sm font-extrabold rotate-2">
+                      {profileInitial}
+                    </span>
+                  )}
                 </div>
               </Button>
             </Link>

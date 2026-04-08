@@ -192,7 +192,7 @@ export default function OrderHelp() {
 
   if (!order) {
     return (
-      <AnimatedPage className="min-h-screen bg-gradient-to-b from-yellow-50/30 via-white to-orange-50/20 p-4">
+      <AnimatedPage className="min-h-screen bg-gradient-to-b from-yellow-50/30 via-white to-orange-50/20 dark:from-[#0a0a0a] dark:via-[#0a0a0a] dark:to-[#0a0a0a] p-4">
         <div className="max-w-4xl mx-auto">
           <Card>
             <CardContent className="py-12 text-center">

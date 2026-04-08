@@ -1,7 +1,6 @@
 const TARGET_BANNER_WIDTH = 1200
 const TARGET_BANNER_HEIGHT = 300
 const TARGET_BANNER_RATIO = TARGET_BANNER_WIDTH / TARGET_BANNER_HEIGHT
-const BANNER_RATIO_TOLERANCE = 0.05
 const MAX_BANNER_FILE_SIZE_BYTES = 2 * 1024 * 1024
 const QUALITY_STEPS = [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5]
 
@@ -57,14 +56,9 @@ export const optimizeBannerForUpload = async (file) => {
   }
 
   const sourceRatio = originalWidth / originalHeight
-  const ratioDiff = Math.abs(sourceRatio - TARGET_BANNER_RATIO)
 
   if (originalWidth < TARGET_BANNER_WIDTH || originalHeight < TARGET_BANNER_HEIGHT) {
     throw new Error("Banner dimensions too small. Minimum 1200x300 required.")
-  }
-
-  if (ratioDiff > TARGET_BANNER_RATIO * BANNER_RATIO_TOLERANCE) {
-    throw new Error("Banner aspect ratio must be around 4:1 (for example 1200x300).")
   }
 
   const canvas = document.createElement("canvas")
@@ -75,7 +69,26 @@ export const optimizeBannerForUpload = async (file) => {
     throw new Error("Unable to process image in this browser")
   }
 
-  context.drawImage(image, 0, 0, TARGET_BANNER_WIDTH, TARGET_BANNER_HEIGHT)
+  // Fill target canvas without distortion by center-cropping from source.
+  const drawWidth = TARGET_BANNER_WIDTH
+  const drawHeight = TARGET_BANNER_HEIGHT
+  const sourceAspectRatio = sourceRatio
+  const targetAspectRatio = TARGET_BANNER_RATIO
+
+  let sx = 0
+  let sy = 0
+  let sWidth = originalWidth
+  let sHeight = originalHeight
+
+  if (sourceAspectRatio > targetAspectRatio) {
+    sWidth = Math.round(originalHeight * targetAspectRatio)
+    sx = Math.max(0, Math.floor((originalWidth - sWidth) / 2))
+  } else if (sourceAspectRatio < targetAspectRatio) {
+    sHeight = Math.round(originalWidth / targetAspectRatio)
+    sy = Math.max(0, Math.floor((originalHeight - sHeight) / 2))
+  }
+
+  context.drawImage(image, sx, sy, sWidth, sHeight, 0, 0, drawWidth, drawHeight)
 
   let optimizedBlob = null
   for (const quality of QUALITY_STEPS) {
@@ -100,7 +113,7 @@ export const optimizeBannerForUpload = async (file) => {
 
   const previewUrl = URL.createObjectURL(optimizedFile)
   const sourceRatioLabel = sourceRatio.toFixed(2)
-  const summary = `Optimized ${originalWidth}x${originalHeight} (${sourceRatioLabel}:1) -> ${TARGET_BANNER_WIDTH}x${TARGET_BANNER_HEIGHT} (4:1), ${formatKb(file.size)} -> ${formatKb(optimizedFile.size)}`
+  const summary = `Optimized ${originalWidth}x${originalHeight} (${sourceRatioLabel}:1) -> ${TARGET_BANNER_WIDTH}x${TARGET_BANNER_HEIGHT}, ${formatKb(file.size)} -> ${formatKb(optimizedFile.size)}`
 
   return {
     file: optimizedFile,
@@ -125,6 +138,5 @@ export const BANNER_UPLOAD_SPEC = {
   width: TARGET_BANNER_WIDTH,
   height: TARGET_BANNER_HEIGHT,
   ratio: TARGET_BANNER_RATIO,
-  ratioTolerance: BANNER_RATIO_TOLERANCE,
   maxFileSizeBytes: MAX_BANNER_FILE_SIZE_BYTES,
 }

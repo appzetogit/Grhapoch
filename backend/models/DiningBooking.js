@@ -42,6 +42,26 @@ const diningBookingSchema = new mongoose.Schema(
             enum: ["Pending", "Confirmed", "Rejected", "Cancelled", "Completed"],
             default: "Pending",
         },
+        diningPlatformFee: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        paymentStatus: {
+            type: String,
+            enum: ["Pending", "Completed", "Failed", "Refunded", ""],
+            default: ""
+        },
+        razorpayOrderId: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        razorpayPaymentId: {
+            type: String,
+            default: "",
+            trim: true
+        },
         cancellationReason: {
             type: String,
             default: "",
@@ -53,7 +73,7 @@ const diningBookingSchema = new mongoose.Schema(
         },
         statusUpdatedByRole: {
             type: String,
-            enum: ["user", "restaurant", "admin", ""],
+            enum: ["user", "restaurant", "admin", "system", ""],
             default: ""
         },
         statusUpdatedBy: {

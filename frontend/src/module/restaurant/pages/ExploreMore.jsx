@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Lenis from "lenis";
 import {
   ArrowLeft,
@@ -329,6 +329,7 @@ function TimePickerWheel({
 
 export default function ExploreMore() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -420,6 +421,15 @@ export default function ExploreMore() {
   const restaurantDisplayAddress = restaurantData?.location ? formatAddress(restaurantData.location) : "";
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleBackNavigation = () => {
+    if (window.history.length > 1 && location.key !== "default") {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/restaurant/to-hub", { replace: true });
+  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return; // Prevent multiple clicks
@@ -825,7 +835,7 @@ export default function ExploreMore() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
             <button
-              onClick={() => navigate(-1)}
+              onClick={handleBackNavigation}
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Go back">
               

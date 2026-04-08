@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft, CalendarCheck2, CheckCircle2, ChevronRight, Clock, IndianRupee, Loader2, UtensilsCrossed, XCircle } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import AnimatedPage from "@/module/user/components/AnimatedPage"
-import { restaurantAPI } from "@/lib/api"
+import { diningAPI, restaurantAPI } from "@/lib/api"
 import { loadRazorpayScript } from "@/lib/utils/razorpay"
 import { toast } from "sonner"
 
@@ -17,11 +17,16 @@ const DINING_STATUSES = {
 
 export default function DiningManagement() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [diningStatus, setDiningStatus] = useState(null)
     const [statusLoading, setStatusLoading] = useState(true)
     const [requesting, setRequesting] = useState(false)
     const [enablingFree, setEnablingFree] = useState(false)
     const [paying, setPaying] = useState(false)
+    const [availableCategories, setAvailableCategories] = useState([])
+    const [loadingCategories, setLoadingCategories] = useState(true)
+    const [selectedDiningCategories, setSelectedDiningCategories] = useState([])
+    const [savingDiningCategory, setSavingDiningCategory] = useState(false)
 
     const sections = [
         {
@@ -53,6 +58,10 @@ export default function DiningManagement() {
             const res = await restaurantAPI.getDiningActivationStatus()
             if (res.data?.success) {
                 setDiningStatus(res.data.data)
+                const responseCategories = Array.isArray(res.data.data?.diningCategories)
+                    ? res.data.data.diningCategories
+                    : (String(res.data.data?.diningCategory || "").trim() ? [String(res.data.data.diningCategory).trim()] : [])
+                setSelectedDiningCategories(responseCategories.map((category) => String(category || "").trim()).filter(Boolean))
             }
         } catch (error) {
             console.error("Failed to fetch dining activation status:", error)
@@ -65,6 +74,76 @@ export default function DiningManagement() {
     useEffect(() => {
         fetchDiningActivationStatus()
     }, [])
+
+    useEffect(() => {
+        const fetchDiningCategories = async () => {
+            try {
+                setLoadingCategories(true)
+                const res = await diningAPI.getCategories()
+                const categories = Array.isArray(res.data?.data) ? res.data.data : []
+                setAvailableCategories(categories)
+            } catch (error) {
+                console.error("Failed to fetch dining categories:", error)
+                toast.error("Failed to load dining categories")
+                setAvailableCategories([])
+            } finally {
+                setLoadingCategories(false)
+            }
+        }
+
+        fetchDiningCategories()
+    }, [])
+
+    const handleSaveDiningCategory = async () => {
+        const normalizedCategories = Array.from(
+            new Set(
+                selectedDiningCategories
+                    .map((category) => String(category || "").trim())
+                    .filter(Boolean)
+            )
+        )
+
+        if (normalizedCategories.length === 0) {
+            toast.error("Please select at least one dining category")
+            return
+        }
+
+        try {
+            setSavingDiningCategory(true)
+            const res = await restaurantAPI.updateDiningSettings({ diningCategories: normalizedCategories })
+            const responseCategories = Array.isArray(res.data?.data?.diningCategories)
+                ? res.data.data.diningCategories
+                : (String(res.data?.data?.diningCategory || "").trim() ? [String(res.data.data.diningCategory).trim()] : normalizedCategories)
+            const savedCategories = responseCategories
+                .map((category) => String(category || "").trim())
+                .filter(Boolean)
+            setSelectedDiningCategories(savedCategories)
+            setDiningStatus((prev) => ({
+                ...(prev || {}),
+                diningCategory: savedCategories[0] || "",
+                diningCategories: savedCategories
+            }))
+            toast.success("Dining categories updated successfully")
+        } catch (error) {
+            console.error("Failed to update dining categories:", error)
+            toast.error(error?.response?.data?.message || "Failed to update dining categories")
+        } finally {
+            setSavingDiningCategory(false)
+        }
+    }
+
+    const handleToggleDiningCategory = (categoryName) => {
+        const normalizedCategory = String(categoryName || "").trim()
+        if (!normalizedCategory) return
+
+        setSelectedDiningCategories((prev) => {
+            const exists = prev.some((category) => category.toLowerCase() === normalizedCategory.toLowerCase())
+            if (exists) {
+                return prev.filter((category) => category.toLowerCase() !== normalizedCategory.toLowerCase())
+            }
+            return [...prev, normalizedCategory]
+        })
+    }
 
     const handleRequestDiningEnable = async () => {
         try {
@@ -173,6 +252,15 @@ export default function DiningManagement() {
     const isApproved = currentStatus === DINING_STATUSES.APPROVED
     const isPaymentPending = currentStatus === DINING_STATUSES.PAYMENT_PENDING
     const isRejected = currentStatus === DINING_STATUSES.REJECTED
+
+    const handleBackNavigation = () => {
+        if (window.history.length > 1 && location.key !== "default") {
+            navigate(-1)
+            return
+        }
+
+        navigate("/restaurant/explore", { replace: true })
+    }
 
     const renderActivationContent = () => {
         if (canRequest) {
@@ -299,7 +387,7 @@ export default function DiningManagement() {
                 <div className="max-w-6xl mx-auto w-full px-4 md:px-6 h-[72px] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={() => navigate("/restaurant/explore")}
+                            onClick={handleBackNavigation}
                             className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5 text-gray-700" />
@@ -335,6 +423,66 @@ export default function DiningManagement() {
                                 <CheckCircle2 className="h-4 w-4" />
                                 Dining is enabled for this restaurant
                             </div>
+                        )}
+                    </div>
+                )}
+
+                {!statusLoading && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+                        <h2 className="text-base font-bold text-gray-900">Dining Category</h2>
+                        <p className="text-sm text-gray-600 mt-1">
+                            Select one or more categories from admin dining categories.
+                        </p>
+
+                        <div className="mt-4 space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {availableCategories.map((category) => {
+                                    const categoryName = String(category?.name || "").trim()
+                                    const isSelected = selectedDiningCategories.some(
+                                        (selectedCategory) => selectedCategory.toLowerCase() === categoryName.toLowerCase()
+                                    )
+
+                                    return (
+                                        <label
+                                            key={category._id}
+                                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? "border-[#ef4f5f] bg-rose-50 text-[#ef4f5f]"
+                                                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => handleToggleDiningCategory(categoryName)}
+                                                disabled={loadingCategories || savingDiningCategory}
+                                                className="h-4 w-4 accent-[#ef4f5f]"
+                                            />
+                                            <span className="font-medium">{categoryName}</span>
+                                        </label>
+                                    )
+                                })}
+                            </div>
+
+                            <Button
+                                onClick={handleSaveDiningCategory}
+                                disabled={loadingCategories || savingDiningCategory || selectedDiningCategories.length === 0}
+                                className="h-10 rounded-xl px-4 bg-[#ef4f5f] hover:bg-[#e03f4f] text-white text-sm font-bold"
+                            >
+                                {savingDiningCategory ? (
+                                    <span className="inline-flex items-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </span>
+                                ) : (
+                                    "Save Categories"
+                                )}
+                            </Button>
+                        </div>
+                        {!loadingCategories && availableCategories.length === 0 && (
+                            <p className="mt-2 text-xs text-amber-700">
+                                No active dining categories available right now. Please ask admin to add categories.
+                            </p>
                         )}
                     </div>
                 )}

@@ -562,6 +562,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Generic user room join for realtime user notifications (including dining booking updates)
+  socket.on('join-user', (userId) => {
+    if (!userId) return;
+    const normalizedUserId = userId?.toString() || userId;
+    socket.join(`user:${normalizedUserId}`);
+    socket.emit('user-room-joined', {
+      userId: normalizedUserId,
+      room: `user:${normalizedUserId}`,
+      socketId: socket.id
+    });
+  });
+
   // Handle request for current location
   socket.on('request-current-location', async (orderId) => {
     if (!orderId) return;
@@ -682,6 +694,20 @@ function initializeScheduledTasks() {
 
   }).catch((error) => {
     console.error('❌ Failed to initialize auto-reject service:', error);
+  });
+
+  // Import dining auto-complete service
+  import('./services/diningAutoCompleteService.js').then(({ processDiningAutoCompletions }) => {
+    // Run every minute to mark elapsed confirmed bookings as completed
+    cron.schedule('* * * * *', async () => {
+      try {
+        const result = await processDiningAutoCompletions();
+      } catch (error) {
+        console.error('[Dining Auto Complete Cron] Error:', error);
+      }
+    });
+  }).catch((error) => {
+    console.error('❌ Failed to initialize dining auto-complete service:', error);
   });
 
   // Import subscription expiry + warning service

@@ -25,18 +25,8 @@ const ADVERTISEMENT_WEBHOOK_EVENTS = new Set(['payment.captured', 'order.paid', 
 const BANNER_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 const BANNER_MIN_WIDTH = 1200;
 const BANNER_MIN_HEIGHT = 300;
-const BANNER_ASPECT_RATIO_TARGET = 4;
-const BANNER_ASPECT_RATIO_TOLERANCE = 0.05;
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
-
-const isBannerAspectRatioValid = (width, height) => {
-  if (!width || !height) return false;
-  const ratio = Number(width) / Number(height);
-  const minRatio = BANNER_ASPECT_RATIO_TARGET * (1 - BANNER_ASPECT_RATIO_TOLERANCE);
-  const maxRatio = BANNER_ASPECT_RATIO_TARGET * (1 + BANNER_ASPECT_RATIO_TOLERANCE);
-  return ratio >= minRatio && ratio <= maxRatio;
-};
 
 const getAdvertisementWebhookSecret = async () => {
   const secretFromEnvStore = await getEnvVar('RAZORPAY_WEBHOOK_SECRET', '');
@@ -348,11 +338,6 @@ const uploadBanner = async (file) => {
   if (width < BANNER_MIN_WIDTH || height < BANNER_MIN_HEIGHT) {
     await safeDeleteCloudinary(uploaded.public_id);
     throw new Error(`Banner dimensions too small. Minimum ${BANNER_MIN_WIDTH}x${BANNER_MIN_HEIGHT} required`);
-  }
-
-  if (!isBannerAspectRatioValid(width, height)) {
-    await safeDeleteCloudinary(uploaded.public_id);
-    throw new Error('Banner aspect ratio must be around 4:1 (for example 1200x300)');
   }
 
   return {

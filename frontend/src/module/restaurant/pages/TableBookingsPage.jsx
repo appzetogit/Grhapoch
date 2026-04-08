@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft, Calendar, Check, Hash, Phone, User, X } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import AnimatedPage from "@/module/user/components/AnimatedPage"
 import { diningAPI, restaurantAPI } from "@/lib/api"
@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 export default function TableBookingsPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [loading, setLoading] = useState(true)
     const [bookings, setBookings] = useState([])
     const [restaurantId, setRestaurantId] = useState("")
@@ -15,6 +16,19 @@ export default function TableBookingsPage() {
     useEffect(() => {
         fetchInitialData()
     }, [])
+
+    useEffect(() => {
+        const handleBookingsChanged = () => {
+            fetchBookings()
+        }
+
+        window.addEventListener("dining-bookings-changed", handleBookingsChanged)
+        window.addEventListener("restaurant:dining-booking-status-update", handleBookingsChanged)
+        return () => {
+            window.removeEventListener("dining-bookings-changed", handleBookingsChanged)
+            window.removeEventListener("restaurant:dining-booking-status-update", handleBookingsChanged)
+        }
+    }, [restaurantId])
 
     const fetchInitialData = async () => {
         try {
@@ -59,12 +73,26 @@ export default function TableBookingsPage() {
             const res = await diningAPI.updateBookingStatus(bookingId, status)
             if (res.data?.success) {
                 toast.success(`Booking ${status.toLowerCase()} successfully`)
-                fetchBookings()
+                await fetchBookings()
+                window.dispatchEvent(
+                    new CustomEvent("dining-bookings-changed", {
+                        detail: { bookingId, status }
+                    })
+                )
             }
         } catch (error) {
             console.error("Failed to update status:", error)
             toast.error("Failed to update booking status")
         }
+    }
+
+    const handleBackNavigation = () => {
+        if (window.history.length > 1 && location.key !== "default") {
+            navigate(-1)
+            return
+        }
+
+        navigate("/restaurant/dining-management", { replace: true })
     }
 
     if (loading) {
@@ -84,7 +112,7 @@ export default function TableBookingsPage() {
                 <div className="max-w-6xl mx-auto w-full px-4 md:px-6 h-[72px] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={() => navigate("/restaurant/dining-management")}
+                            onClick={handleBackNavigation}
                             className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5 text-gray-700" />
@@ -159,23 +187,35 @@ export default function TableBookingsPage() {
                                         </div>
                                     )}
 
-                                    {booking.bookingStatus === "Pending" && (
+                                    {(booking.bookingStatus === "Pending" || booking.bookingStatus === "Confirmed") && (
                                         <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                                            <Button
-                                                onClick={() => handleUpdateStatus(booking._id, "Confirmed")}
-                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
-                                            >
-                                                <Check className="w-4 h-4" />
-                                                Confirm
-                                            </Button>
-                                            <Button
-                                                onClick={() => handleUpdateStatus(booking._id, "Rejected")}
-                                                variant="outline"
-                                                className="flex-1 border-red-200 text-red-600 hover:bg-red-50 font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
-                                            >
-                                                <X className="w-4 h-4" />
-                                                Reject
-                                            </Button>
+                                            {booking.bookingStatus === "Pending" ? (
+                                                <>
+                                                    <Button
+                                                        onClick={() => handleUpdateStatus(booking._id, "Confirmed")}
+                                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                        Confirm
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => handleUpdateStatus(booking._id, "Rejected")}
+                                                        variant="outline"
+                                                        className="flex-1 border-red-200 text-red-600 hover:bg-red-50 font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                        Reject
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <Button
+                                                    onClick={() => handleUpdateStatus(booking._id, "Completed")}
+                                                    className="w-full bg-[#ef4f5f] hover:bg-[#e03f4f] text-white font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
+                                                >
+                                                    <Check className="w-4 h-4" />
+                                                    Mark as Completed
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </div>

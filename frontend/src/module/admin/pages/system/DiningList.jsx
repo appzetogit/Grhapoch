@@ -27,7 +27,7 @@ export default function DiningList() {
     // Modal state
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
-    const [modalData, setModalData] = useState({ diningEnabled: false, guests: 6, cuisine: '' });
+    const [modalData, setModalData] = useState({ diningEnabled: false, guests: 6, diningCategories: [] });
 
     useEffect(() => {
         fetchRestaurants();
@@ -65,7 +65,20 @@ export default function DiningList() {
             if (response.data && response.data.success && response.data.data) {
                 const restaurantsData = response.data.data.restaurants || response.data.data || [];
 
-                const mappedRestaurants = restaurantsData.map((restaurant) => ({
+                const mappedRestaurants = restaurantsData.map((restaurant) => {
+                    const normalizedDiningCategories = Array.isArray(restaurant.diningCategories)
+                        ? restaurant.diningCategories.map((category) => String(category || '').trim()).filter(Boolean)
+                        : (String(restaurant.diningCategory || '').trim() ? [String(restaurant.diningCategory).trim()] : []);
+
+                    const cuisinesArray = Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0
+                        ? restaurant.cuisines
+                        : (restaurant.cuisine ? [restaurant.cuisine] : []);
+
+                    const primaryCuisine = normalizedDiningCategories[0]
+                        || (String(restaurant.diningCategory || '').trim())
+                        || (cuisinesArray[0] || restaurant.cuisine || "N/A");
+
+                    return {
                     id: restaurant.restaurantId || restaurant._id || restaurant.id,
                     _id: restaurant._id,
                     name: restaurant.name || "N/A",
@@ -78,13 +91,11 @@ export default function DiningList() {
                     // Using default values for now since these fields might not be fully integrated into Restaurant model yet
                     diningEnabled: restaurant.diningEnabled || false, // Use database value or false
                     guests: restaurant.diningGuests || 15, // Use database value or 15
-                    cuisine: restaurant.diningCategory || (Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0
-                        ? restaurant.cuisines[0]
-                        : (restaurant.cuisine || "N/A")),
-                    cuisinesArray: Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0
-                        ? restaurant.cuisines
-                        : (restaurant.cuisine ? [restaurant.cuisine] : []),
-                }));
+                    cuisine: primaryCuisine,
+                    diningCategories: normalizedDiningCategories,
+                    cuisinesArray
+                };
+                });
                 setRestaurants(mappedRestaurants);
             } else {
                 setRestaurants([]);
@@ -157,27 +168,55 @@ export default function DiningList() {
     };
 
     const openSettings = (restaurant) => {
+        const normalizedDiningCategories = Array.isArray(restaurant.diningCategories)
+            ? restaurant.diningCategories
+            : [];
+        const fallbackCategories = normalizedDiningCategories.length > 0
+            ? normalizedDiningCategories
+            : (restaurant.cuisine && restaurant.cuisine !== "N/A" ? [restaurant.cuisine] : []);
+
         setSelectedRestaurant(restaurant);
         setModalData({
             diningEnabled: restaurant.diningEnabled,
             guests: restaurant.guests || 15,
-            cuisine: restaurant.cuisine !== "N/A" ? restaurant.cuisine : ''
+            diningCategories: fallbackCategories
         });
         setIsSettingsModalOpen(true);
     };
 
     const handleSaveSettings = async () => {
+        const normalizedCategories = Array.from(
+            new Set(
+                (Array.isArray(modalData.diningCategories) ? modalData.diningCategories : [])
+                    .map((category) => String(category || '').trim())
+                    .filter(Boolean)
+            )
+        );
+
         try {
             const res = await apiClient.put(`/admin/dining/restaurant/${selectedRestaurant._id}/settings`, {
                 diningEnabled: modalData.diningEnabled,
                 guests: modalData.guests,
-                cuisine: modalData.cuisine || "N/A"
+                diningCategories: normalizedCategories
             }, getAuthConfig());
 
             if (res.data.success) {
+                const responseCategories = Array.isArray(res.data?.data?.diningCategories)
+                    ? res.data.data.diningCategories
+                    : normalizedCategories;
+                const normalizedResponseCategories = responseCategories
+                    .map((category) => String(category || '').trim())
+                    .filter(Boolean);
+
                 setRestaurants(prev => prev.map(r =>
                     r._id === selectedRestaurant._id
-                        ? { ...r, diningEnabled: modalData.diningEnabled, guests: modalData.guests, cuisine: modalData.cuisine || "N/A" }
+                        ? {
+                            ...r,
+                            diningEnabled: modalData.diningEnabled,
+                            guests: modalData.guests,
+                            diningCategories: normalizedResponseCategories,
+                            cuisine: normalizedResponseCategories[0] || "N/A"
+                        }
                         : r
                 ));
                 setIsSettingsModalOpen(false);
@@ -189,6 +228,37 @@ export default function DiningList() {
             console.error(err);
             toast.error("Failed to update dining settings");
         }
+    };
+
+    const getModalCategoryOptions = () => {
+        const adminOptions = Array.isArray(adminCategories)
+            ? adminCategories.map((category) => String(category?.name || '').trim()).filter(Boolean)
+            : [];
+        if (adminOptions.length > 0) return adminOptions;
+
+        const fallback = new Set();
+        (selectedRestaurant?.diningCategories || []).forEach((category) => fallback.add(String(category || '').trim()));
+        (selectedRestaurant?.cuisinesArray || []).forEach((category) => fallback.add(String(category || '').trim()));
+        if (selectedRestaurant?.cuisine && selectedRestaurant.cuisine !== "N/A") {
+            fallback.add(String(selectedRestaurant.cuisine).trim());
+        }
+        return Array.from(fallback).filter(Boolean);
+    };
+
+    const toggleModalDiningCategory = (categoryName) => {
+        const normalizedCategory = String(categoryName || '').trim();
+        if (!normalizedCategory) return;
+
+        setModalData((prev) => {
+            const current = Array.isArray(prev.diningCategories) ? prev.diningCategories : [];
+            const exists = current.some((category) => String(category || '').toLowerCase() === normalizedCategory.toLowerCase());
+            return {
+                ...prev,
+                diningCategories: exists
+                    ? current.filter((category) => String(category || '').toLowerCase() !== normalizedCategory.toLowerCase())
+                    : [...current, normalizedCategory]
+            };
+        });
     };
 
     return (
@@ -380,27 +450,34 @@ export default function DiningList() {
                             </div>
 
                             <div>
-                                <label className="text-sm font-bold text-gray-900 block mb-2">Dining Category</label>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={modalData.cuisine}
-                                    onChange={(e) => setModalData({ ...modalData, cuisine: e.target.value })}
-                                >
-                                    <option value="" disabled>Select Category</option>
-                                    {adminCategories.length > 0 ? (
-                                        adminCategories.map((c) => (
-                                            <option key={c._id} value={c.name}>{c.name}</option>
-                                        ))
+                                <label className="text-sm font-bold text-gray-900 block mb-2">Dining Categories</label>
+                                <div className="max-h-44 overflow-y-auto rounded-md border border-gray-200 p-2 space-y-1.5">
+                                    {getModalCategoryOptions().length === 0 ? (
+                                        <p className="text-xs text-gray-500 px-1 py-1">No categories available.</p>
                                     ) : (
-                                        selectedRestaurant.cuisinesArray && selectedRestaurant.cuisinesArray.length > 0 ? (
-                                            selectedRestaurant.cuisinesArray.map((c, i) => (
-                                                <option key={i} value={c}>{c}</option>
-                                            ))
-                                        ) : (
-                                            <option value={selectedRestaurant.cuisine}>{selectedRestaurant.cuisine}</option>
-                                        )
+                                        getModalCategoryOptions().map((category) => {
+                                            const checked = (modalData.diningCategories || []).some(
+                                                (item) => String(item || '').toLowerCase() === String(category || '').toLowerCase()
+                                            );
+                                            return (
+                                                <label key={category} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => toggleModalDiningCategory(category)}
+                                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    />
+                                                    <span className="text-sm text-gray-800">{category}</span>
+                                                </label>
+                                            );
+                                        })
                                     )}
-                                </select>
+                                </div>
+                                {(modalData.diningCategories || []).length > 0 && (
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Selected: {(modalData.diningCategories || []).join(", ")}
+                                    </p>
+                                )}
                             </div>
                         </div>
 

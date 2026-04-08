@@ -11,7 +11,9 @@ import { toast } from "sonner";
 import axios from "axios";
 import { getRazorpayKeyId } from "@/lib/utils/razorpayKey";
 import { shareContent } from "@/lib/utils/share";
-import { mergeDiningBookings, normalizeDiningBooking, readDiningBookings, writeDiningBookings } from "../utils/diningBookings";
+import { mergeDiningBookings, normalizeDiningBooking, parseBookingDateTime, readDiningBookings, writeDiningBookings } from "../utils/diningBookings";
+
+const CANCELLATION_WINDOW_MS = 4 * 60 * 60 * 1000;
 
 export default function DiningRestaurantDetail() {
   const { userProfile, addFavorite, removeFavorite, isFavorite } = useProfile();
@@ -37,6 +39,9 @@ export default function DiningRestaurantDetail() {
   const [bookingDetailsLoading, setBookingDetailsLoading] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [platformFee, setPlatformFee] = useState(0);
+  const [lastBookingSummary, setLastBookingSummary] = useState(null);
+
+  const normalizePhoneInput = (value = "") => String(value).replace(/\D/g, "").slice(0, 10);
 
   const handleShareRestaurant = async () => {
     const restaurantSlug = restaurant?.slug || slug || "";
@@ -158,7 +163,13 @@ export default function DiningRestaurantDetail() {
 
   const canCancelBooking = (booking) => {
     const status = String(booking?.bookingStatus || "").toLowerCase();
-    return status === "pending" || status === "confirmed";
+    const isStatusCancellable = status === "pending" || status === "confirmed";
+    if (!isStatusCancellable) return false;
+
+    const bookingDateTime = parseBookingDateTime(booking?.date, booking?.time);
+    if (!bookingDateTime) return false;
+
+    return bookingDateTime.getTime() - Date.now() > CANCELLATION_WINDOW_MS;
   };
 
   const handleViewBookingDetails = async (booking) => {
@@ -182,7 +193,16 @@ export default function DiningRestaurantDetail() {
   };
 
   const handleCancelBooking = async (booking) => {
-    if (!canCancelBooking(booking)) return;
+    if (!canCancelBooking(booking)) {
+      toast.error("You can cancel only if more than 4 hours are left for booking time");
+      return;
+    }
+
+    const confirmCancel = window.confirm(
+      "Are you sure you want to cancel this dining booking?"
+    );
+    if (!confirmCancel) return;
+
     const bookingId = booking?.id || booking?._id;
     if (!bookingId) return;
 
@@ -253,6 +273,13 @@ export default function DiningRestaurantDetail() {
   const lunchSlots = Array.isArray(restaurant?.diningSlots?.lunch) ? restaurant.diningSlots.lunch : [];
   const dinnerSlots = Array.isArray(restaurant?.diningSlots?.dinner) ? restaurant.diningSlots.dinner : [];
   const activeSlots = selectedTimePeriod === "Lunch" ? lunchSlots : dinnerSlots;
+  const selectedBookingDate = dates.find((d) => d.id === selectedDate)?.date || selectedDate;
+
+  const isPastSlotForSelectedDate = (slotTime) => {
+    const parsedDateTime = parseBookingDateTime(selectedBookingDate, slotTime);
+    if (!parsedDateTime) return true;
+    return parsedDateTime.getTime() <= Date.now();
+  };
 
   const maxGuests = Math.max(1, Math.min(Number(restaurant?.diningGuests) || 6, 20));
   const guestOptions = Array.from({ length: maxGuests }, (_, idx) => idx + 1);
@@ -267,19 +294,31 @@ export default function DiningRestaurantDetail() {
   }, [guestCount, maxGuests]);
 
   useEffect(() => {
-    if (!activeSlots.some((slot) => slot?.time === selectedTimeSlot)) {
+    if (!selectedTimeSlot) return;
+
+    const matchedSlot = activeSlots.find((slot) => slot?.time === selectedTimeSlot);
+    if (!matchedSlot) {
+      setSelectedTimeSlot(null);
+      return;
+    }
+
+    if (matchedSlot?.isAvailable === false || isPastSlotForSelectedDate(selectedTimeSlot)) {
       setSelectedTimeSlot(null);
     }
-  }, [selectedTimePeriod, restaurant?.diningSlots, selectedTimeSlot]);
+  }, [selectedTimePeriod, restaurant?.diningSlots, selectedDate, selectedTimeSlot, dates]);
 
   useEffect(() => {
-    if (userProfile && !customerDetails.name && !customerDetails.phone) {
-      setCustomerDetails({
-        name: userProfile.name || "",
-        phone: userProfile.phone || ""
-      });
-    }
-  }, [userProfile, customerDetails.name, customerDetails.phone]);
+    if (!userProfile) return;
+    setCustomerDetails((prev) => {
+      const nextName = prev.name || String(userProfile.name || "").trim();
+      const nextPhone = prev.phone || normalizePhoneInput(userProfile.phone || "");
+      if (nextName === prev.name && nextPhone === prev.phone) return prev;
+      return {
+        name: nextName,
+        phone: nextPhone
+      };
+    });
+  }, [userProfile]);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -336,8 +375,7 @@ export default function DiningRestaurantDetail() {
     if (!restaurantId) return;
     setBookingLoading(true);
     try {
-      const parsedDate = dates.find((d) => d.id === selectedDate)?.date || selectedDate;
-      const res = await diningAPI.getAvailableTables(restaurantId, { date: parsedDate, time: selectedTimeSlot, guests: guestCount });
+      const res = await diningAPI.getAvailableTables(restaurantId, { date: selectedBookingDate, time: selectedTimeSlot, guests: guestCount });
       if (res.data?.success) {
         setTables(res.data.data);
       }
@@ -354,21 +392,30 @@ export default function DiningRestaurantDetail() {
   };
 
   const handleConfirmBooking = async () => {
-    if (!customerDetails.name || !customerDetails.phone) {
+    const normalizedName = String(customerDetails.name || "").trim();
+    const normalizedPhone = normalizePhoneInput(customerDetails.phone || "");
+
+    if (!normalizedName || !normalizedPhone) {
       toast.error("Please enter your name and phone number");
+      return;
+    }
+    if (normalizedPhone.length !== 10) {
+      toast.error("Please enter a valid 10-digit phone number");
       return;
     }
     const restaurantId = restaurant?.id || restaurant?._id;
     setBookingLoading(true);
     try {
-      const parsedDate = dates.find((d) => d.id === selectedDate)?.date || selectedDate;
       const bookingDetails = {
         tableId: selectedTable.id,
         tableNumber: selectedTable.tableNumber,
         guests: guestCount,
-        date: parsedDate,
+        date: selectedBookingDate,
         time: selectedTimeSlot,
-        customerDetails: customerDetails
+        customerDetails: {
+          name: normalizedName,
+          phone: normalizedPhone
+        }
       };
 
       const res = await diningAPI.createBooking(restaurantId, bookingDetails);
@@ -383,6 +430,12 @@ export default function DiningRestaurantDetail() {
         setMyBookings(mergedBookings);
         writeDiningBookings(mergedBookings);
         window.dispatchEvent(new Event("diningBookingsUpdated"));
+        setLastBookingSummary({
+          date: createdBooking?.date || selectedBookingDate,
+          time: createdBooking?.time || selectedTimeSlot,
+          tableNumber: createdBooking?.tableNumber || selectedTable?.tableNumber || "-",
+          guests: Number(createdBooking?.guests || guestCount || 0)
+        });
         setBookingStep(6);
         toast.success("Your table booking request has been sent to the restaurant");
       }
@@ -417,13 +470,17 @@ export default function DiningRestaurantDetail() {
       setSelectedTimePeriod("Lunch");
       setSelectedTimeSlot(null);
       setSelectedTable(null);
-      setCustomerDetails({ name: "", phone: "" });
+      setLastBookingSummary(null);
+      setCustomerDetails({
+        name: String(userProfile?.name || "").trim(),
+        phone: normalizePhoneInput(userProfile?.phone || "")
+      });
     }, 300);
   };
 
   if (loading) {
     return (
-      <AnimatedPage className="bg-white min-h-screen flex items-center justify-center">
+      <AnimatedPage className="bg-white dark:bg-[#0a0a0a] min-h-screen flex items-center justify-center">
                 <div className="animate-pulse flex flex-col items-center">
                     <div className="h-10 w-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                     <p className="mt-4 text-gray-500 font-medium">Loading restaurant details...</p>
@@ -434,7 +491,7 @@ export default function DiningRestaurantDetail() {
 
   if (!restaurant) {
     return (
-      <AnimatedPage className="bg-white min-h-screen flex flex-col items-center justify-center p-6">
+      <AnimatedPage className="bg-white dark:bg-[#0a0a0a] min-h-screen flex flex-col items-center justify-center p-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Restaurant not found</h2>
                 <p className="text-gray-500 mb-6 font-medium text-center">The restaurant you are looking for might be unavailable or removed.</p>
                 <Button onClick={() => navigate(-1)} className="bg-orange-600 hover:bg-orange-700 text-white rounded-full px-8 py-2 font-bold">
@@ -450,7 +507,7 @@ export default function DiningRestaurantDetail() {
 
   if (showMyBookings) {
     return (
-      <AnimatedPage className="bg-gray-50 min-h-screen pb-24">
+      <AnimatedPage className="bg-gray-50 dark:bg-[#0a0a0a] min-h-screen pb-24">
                 <div className="bg-white border-b border-gray-100 flex items-center gap-3 px-4 py-4 sticky top-0 z-10 shadow-sm">
                     <button onClick={() => setShowMyBookings(false)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
                         <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -471,10 +528,10 @@ export default function DiningRestaurantDetail() {
                             </span>
                             <h3 className="font-bold text-lg text-gray-900 mb-4">{b.restaurantName || restaurant.name}</h3>
                             <div className="grid grid-cols-2 gap-y-3 text-sm">
-                                <div><span className="text-gray-500 block text-xs">Date</span><span className="font-medium">{b.date}</span></div>
-                                <div><span className="text-gray-500 block text-xs">Time</span><span className="font-medium">{b.time}</span></div>
-                                <div><span className="text-gray-500 block text-xs">Guests</span><span className="font-medium">{b.guests} Guests</span></div>
-                                <div><span className="text-gray-500 block text-xs">Table</span><span className="font-medium">{b.tableNumber}</span></div>
+                                <div><span className="text-gray-500 block text-xs">Date</span><span className="font-medium text-gray-900">{b.date || "-"}</span></div>
+                                <div><span className="text-gray-500 block text-xs">Time</span><span className="font-medium text-gray-900">{b.time || "-"}</span></div>
+                                <div><span className="text-gray-500 block text-xs">Guests</span><span className="font-medium text-gray-900">{b.guests || 0} Guests</span></div>
+                                <div><span className="text-gray-500 block text-xs">Table</span><span className="font-medium text-gray-900">{b.tableNumber || "-"}</span></div>
                             </div>
                             <div className="pt-4 mt-4 border-t border-gray-50 flex gap-3">
                                 <Button
@@ -512,12 +569,12 @@ export default function DiningRestaurantDetail() {
                             {selectedBookingDetails.bookingStatus || "Pending"}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Date</span><span className="font-semibold text-right">{selectedBookingDetails.date || "-"}</span></div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Time</span><span className="font-semibold text-right">{selectedBookingDetails.time || "-"}</span></div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guests</span><span className="font-semibold text-right">{selectedBookingDetails.guests || 0}</span></div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Table</span><span className="font-semibold text-right">{selectedBookingDetails.tableNumber || "-"}</span></div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guest Name</span><span className="font-semibold text-right">{selectedBookingDetails.guestName || "-"}</span></div>
-                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Phone</span><span className="font-semibold text-right break-all">{selectedBookingDetails.guestPhone || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Date</span><span className="font-semibold text-gray-900 text-right">{selectedBookingDetails.date || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Time</span><span className="font-semibold text-gray-900 text-right">{selectedBookingDetails.time || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guests</span><span className="font-semibold text-gray-900 text-right">{selectedBookingDetails.guests || 0}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Table</span><span className="font-semibold text-gray-900 text-right">{selectedBookingDetails.tableNumber || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Guest Name</span><span className="font-semibold text-gray-900 text-right">{selectedBookingDetails.guestName || "-"}</span></div>
+                        <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Phone</span><span className="font-semibold text-gray-900 text-right break-all">{selectedBookingDetails.guestPhone || "-"}</span></div>
                         {selectedBookingDetails.cancellationReason && (
                           <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-xs text-red-700">
                             Reason: {selectedBookingDetails.cancellationReason}
@@ -532,7 +589,7 @@ export default function DiningRestaurantDetail() {
   }
 
   return (
-    <AnimatedPage className="bg-white min-h-screen pb-24 relative overflow-x-hidden">
+    <AnimatedPage className="bg-white dark:bg-[#0a0a0a] min-h-screen pb-24 relative overflow-x-hidden">
             {/* Hero Header Section */}
             <div className="relative w-full h-[35vh] sm:h-[40vh] md:h-[45vh] lg:h-[50vh]">
                 <div className="absolute inset-0">
@@ -621,13 +678,13 @@ export default function DiningRestaurantDetail() {
             </div>
 
             {/* Main Content Area */}
-            <div className="bg-white rounded-t-3xl -mt-4 relative z-20 pt-6 px-4">
+            <div className="bg-white dark:bg-[#111111] rounded-t-3xl -mt-4 relative z-20 pt-6 px-4">
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 mb-8">
                     <Button
             onClick={openBookingModal}
-            className="flex-1 bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 font-bold py-6 rounded-xl shadow-sm text-sm">
+            className="flex-1 bg-white dark:bg-[#171717] border border-orange-200 dark:border-orange-900/60 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-[#1f1f1f] font-bold py-6 rounded-xl shadow-sm text-sm">
             
                         Book a table
                     </Button>
@@ -635,7 +692,7 @@ export default function DiningRestaurantDetail() {
           variant="outline"
           size="icon"
           onClick={handleOpenMap}
-          className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+          className="h-[52px] w-[52px] rounded-xl border-gray-200 dark:border-gray-700 text-orange-500 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-[#1f1f1f] flex-shrink-0 shadow-sm">
           
                         <Navigation className="h-5 w-5" />
                     </Button>
@@ -643,7 +700,7 @@ export default function DiningRestaurantDetail() {
           variant="outline"
           size="icon"
           onClick={handleCallRestaurant}
-          className="h-[52px] w-[52px] rounded-xl border-gray-200 text-orange-500 hover:bg-gray-50 flex-shrink-0 shadow-sm">
+          className="h-[52px] w-[52px] rounded-xl border-gray-200 dark:border-gray-700 text-orange-500 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-[#1f1f1f] flex-shrink-0 shadow-sm">
           
                         <Phone className="h-5 w-5" />
                     </Button>
@@ -652,9 +709,9 @@ export default function DiningRestaurantDetail() {
                 <div className="mb-8">
                     {/* Dynamic Offer Banner */}
                     {restaurant.offer &&
-          <div className="bg-gradient-to-r from-orange-50 hover:from-orange-100 to-orange-100/50 rounded-2xl p-5 border border-orange-200/50 text-center mb-6 cursor-pointer transition-colors shadow-sm">
+          <div className="bg-gradient-to-r from-orange-50 hover:from-orange-100 to-orange-100/50 dark:from-[#221b14] dark:hover:from-[#2a2118] dark:to-[#201913] rounded-2xl p-5 border border-orange-200/50 dark:border-orange-900/60 text-center mb-6 cursor-pointer transition-colors shadow-sm">
                             <h4 className="text-xl font-extrabold text-orange-600 mb-1">{restaurant.offer}</h4>
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">LIMITED TIME OFFER</p>
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">LIMITED TIME OFFER</p>
                         </div>
           }
                 </div>
@@ -662,17 +719,17 @@ export default function DiningRestaurantDetail() {
             </div>
 
             {/* Fixed Bottom Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 flex items-center gap-3 w-full lg:max-w-md lg:mx-auto lg:rounded-t-2xl">
+            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#111111] border-t border-gray-100 dark:border-gray-800 p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 flex items-center gap-3 w-full lg:max-w-md lg:mx-auto lg:rounded-t-2xl">
                 <Button
           onClick={openBookingModal}
-          className="flex-1 bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-6 rounded-xl text-sm transition-all">
+          className="flex-1 bg-white dark:bg-[#171717] border-2 border-orange-500 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-[#1f1f1f] hover:text-orange-700 dark:hover:text-orange-300 font-bold py-6 rounded-xl text-sm transition-all">
           
                     Book a table
                 </Button>
                 {myBookings.length > 0 &&
         <Button
           onClick={() => setShowMyBookings(true)}
-          className="flex-1 bg-white border border-gray-200 text-gray-700 font-bold py-6 rounded-xl text-sm shadow-sm">
+          className="flex-1 bg-white dark:bg-[#171717] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-bold py-6 rounded-xl text-sm shadow-sm">
           
                         My Bookings
                     </Button>
@@ -829,8 +886,9 @@ export default function DiningRestaurantDetail() {
 
                   <div className="grid grid-cols-3 gap-3 pb-4">
                                                 {activeSlots.map((slot, idx) => {
-                      const isDisabled = slot?.isAvailable === false;
                       const slotTime = slot?.time;
+                      const isPastSlot = slotTime ? isPastSlotForSelectedDate(slotTime) : true;
+                      const isDisabled = slot?.isAvailable === false || isPastSlot;
                       return (
                         <button
                           key={`${slotTime}-${idx}`}
@@ -927,17 +985,21 @@ export default function DiningRestaurantDetail() {
                                     <div className="space-y-3">
                                         <input
                     type="text"
-                    placeholder="Full Name"
+                    placeholder="Enter your name"
                     value={customerDetails.name}
                     onChange={(e) => setCustomerDetails({ ...customerDetails, name: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
+                    autoComplete="name"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
                   
                                         <input
                     type="tel"
-                    placeholder="Phone Number"
+                    placeholder="Enter 10-digit phone number"
                     value={customerDetails.phone}
-                    onChange={(e) => setCustomerDetails({ ...customerDetails, phone: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
+                    onChange={(e) => setCustomerDetails({ ...customerDetails, phone: normalizePhoneInput(e.target.value) })}
+                    autoComplete="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
                   
                                     </div>
                                 </div>
@@ -955,10 +1017,10 @@ export default function DiningRestaurantDetail() {
 
                                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 w-full text-left space-y-3 mb-6">
                                     <p className="font-bold text-gray-900 mb-1">{restaurant.name}</p>
-                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Date</span><span className="font-bold">{dates.find((d) => d.id === selectedDate)?.date || selectedDate}</span></div>
-                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Time</span><span className="font-bold">{selectedTimeSlot}</span></div>
-                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Table</span><span className="font-bold">{selectedTable?.tableNumber}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-gray-500">Guests</span><span className="font-bold">{guestCount} Guests</span></div>
+                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Date</span><span className="font-bold text-gray-900">{lastBookingSummary?.date || dates.find((d) => d.id === selectedDate)?.date || selectedDate || "-"}</span></div>
+                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Time</span><span className="font-bold text-gray-900">{lastBookingSummary?.time || selectedTimeSlot || "-"}</span></div>
+                                    <div className="flex justify-between text-sm border-b border-gray-200 pb-2"><span className="text-gray-500">Table</span><span className="font-bold text-gray-900">{lastBookingSummary?.tableNumber || selectedTable?.tableNumber || "-"}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-gray-500">Guests</span><span className="font-bold text-gray-900">{lastBookingSummary?.guests || guestCount || 0} Guests</span></div>
                                 </div>
 
                                 <div className="w-full space-y-3">

@@ -1,5 +1,6 @@
 import Restaurant from '../models/Restaurant.js';
 import Menu from '../models/Menu.js';
+import DiningCategory from '../models/DiningCategory.js';
 import ServiceSettings from '../models/ServiceSettings.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinaryService.js';
@@ -240,7 +241,8 @@ export const getRestaurants = async (req, res) => {
         { name: searchRegex },
         { cuisines: { $in: [searchRegex] } },
         { featuredDish: searchRegex },
-        { diningCategory: searchRegex }
+        { diningCategory: searchRegex },
+        { diningCategories: searchRegex }
       ];
 
       // 2. Search in Menu Items (Menu-Aware Search)
@@ -1370,7 +1372,7 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
  * Update restaurant dining settings (slots and discounts)
  */
 export const updateDiningSettings = asyncHandler(async (req, res) => {
-  const { diningSlots, diningGuests, diningEnabled } = req.body;
+  const { diningSlots, diningGuests, diningEnabled, diningCategory, diningCategories } = req.body;
 
   const restaurant = await Restaurant.findById(req.restaurant._id || req.user?._id);
   if (!restaurant) {
@@ -1384,6 +1386,50 @@ export const updateDiningSettings = asyncHandler(async (req, res) => {
 
   if (diningSlots) restaurant.diningSlots = diningSlots;
   if (diningGuests !== undefined) restaurant.diningGuests = diningGuests;
+
+  if (diningCategory !== undefined || diningCategories !== undefined) {
+    const requestedCategoriesInput = diningCategories !== undefined ? diningCategories : diningCategory;
+    let normalizedRequestedCategories = [];
+
+    if (Array.isArray(requestedCategoriesInput)) {
+      normalizedRequestedCategories = requestedCategoriesInput.map((category) => String(category || '').trim());
+    } else {
+      const requestedAsText = String(requestedCategoriesInput || '').trim();
+      normalizedRequestedCategories = requestedAsText ? requestedAsText.split(',').map((category) => String(category || '').trim()) : [];
+    }
+
+    const uniqueRequestedCategories = [];
+    const seenRequestedCategories = new Set();
+    for (const category of normalizedRequestedCategories) {
+      if (!category) continue;
+      const key = category.toLowerCase();
+      if (seenRequestedCategories.has(key)) continue;
+      seenRequestedCategories.add(key);
+      uniqueRequestedCategories.push(category);
+    }
+
+    if (uniqueRequestedCategories.length === 0) {
+      restaurant.diningCategory = '';
+      restaurant.diningCategories = [];
+    } else {
+      const availableCategories = await DiningCategory.find({ isActive: true }).select('name').lean();
+      const availableByName = new Map(
+        availableCategories.map((category) => [String(category?.name || '').trim().toLowerCase(), String(category?.name || '').trim()])
+      );
+
+      const validatedCategories = [];
+      for (const requestedCategory of uniqueRequestedCategories) {
+        const matchedCategoryName = availableByName.get(requestedCategory.toLowerCase());
+        if (!matchedCategoryName) {
+          return errorResponse(res, 400, `Invalid dining category selected: ${requestedCategory}`);
+        }
+        validatedCategories.push(matchedCategoryName);
+      }
+
+      restaurant.diningCategories = validatedCategories;
+      restaurant.diningCategory = validatedCategories[0] || '';
+    }
+  }
 
   if (diningEnabled !== undefined) {
     const isTryingToEnable = Boolean(diningEnabled);
@@ -1408,7 +1454,9 @@ export const updateDiningSettings = asyncHandler(async (req, res) => {
   return successResponse(res, 200, 'Dining settings updated successfully', {
     diningSlots: restaurant.diningSlots,
     diningGuests: restaurant.diningGuests,
-    diningEnabled: restaurant.diningEnabled
+    diningEnabled: restaurant.diningEnabled,
+    diningCategory: restaurant.diningCategory || '',
+    diningCategories: Array.isArray(restaurant.diningCategories) ? restaurant.diningCategories : []
   });
 });
 

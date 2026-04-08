@@ -201,7 +201,7 @@ export default function Coffee() {
   }
 
   return (
-    <AnimatedPage className="bg-white" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
+    <AnimatedPage className="bg-white dark:bg-[#0a0a0a]" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
       {/* Banner Section with Back Button and Location */}
       <div className="relative w-full overflow-hidden">
         {/* Background with coffee banner */}

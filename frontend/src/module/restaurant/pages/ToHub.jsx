@@ -29,7 +29,7 @@ import {
 "recharts";
 import { Play } from "lucide-react";
 import BottomNavOrders from "../components/BottomNavOrders";
-import { restaurantAPI } from "@/lib/api";
+import { diningAPI, restaurantAPI } from "@/lib/api";
 
 export default function ToHub() {
   const navigate = useNavigate();
@@ -43,6 +43,7 @@ export default function ToHub() {
   const [loadingRestaurant, setLoadingRestaurant] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingDiningRequests, setPendingDiningRequests] = useState(0);
   const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
   const [isKptVideoOpen, setIsKptVideoOpen] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
@@ -93,6 +94,58 @@ export default function ToHub() {
     fetchRestaurantData();
     fetchNotifications();
   }, []);
+
+  const restaurantIdForDining = useMemo(
+    () => restaurantData?._id || restaurantData?.id || restaurantData?.restaurantId || "",
+    [restaurantData?._id, restaurantData?.id, restaurantData?.restaurantId]
+  );
+
+  const fetchPendingDiningRequests = useCallback(async () => {
+    if (!restaurantIdForDining) {
+      setPendingDiningRequests(0);
+      return;
+    }
+
+    try {
+      const response = await diningAPI.getRestaurantBookings(restaurantIdForDining);
+      const bookings = Array.isArray(response?.data?.data) ? response.data.data : [];
+      const pendingCount = bookings.filter((booking) => booking?.bookingStatus === "Pending").length;
+      setPendingDiningRequests(pendingCount);
+    } catch (error) {
+      console.error("Error fetching pending dining requests:", error);
+    }
+  }, [restaurantIdForDining]);
+
+  useEffect(() => {
+    if (!restaurantIdForDining) return;
+
+    fetchPendingDiningRequests();
+    const intervalId = setInterval(fetchPendingDiningRequests, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [restaurantIdForDining, fetchPendingDiningRequests]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchPendingDiningRequests();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchPendingDiningRequests();
+      }
+    };
+
+    window.addEventListener("dining-bookings-changed", handleRefresh);
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("dining-bookings-changed", handleRefresh);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchPendingDiningRequests]);
   const topTabBarRef = useRef(null);
   const contentContainerRef = useRef(null);
   const touchStartX = useRef(0);
@@ -1992,14 +2045,19 @@ export default function ToHub() {
       <div className="">
         {/* Reuse Feedback-like navbar */}
         <div className="sticky bg-white top-0 z-40 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+            aria-label="Refresh page"
+          >
             <p className="text-[10px] tracking-[0.12em] text-gray-500 uppercase">
               Showing data for
             </p>
             <p className="text-md font-semibold text-gray-900 mt-0.5">
               {loadingRestaurant ? "Loading..." : restaurantData?.name || "Restaurant"}
             </p>
-          </div>
+          </button>
 
           <div className="flex items-center">
             <button
@@ -2026,57 +2084,6 @@ export default function ToHub() {
           </div>
         </div>
 
-        {/* Top tabs (matching Orders tab style) */}
-        <div className="sticky top-[50px] z-40 pb-2 bg-gray-100">
-          <div
-            ref={topTabBarRef}
-            className="flex gap-2 overflow-x-auto scrollbar-hide bg-transparent rounded-full px-3 py-2 mt-2"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              WebkitOverflowScrolling: 'touch'
-            }}>
-
-            <style>{`
-  .scrollbar - hide:: -webkit - scrollbar {
-  display: none;
-}
-`}</style>
-            {topTabs.map((tab) => {
-              const isActive = activeTopTab === tab.id;
-              return (
-                <motion.button
-                  key={tab.id}
-                  onClick={() => {
-                    if (!isTransitioning) {
-                      setIsTransitioning(true);
-                      setActiveTopTab(tab.id);
-                      setTimeout(() => setIsTransitioning(false), 300);
-                    }
-                  }}
-                  className={`shrink - 0 px - 6 py - 3.5 rounded - full font - medium text - sm whitespace - nowrap relative overflow - hidden ${isActive ? 'text-white' : 'bg-white text-black'} `}
-                  animate={{ scale: isActive ? 1.05 : 1, opacity: isActive ? 1 : 0.7 }}
-                  transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                  whileTap={{ scale: 0.95 }}>
-
-                  {isActive &&
-                  <motion.div
-                    layoutId="hubTopTabActive"
-                    className="absolute inset-0 bg-black rounded-full -z-10"
-                    initial={false}
-                    transition={{
-                      type: "spring",
-                      stiffness: 500,
-                      damping: 30
-                    }} />
-
-                  }
-                  <span className="relative z-10">{tab.label}</span>
-                </motion.button>);
-
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Subscription Banner based on Business Model */}
@@ -2084,7 +2091,7 @@ export default function ToHub() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="mx-4 mt-4 bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200 flex items-center gap-3 overflow-hidden relative">
+        className="mx-4 mt-2 w-[calc(100%-2rem)] bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-200 flex items-center gap-3 overflow-hidden relative">
 
           {/* Decorative background circle */}
           <div className="absolute -right-4 -top-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
@@ -2116,7 +2123,7 @@ export default function ToHub() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="mx-4 mt-4 bg-gradient-to-r from-orange-600 to-red-700 rounded-2xl p-4 text-white shadow-lg shadow-orange-200 flex items-center justify-between overflow-hidden relative">
+        className="mx-4 mt-2 w-[calc(100%-2rem)] bg-gradient-to-r from-orange-600 to-red-700 rounded-2xl p-4 text-white shadow-lg shadow-orange-200 flex items-center justify-between overflow-hidden relative">
 
           {/* Decorative background circle */}
           <div className="absolute -right-4 -top-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
@@ -2147,7 +2154,7 @@ export default function ToHub() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="mx-4 mt-4 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-2xl p-4 text-white shadow-lg shadow-blue-200 flex items-center justify-between overflow-hidden relative">
+        className="mx-4 mt-2 w-[calc(100%-2rem)] bg-gradient-to-r from-blue-600 to-cyan-700 rounded-2xl p-4 text-white shadow-lg shadow-blue-200 flex items-center justify-between overflow-hidden relative">
 
           {/* Decorative background circle */}
           <div className="absolute -right-4 -top-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
@@ -2176,7 +2183,7 @@ export default function ToHub() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-4 mt-4 bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 rounded-2xl p-3 text-white shadow-xl shadow-emerald-100 flex items-center gap-3 overflow-hidden relative border border-emerald-500/30">
+        className="mx-4 mt-2 w-[calc(100%-2rem)] bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 rounded-2xl p-3 text-white shadow-xl shadow-emerald-100 flex items-center gap-3 overflow-hidden relative border border-emerald-500/30">
 
           {/* Enhanced decorative patterns */}
           <div className="absolute -right-6 -top-10 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
@@ -2211,6 +2218,83 @@ export default function ToHub() {
           </button>
         </motion.div>
       }
+
+      {pendingDiningRequests > 0 && (
+        <motion.button
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => navigate("/restaurant/dining-management/table-bookings")}
+          className="mx-4 mt-1.5 w-[calc(100%-2rem)] rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left shadow-sm"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center">
+                <CalendarRange className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900">New Dining Requests</p>
+                <p className="text-xs text-gray-600 truncate">Tap to review and respond quickly</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-orange-600 text-white text-sm font-bold">
+              {pendingDiningRequests}
+            </span>
+          </div>
+        </motion.button>
+      )}
+
+      {/* Top tabs (matching Orders tab style) */}
+      <div className="sticky top-[50px] z-40 pb-1 bg-gray-100">
+        <div
+          ref={topTabBarRef}
+          className="flex gap-2 overflow-x-auto scrollbar-hide bg-transparent rounded-full px-3 py-1 mt-1"
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}>
+
+          <style>{`
+  .scrollbar - hide:: -webkit - scrollbar {
+  display: none;
+}
+`}</style>
+          {topTabs.map((tab) => {
+            const isActive = activeTopTab === tab.id;
+            return (
+              <motion.button
+                key={tab.id}
+                onClick={() => {
+                  if (!isTransitioning) {
+                    setIsTransitioning(true);
+                    setActiveTopTab(tab.id);
+                    setTimeout(() => setIsTransitioning(false), 300);
+                  }
+                }}
+                className={`shrink - 0 px - 6 py - 3.5 rounded - full font - medium text - sm whitespace - nowrap relative overflow - hidden ${isActive ? 'text-white' : 'bg-white text-black'} `}
+                animate={{ scale: isActive ? 1.05 : 1, opacity: isActive ? 1 : 0.7 }}
+                transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                whileTap={{ scale: 0.95 }}>
+
+                {isActive &&
+                <motion.div
+                  layoutId="hubTopTabActive"
+                  className="absolute inset-0 bg-black rounded-full -z-10"
+                  initial={false}
+                  transition={{
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30
+                  }} />
+
+                }
+                <span className="relative z-10">{tab.label}</span>
+              </motion.button>);
+
+          })}
+        </div>
+      </div>
 
       <ExpiredSubscriptionModal />
 

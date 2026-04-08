@@ -925,6 +925,17 @@ export default function PageNavbar({
 
   const zIndexClass = zIndex === 50 ? "z-50" : "z-20"
 
+  const handleLogoClick = (event) => {
+    const currentPath = window.location.pathname || ""
+    const normalizedPath = currentPath.replace(/\/+$/, "") || "/"
+    const isUserHome = normalizedPath === "/" || normalizedPath === "/user"
+
+    if (isUserHome) {
+      event.preventDefault()
+      window.location.reload()
+    }
+  }
+
   return (
     <nav
       className={`relative ${zIndexClass} w-full px-1 pr-2 sm:px-2 sm:pr-3 md:px-3 lg:px-6 xl:px-8 py-1.5 sm:py-3 lg:py-4`}
@@ -933,7 +944,11 @@ export default function PageNavbar({
       {/* Mobile layout: logo (left), location (center), actions (right) */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 max-w-7xl mx-auto w-full md:hidden">
         {/* Left: Logo */}
-        <Link to="/user" className="flex items-center justify-start flex-shrink-0 w-20 min-w-[72px]">
+        <Link
+          to="/user"
+          onClick={handleLogoClick}
+          className="flex items-center justify-start flex-shrink-0 w-20 min-w-[72px]"
+        >
           <img
             src={logoUrl || fallbackLogo}
             alt="Company Logo"

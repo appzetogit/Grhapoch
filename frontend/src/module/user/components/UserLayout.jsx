@@ -11,6 +11,7 @@ import BottomNavigation from "./BottomNavigation"
 import DesktopNavbar from "./DesktopNavbar"
 import { UserLocationProvider } from "../context/UserLocationContext"
 import CartConflictModal from "./CartConflictModal"
+import UserGlobalDiningBookingListener from "./UserGlobalDiningBookingListener"
 import { Button } from "@/components/ui/button"
 import { clearModuleAuth, isModuleAuthenticated } from "@/lib/utils/auth"
 
@@ -207,6 +208,7 @@ export default function UserLayout() {
                   {/* Spacer for fixed desktop navbar */}
                   {showBottomNav && <div className="hidden md:block h-16" />}
                   <LocationPrompt />
+                  <UserGlobalDiningBookingListener />
                   <Outlet />
                   {showBottomNav && <BottomNavigation />}
                 </LocationSelectorProvider>

@@ -220,6 +220,10 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    diningCategories: {
+      type: [String],
+      default: [],
+    },
     diningPlatformFee: {
       amount: {
         type: Number,

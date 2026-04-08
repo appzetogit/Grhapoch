@@ -108,7 +108,7 @@ const normalizeSubmitError = (message) => {
   if (text.includes("2mb") || text.includes("file size")) return "Banner file size must be 2MB or less."
   if (text.includes("dimensions")) return "Banner dimensions too small. Minimum 1200x300 required."
   if (text.includes("aspect ratio") || text.includes("4:1")) {
-    return "Banner aspect ratio must be around 4:1 (for example 1200x300)."
+    return "Banner uploaded, but ratio is not ideal. Use wide banners for best result."
   }
   if (text.includes("only image") || text.includes("image banner")) return "Only JPG/PNG image banner is allowed."
   return message || "Failed to submit advertisement request"
@@ -436,7 +436,7 @@ export default function MyAdvertisements() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Banner Image</label>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
-                  Required: JPG/PNG | Min 1200x300 | Ratio 4:1 (example 1200x300) | Max size: 2MB
+                  Required: JPG/PNG | Min 1200x300 | Wide banner recommended (example 1200x300) | Max size: 2MB
                 </p>
                 <label className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-3 block cursor-pointer hover:border-gray-500 dark:hover:border-gray-500">
                   <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />

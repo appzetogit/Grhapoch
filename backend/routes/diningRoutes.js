@@ -22,10 +22,11 @@ import {
 } from '../controllers/diningController.js';
 import { authenticate } from '../middleware/auth.js';
 import { authenticate as authenticateRestaurant } from '../middleware/restaurant.auth.js';
+import { authenticateAdmin } from '../middleware/admin.auth.js';
 
 const router = express.Router();
 
-router.get('/bookings/all', getAllBookings); // For Admin
+router.get('/bookings/all', authenticateAdmin, getAllBookings); // For Admin
 router.get('/restaurants/:id/bookings', authenticateRestaurant, getRestaurantBookings); // For Restaurant
 router.get('/bookings/user', authenticate, getUserBookings); // For logged-in User
 router.get('/bookings/:bookingId', authenticate, getUserBookingById); // Booking details for user

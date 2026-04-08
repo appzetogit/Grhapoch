@@ -98,6 +98,12 @@ export default function DiningBookings() {
 
   const handleCancelBooking = async (booking) => {
     if (!canCancelBooking(booking)) return
+
+    const confirmCancel = window.confirm(
+      "Are you sure you want to cancel this dining booking?"
+    )
+    if (!confirmCancel) return
+
     const bookingId = booking?.id || booking?._id
     if (!bookingId) return
     setCancellingId(bookingId)

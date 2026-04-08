@@ -314,6 +314,14 @@ export const useRestaurantNotifications = ({ enableSound = true, emitWindowEvent
 
     });
 
+    // Listen for dining booking status updates
+    socketRef.current.on('dining_booking_status_update', (data) => {
+      if (emitWindowEvent && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('restaurant:dining-booking-status-update', { detail: data }));
+        window.dispatchEvent(new Event('dining-bookings-changed'));
+      }
+    });
+
     // Load notification sound
     audioRef.current = new Audio(alertSound);
     audioRef.current.volume = 0.7;

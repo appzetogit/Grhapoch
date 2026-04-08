@@ -6,9 +6,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { heroBannerAPI } from "@/lib/api"
 import { toast } from "sonner"
 
-// Import banner
-import top10Banner from "@/assets/top10pagebanner.png"
-
 export default function Top10() {
   const navigate = useNavigate()
   const [favorites, setFavorites] = useState(new Set())
@@ -58,38 +55,28 @@ export default function Top10() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
-      {/* Banner Section */}
-      <div className="relative w-full overflow-hidden min-h-[25vh] md:min-h-[30vh]">
-        {/* Back Button */}
-        <button 
-          onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 md:top-6 md:left-6 z-20 w-10 h-10 md:w-12 md:h-12 bg-gray-800/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-gray-800/80 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
-        </button>
-        
-        {/* Banner Image */}
-        <div className="absolute inset-0 z-0">
-          <img 
-            src={top10Banner} 
-            alt="Top 10 Restaurants" 
-            className="w-full h-full object-cover"
-          />
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-3 md:py-4 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#171717] flex items-center justify-center hover:bg-gray-200 dark:hover:bg-[#222] transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-800 dark:text-gray-100" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Top 10 Restaurants</h1>
+            </div>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Most loved restaurants in your area</p>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10 space-y-4 md:space-y-6">
         <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-        {/* Header */}
-        <div className="mb-2">
-          <div className="flex items-center gap-2 mb-1">
-            <Trophy className="h-6 w-6 text-yellow-500 fill-yellow-500" />
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Top 10 Restaurants</h1>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Most loved restaurants in your area</p>
-        </div>
-
         {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
@@ -132,22 +119,35 @@ export default function Top10() {
                   ? coverImages[0]
                   : (menuImages.length > 0
                       ? menuImages[0]
-                      : (restaurant.profileImage?.url || restaurant.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"))
+                      : (restaurant.profileImage?.url || restaurant.image || ""))
+                const hasRealImage = Boolean(restaurantImage)
 
                 return (
                   <Link key={restaurantId} to={`/user/restaurants/${restaurantSlug}`}>
                     <Card className="overflow-hidden cursor-pointer border-0 group bg-white dark:bg-[#1a1a1a] shadow-md hover:shadow-xl transition-all duration-300 py-0 rounded-2xl mb-4">
                       {/* Image Section */}
                       <div className="relative h-44 sm:h-52 md:h-56 w-full overflow-hidden rounded-t-2xl">
-                        <img
-                          src={restaurantImage}
-                          alt={restaurant.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => {
-                            // Fallback to placeholder if image fails
-                            e.target.src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"
-                          }}
-                        />
+                        {hasRealImage ? (
+                          <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-200 dark:from-[#1f1f1f] dark:to-[#121212] flex items-center justify-center relative">
+                            <span className="text-4xl font-bold text-orange-700 dark:text-orange-300">
+                              {(restaurant.name || "R").slice(0, 1).toUpperCase()}
+                            </span>
+                            <img
+                              src={restaurantImage}
+                              alt={restaurant.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none"
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-200 dark:from-[#1f1f1f] dark:to-[#121212] flex items-center justify-center">
+                            <span className="text-4xl font-bold text-orange-700 dark:text-orange-300">
+                              {(restaurant.name || "R").slice(0, 1).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                         
                         {/* Bookmark Icon - Top Right */}
                         <Button

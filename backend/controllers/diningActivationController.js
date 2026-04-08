@@ -66,6 +66,10 @@ const buildDiningActivationStatus = (restaurant, activationFeeAmount = 0) => {
     return {
         diningEnabled,
         diningRequested: Boolean(restaurant?.diningRequested),
+        diningCategory: String(restaurant?.diningCategory || '').trim(),
+        diningCategories: Array.isArray(restaurant?.diningCategories)
+            ? restaurant.diningCategories.map((category) => String(category || '').trim()).filter(Boolean)
+            : (String(restaurant?.diningCategory || '').trim() ? [String(restaurant.diningCategory).trim()] : []),
         diningStatus,
         diningStatusLabel: getRestaurantStatusLabel(restaurant),
         diningRequestDate: restaurant?.diningRequestDate || null,

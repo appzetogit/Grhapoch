@@ -7,7 +7,10 @@ import DiningOfferBanner from '../models/DiningOfferBanner.js';
 import DiningStory from '../models/DiningStory.js';
 import DiningTable from '../models/DiningTable.js';
 import DiningBooking from '../models/DiningBooking.js';
+import RestaurantNotification from '../models/RestaurantNotification.js';
 import { createOrder, verifyPayment } from '../services/razorpayService.js';
+import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
+import { emitDiningBookingStatusUpdate } from '../services/diningBookingRealtimeService.js';
 
 const BOOKING_STATUSES = {
     PENDING: "Pending",
@@ -27,6 +30,8 @@ const BOOKED_STATUSES = [
     BOOKING_STATUSES.CONFIRMED,
     BOOKING_STATUSES.COMPLETED
 ];
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const PAST_SLOT_BOOKING_MESSAGE = 'Selected time slot has already passed. Please choose an upcoming time slot';
 
 const toObjectIdString = (value) => {
     if (!value) return '';
@@ -34,6 +39,230 @@ const toObjectIdString = (value) => {
     if (value._id) return String(value._id);
     if (value.id) return String(value.id);
     return String(value);
+};
+
+const normalizeDiningCategories = (restaurant = {}) => {
+    const categories = [];
+    const seen = new Set();
+
+    const addCategory = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized) return;
+        const key = normalized.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        categories.push(normalized);
+    };
+
+    if (Array.isArray(restaurant?.diningCategories)) {
+        restaurant.diningCategories.forEach(addCategory);
+    }
+    addCategory(restaurant?.diningCategory);
+
+    if (Array.isArray(restaurant?.cuisines) && restaurant.cuisines.length > 0) {
+        addCategory(restaurant.cuisines[0]);
+    }
+
+    return categories;
+};
+
+const parseBookingTime = (timeValue = '') => {
+    const raw = String(timeValue || '').trim();
+    if (!raw) return { hours: 0, minutes: 0 };
+
+    const match = raw.match(/^(\d{1,2})(?:\s*:\s*(\d{1,2}))?\s*(AM|PM)?$/i);
+    if (!match) return { hours: 0, minutes: 0 };
+
+    let hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const meridian = String(match[3] || '').toUpperCase();
+
+    if (meridian === 'PM' && hours < 12) hours += 12;
+    if (meridian === 'AM' && hours === 12) hours = 0;
+
+    return {
+        hours: Number.isFinite(hours) ? hours : 0,
+        minutes: Number.isFinite(minutes) ? Math.min(Math.max(minutes, 0), 59) : 0
+    };
+};
+
+const parseBookingDateTime = (dateValue, timeValue, referenceDate = new Date()) => {
+    if (!dateValue) return null;
+
+    const dateText = String(dateValue).trim();
+    if (!dateText) return null;
+
+    const now = new Date(referenceDate);
+    const base = new Date(now);
+    base.setHours(0, 0, 0, 0);
+
+    let parsedDate = null;
+
+    if (/^today$/i.test(dateText)) {
+        parsedDate = new Date(base);
+    } else if (/^tomorrow$/i.test(dateText)) {
+        parsedDate = new Date(base);
+        parsedDate.setDate(parsedDate.getDate() + 1);
+    } else {
+        const withYear = new Date(`${dateText} ${base.getFullYear()}`);
+        if (!Number.isNaN(withYear.getTime())) {
+            parsedDate = withYear;
+        } else {
+            const fallback = new Date(dateText);
+            if (!Number.isNaN(fallback.getTime())) {
+                parsedDate = fallback;
+            }
+        }
+    }
+
+    if (!parsedDate || Number.isNaN(parsedDate.getTime())) return null;
+
+    const { hours, minutes } = parseBookingTime(timeValue);
+    parsedDate.setHours(hours, minutes, 0, 0);
+
+    return parsedDate;
+};
+
+const isPastBookingSlot = (dateValue, timeValue) => {
+    const bookingDateTime = parseBookingDateTime(dateValue, timeValue);
+    if (!bookingDateTime) return true;
+    return bookingDateTime.getTime() <= Date.now();
+};
+
+const notifyRestaurantForDiningBooking = async (booking, notification = {}) => {
+    if (!booking?.restaurantId) return;
+
+    const title = String(notification?.title || 'Dining booking update');
+    const message = String(notification?.message || '');
+    const event = String(notification?.event || 'DINING_BOOKING_UPDATE');
+
+    try {
+        await RestaurantNotification.create({
+            restaurant: booking.restaurantId,
+            title,
+            message,
+            type: 'alert'
+        });
+    } catch (notificationError) {
+        console.error('Failed to create dining booking notification:', notificationError);
+    }
+
+    try {
+        await notifyRestaurantFCM(
+            booking.restaurantId,
+            title,
+            message,
+            {
+                event,
+                bookingId: String(booking._id || ''),
+                status: String(booking.bookingStatus || ''),
+                screen: 'table_bookings'
+            }
+        );
+    } catch (pushError) {
+        console.error('Failed to send dining booking push notification:', pushError);
+    }
+};
+
+const notifyRestaurantForPendingDiningBooking = async (booking) => {
+    const guestName = String(booking.guestName || 'A customer');
+    const guestsCount = Number(booking.guests || 0);
+    const title = 'New dining booking request';
+    const message = `${guestName} requested table ${booking.tableNumber} on ${booking.date} at ${booking.time} for ${guestsCount} guest${guestsCount === 1 ? '' : 's'}.`;
+    await notifyRestaurantForDiningBooking(booking, {
+        title,
+        message,
+        event: 'DINING_BOOKING_REQUEST'
+    });
+};
+
+const notifyRestaurantForConfirmedDiningBooking = async (booking) => {
+    const guestName = String(booking.guestName || 'A customer');
+    const guestsCount = Number(booking.guests || 0);
+    const title = 'New confirmed dining booking';
+    const message = `${guestName} booked table ${booking.tableNumber} on ${booking.date} at ${booking.time} for ${guestsCount} guest${guestsCount === 1 ? '' : 's'}.`;
+    await notifyRestaurantForDiningBooking(booking, {
+        title,
+        message,
+        event: 'DINING_BOOKING_CONFIRMED'
+    });
+};
+
+const getDiningEnabledRestaurant = async (restaurantId) => {
+    if (!restaurantId) return null;
+    return Restaurant.findById(restaurantId).select('diningEnabled diningPlatformFee name');
+};
+
+const resolveBookableTable = async (restaurantId, { tableId, tableNumber, guests } = {}) => {
+    const trimmedTableNumber = String(tableNumber || '').trim();
+
+    if (!tableId && !trimmedTableNumber) {
+        return {
+            ok: false,
+            statusCode: 400,
+            message: 'tableId or tableNumber is required'
+        };
+    }
+
+    let table = null;
+
+    if (tableId) {
+        table = await DiningTable.findOne({
+            _id: tableId,
+            restaurantId,
+            status: 'Active'
+        });
+    } else if (trimmedTableNumber) {
+        table = await DiningTable.findOne({
+            tableNumber: trimmedTableNumber,
+            restaurantId,
+            status: 'Active'
+        });
+    }
+
+    if (!table) {
+        return {
+            ok: false,
+            statusCode: 400,
+            message: 'Selected table is not available for booking'
+        };
+    }
+
+    if (trimmedTableNumber && String(table.tableNumber || '').trim() !== trimmedTableNumber) {
+        return {
+            ok: false,
+            statusCode: 400,
+            message: 'Selected table details are invalid'
+        };
+    }
+
+    let normalizedGuests = null;
+    if (guests !== undefined && guests !== null && guests !== '') {
+        normalizedGuests = Number(guests);
+        if (!Number.isFinite(normalizedGuests) || normalizedGuests <= 0) {
+            return {
+                ok: false,
+                statusCode: 400,
+                message: 'Guests must be a valid number greater than 0'
+            };
+        }
+
+        if (Number(table.capacity) > 0 && normalizedGuests > Number(table.capacity)) {
+            return {
+                ok: false,
+                statusCode: 400,
+                message: `Selected table can seat up to ${table.capacity} guests only`
+            };
+        }
+    }
+
+    return {
+        ok: true,
+        table,
+        tableId: table._id,
+        tableNumber: String(table.tableNumber || '').trim(),
+        guests: normalizedGuests
+    };
 };
 
 // Get all dining restaurants (with filtering)
@@ -58,31 +287,36 @@ export const getRestaurants = async (req, res) => {
         }
 
         const rawRestaurants = await Restaurant.find(query);
-        const restaurants = rawRestaurants.map(r => ({
-            id: r._id,
-            _id: r._id,
-            name: r.name,
-            rating: r.rating || 0,
-            totalRatings: r.totalRatings || 0,
-            location: r.location?.city || r.zone || '',
-            distance: r.distance || '1.2 km',
-            cuisine: r.diningCategory || (r.cuisines && r.cuisines.length > 0 ? r.cuisines[0] : ''),
-            price: r.priceRange || '$$',
-            priceRange: r.priceRange || '$$',
-            image: r.profileImage?.url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
-            profileImage: r.profileImage || null,
-            offer: r.offer || '',
-            deliveryTime: r.estimatedDeliveryTime || '30-45 mins',
-            deliveryTimings: r.deliveryTimings || null,
-            featuredDish: r.featuredDish || '',
-            featuredPrice: r.featuredPrice || 0,
-            slug: r.slug,
-            coordinates: r.location ? { latitude: r.location.latitude, longitude: r.location.longitude } : null,
-            isPopular: r.rating >= 4,
-            diningEnabled: r.diningEnabled || false,
-            diningGuests: r.diningGuests || 6,
-            diningSlots: r.diningSlots || { lunch: [], dinner: [] }
-        }));
+        const restaurants = rawRestaurants.map((r) => {
+            const diningCategories = normalizeDiningCategories(r);
+
+            return {
+                id: r._id,
+                _id: r._id,
+                name: r.name,
+                rating: r.rating || 0,
+                totalRatings: r.totalRatings || 0,
+                location: r.location?.city || r.zone || '',
+                distance: r.distance || '1.2 km',
+                cuisine: diningCategories[0] || '',
+                diningCategories,
+                price: r.priceRange || '$$',
+                priceRange: r.priceRange || '$$',
+                image: r.profileImage?.url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
+                profileImage: r.profileImage || null,
+                offer: r.offer || '',
+                deliveryTime: r.estimatedDeliveryTime || '30-45 mins',
+                deliveryTimings: r.deliveryTimings || null,
+                featuredDish: r.featuredDish || '',
+                featuredPrice: r.featuredPrice || 0,
+                slug: r.slug,
+                coordinates: r.location ? { latitude: r.location.latitude, longitude: r.location.longitude } : null,
+                isPopular: r.rating >= 4,
+                diningEnabled: r.diningEnabled === true,
+                diningGuests: r.diningGuests || 6,
+                diningSlots: r.diningSlots || { lunch: [], dinner: [] }
+            };
+        }).filter((restaurant) => restaurant.diningEnabled === true);
 
         res.status(200).json({
             success: true,
@@ -111,6 +345,7 @@ export const getRestaurantBySlug = async (req, res) => {
             });
         }
 
+        const diningCategories = normalizeDiningCategories(r);
         const mappedRestaurant = {
             id: r._id,
             _id: r._id,
@@ -119,7 +354,8 @@ export const getRestaurantBySlug = async (req, res) => {
             totalRatings: r.totalRatings || 0,
             location: r.location?.city || r.zone || '',
             distance: r.distance || '1.2 km',
-            cuisine: r.diningCategory || (r.cuisines && r.cuisines.length > 0 ? r.cuisines[0] : ''),
+            cuisine: diningCategories[0] || '',
+            diningCategories,
             price: r.priceRange || '$$',
             priceRange: r.priceRange || '$$',
             image: r.profileImage?.url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
@@ -264,6 +500,13 @@ export const getAvailableTables = async (req, res) => {
         const { id } = req.params;
         const { date, time, guests } = req.query;
 
+        if (date && time && isPastBookingSlot(date, time)) {
+            return res.status(400).json({
+                success: false,
+                message: PAST_SLOT_BOOKING_MESSAGE
+            });
+        }
+
         // Find active tables
         const tables = await DiningTable.find({
             restaurantId: id,
@@ -316,10 +559,47 @@ export const createBooking = async (req, res) => {
             });
         }
 
+        if (isPastBookingSlot(date, time)) {
+            return res.status(400).json({
+                success: false,
+                message: PAST_SLOT_BOOKING_MESSAGE
+            });
+        }
+
+        if (!date || !time) {
+            return res.status(400).json({
+                success: false,
+                message: 'Booking date and time are required'
+            });
+        }
+
+        const restaurant = await getDiningEnabledRestaurant(id);
+        if (!restaurant || !restaurant.diningEnabled) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dining is not enabled for this restaurant'
+            });
+        }
+
+        if (guests === undefined || guests === null || String(guests).trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Guests count is required'
+            });
+        }
+
+        const tableResolution = await resolveBookableTable(id, { tableId, tableNumber, guests });
+        if (!tableResolution.ok) {
+            return res.status(tableResolution.statusCode).json({
+                success: false,
+                message: tableResolution.message
+            });
+        }
+
         // Check if already booked to prevent race condition
         const existingBooking = await DiningBooking.findOne({
             restaurantId: id,
-            tableNumber,
+            tableNumber: tableResolution.tableNumber,
             date,
             time,
             bookingStatus: { $in: BOOKED_STATUSES }
@@ -335,9 +615,9 @@ export const createBooking = async (req, res) => {
         const newBooking = new DiningBooking({
             restaurantId: id,
             userId,
-            tableId,
-            tableNumber,
-            guests,
+            tableId: tableResolution.tableId,
+            tableNumber: tableResolution.tableNumber,
+            guests: tableResolution.guests,
             date,
             time,
             guestName: customerDetails?.name || "Guest",
@@ -346,6 +626,8 @@ export const createBooking = async (req, res) => {
         });
 
         await newBooking.save();
+        await notifyRestaurantForPendingDiningBooking(newBooking);
+        await emitDiningBookingStatusUpdate(newBooking, '', 'user_request');
 
         res.status(201).json({
             success: true,
@@ -398,12 +680,39 @@ export const updateBookingStatus = async (req, res) => {
             });
         }
 
+        const currentStatus = String(booking.bookingStatus || '');
+
+        const allowedTransitions = {
+            [BOOKING_STATUSES.PENDING]: new Set([BOOKING_STATUSES.CONFIRMED, BOOKING_STATUSES.REJECTED]),
+            [BOOKING_STATUSES.CONFIRMED]: new Set([BOOKING_STATUSES.COMPLETED]),
+            [BOOKING_STATUSES.REJECTED]: new Set([]),
+            [BOOKING_STATUSES.CANCELLED]: new Set([]),
+            [BOOKING_STATUSES.COMPLETED]: new Set([])
+        };
+
+        if (currentStatus === status) {
+            return res.status(200).json({
+                success: true,
+                message: `Booking status is already ${status}`,
+                data: booking
+            });
+        }
+
+        const nextAllowedStatuses = allowedTransitions[currentStatus] || new Set();
+        if (!nextAllowedStatuses.has(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status transition from ${currentStatus} to ${status}`
+            });
+        }
+
         booking.bookingStatus = status;
         booking.statusUpdatedAt = new Date();
         booking.statusUpdatedByRole = "restaurant";
         booking.statusUpdatedBy = restaurantId;
 
         await booking.save();
+        await emitDiningBookingStatusUpdate(booking, currentStatus, 'restaurant_action');
 
         res.status(200).json({
             success: true,
@@ -449,12 +758,42 @@ export const getPlatformFee = async (req, res) => {
 export const initiateBookingPayment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { tableNumber, date, time } = req.body;
+        const { tableId, tableNumber, date, time } = req.body;
+
+        if (isPastBookingSlot(date, time)) {
+            return res.status(400).json({
+                success: false,
+                message: PAST_SLOT_BOOKING_MESSAGE
+            });
+        }
+
+        if (!date || !time) {
+            return res.status(400).json({
+                success: false,
+                message: 'Booking date and time are required'
+            });
+        }
+
+        const restaurant = await getDiningEnabledRestaurant(id);
+        if (!restaurant || !restaurant.diningEnabled) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dining is not enabled for this restaurant'
+            });
+        }
+
+        const tableResolution = await resolveBookableTable(id, { tableId, tableNumber });
+        if (!tableResolution.ok) {
+            return res.status(tableResolution.statusCode).json({
+                success: false,
+                message: tableResolution.message
+            });
+        }
 
         // Check if table is available
         const existingBooking = await DiningBooking.findOne({
             restaurantId: id,
-            tableNumber,
+            tableNumber: tableResolution.tableNumber,
             date,
             time,
             bookingStatus: { $in: BOOKED_STATUSES }
@@ -465,12 +804,6 @@ export const initiateBookingPayment = async (req, res) => {
                 success: false,
                 message: 'Table already booked for this date and time'
             });
-        }
-
-        // Get restaurant platform fee
-        const restaurant = await Restaurant.findById(id);
-        if (!restaurant) {
-            return res.status(404).json({ success: false, message: 'Restaurant not found' });
         }
 
         const platformFeeAmount = restaurant.diningPlatformFee?.isActive ? restaurant.diningPlatformFee.amount : 0;
@@ -526,6 +859,51 @@ export const verifyAndCreateBooking = async (req, res) => {
             });
         }
 
+        if (isPastBookingSlot(bookingDetails?.date, bookingDetails?.time)) {
+            return res.status(400).json({
+                success: false,
+                message: PAST_SLOT_BOOKING_MESSAGE
+            });
+        }
+
+        if (!bookingDetails?.date || !bookingDetails?.time) {
+            return res.status(400).json({
+                success: false,
+                message: 'Booking date and time are required'
+            });
+        }
+
+        if (
+            bookingDetails?.guests === undefined ||
+            bookingDetails?.guests === null ||
+            String(bookingDetails?.guests).trim() === ''
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Guests count is required'
+            });
+        }
+
+        const restaurant = await getDiningEnabledRestaurant(id);
+        if (!restaurant || !restaurant.diningEnabled) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dining is not enabled for this restaurant'
+            });
+        }
+
+        const tableResolution = await resolveBookableTable(id, {
+            tableId: bookingDetails?.tableId,
+            tableNumber: bookingDetails?.tableNumber,
+            guests: bookingDetails?.guests
+        });
+        if (!tableResolution.ok) {
+            return res.status(tableResolution.statusCode).json({
+                success: false,
+                message: tableResolution.message
+            });
+        }
+
         // Verify Signature
         const isValid = await verifyPayment(
             razorpay_order_id,
@@ -543,7 +921,7 @@ export const verifyAndCreateBooking = async (req, res) => {
         // Double check table availability
         const existingBooking = await DiningBooking.findOne({
             restaurantId: id,
-            tableNumber: bookingDetails.tableNumber,
+            tableNumber: tableResolution.tableNumber,
             date: bookingDetails.date,
             time: bookingDetails.time,
             bookingStatus: { $in: ["Pending", "Confirmed", "Completed"] }
@@ -557,17 +935,15 @@ export const verifyAndCreateBooking = async (req, res) => {
             });
         }
 
-        // Get platform fee
-        const restaurant = await Restaurant.findById(id);
         const platformFeeAmount = restaurant?.diningPlatformFee?.isActive ? restaurant.diningPlatformFee.amount : 0;
 
         // Create Booking
         const newBooking = new DiningBooking({
             restaurantId: id,
             userId,
-            tableId: bookingDetails.tableId,
-            tableNumber: bookingDetails.tableNumber,
-            guests: bookingDetails.guests,
+            tableId: tableResolution.tableId,
+            tableNumber: tableResolution.tableNumber,
+            guests: tableResolution.guests,
             date: bookingDetails.date,
             time: bookingDetails.time,
             guestName: bookingDetails.customerDetails?.name || "Guest",
@@ -582,6 +958,8 @@ export const verifyAndCreateBooking = async (req, res) => {
         });
 
         await newBooking.save();
+        await notifyRestaurantForConfirmedDiningBooking(newBooking);
+        await emitDiningBookingStatusUpdate(newBooking, '', 'payment_auto_confirm');
 
         res.status(201).json({
             success: true,
@@ -707,6 +1085,23 @@ export const cancelUserBooking = async (req, res) => {
             });
         }
 
+        const bookingDateTime = parseBookingDateTime(booking.date, booking.time);
+        if (!bookingDateTime) {
+            return res.status(400).json({
+                success: false,
+                message: 'Unable to validate booking time for cancellation'
+            });
+        }
+
+        const remainingMs = bookingDateTime.getTime() - Date.now();
+        if (remainingMs <= FOUR_HOURS_MS) {
+            return res.status(400).json({
+                success: false,
+                message: 'Booking can only be cancelled more than 4 hours before booking time'
+            });
+        }
+
+        const previousStatus = String(booking.bookingStatus || '');
         booking.bookingStatus = BOOKING_STATUSES.CANCELLED;
         booking.statusUpdatedAt = new Date();
         booking.statusUpdatedByRole = "user";
@@ -714,6 +1109,7 @@ export const cancelUserBooking = async (req, res) => {
         booking.cancellationReason = reason || '';
 
         await booking.save();
+        await emitDiningBookingStatusUpdate(booking, previousStatus, 'user_cancel');
 
         return res.status(200).json({
             success: true,

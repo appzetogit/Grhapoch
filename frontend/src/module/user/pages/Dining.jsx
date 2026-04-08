@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { MapPin, Search, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check } from "lucide-react"
+import { MapPin, Search, SlidersHorizontal, Star, X, ArrowDownUp, Timer, UtensilsCrossed, BadgePercent, ShieldCheck, Clock, Bookmark, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -54,6 +54,33 @@ const MOCK_CATEGORIES = diningCategories
 const MOCK_LIMELIGHT = limelightRestaurants
 const MOCK_MUST_TRIES = []
 const MOCK_RESTAURANTS = popularRestaurants
+
+const isDiningEnabledRestaurant = (restaurant = {}) =>
+  restaurant?.diningEnabled === true || restaurant?.diningEnabled === "true"
+
+const toCategorySlug = (value = "") =>
+  String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+
+const getRestaurantDiningCategories = (restaurant = {}) => {
+  const categories = []
+  const seen = new Set()
+
+  const addCategory = (value) => {
+    const normalized = String(value || "").trim()
+    if (!normalized) return
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    categories.push(normalized)
+  }
+
+  if (Array.isArray(restaurant?.diningCategories)) {
+    restaurant.diningCategories.forEach(addCategory)
+  }
+  addCategory(restaurant?.cuisine)
+
+  return categories
+}
 
 export default function Dining() {
   const navigate = useNavigate()
@@ -163,7 +190,8 @@ export default function Dining() {
 
         // 4: Restaurants
         if (results[4].status === 'fulfilled' && results[4].value.data.success) {
-          setRestaurantList(results[4].value.data.data || []);
+          const restaurants = Array.isArray(results[4].value.data.data) ? results[4].value.data.data : []
+          setRestaurantList(restaurants.filter(isDiningEnabledRestaurant));
         }
 
         // 5: Bank Offers
@@ -255,7 +283,10 @@ export default function Dining() {
 
     // Apply cuisine filter
     if (selectedCuisine) {
-      filtered = filtered.filter(r => r.cuisine.toLowerCase().includes(selectedCuisine.toLowerCase()))
+      const selectedCuisineLower = selectedCuisine.toLowerCase()
+      filtered = filtered.filter((r) =>
+        getRestaurantDiningCategories(r).some((category) => category.toLowerCase().includes(selectedCuisineLower))
+      )
     }
 
     // Apply sorting
@@ -266,7 +297,31 @@ export default function Dining() {
     }
 
     return filtered
-  }, [activeFilters, selectedCuisine, sortBy])
+  }, [activeFilters, selectedCuisine, sortBy, restaurantList])
+
+  const cuisineOptions = useMemo(() => {
+    const adminCategoryNames = categories
+      .map((category) => String(category?.name || "").trim())
+      .filter(Boolean)
+
+    if (adminCategoryNames.length > 0) {
+      return adminCategoryNames
+    }
+
+    const fallback = []
+    const seen = new Set()
+    restaurantList.forEach((restaurant) => {
+      getRestaurantDiningCategories(restaurant).forEach((category) => {
+        const key = category.toLowerCase()
+        if (seen.has(key)) return
+        seen.add(key)
+        fallback.push(category)
+      })
+    })
+    return fallback
+  }, [categories, restaurantList])
+
+  const hasDiningRestaurants = restaurantList.length > 0
 
 
   const handleSearchFocus = useCallback(() => {
@@ -589,13 +644,15 @@ export default function Dining() {
           </div> */}
         </div>
 
-        {/* Popular Restaurants Around You Section */}
-        <div className="mb-6 mt-8 sm:mt-12">
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Popular Restaurants Around You
-            </h3>
-          </div>
+        {hasDiningRestaurants && (
+          <>
+            {/* Popular Restaurants Around You Section */}
+            <div className="mb-6 mt-8 sm:mt-12">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Popular Restaurants Around You
+                </h3>
+              </div>
 
           {/* Filters */}
           <section className="py-1 mb-4">
@@ -646,11 +703,12 @@ export default function Dining() {
             </div>
           </section>
 
-          {/* Restaurant Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8">
+              {/* Restaurant Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8">
             {/* First 2 Restaurants */}
             {filteredRestaurants.slice(0, 2).map((restaurant, index) => {
               const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/\s+/g, "-")
+              const diningCategorySlug = toCategorySlug(getRestaurantDiningCategories(restaurant)[0]) || "all"
               const favorite = isFavorite(restaurantSlug)
 
               const handleToggleFavorite = (e) => {
@@ -709,7 +767,7 @@ export default function Dining() {
                       }
                     }}
                   >
-                    <Link to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
+                    <Link to={`/user/dining/${diningCategorySlug}/${restaurantSlug}`} className="h-full flex">
                       <Card className="overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] shadow-md transition-all duration-500 py-0 rounded-2xl h-full flex flex-col w-full relative">
                         {/* Image Section */}
                         <div className="relative h-48 sm:h-56 md:h-60 lg:h-64 xl:h-72 w-full overflow-hidden rounded-t-2xl flex-shrink-0">
@@ -871,6 +929,7 @@ export default function Dining() {
             {/* Remaining Restaurants */}
             {filteredRestaurants.slice(2).map((restaurant, index) => {
               const restaurantSlug = restaurant.slug || restaurant.name.toLowerCase().replace(/\s+/g, "-")
+              const diningCategorySlug = toCategorySlug(getRestaurantDiningCategories(restaurant)[0]) || "all"
               const favorite = isFavorite(restaurantSlug)
 
               const handleToggleFavorite = (e) => {
@@ -929,7 +988,7 @@ export default function Dining() {
                       }
                     }}
                   >
-                    <Link to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
+                    <Link to={`/user/dining/${diningCategorySlug}/${restaurantSlug}`} className="h-full flex">
                       <Card className="overflow-hidden cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] shadow-md transition-all duration-500 py-0 rounded-2xl h-full flex flex-col w-full relative">
                         {/* Image Section */}
                         <div className="relative h-48 sm:h-56 md:h-60 lg:h-64 xl:h-72 w-full overflow-hidden rounded-t-2xl flex-shrink-0">
@@ -1048,12 +1107,14 @@ export default function Dining() {
                 </motion.div>
               )
             })}
-          </div>
-        </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Filter Modal */}
-      {isFilterOpen && (
+      {hasDiningRestaurants && isFilterOpen && (
         <div className="fixed inset-0 z-[100]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Backdrop */}
           <div
@@ -1087,7 +1148,6 @@ export default function Dining() {
                   { id: 'time', label: 'Time', icon: Timer },
                   { id: 'rating', label: 'Rating', icon: Star },
                   { id: 'distance', label: 'Distance', icon: MapPin },
-                  { id: 'price', label: 'Dish Price', icon: IndianRupee },
                   { id: 'cuisine', label: 'Cuisine', icon: UtensilsCrossed },
                 ].map((tab) => {
                   const Icon = tab.icon
@@ -1235,39 +1295,12 @@ export default function Dining() {
                   </div>
                 )}
 
-                {/* Price Tab */}
-                {activeFilterTab === 'price' && (
-                  <div className="space-y-4 mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Dish Price</h3>
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={() => toggleFilter('price-under-200')}
-                        className={`px-4 py-3 rounded-xl border text-left transition-colors ${activeFilters.has('price-under-200')
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-green-500'
-                          }`}
-                      >
-                        <span className={`text-sm font-medium ${activeFilters.has('price-under-200') ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Under ₹200</span>
-                      </button>
-                      <button
-                        onClick={() => toggleFilter('price-under-500')}
-                        className={`px-4 py-3 rounded-xl border text-left transition-colors ${activeFilters.has('price-under-500')
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-green-500'
-                          }`}
-                      >
-                        <span className={`text-sm font-medium ${activeFilters.has('price-under-500') ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Under ₹500</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Cuisine Tab */}
                 {activeFilterTab === 'cuisine' && (
                   <div className="space-y-4 mb-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cuisine</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      {['Continental', 'Italian', 'Asian', 'Indian', 'Chinese', 'American', 'Seafood', 'Cafe'].map((cuisine) => (
+                      {cuisineOptions.map((cuisine) => (
                         <button
                           key={cuisine}
                           onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
@@ -1313,4 +1346,6 @@ export default function Dining() {
     </AnimatedPage>
   )
 }
+
+
 

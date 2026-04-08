@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft, Clock, Plus, Save, Trash2, Users } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import AnimatedPage from "@/module/user/components/AnimatedPage"
@@ -9,6 +9,7 @@ import { toast } from "sonner"
 
 export default function DiningSlotsDiscountsPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [diningSlots, setDiningSlots] = useState({ lunch: [], dinner: [] })
@@ -104,6 +105,15 @@ export default function DiningSlotsDiscountsPage() {
         }
     }
 
+    const handleBackNavigation = () => {
+        if (window.history.length > 1 && location.key !== "default") {
+            navigate(-1)
+            return
+        }
+
+        navigate("/restaurant/dining-management", { replace: true })
+    }
+
     if (loading) {
         return (
             <AnimatedPage className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -121,7 +131,7 @@ export default function DiningSlotsDiscountsPage() {
                 <div className="max-w-6xl mx-auto w-full px-4 md:px-6 h-[72px] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={() => navigate("/restaurant/dining-management")}
+                            onClick={handleBackNavigation}
                             className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5 text-gray-700" />

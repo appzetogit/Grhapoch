@@ -10,6 +10,33 @@ import { useProfile } from "../context/ProfileContext"
 import { FaLocationDot } from "react-icons/fa6"
 import { diningAPI } from "@/lib/api"
 
+const isDiningEnabledRestaurant = (restaurant = {}) =>
+  restaurant?.diningEnabled === true || restaurant?.diningEnabled === "true"
+
+const normalizeCategorySlug = (value = "") =>
+  String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "")
+
+const getRestaurantDiningCategories = (restaurant = {}) => {
+  const categories = []
+  const seen = new Set()
+
+  const addCategory = (value) => {
+    const normalized = String(value || "").trim()
+    if (!normalized) return
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    categories.push(normalized)
+  }
+
+  if (Array.isArray(restaurant?.diningCategories)) {
+    restaurant.diningCategories.forEach(addCategory)
+  }
+  addCategory(restaurant?.cuisine)
+
+  return categories
+}
+
 export default function DiningCategory() {
   const navigate = useNavigate()
   const { category } = useParams()
@@ -43,7 +70,8 @@ export default function DiningCategory() {
           { signal: abortController.signal }
         )
         if (response.data.success) {
-          setRestaurantList(response.data.data || [])
+          const restaurants = Array.isArray(response.data.data) ? response.data.data : []
+          setRestaurantList(restaurants.filter(isDiningEnabledRestaurant))
         }
       } catch (error) {
         // Ignore cancellation errors
@@ -94,22 +122,21 @@ export default function DiningCategory() {
 
     // Apply URL category filtering
     if (category) {
-      const normalizeCategory = (value = "") => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "");
-      const c2 = normalizeCategory(category);
+      const c2 = normalizeCategorySlug(category);
 
       filtered = filtered.filter(r => {
-        if (!r.cuisine) return false;
-        const c1 = normalizeCategory(r.cuisine);
+        const categorySlugs = getRestaurantDiningCategories(r).map(normalizeCategorySlug)
+        if (categorySlugs.length === 0) return false
 
-        if (c1 === c2) return true;
+        if (categorySlugs.includes(c2)) return true
 
         // Prevent partial matching false positives: 'veg' categories should NOT match 'non-veg' restaurants
-        if (!c2.includes('non-veg') && c1.includes('non-veg')) return false;
+        if (!c2.includes('non-veg') && categorySlugs.some((slug) => slug.includes('non-veg'))) return false
 
         // Prevent partial matching false positives: 'non-veg' categories should NOT match 'veg' restaurants
-        if (c2.includes('non-veg') && !c1.includes('non-veg')) return false;
+        if (c2.includes('non-veg') && !categorySlugs.some((slug) => slug.includes('non-veg'))) return false
 
-        return c1 === c2 || c1.includes(c2) || c2.includes(c1);
+        return categorySlugs.some((slug) => slug.includes(c2) || c2.includes(slug))
       });
     }
 
@@ -167,9 +194,9 @@ export default function DiningCategory() {
   }, [openLocationSelector])
 
   return (
-    <AnimatedPage className="bg-white" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
+    <AnimatedPage className="bg-white dark:bg-[#0a0a0a]" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
       {/* Header with Back Button and Location */}
-      <div className="relative w-full bg-white border-b border-gray-200">
+      <div className="relative w-full bg-white dark:bg-[#0a0a0a] border-b border-gray-200 dark:border-gray-800">
         <nav className="relative z-20 w-full px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-start gap-3 sm:gap-4">
             {/* Back Button */}
@@ -177,20 +204,20 @@ export default function DiningCategory() {
               variant="ghost"
               size="icon"
               onClick={() => navigate(-1)}
-              className="h-9 w-9 sm:h-10 sm:w-10 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0"
+              className="h-9 w-9 sm:h-10 sm:w-10 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-full hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors flex-shrink-0"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-800" strokeWidth={2.5} />
+              <ArrowLeft className="h-5 w-5 text-gray-800 dark:text-gray-200" strokeWidth={2.5} />
             </Button>
 
             {/* Location with Dotted Underline */}
             <Button
               variant="ghost"
               onClick={handleLocationClick}
-              className="text-left text-gray-800 text-sm sm:text-base font-semibold rounded-full px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors"
+              className="text-left text-gray-800 dark:text-gray-200 text-sm sm:text-base font-semibold rounded-full px-3 sm:px-4 py-2 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <FaLocationDot className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 flex-shrink-0" />
-                <span className="text-sm sm:text-base font-semibold text-gray-800 truncate border-b-2 border-dotted border-gray-600">
+                <FaLocationDot className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 dark:text-gray-300 flex-shrink-0" />
+                <span className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 truncate border-b-2 border-dotted border-gray-600 dark:border-gray-400">
                   {cityName}
                 </span>
               </div>
@@ -226,10 +253,10 @@ export default function DiningCategory() {
                 <Button
                   variant="outline"
                   onClick={() => setIsFilterOpen(true)}
-                  className="h-7 sm:h-8 px-2 sm:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 font-medium transition-all bg-white border border-gray-200 hover:bg-gray-50 text-gray-700"
+                  className="h-7 sm:h-8 px-2 sm:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 font-medium transition-all bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300"
                 >
                   <SlidersHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="text-xs sm:text-sm font-bold text-black">Filters</span>
+                  <span className="text-xs sm:text-sm font-bold text-black dark:text-white">Filters</span>
                 </Button>
 
                 {/* Filter Buttons */}
@@ -251,11 +278,11 @@ export default function DiningCategory() {
                       onClick={() => toggleFilter(filter.id)}
                       className={`h-7 sm:h-8 px-2 sm:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all font-medium ${isActive
                         ? 'bg-green-500 text-white border border-green-500 hover:bg-green-500/90'
-                        : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-600'
+                        : 'bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300'
                         }`}
                     >
                       {Icon && <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${isActive ? 'fill-white' : ''}`} />}
-                      <span className="text-xs sm:text-sm font-bold text-black">{filter.label}</span>
+                      <span className={`text-xs sm:text-sm font-bold ${isActive ? 'text-white' : 'text-black dark:text-white'}`}>{filter.label}</span>
                     </Button>
                   )
                 })}
@@ -263,7 +290,7 @@ export default function DiningCategory() {
             </section>
 
             <div className="flex items-center justify-center mb-2">
-              <h3 className="px-3 text-sm font-semibold text-gray-400 uppercase tracking-wide text-center">
+              <h3 className="px-3 text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide text-center">
                 FEATURED
               </h3>
             </div>
@@ -271,7 +298,7 @@ export default function DiningCategory() {
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="h-80 bg-gray-100 animate-pulse rounded-2xl" />
+                  <div key={i} className="h-80 bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-2xl" />
                 ))}
               </div>
             ) : filteredRestaurants.length > 0 ? (
@@ -300,7 +327,7 @@ export default function DiningCategory() {
 
                   return (
                     <Link key={restaurant.id} to={`/user/dining/${category || 'all'}/${restaurantSlug}`}>
-                      <Card className="overflow-hidden cursor-pointer border-0 group bg-white shadow-md hover:shadow-xl transition-all duration-300 py-0 gap-0 rounded-2xl">
+                      <Card className="overflow-hidden cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] shadow-md hover:shadow-xl transition-all duration-300 py-0 gap-0 rounded-2xl">
                         {/* Image Section */}
                         <div className="relative h-48 sm:h-56 md:h-60 w-full overflow-hidden rounded-t-2xl">
                           <img
@@ -323,10 +350,10 @@ export default function DiningCategory() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute top-3 right-3 h-9 w-9 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-colors"
+                            className="absolute top-3 right-3 h-9 w-9 bg-white/90 dark:bg-[#1a1a1a]/90 backdrop-blur-sm rounded-lg hover:bg-white dark:hover:bg-[#2a2a2a] transition-colors"
                             onClick={handleToggleFavorite}
                           >
-                            <Bookmark className={`h-5 w-5 ${favorite ? "fill-gray-800 text-gray-800" : "text-gray-600"}`} strokeWidth={2} />
+                            <Bookmark className={`h-5 w-5 ${favorite ? "fill-gray-800 dark:fill-gray-200 text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
                           </Button>
 
                           {/* Blue Section - Bottom 40% */}
@@ -350,7 +377,7 @@ export default function DiningCategory() {
                           {/* Restaurant Name & Rating */}
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 line-clamp-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
                                 {restaurant.name}
                               </h3>
                             </div>
@@ -361,7 +388,7 @@ export default function DiningCategory() {
                           </div>
 
                           {/* Delivery Time & Distance */}
-                          <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
+                          <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-2">
                             <Clock className="h-4 w-4" strokeWidth={1.5} />
                             <span className="font-medium">{restaurant.deliveryTime}</span>
                             <span className="mx-1">|</span>
@@ -372,7 +399,7 @@ export default function DiningCategory() {
                           {restaurant.offer && (
                             <div className="flex items-center gap-2 text-sm">
                               <BadgePercent className="h-4 w-4 text-blue-600" strokeWidth={2} />
-                              <span className="text-gray-700 font-medium">{restaurant.offer}</span>
+                              <span className="text-gray-700 dark:text-gray-300 font-medium">{restaurant.offer}</span>
                             </div>
                           )}
                         </CardContent>
@@ -383,9 +410,9 @@ export default function DiningCategory() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                <UtensilsCrossed className="h-16 w-16 text-gray-200 mb-4" />
-                <h3 className="text-lg font-bold text-gray-900 mb-1">No restaurants found</h3>
-                <p className="text-gray-500 max-w-xs mx-auto text-sm">
+                <UtensilsCrossed className="h-16 w-16 text-gray-200 dark:text-gray-700 mb-4" />
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No restaurants found</h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto text-sm">
                   We couldn't find any restaurants matching this category in your area.
                 </p>
                 <Button
@@ -410,10 +437,10 @@ export default function DiningCategory() {
           />
 
           {/* Modal Content */}
-          <div className="absolute bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:bottom-auto md:top-1/2 md:-translate-y-1/2 bg-white rounded-t-3xl md:rounded-3xl max-h-[85vh] md:max-h-[90vh] md:max-w-lg w-full md:w-auto flex flex-col animate-[slideUp_0.3s_ease-out]">
+          <div className="absolute bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:bottom-auto md:top-1/2 md:-translate-y-1/2 bg-white dark:bg-[#1a1a1a] rounded-t-3xl md:rounded-3xl max-h-[85vh] md:max-h-[90vh] md:max-w-lg w-full md:w-auto flex flex-col animate-[slideUp_0.3s_ease-out]">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Filters and sorting</h2>
+            <div className="flex items-center justify-between px-4 py-4 border-b dark:border-gray-800">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Filters and sorting</h2>
               <button
                 onClick={() => {
                   setActiveFilters(new Set())
@@ -429,7 +456,7 @@ export default function DiningCategory() {
             {/* Body */}
             <div className="flex flex-1 overflow-hidden">
               {/* Left Sidebar - Tabs */}
-              <div className="w-24 sm:w-28 bg-gray-50 border-r flex flex-col">
+              <div className="w-24 sm:w-28 bg-gray-50 dark:bg-[#111111] border-r dark:border-gray-800 flex flex-col">
                 {[
                   { id: 'sort', label: 'Sort By', icon: ArrowDownUp },
                   { id: 'time', label: 'Time', icon: Timer },
@@ -493,9 +520,9 @@ export default function DiningCategory() {
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         onClick={() => toggleFilter('delivery-under-30')}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors ${activeFilters.has('delivery-under-30')
+                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors ${activeFilters.has('delivery-under-30')
                           ? 'border-green-500 bg-green-50'
-                          : 'border-gray-200 hover:border-green-500'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-green-500'
                           }`}
                       >
                         <Timer className={`h-6 w-6 ${activeFilters.has('delivery-under-30') ? 'text-green-600' : 'text-gray-600'}`} strokeWidth={1.5} />
@@ -636,11 +663,11 @@ export default function DiningCategory() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center gap-4 px-4 py-4 border-t bg-white">
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="flex-1 py-3 text-center font-semibold text-gray-700"
-              >
+              <div className="flex items-center gap-4 px-4 py-4 border-t dark:border-gray-800 bg-white dark:bg-[#1a1a1a]">
+                <button
+                  onClick={() => setIsFilterOpen(false)}
+                  className="flex-1 py-3 text-center font-semibold text-gray-700 dark:text-gray-300"
+                >
                 Close
               </button>
               <button

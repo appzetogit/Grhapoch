@@ -47,7 +47,7 @@ const normalizeSubmitError = (message) => {
     return "Banner dimensions too small. Minimum 1200x300 required."
   }
   if (text.includes("aspect ratio") || text.includes("4:1")) {
-    return "Banner aspect ratio must be around 4:1 (for example 1200x300)."
+    return "Banner uploaded, but ratio is not ideal. Use wide banners for best result."
   }
   if (text.includes("only image") || text.includes("image banner")) {
     return "Only JPG/PNG image banner is allowed."
@@ -306,7 +306,7 @@ export default function NewAdvertisementPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Banner Image</label>
                     <p className="text-xs text-gray-500 mb-2">
-                      Required: JPG/PNG | Min 1200x300 | Ratio 4:1 (example 1200x300) | Max size: 2MB
+                      Required: JPG/PNG | Min 1200x300 | Wide banner recommended (example 1200x300) | Max size: 2MB
                     </p>
                     <label className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900">
                       <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />

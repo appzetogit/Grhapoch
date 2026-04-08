@@ -221,15 +221,15 @@ export const getActiveRestaurants = async (req, res) => {
 export const updateDiningSettings = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const { diningEnabled, guests, cuisine } = req.body;
+    const { diningEnabled, guests, cuisine, diningCategory, diningCategories } = req.body;
 
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) return errorResponse(res, 404, 'Restaurant not found');
 
-  if (diningEnabled !== undefined) {
-    const nextValue = Boolean(diningEnabled);
+    if (diningEnabled !== undefined) {
+      const nextValue = Boolean(diningEnabled);
 
-    if (nextValue === true) {
+      if (nextValue === true) {
         // Allow saving settings when dining is already enabled (e.g. update guests/category)
         if (restaurant.diningEnabled) {
           restaurant.diningEnabled = true;
@@ -246,13 +246,79 @@ export const updateDiningSettings = async (req, res) => {
       } else {
         restaurant.diningEnabled = false;
       }
-  }
-    if (guests !== undefined) restaurant.diningGuests = guests;
-    if (cuisine !== undefined) restaurant.diningCategory = cuisine;
+    }
+
+    if (guests !== undefined) {
+      const normalizedGuests = Number(guests);
+      if (!Number.isFinite(normalizedGuests) || normalizedGuests <= 0) {
+        return errorResponse(res, 400, 'Guests must be a valid number greater than 0');
+      }
+      restaurant.diningGuests = normalizedGuests;
+    }
+
+    if (diningCategories !== undefined || diningCategory !== undefined || cuisine !== undefined) {
+      const requestedCategoriesInput =
+        diningCategories !== undefined
+          ? diningCategories
+          : (diningCategory !== undefined ? diningCategory : cuisine);
+
+      let normalizedRequestedCategories = [];
+      if (Array.isArray(requestedCategoriesInput)) {
+        normalizedRequestedCategories = requestedCategoriesInput.map((category) => String(category || '').trim());
+      } else {
+        const asText = String(requestedCategoriesInput || '').trim();
+        normalizedRequestedCategories = asText ? asText.split(',').map((category) => String(category || '').trim()) : [];
+      }
+
+      const uniqueRequestedCategories = [];
+      const seenRequestedCategories = new Set();
+      for (const category of normalizedRequestedCategories) {
+        if (!category) continue;
+        const key = category.toLowerCase();
+        if (seenRequestedCategories.has(key)) continue;
+        seenRequestedCategories.add(key);
+        uniqueRequestedCategories.push(category);
+      }
+
+      if (uniqueRequestedCategories.length === 0) {
+        restaurant.diningCategory = '';
+        restaurant.diningCategories = [];
+      } else {
+        const availableCategories = await DiningCategory.find({ isActive: true }).select('name').lean();
+        if (availableCategories.length > 0) {
+          const availableByName = new Map(
+            availableCategories.map((category) => [String(category?.name || '').trim().toLowerCase(), String(category?.name || '').trim()])
+          );
+
+          const validatedCategories = [];
+          for (const requestedCategory of uniqueRequestedCategories) {
+            const matchedCategoryName = availableByName.get(requestedCategory.toLowerCase());
+            if (!matchedCategoryName) {
+              return errorResponse(res, 400, `Invalid dining category selected: ${requestedCategory}`);
+            }
+            validatedCategories.push(matchedCategoryName);
+          }
+
+          restaurant.diningCategories = validatedCategories;
+          restaurant.diningCategory = validatedCategories[0] || '';
+        } else {
+          restaurant.diningCategories = uniqueRequestedCategories;
+          restaurant.diningCategory = uniqueRequestedCategories[0] || '';
+        }
+      }
+    }
 
     await restaurant.save();
 
-    return successResponse(res, 200, 'Dining settings updated successfully', { restaurant });
+    return successResponse(res, 200, 'Dining settings updated successfully', {
+      restaurantId: restaurant._id,
+      diningEnabled: Boolean(restaurant.diningEnabled),
+      diningGuests: Number(restaurant.diningGuests) || 0,
+      diningCategory: String(restaurant.diningCategory || '').trim(),
+      diningCategories: Array.isArray(restaurant.diningCategories)
+        ? restaurant.diningCategories.map((category) => String(category || '').trim()).filter(Boolean)
+        : []
+    });
   } catch (error) {
     console.error('Error updating dining settings:', error);
     return errorResponse(res, 500, 'Failed to update dining settings');

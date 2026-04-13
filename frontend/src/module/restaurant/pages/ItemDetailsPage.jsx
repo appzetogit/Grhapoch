@@ -65,6 +65,9 @@ export default function ItemDetailsPage() {
   const [direction, setDirection] = useState(0);
   const carouselRef = useRef(null);
   const [isCategoryPopupOpen, setIsCategoryPopupOpen] = useState(false);
+  const [isAddingCategoryInline, setIsAddingCategoryInline] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [isServesPopupOpen, setIsServesPopupOpen] = useState(false);
   const [isPrepTimePopupOpen, setIsPrepTimePopupOpen] = useState(false);
   const [isItemSizePopupOpen, setIsItemSizePopupOpen] = useState(false);
@@ -316,18 +319,24 @@ export default function ItemDetailsPage() {
 
   const handleImageAdd = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    // Validate file types
-    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    // Validate file types and size (mobile camera images can be HEIC/HEIF and larger)
     const validFiles = files.filter((file) => {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name}: Invalid file type. Please upload PNG, JPG, JPEG, or WEBP.`);
+      const mimeType = String(file.type || "").toLowerCase();
+      const fileName = String(file.name || "").toLowerCase();
+      const hasValidImageMime = mimeType.startsWith("image/");
+      const hasValidImageExtension = /\.(png|jpe?g|webp|gif|heic|heif|avif)$/i.test(fileName);
+
+      if (!hasValidImageMime && !hasValidImageExtension) {
+        toast.error(`${file.name}: Unsupported format. Please upload an image file.`);
         return false;
       }
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      // Keep below backend 20MB limit, but allow typical mobile camera sizes
+      const maxSize = 15 * 1024 * 1024; // 15MB
       if (file.size > maxSize) {
-        toast.error(`${file.name}: File size exceeds 5MB limit.`);
+        toast.error(`${file.name}: File size exceeds 15MB limit.`);
         return false;
       }
       return true;
@@ -436,10 +445,46 @@ export default function ItemDetailsPage() {
 
   const handleCategorySelect = (catId, subCat) => {
     const selectedCategory = categories.find((c) => c.id === catId);
+    if (!selectedCategory) return;
     setCategory(selectedCategory.name);
     setSubCategory(subCat || "");
     setIsCategoryPopupOpen(false);
     if (errors.category) setErrors({ ...errors, category: null });
+  };
+
+  const handleCreateCategoryInline = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      toast.error("Category name is required");
+      return;
+    }
+
+    try {
+      setCreatingCategory(true);
+      const response = await restaurantAPI.createCategory({ name });
+      const created = response?.data?.data?.category;
+
+      if (!created) {
+        toast.error(response?.data?.message || "Failed to create category");
+        return;
+      }
+
+      const formatted = { id: created._id || created.id, name: created.name };
+      setCategories((prev) => {
+        const exists = prev.some((c) => c.name.toLowerCase() === formatted.name.toLowerCase());
+        return exists ? prev : [...prev, formatted];
+      });
+      setCategory(formatted.name);
+      setSubCategory(formatted.name);
+      setNewCategoryName("");
+      setIsAddingCategoryInline(false);
+      if (errors.category) setErrors((prev) => ({ ...prev, category: null }));
+      toast.success("Category added");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to create category");
+    } finally {
+      setCreatingCategory(false);
+    }
   };
 
   const handleServesSelect = (option) => {
@@ -924,7 +969,9 @@ export default function ItemDetailsPage() {
             }
             </div> :
 
-          <div className="relative w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+          <div
+            className="relative w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}>
               <div className="text-center">
                 <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
                   <Camera className="w-10 h-10 text-gray-400" />
@@ -941,6 +988,7 @@ export default function ItemDetailsPage() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               multiple
               onChange={handleImageAdd}
               className="hidden"
@@ -1224,8 +1272,7 @@ export default function ItemDetailsPage() {
                   {categories.length > 0 && (
                     <button
                       onClick={() => {
-                        setIsCategoryPopupOpen(false);
-                        navigate('/restaurant/menu-categories', { state: { openAddModal: true } });
+                        setIsAddingCategoryInline((prev) => !prev);
                       }}
                       className="p-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-1.5"
                       title="Add Category">
@@ -1244,24 +1291,49 @@ export default function ItemDetailsPage() {
                 </button>
                 </div>
               </div>
+              {isAddingCategoryInline &&
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Enter category name"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                    />
+                    <button
+                      onClick={handleCreateCategoryInline}
+                      disabled={creatingCategory}
+                      className="px-3 py-2 bg-black text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                      {creatingCategory ? "Adding..." : "Add"}
+                    </button>
+                  </div>
+                </div>
+              }
               <div className="flex-1 overflow-y-auto p-2">
                 {loadingCategories ?
               <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
                   </div> :
               categories.length === 0 ?
-              <div className="text-center py-12 space-y-4">
+                  <div className="text-center py-12 space-y-4">
                     <p className="text-sm text-gray-500">No categories available</p>
-                    <button
-                      onClick={() => {
-                        setIsCategoryPopupOpen(false);
-                        navigate('/restaurant/menu-categories', { state: { openAddModal: true } });
-                      }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors">
-                  
-                      <Plus className="w-5 h-5" />
-                      Add Category
-                    </button>
+                    <div className="flex items-center gap-2 max-w-sm mx-auto">
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Enter category name"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                      />
+                      <button
+                        onClick={handleCreateCategoryInline}
+                        disabled={creatingCategory}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50">
+                        <Plus className="w-5 h-5" />
+                        {creatingCategory ? "Adding..." : "Add"}
+                      </button>
+                    </div>
                   </div> :
 
               <div className="space-y-2">

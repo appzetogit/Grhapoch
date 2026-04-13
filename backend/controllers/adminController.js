@@ -3040,3 +3040,127 @@ export const updateRestaurantMenu = asyncHandler(async (req, res) => {
     return errorResponse(res, 500, 'Failed to update restaurant menu');
   }
 });
+
+/**
+ * Universal Search for Admin Dashboard
+ * GET /api/admin/search
+ */
+export const universalSearch = asyncHandler(async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === '') {
+      return successResponse(res, 200, 'Search results', { results: [] });
+    }
+
+    const searchQuery = q.trim();
+    const results = [];
+
+    // Search Orders (Limit 5)
+    const orders = await Order.find({
+      $or: [
+        { orderId: { $regex: searchQuery, $options: 'i' } },
+        { restaurantName: { $regex: searchQuery, $options: 'i' } }
+      ]
+    }).limit(5).lean();
+
+    orders.forEach(order => {
+      results.push({
+        type: 'Order',
+        title: order.orderId,
+        description: `${order.restaurantName} - ${order.status}`,
+        id: order._id,
+        link: `/admin/orders`
+      });
+    });
+
+    // Search Users (Limit 5)
+    // Dynamic import to avoid circular dependency
+    const User = (await import('../models/User.js')).default;
+    const users = await User.find({
+      $or: [
+        { name: { $regex: searchQuery, $options: 'i' } },
+        { email: { $regex: searchQuery, $options: 'i' } },
+        { phone: { $regex: searchQuery, $options: 'i' } }
+      ]
+    }).limit(5).lean();
+
+    users.forEach(user => {
+      results.push({
+        type: 'User',
+        title: user.name,
+        description: user.email || user.phone || 'User',
+        id: user._id,
+        link: `/admin/users`
+      });
+    });
+
+    // Search Restaurants (Limit 5)
+    const restaurants = await Restaurant.find({
+      $or: [
+        { name: { $regex: searchQuery, $options: 'i' } },
+        { phone: { $regex: searchQuery, $options: 'i' } }
+      ]
+    }).limit(5).lean();
+
+    restaurants.forEach(rest => {
+      results.push({
+        type: 'Restaurant',
+        title: rest.name,
+        description: rest.address?.city || 'Restaurant',
+        id: rest._id,
+        link: `/admin/restaurants`
+      });
+    });
+
+    // Search Products from Menus (Limit 5)
+    const menus = await Menu.find({ isActive: true }).limit(10).lean();
+    let productCount = 0;
+    
+    for (const menu of menus) {
+      if (productCount >= 5) break;
+      
+      for (const section of menu.sections) {
+        if (productCount >= 5) break;
+        
+        for (const item of section.items) {
+          if (productCount >= 5) break;
+          if (item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+            results.push({
+              type: 'Product',
+              title: item.name,
+              description: `Item - ₹${item.price}`,
+              id: item.id,
+              link: `/admin/food-approvals`
+            });
+            productCount++;
+          }
+        }
+        
+        if (section.subsections) {
+          for (const sub of section.subsections) {
+            if (productCount >= 5) break;
+            for (const item of sub.items) {
+              if (productCount >= 5) break;
+              if (item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                results.push({
+                  type: 'Product',
+                  title: item.name,
+                  description: `Item - ₹${item.price}`,
+                  id: item.id,
+                  link: `/admin/food-approvals`
+                });
+                productCount++;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return successResponse(res, 200, 'Search results retrieved successfully', { results });
+  } catch (error) {
+    logger.error(`Error in universalSearch: ${error.message}`);
+    return errorResponse(res, 500, 'Search failed');
+  }
+});

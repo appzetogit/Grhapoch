@@ -4,6 +4,7 @@ import { ArrowLeft, Search, MoreVertical, ChevronRight, Star, RotateCcw, AlertCi
 import { orderAPI, api, API_ENDPOINTS } from "@/lib/api";
 import { toast } from "sonner";
 import { shareContent } from "@/lib/utils/share";
+import { useCart } from "../../context/CartContext";
 import FoodTypeIcon from "../../components/FoodTypeIcon";
 
 export default function Orders() {
@@ -15,6 +16,7 @@ export default function Orders() {
   const [activeMenuOrderId, setActiveMenuOrderId] = useState(null);
   const [selectedRating, setSelectedRating] = useState(null);
   const [feedbackText, setFeedbackText] = useState("");
+  const { addToCart, clearCart } = useCart();
   const [submittingRating, setSubmittingRating] = useState(false);
   const [countdowns, setCountdowns] = useState({});
   const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
@@ -355,18 +357,42 @@ export default function Orders() {
     return restaurantMatch || itemsMatch;
   });
 
+  const getRestaurantId = (restaurantId) => {
+    if (typeof restaurantId === 'object' && restaurantId !== null) {
+      return restaurantId._id || restaurantId.id || restaurantId.restaurantId || "";
+    }
+    return restaurantId || "";
+  };
+
   // Handle reorder
   const handleReorder = (order) => {
-    // Navigate to restaurant page or cart
-    const resId = typeof order.restaurantId === 'object' && order.restaurantId !== null 
-      ? (order.restaurantId._id || order.restaurantId.id || order.restaurantId.restaurantId) 
-      : order.restaurantId;
-
-    if (resId) {
-      navigate(`/user/restaurants/${resId}`);
-    } else {
-      toast.info('Restaurant information not available');
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (items.length === 0) {
+      toast.error('Order has no items to reorder');
+      return;
     }
+
+    const restaurantId = getRestaurantId(order.restaurantId || order.restaurant);
+    const restaurantName = order.restaurant || order.restaurantName || (order.restaurantId && order.restaurantId.name) || 'Restaurant';
+
+    clearCart();
+
+    items.forEach((item, idx) => {
+      const quantity = Math.max(1, item.quantity || item.qty || 1);
+      const cartItem = {
+        ...item,
+        id: item.id || item._id || item.itemId || item.dishId || item.foodId || `order-item-${idx}`,
+        restaurantId,
+        restaurant: restaurantName,
+        name: item.name || item.foodName || item.title || 'Item',
+        image: item.image || item.imageUrl || item.photo,
+        price: item.price || item.unitPrice || item.amount || 0,
+      };
+      addToCart(cartItem, null, quantity);
+    });
+
+    toast.success('Order items added to cart');
+    navigate('/user/cart');
   };
 
   // Three-dots menu handlers

@@ -7,21 +7,15 @@ const storage = multer.memoryStorage();
 
 // Generic file filter for common image/video mime types
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = [
-  // images
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-  // videos
+  const mimeType = String(file.mimetype || '').toLowerCase();
+  const allowedVideoMimeTypes = [
   'video/mp4',
   'video/quicktime',
   'video/x-msvideo',
   'video/x-matroska'];
 
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  // Accept all image/* types (including HEIC/HEIF from mobile cameras)
+  if (mimeType.startsWith('image/') || allowedVideoMimeTypes.includes(mimeType)) {
     cb(null, true);
   } else {
     cb(new Error('Unsupported file type. Please upload an image or video.'));

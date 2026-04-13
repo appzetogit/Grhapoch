@@ -699,6 +699,37 @@ export const getMenuByRestaurantId = async (req, res) => {
 
 
 
+    // Normalize item image payload for user side so frontend always gets a reliable image + images[]
+    const normalizeMenuItemForClient = (item) => {
+      const rawItem = item?.toObject ? item.toObject() : { ...item };
+      const imageCandidates = [];
+
+      if (Array.isArray(rawItem.images)) {
+        rawItem.images.forEach((img) => {
+          if (typeof img === 'string') {
+            imageCandidates.push(img);
+          } else if (img && typeof img === 'object' && typeof img.url === 'string') {
+            imageCandidates.push(img.url);
+          }
+        });
+      }
+
+      if (typeof rawItem.image === 'string') {
+        imageCandidates.push(rawItem.image);
+      } else if (rawItem.image && typeof rawItem.image === 'object' && typeof rawItem.image.url === 'string') {
+        imageCandidates.push(rawItem.image.url);
+      }
+
+      const normalizedImages = [...new Set(imageCandidates.map((url) => String(url).trim()).filter(Boolean))];
+
+      return {
+        ...rawItem,
+        image: normalizedImages[0] || '',
+        images: normalizedImages,
+        photoCount: rawItem.photoCount || normalizedImages.length || 1
+      };
+    };
+
     // Filter menu for user side: only show enabled sections and available items
     const filteredSections = (menu.sections || []).
     filter((section) => {
@@ -730,7 +761,8 @@ export const getMenuByRestaurantId = async (req, res) => {
 
 
         return shouldShow;
-      });
+      }).
+      map((item) => normalizeMenuItemForClient(item));
 
       // Filter subsections and their items
       const availableSubsections = (section.subsections || []).
@@ -751,7 +783,8 @@ export const getMenuByRestaurantId = async (req, res) => {
 
 
           return shouldShow;
-        });
+        }).
+        map((item) => normalizeMenuItemForClient(item));
         // Only include subsection if it has available items
         if (availableSubsectionItems.length > 0) {
           return {
@@ -890,6 +923,7 @@ export const getAddons = asyncHandler(async (req, res) => {
 export const getAddonsByRestaurantId = async (req, res) => {
   try {
     const { id } = req.params;
+    const includePending = String(req.query?.includePending || '').toLowerCase() === 'true';
 
 
 
@@ -930,8 +964,19 @@ export const getAddonsByRestaurantId = async (req, res) => {
 
 
 
-    // Show all addons - no filtering (as per user request to show addons "kaise bhi")
-    const allAddons = menu.addons || [];
+    const allAddons = Array.isArray(menu.addons) ? menu.addons : [];
+
+    // Public default: only approved + available add-ons.
+    // Admin/tools can pass includePending=true to get full list.
+    const visibleAddons = includePending ?
+    allAddons :
+    allAddons.filter((addon) => {
+      if (!addon || typeof addon !== 'object') return false;
+      const status = String(addon.approvalStatus || 'approved').toLowerCase();
+      const isApproved = !addon.approvalStatus || status === 'approved';
+      const isAvailable = addon.isAvailable !== false;
+      return isApproved && isAvailable;
+    });
 
     // Log all addons for debugging
 
@@ -948,7 +993,7 @@ export const getAddonsByRestaurantId = async (req, res) => {
 
 
     return successResponse(res, 200, 'Add-ons retrieved successfully', {
-      addons: allAddons
+      addons: visibleAddons
     });
   } catch (error) {
     console.error('Error fetching addons by restaurant ID:', error);

@@ -208,6 +208,59 @@ const sanitizeCuisineList = (values, max = 8) => {
   return cleaned;
 };
 
+const isMenuItemVisibleToUser = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  const isAvailable = item.isAvailable !== false;
+  const status = String(item.approvalStatus || 'approved').toLowerCase();
+  const isApproved = !item.approvalStatus || status === 'approved';
+  return isAvailable && isApproved;
+};
+
+const menuHasVisibleDish = (menu) => {
+  if (!menu || !Array.isArray(menu.sections) || menu.sections.length === 0) return false;
+
+  for (const section of menu.sections) {
+    if (section?.isEnabled === false) continue;
+
+    const sectionItems = Array.isArray(section?.items) ? section.items : [];
+    if (sectionItems.some(isMenuItemVisibleToUser)) {
+      return true;
+    }
+
+    const subsections = Array.isArray(section?.subsections) ? section.subsections : [];
+    for (const subsection of subsections) {
+      const subsectionItems = Array.isArray(subsection?.items) ? subsection.items : [];
+      if (subsectionItems.some(isMenuItemVisibleToUser)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+const filterRestaurantsWithVisibleDishes = async (restaurants = []) => {
+  if (!Array.isArray(restaurants) || restaurants.length === 0) return [];
+
+  const restaurantIds = restaurants.map((r) => r?._id).filter(Boolean);
+  if (restaurantIds.length === 0) return [];
+
+  const menus = await Menu.find({
+    restaurant: { $in: restaurantIds },
+    isActive: true
+  })
+    .select('restaurant sections')
+    .lean();
+
+  const allowedRestaurantIds = new Set(
+    menus
+      .filter((menu) => menuHasVisibleDish(menu))
+      .map((menu) => String(menu.restaurant))
+  );
+
+  return restaurants.filter((restaurant) => allowedRestaurantIds.has(String(restaurant._id)));
+};
+
 // Get all restaurants (for user module)
 export const getRestaurants = async (req, res) => {
   try {
@@ -389,6 +442,9 @@ export const getRestaurants = async (req, res) => {
       });
     }
 
+    // Hide restaurants that have no user-visible dishes.
+    restaurants = await filterRestaurantsWithVisibleDishes(restaurants);
+
     // Note: total count not used in response to keep payload light
 
 
@@ -548,6 +604,9 @@ export const getNearbyRestaurants = async (req, res) => {
         return distMatch && parseFloat(distMatch[1]) <= maxDist;
       });
     }
+
+    // Hide restaurants that have no user-visible dishes.
+    restaurants = await filterRestaurantsWithVisibleDishes(restaurants);
 
     return successResponse(res, 200, 'Nearby restaurants retrieved successfully', {
       restaurants,
@@ -1297,6 +1356,10 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
               price: getFinalPrice(item),
               originalPrice: item.originalPrice || item.price,
               image: item.image || (item.images && item.images.length > 0 ? item.images[0] : ""),
+              images: Array.isArray(item.images) && item.images.length > 0 ?
+                item.images.filter((img) => img && typeof img === 'string' && img.trim() !== '') :
+                item.image && typeof item.image === 'string' && item.image.trim() !== '' ? [item.image] : [],
+              photoCount: item.photoCount || (Array.isArray(item.images) ? item.images.length : 1),
               isVeg: item.foodType === 'Veg',
               bestPrice: item.discountAmount > 0 || item.originalPrice && item.originalPrice > getFinalPrice(item),
               description: item.description || "",

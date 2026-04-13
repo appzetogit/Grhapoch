@@ -15,6 +15,7 @@ import {
 "lucide-react";
 import { orderAPI, restaurantAPI } from "@/lib/api";
 import { toast } from "sonner";
+import { useCart } from "../../context/CartContext";
 import FoodTypeIcon from "../../components/FoodTypeIcon";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,6 +26,7 @@ export default function UserOrderDetails() {
   const [order, setOrder] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { addToCart, clearCart } = useCart();
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -83,6 +85,42 @@ export default function UserOrderDetails() {
     } catch {
       toast.error("Failed to copy Order ID");
     }
+  };
+
+  const getOrderRestaurantId = (restaurantId) => {
+    if (typeof restaurantId === 'object' && restaurantId !== null) {
+      return restaurantId._id || restaurantId.id || restaurantId.restaurantId || "";
+    }
+    return restaurantId || "";
+  };
+
+  const handleReorder = () => {
+    if (!items || items.length === 0) {
+      toast.error("Order has no items to reorder");
+      return;
+    }
+
+    const restaurantId = getOrderRestaurantId(order.restaurantId || order.restaurant || restaurant?.id);
+    const restaurantName = order.restaurantName || order.restaurant || (order.restaurantId && order.restaurantId.name) || "Restaurant";
+
+    clearCart();
+
+    items.forEach((item, idx) => {
+      const quantity = Math.max(1, item.quantity || item.qty || 1);
+      const cartItem = {
+        ...item,
+        id: item.id || item._id || item.itemId || item.dishId || item.foodId || `order-item-${idx}`,
+        restaurantId,
+        restaurant: restaurantName,
+        name: item.name || item.foodName || item.title || "Item",
+        image: item.image || item.imageUrl || item.photo || item.thumbnail,
+        price: item.price || item.unitPrice || item.amount || 0
+      };
+      addToCart(cartItem, null, quantity);
+    });
+
+    toast.success("Order items added to cart");
+    navigate("/user/cart");
   };
 
   if (loading) {
@@ -555,12 +593,7 @@ export default function UserOrderDetails() {
       <div className="fixed bottom-0 w-full bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 p-4 flex gap-3 z-20">
         <button
           type="button"
-          onClick={() => {
-            const resId = typeof order.restaurantId === 'object' && order.restaurantId !== null 
-              ? (order.restaurantId._id || order.restaurantId.id || order.restaurantId.restaurantId) 
-              : order.restaurantId;
-            navigate(`/user/restaurants/${resId || ""}`);
-          }}
+          onClick={handleReorder}
           className="flex-1 bg-[#E23744] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors">
           
           <RotateCcw className="w-4 h-4" />

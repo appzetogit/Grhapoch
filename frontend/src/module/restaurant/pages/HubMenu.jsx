@@ -40,7 +40,6 @@ export default function HubMenu() {
   const [isEditCategoryOpen, setIsEditCategoryOpen] = useState(false);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [expandedGroups, setExpandedGroups] = useState(new Set());
-  const [selectedFilter, setSelectedFilter] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null); // Active filter for filtering menu
   const [availabilityReason, setAvailabilityReason] = useState(null);
   const [switchingOffTarget, setSwitchingOffTarget] = useState(null); // { type: 'item' | 'group', id: string, groupId?: string }
@@ -127,12 +126,7 @@ export default function HubMenu() {
       "out-of-stock": allItems.filter((item) => !item.isAvailable).length,
       "no-photos": allItems.filter((item) => !item.image || item.photoCount === 0).length,
       "without-description": allItems.filter((item) => !item.description || item.description.trim() === "").length,
-      "without-serving-info": allItems.filter((item) => !item.variations || item.variations.length === 0).length,
-      "item-not-live": allItems.filter((item) => !item.isAvailable).length,
-      "photos-rejected": 0, // This would need a status field in the item model
-      "under-review": 0, // This would need a status field in the item model
-      goods: 0, // This would need a category type field
-      services: 0 // This would need a category type field
+      "without-serving-info": allItems.filter((item) => !item.variations || item.variations.length === 0).length
     };
 
     return counts;
@@ -142,12 +136,7 @@ export default function HubMenu() {
   const filterOptions = useMemo(() => [
     { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
     { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
-    { id: "goods", label: "Goods", count: calculateFilterCounts.goods },
-    { id: "services", label: "Services", count: calculateFilterCounts.services },
-    { id: "item-not-live", label: "Item not live", count: calculateFilterCounts["item-not-live"] },
-    { id: "photos-rejected", label: "Photos rejected", count: calculateFilterCounts["photos-rejected"] },
     { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
-    { id: "under-review", label: "Under review", count: calculateFilterCounts["under-review"] },
     { id: "without-description", label: "Without description", count: calculateFilterCounts["without-description"] },
     { id: "without-serving-info", label: "Without serving info", count: calculateFilterCounts["without-serving-info"] }],
     [calculateFilterCounts]);
@@ -156,10 +145,7 @@ export default function HubMenu() {
   const quickFilters = useMemo(() => {
     const filters = [
       { id: "out-of-stock", label: "Out of stock", count: calculateFilterCounts["out-of-stock"] },
-      { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] },
-      { id: "recommended", label: "Recommended", count: calculateFilterCounts.recommended },
-      { id: "services", label: "Services", count: calculateFilterCounts.services },
-      { id: "photos-rejected", label: "Photos Rejected", count: calculateFilterCounts["photos-rejected"] }];
+      { id: "no-photos", label: "No photos", count: calculateFilterCounts["no-photos"] }];
 
     // Only return filters with count > 0
     return filters.filter((f) => f.count > 0);
@@ -274,14 +260,39 @@ export default function HubMenu() {
       const timeoutId = setTimeout(async () => {
         try {
           // Normalize menuData before saving to ensure proper structure matching backend schema
+          const normalizeItemImages = (item) => {
+            const imageList = [];
+
+            if (Array.isArray(item?.images)) {
+              item.images.forEach((img) => {
+                if (typeof img === "string") {
+                  imageList.push(img);
+                } else if (img && typeof img === "object" && typeof img.url === "string") {
+                  imageList.push(img.url);
+                }
+              });
+            }
+
+            if (typeof item?.image === "string") {
+              imageList.push(item.image);
+            } else if (item?.image && typeof item.image === "object" && typeof item.image.url === "string") {
+              imageList.push(item.image.url);
+            }
+
+            return [...new Set(imageList.map((url) => String(url).trim()).filter(Boolean))];
+          };
+
           const normalizedSections = menuData.map((section, index) => ({
             id: section.id || `section-${index}`,
             name: section.name || "Unnamed Section",
-            items: Array.isArray(section.items) ? section.items.map((item) => ({
+            items: Array.isArray(section.items) ? section.items.map((item) => {
+              const normalizedImages = normalizeItemImages(item);
+              return ({
               id: String(item.id || Date.now() + Math.random()),
               name: item.name || "Unnamed Item",
               nameArabic: item.nameArabic || "",
-              image: item.image || "",
+              image: normalizedImages[0] || "",
+              images: normalizedImages,
               category: item.category || section.name,
               rating: item.rating ?? 0.0,
               reviews: item.reviews ?? 0,
@@ -306,21 +317,24 @@ export default function HubMenu() {
               tags: Array.isArray(item.tags) ? item.tags : [],
               nutrition: Array.isArray(item.nutrition) ? item.nutrition : [],
               allergies: Array.isArray(item.allergies) ? item.allergies : [],
-              photoCount: item.photoCount ?? 1,
+              photoCount: item.photoCount ?? (normalizedImages.length || 1),
               // Approval status fields
               approvalStatus: item.approvalStatus || 'pending',
               rejectionReason: item.rejectionReason || '',
               requestedAt: item.requestedAt,
               approvedAt: item.approvedAt
-            })) : [],
+            })}) : [],
             subsections: Array.isArray(section.subsections) ? section.subsections.map((subsection) => ({
               id: subsection.id || `subsection-${Date.now()}`,
               name: subsection.name || "Unnamed Subsection",
-              items: Array.isArray(subsection.items) ? subsection.items.map((item) => ({
+              items: Array.isArray(subsection.items) ? subsection.items.map((item) => {
+                const normalizedImages = normalizeItemImages(item);
+                return ({
                 id: String(item.id || Date.now() + Math.random()),
                 name: item.name || "Unnamed Item",
                 nameArabic: item.nameArabic || "",
-                image: item.image || "",
+                image: normalizedImages[0] || "",
+                images: normalizedImages,
                 category: item.category || section.name,
                 rating: item.rating ?? 0.0,
                 reviews: item.reviews ?? 0,
@@ -345,13 +359,13 @@ export default function HubMenu() {
                 tags: Array.isArray(item.tags) ? item.tags : [],
                 nutrition: Array.isArray(item.nutrition) ? item.nutrition : [],
                 allergies: Array.isArray(item.allergies) ? item.allergies : [],
-                photoCount: item.photoCount ?? 1,
+                photoCount: item.photoCount ?? (normalizedImages.length || 1),
                 // Approval status fields
                 approvalStatus: item.approvalStatus || 'pending',
                 rejectionReason: item.rejectionReason || '',
                 requestedAt: item.requestedAt,
                 approvedAt: item.approvedAt
-              })) : []
+              })}) : []
             })) : [],
             isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
             order: section.order !== undefined ? section.order : index
@@ -803,7 +817,6 @@ export default function HubMenu() {
 
   // Handle filter selection
   const handleFilterSelect = (filterId) => {
-    setSelectedFilter(filterId);
     setActiveFilter(filterId);
     setIsFilterOpen(false);
   };
@@ -1047,47 +1060,53 @@ export default function HubMenu() {
           </AnimatePresence>
 
           {/* Horizontally scrollable filters */}
-          <div className="flex pl-4 relative items-center gap-2 overflow-x-auto pb-2" ref={scrollContainerRef} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex px-4 items-center gap-2 pb-2">
             <style>{`
               .scrollbar-hide::-webkit-scrollbar {
                 display: none;
               }
             `}</style>
+            <button
+              onClick={() => setIsFilterOpen(true)}
+              className="bg-black p-2 text-white border-2 border-black flex items-center gap-2 px-2 py-1 text-semibold rounded-md text-sm font-medium whitespace-nowrap shrink-0">
+
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Filter</span>
+            </button>
+            <div
+              className="flex-1 min-w-0 overflow-x-auto scrollbar-hide"
+              ref={scrollContainerRef}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="flex items-center gap-2 w-max">
+                {quickFilters.filter((filter) => filter.id !== "recommended").map((filter) =>
+                  <button
+                    key={filter.id}
+                    onClick={() => handleFilterSelect(filter.id)}
+                    className={`flex items-center gap-2 px-2 py-1 text-semibold border-2 rounded-md text-sm font-medium whitespace-nowrap shrink-0 ${activeFilter === filter.id ?
+                      "bg-gray-900 text-white border-gray-900" :
+                      "bg-white border-gray-200 text-gray-900"}`
+                    }>
+
+                    <span>{filter.label}</span>
+                    <span className="bg-red-100 border-2 border-red-400 text-red-400 text-xs  font-bold p-0.5 py-0.25 rounded-sm">
+                      {filter.count}
+                    </span>
+                  </button>
+
+                )}
+              </div>
+            </div>
             {activeFilter &&
               <button
                 onClick={() => {
                   setActiveFilter(null);
-                  setSelectedFilter(null);
                 }}
-                className="flex items-center gap-2 px-2 py-1 text-semibold border-2 border-gray-300 rounded-md text-sm font-medium whitespace-nowrap shrink-0 bg-white text-gray-900">
+                className="flex items-center gap-2 px-2 py-1 text-semibold border-2 border-gray-300 rounded-md text-sm font-medium whitespace-nowrap shrink-0 bg-white text-gray-900 ml-1">
 
                 <X className="w-3 h-3" />
                 <span>Clear</span>
               </button>
             }
-            {quickFilters.map((filter) =>
-              <button
-                key={filter.id}
-                onClick={() => handleFilterSelect(filter.id)}
-                className={`flex items-center gap-2 px-2 py-1 text-semibold border-2 rounded-md text-sm font-medium whitespace-nowrap shrink-0 ${activeFilter === filter.id ?
-                  "bg-gray-900 text-white border-gray-900" :
-                  "bg-white border-gray-200 text-gray-900"}`
-                }>
-
-                <span>{filter.label}</span>
-                <span className="bg-red-100 border-2 border-red-400 text-red-400 text-xs  font-bold p-0.5 py-0.25 rounded-sm">
-                  {filter.count}
-                </span>
-              </button>
-
-            )}
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="sticky right-0 z-10 bg-black p-2 text-white border-2 border-black flex items-center gap-2 px-2 py-1 text-semibold rounded-l-lg text-sm font-medium whitespace-nowrap">
-
-              <SlidersHorizontal className="w-4 h-4" />
-              <span>Filter</span>
-            </button>
           </div>
         </div>
 
@@ -1422,7 +1441,6 @@ export default function HubMenu() {
                   <button
                     onClick={() => {
                       setActiveFilter(null);
-                      setSelectedFilter(null);
                       setIsFilterOpen(false);
                     }}
                     className="w-full py-2 rounded-lg font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">

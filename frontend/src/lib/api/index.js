@@ -585,8 +585,12 @@ export const restaurantAPI = {
   deleteAddon: (id) => {
     return apiClient.delete(API_ENDPOINTS.RESTAURANT.ADDON_BY_ID.replace(':id', id));
   },
-  getAddonsByRestaurantId: (restaurantId) => {
-    return apiClient.get(API_ENDPOINTS.RESTAURANT.ADDONS_BY_RESTAURANT_ID.replace(':id', restaurantId));
+  getAddonsByRestaurantId: (restaurantId, options = {}) => {
+    const { includePending = false } = options;
+    return apiClient.get(
+      API_ENDPOINTS.RESTAURANT.ADDONS_BY_RESTAURANT_ID.replace(':id', restaurantId),
+      { params: { includePending } }
+    );
   },
 
   getMenuByRestaurantId: (restaurantId) => {

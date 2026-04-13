@@ -287,6 +287,33 @@ export default function CategoryPage() {
 
     const matchingDishes = [];
     const seenIds = new Set();
+    const extractItemImageUrls = (item, section) => {
+      const urls = [];
+
+      if (Array.isArray(item?.images)) {
+        item.images.forEach((img) => {
+          if (typeof img === "string") {
+            urls.push(img);
+          } else if (img && typeof img === "object" && typeof img.url === "string") {
+            urls.push(img.url);
+          }
+        });
+      }
+
+      if (typeof item?.image === "string") {
+        urls.push(item.image);
+      } else if (item?.image && typeof item.image === "object" && typeof item.image.url === "string") {
+        urls.push(item.image.url);
+      }
+
+      if (typeof section?.image === "string") {
+        urls.push(section.image);
+      } else if (section?.image && typeof section.image === "object" && typeof section.image.url === "string") {
+        urls.push(section.image.url);
+      }
+
+      return [...new Set(urls.map((url) => String(url).trim()).filter(Boolean))];
+    };
 
     const addItem = (item, section, sectionName) => {
       // If NOT 'all', skip items that don't match the category. 
@@ -303,12 +330,14 @@ export default function CategoryPage() {
         ? Math.round(originalPrice * (1 - discountPercent / 100))
         : originalPrice;
 
-      const dishImage = item.image?.url || item.image || section.image?.url || section.image || null;
+      const dishImages = extractItemImageUrls(item, section);
+      const dishImage = dishImages[0] || null;
 
       matchingDishes.push({
         name: item.name,
         price: finalPrice,
         image: dishImage,
+        images: dishImages,
         originalPrice: originalPrice,
         itemId: itemId,
         foodType: item.foodType
@@ -711,84 +740,7 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-[#1a1a1a] border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:flex-wrap gap-2 px-4 md:px-6 py-3">
-            {/* Row 1 */}
-            <div
-              className="flex items-center gap-2 overflow-x-auto md:overflow-x-visible scrollbar-hide pb-1 md:pb-0"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none"
-              }}>
-
-              <Button
-                variant="outline"
-                onClick={() => setIsFilterOpen(true)}
-                className="h-7 md:h-8 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-
-                <SlidersHorizontal className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span className="text-xs md:text-sm font-bold text-black dark:text-white">Filters</span>
-              </Button>
-              {[
-                { id: 'under-30-mins', label: 'Under 30 mins' },
-                { id: 'delivery-under-45', label: 'Under 45 mins' },
-                { id: 'rating-4-plus', label: 'Rating 4.0+' },
-                { id: 'rating-45-plus', label: 'Rating 4.5+' }].
-                map((filter) => {
-                  const isActive = activeFilters.has(filter.id);
-                  return (
-                    <Button
-                      key={filter.id}
-                      variant="outline"
-                      onClick={() => toggleFilter(filter.id)}
-                      className={`h-7 md:h-8 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${isActive ?
-                        'bg-green-600 text-white border border-green-600 hover:bg-green-600/90' :
-                        'bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'}`
-                      }>
-
-                      <span className={`text-xs md:text-sm text-black dark:text-white font-bold ${isActive ? 'text-white' : 'text-black dark:text-white'}`}>{filter.label}</span>
-                    </Button>);
-
-                })}
-            </div>
-
-            {/* Row 2 */}
-            <div
-              className="flex items-center gap-2 overflow-x-auto md:overflow-x-visible scrollbar-hide pb-1 md:pb-0"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none"
-              }}>
-
-              {[
-                { id: 'distance-under-1km', label: 'Under 1km', icon: MapPin },
-                { id: 'distance-under-2km', label: 'Under 2km', icon: MapPin },
-                { id: 'flat-50-off', label: 'Flat 50% OFF' },
-                { id: 'under-250', label: 'Under ₹250' }].
-                map((filter) => {
-                  const Icon = filter.icon;
-                  const isActive = activeFilters.has(filter.id);
-                  return (
-                    <Button
-                      key={filter.id}
-                      variant="outline"
-                      onClick={() => toggleFilter(filter.id)}
-                      className={`h-7 md:h-8 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${isActive ?
-                        'bg-green-600 text-white border border-green-600 hover:bg-green-600/90' :
-                        'bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'}`
-                      }>
-
-                      {Icon && <Icon className={`h-3.5 w-3.5 md:h-4 md:w-4 ${isActive ? 'text-white' : 'text-gray-900 dark:text-white'}`} />}
-                      <span className={`text-xs md:text-sm font-bold ${isActive ? 'text-white' : 'text-black dark:text-white'}`}>{filter.label}</span>
-                    </Button>);
-
-                })}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Filters removed as requested */}
 
       {/* Content */}
       <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-4 sm:py-6 md:py-8 lg:py-10 space-y-6 md:space-y-8 lg:space-y-10">

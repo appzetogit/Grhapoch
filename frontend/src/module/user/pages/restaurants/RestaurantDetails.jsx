@@ -16,6 +16,8 @@ import {
   Clock,
   Tag,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Star,
   SlidersHorizontal,
   Utensils,
@@ -24,7 +26,6 @@ import {
   Plus,
   Minus,
   X,
-  RotateCcw,
   Zap,
   Check,
   Lock,
@@ -62,6 +63,7 @@ export default function RestaurantDetails() {
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [showItemDetail, setShowItemDetail] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemImageIndex, setSelectedItemImageIndex] = useState(0);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showLocationSheet, setShowLocationSheet] = useState(false);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
@@ -103,6 +105,36 @@ export default function RestaurantDetails() {
   const [loadingRestaurant, setLoadingRestaurant] = useState(true);
   const [restaurantError, setRestaurantError] = useState(null);
   const fetchedRestaurantRef = useRef(false); // Track if restaurant has been fetched for current slug
+
+  const getItemImageUrls = (item) => {
+    if (!item) return [];
+    const rawImages = [];
+
+    if (Array.isArray(item.images)) {
+      item.images.forEach((img) => {
+        if (typeof img === "string") {
+          rawImages.push(img);
+        } else if (img && typeof img === "object" && typeof img.url === "string") {
+          rawImages.push(img.url);
+        }
+      });
+    }
+
+    if (typeof item.image === "string") {
+      rawImages.push(item.image);
+    } else if (item.image && typeof item.image === "object" && typeof item.image.url === "string") {
+      rawImages.push(item.image.url);
+    }
+
+    return [...new Set(rawImages.map((url) => String(url).trim()).filter(Boolean))];
+  };
+
+  const getPrimaryItemImage = (item) => getItemImageUrls(item)[0] || "";
+
+  useEffect(() => {
+    if (!showItemDetail) return;
+    setSelectedItemImageIndex(0);
+  }, [showItemDetail, selectedItem?.id, selectedItem?._id]);
 
   // Fetch restaurant data from API
   useEffect(() => {
@@ -844,7 +876,7 @@ export default function RestaurantDetails() {
         `${item.name} - ${item.selectedVariant.name}` :
         item.name,
       price: item.price,
-      image: item.image,
+      image: getPrimaryItemImage(item),
       restaurant: restaurant.name, // Use restaurant.name directly (already validated)
       restaurantId: finalRestaurantId, // Use validated restaurantId
       description: item.description,
@@ -894,7 +926,7 @@ export default function RestaurantDetails() {
       const productInfo = {
         id: item.id,
         name: item.name,
-        imageUrl: item.image
+        imageUrl: getPrimaryItemImage(item)
       };
       removeFromCart(itemId, sourcePosition, productInfo);
     } else {
@@ -904,7 +936,7 @@ export default function RestaurantDetails() {
         const productInfo = {
           id: item.id,
           name: item.name,
-          imageUrl: item.image
+          imageUrl: getPrimaryItemImage(item)
         };
 
         // If incrementing quantity, trigger add animation with sourcePosition
@@ -994,6 +1026,20 @@ export default function RestaurantDetails() {
   };
 
   const activeFilterCount = getActiveFilterCount();
+  const selectedItemImages = selectedItem ? getItemImageUrls(selectedItem) : [];
+  const selectedItemCurrentImage = selectedItemImages[selectedItemImageIndex] || selectedItemImages[0] || "";
+
+  const handleSelectedItemPrevImage = (e) => {
+    e.stopPropagation();
+    if (selectedItemImages.length <= 1) return;
+    setSelectedItemImageIndex((prev) => (prev - 1 + selectedItemImages.length) % selectedItemImages.length);
+  };
+
+  const handleSelectedItemNextImage = (e) => {
+    e.stopPropagation();
+    if (selectedItemImages.length <= 1) return;
+    setSelectedItemImageIndex((prev) => (prev + 1) % selectedItemImages.length);
+  };
 
   // Handle bookmark click
   const handleBookmarkClick = (item) => {
@@ -1021,7 +1067,7 @@ export default function RestaurantDetails() {
         description: item.description,
         price: item.price,
         originalPrice: item.originalPrice,
-        image: item.image,
+        image: getPrimaryItemImage(item),
         restaurantId: restaurantId,
         restaurantName: restaurant?.name || "",
         restaurantSlug: restaurant?.slug || slug || "",
@@ -1124,6 +1170,7 @@ export default function RestaurantDetails() {
   // Handle item card click
   const handleItemClick = (item) => {
     setSelectedItem(item);
+    setSelectedItemImageIndex(0);
     setShowItemDetail(true);
   };
 
@@ -1636,6 +1683,8 @@ export default function RestaurantDetails() {
                     <div className="space-y-0">
                       {sortMenuItems(filterMenuItems(section.items)).map((item) => {
                         const quantity = quantities[String(item.id)] || 0;
+                        const itemImages = getItemImageUrls(item);
+                        const primaryItemImage = itemImages[0] || "";
                         // Determine veg/non-veg based on foodType
                         const isVeg = item.foodType === "Veg";
 
@@ -1720,9 +1769,9 @@ export default function RestaurantDetails() {
 
                             {/* Right Side - Image and Add Button */}
                             <div className="relative w-32 h-32 flex-shrink-0">
-                              {item.image ?
+                              {primaryItemImage ?
                                 <img
-                                  src={item.image}
+                                  src={primaryItemImage}
                                   alt={item.name}
                                   className="w-full h-full object-cover rounded-2xl shadow-sm" /> :
 
@@ -1730,6 +1779,11 @@ export default function RestaurantDetails() {
                                 <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
                                   <span className="text-xs text-gray-400">No image</span>
                                 </div>
+                              }
+                              {itemImages.length > 1 &&
+                                <span className="absolute top-1.5 right-1.5 bg-black/65 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                  +{itemImages.length - 1}
+                                </span>
                               }
                               {quantity > 0 ?
                                 <motion.div
@@ -1844,6 +1898,8 @@ export default function RestaurantDetails() {
                               <div className="space-y-0">
                                 {sortMenuItems(filterMenuItems(subsection.items)).map((item) => {
                                   const quantity = quantities[String(item.id)] || 0;
+                                  const itemImages = getItemImageUrls(item);
+                                  const primaryItemImage = itemImages[0] || "";
                                   // Determine veg/non-veg based on foodType
                                   const isVeg = item.foodType === "Veg";
 
@@ -1914,7 +1970,12 @@ export default function RestaurantDetails() {
 
                                           </button>
                                           <button
-                                            onClick={(e) => e.stopPropagation()}
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleShareClick(item);
+                                            }}
                                             className="p-1.5 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
 
                                             <Share2 size={18} />
@@ -1924,9 +1985,9 @@ export default function RestaurantDetails() {
 
                                       {/* Right Side - Image and Add Button */}
                                       <div className="relative w-32 h-32 flex-shrink-0">
-                                        {item.image ?
+                                        {primaryItemImage ?
                                           <img
-                                            src={item.image}
+                                            src={primaryItemImage}
                                             alt={item.name}
                                             className="w-full h-full object-cover rounded-2xl shadow-sm" /> :
 
@@ -1934,6 +1995,11 @@ export default function RestaurantDetails() {
                                           <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
                                             <span className="text-xs text-gray-400">No image</span>
                                           </div>
+                                        }
+                                        {itemImages.length > 1 &&
+                                          <span className="absolute top-1.5 right-1.5 bg-black/65 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                            +{itemImages.length - 1}
+                                          </span>
                                         }
                                         {quantity > 0 ?
                                           <motion.div
@@ -2241,26 +2307,6 @@ export default function RestaurantDetails() {
                       </div>
                     )}
 
-                    {/* Top picks */}
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Top picks:</h3>
-                      <button
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            highlyReordered: !prev.highlyReordered
-                          }))
-                        }
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all w-full ${filters.highlyReordered ?
-                          "border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
-                          "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"}`
-                        }>
-
-                        <RotateCcw className="h-4 w-4" />
-                        <span className="font-medium">Highly reordered</span>
-                      </button>
-                    </div>
-
                   </div>
 
                   {/* Bottom Action Bar */}
@@ -2269,8 +2315,7 @@ export default function RestaurantDetails() {
                       onClick={() => {
                         setFilters({
                           sortBy: null,
-                          vegNonVeg: null,
-                          highlyReordered: false
+                          vegNonVeg: null
                         });
                       }}
                       className="text-red-600 dark:text-red-400 font-medium text-sm hover:text-red-700 dark:hover:text-red-500">
@@ -2548,9 +2593,9 @@ export default function RestaurantDetails() {
 
                   {/* Image Section */}
                   <div className="relative w-full h-64 overflow-hidden rounded-t-3xl">
-                    {selectedItem.image ?
+                    {selectedItemCurrentImage ?
                       <img
-                        src={selectedItem.image}
+                        src={selectedItemCurrentImage}
                         alt={selectedItem.name}
                         className="w-full h-full object-cover" /> :
 
@@ -2558,6 +2603,22 @@ export default function RestaurantDetails() {
                       <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                         <span className="text-sm text-gray-400">No image available</span>
                       </div>
+                    }
+                    {selectedItemImages.length > 1 &&
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleSelectedItemPrevImage}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/65 transition-colors">
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSelectedItemNextImage}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/65 transition-colors">
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </>
                     }
                     {/* Bookmark and Share Icons Overlay */}
                     <div className="absolute bottom-4 right-4 flex items-center gap-3">
@@ -2576,11 +2637,36 @@ export default function RestaurantDetails() {
                           } />
 
                       </button>
-                      <button className="h-10 w-10 rounded-full border border-white dark:border-gray-800 bg-white/90 dark:bg-[#1a1a1a]/90 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-[#2a2a2a] flex items-center justify-center transition-colors">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareClick(selectedItem);
+                        }}
+                        className="h-10 w-10 rounded-full border border-white dark:border-gray-800 bg-white/90 dark:bg-[#1a1a1a]/90 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-[#2a2a2a] flex items-center justify-center transition-colors">
                         <Share2 className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
+                  {selectedItemImages.length > 1 &&
+                    <div className="px-4 pt-3 pb-1 bg-white dark:bg-[#1a1a1a]">
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                        {selectedItemImages.map((img, index) =>
+                          <button
+                            key={`${img}-${index}`}
+                            type="button"
+                            onClick={() => setSelectedItemImageIndex(index)}
+                            className={`h-14 w-14 rounded-md overflow-hidden border-2 shrink-0 ${selectedItemImageIndex === index ?
+                              "border-red-500" :
+                              "border-gray-200 dark:border-gray-700"}`
+                            }>
+
+                            <img src={img} alt={`${selectedItem.name} ${index + 1}`} className="h-full w-full object-cover" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  }
 
                   {/* Content Section */}
                   <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -2609,7 +2695,13 @@ export default function RestaurantDetails() {
                             } />
 
                         </button>
-                        <button className="h-8 w-8 rounded-full border border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center transition-colors">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareClick(selectedItem);
+                          }}
+                          className="h-8 w-8 rounded-full border border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center transition-colors">
                           <Share2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -3103,9 +3195,9 @@ export default function RestaurantDetails() {
               {/* Header */}
               <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-4 flex items-center justify-between z-10">
                 <div className="flex items-center gap-3 flex-1">
-                  {selectedItemForVariant.image &&
+                  {getPrimaryItemImage(selectedItemForVariant) &&
                     <img
-                      src={selectedItemForVariant.image}
+                      src={getPrimaryItemImage(selectedItemForVariant)}
                       alt={selectedItemForVariant.name}
                       className="w-12 h-12 rounded-lg object-cover" />
 

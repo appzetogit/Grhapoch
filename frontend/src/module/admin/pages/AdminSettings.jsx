@@ -266,21 +266,6 @@ export default function AdminSettings() {
           </form>
         </CardContent>
       </Card>
-
-      {/* Additional Settings can be added here */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Settings</CardTitle>
-          <CardDescription>
-            Additional account settings and preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-neutral-600">
-            More settings options will be available here soon.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

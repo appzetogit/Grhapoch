@@ -21,6 +21,28 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
   const [loading, setLoading] = useState(false)
   const [allData, setAllData] = useState([])
   const [isDataLoaded, setIsDataLoaded] = useState(false)
+  const getItemImageUrls = (item) => {
+    if (!item) return [];
+    const rawImages = [];
+
+    if (Array.isArray(item.images)) {
+      item.images.forEach((img) => {
+        if (typeof img === "string") {
+          rawImages.push(img);
+        } else if (img && typeof img === "object" && typeof img.url === "string") {
+          rawImages.push(img.url);
+        }
+      });
+    }
+
+    if (typeof item.image === "string") {
+      rawImages.push(item.image);
+    } else if (item.image && typeof item.image === "object" && typeof item.image.url === "string") {
+      rawImages.push(item.image.url);
+    }
+
+    return [...new Set(rawImages.map((url) => String(url).trim()).filter(Boolean))];
+  }
 
   // Auto-focus input
   useEffect(() => {
@@ -169,12 +191,13 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
             items.forEach(item => {
               const itemName = (item.name || "").toLowerCase();
               if (itemName.includes(query) && !addedDishNames.has(itemName)) {
+                const dishImage = getItemImageUrls(item)[0] || image;
                 results.push({
                   id: `dish-${restId}-${item._id || item.id}`,
                   type: 'dish',
                   title: item.name,
                   subtitle: r.name,
-                  image: item.image?.url || item.image || image,
+                  image: dishImage,
                   queryTarget: item.name,
                   url: isDiningMode ? `/user/dining/restaurants/${restId}?dish=${encodeURIComponent(item.name)}` : `/user/restaurants/${restId}?search=${encodeURIComponent(item.name)}`
                 });

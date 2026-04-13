@@ -20,6 +20,7 @@ export default function AdminProfile() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -58,10 +59,118 @@ export default function AdminProfile() {
   };
 
   const handleInputChange = (field, value) => {
+    if (field === "phone") {
+      const numericValue = value.replace(/\D/g, "");
+      const limitedValue = numericValue.slice(0, 10);
+      const attemptedInvalid = value !== numericValue;
+
+      setFormData((prev) => ({
+        ...prev,
+        phone: limitedValue,
+      }));
+
+      if (attemptedInvalid) {
+        setFormErrors((prev) => ({
+          ...prev,
+          phone: "Only digits are allowed in phone number.",
+        }));
+      } else if (numericValue.length > 10) {
+        setFormErrors((prev) => ({
+          ...prev,
+          phone: "Phone number cannot exceed 10 digits.",
+        }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, phone: "" }));
+      }
+
+      return;
+    }
+
+    if (field === "name") {
+      const filteredValue = value.replace(/[^A-Za-z\s]/g, "");
+      const attemptedInvalid = value !== filteredValue;
+
+      setFormData((prev) => ({
+        ...prev,
+        name: filteredValue,
+      }));
+
+      if (attemptedInvalid) {
+        setFormErrors((prev) => ({
+          ...prev,
+          name: "Only letters and spaces are allowed in full name.",
+        }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, name: "" }));
+      }
+
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const validatePhone = () => {
+    const rawPhone = formData.phone?.trim() || "";
+    if (!rawPhone) {
+      setFormErrors((prev) => ({ ...prev, phone: "" }));
+      return true;
+    }
+
+    if (!/^[0-9]{10}$/.test(rawPhone)) {
+      setFormErrors((prev) => ({
+        ...prev,
+        phone: "Please enter a valid 10-digit phone number.",
+      }));
+      return false;
+    }
+
+    setFormErrors((prev) => ({ ...prev, phone: "" }));
+    return true;
+  };
+
+  const validateName = () => {
+    const rawName = formData.name?.trim() || "";
+    if (!rawName) {
+      setFormErrors((prev) => ({ ...prev, name: "Full name is required." }));
+      return false;
+    }
+
+    if (!/^[A-Za-z\s]+$/.test(rawName)) {
+      setFormErrors((prev) => ({
+        ...prev,
+        name: "Only letters and spaces are allowed in full name.",
+      }));
+      return false;
+    }
+
+    setFormErrors((prev) => ({ ...prev, name: "" }));
+    return true;
+  };
+
+  const handlePhoneKeyDown = (event) => {
+    const allowedKeys = [
+      "Backspace",
+      "Delete",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Tab",
+      "Home",
+      "End",
+    ];
+
+    if (allowedKeys.includes(event.key)) {
+      return;
+    }
+
+    if (!/^[0-9]$/.test(event.key)) {
+      event.preventDefault();
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -101,7 +210,11 @@ export default function AdminProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    if (!validateName() || !validatePhone()) {
+      return;
+    }
+
     try {
       setSaving(true);
       let profileImageUrl = formData.profileImage;
@@ -257,10 +370,14 @@ export default function AdminProfile() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
+                  onBlur={validateName}
                   placeholder="Enter your full name"
                   required
-                  className="h-11"
+                  className={`h-11 ${formErrors.name ? "border-red-500" : ""}`}
                 />
+                {formErrors.name && (
+                  <p className="text-xs text-red-500">{formErrors.name}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -286,11 +403,20 @@ export default function AdminProfile() {
                 <Input
                   id="phone"
                   type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   value={formData.phone}
                   onChange={(e) => handleInputChange("phone", e.target.value)}
+                  onKeyDown={handlePhoneKeyDown}
+                  onBlur={validatePhone}
                   placeholder="Enter phone number (optional)"
-                  className="h-11"
+                  aria-invalid={!!formErrors.phone}
+                  className={`h-11 ${formErrors.phone ? "border-red-500" : ""}`}
                 />
+                {formErrors.phone && (
+                  <p className="text-xs text-red-500">{formErrors.phone}</p>
+                )}
               </div>
 
               <div className="space-y-2 md:col-span-2">

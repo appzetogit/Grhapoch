@@ -542,6 +542,20 @@ export default function Cart() {
         }
 
         setAddons(data);
+
+        // Remove stale/pending/unavailable add-ons already present in cart.
+        // Public add-on API now returns approved + available entries only.
+        const approvedAddonIds = new Set(data.map((addon) => String(addon?.id || "")));
+        const staleAddonItems = cart.filter((item) => {
+          const itemId = String(item?.id || "");
+          if (!itemId.startsWith('addon-')) return false;
+          return !approvedAddonIds.has(itemId);
+        });
+
+        if (staleAddonItems.length > 0) {
+          staleAddonItems.forEach((item) => updateQuantity(item.id, 0));
+          toast.error('Pending or unavailable add-ons were removed from your cart.');
+        }
       } catch (error) {
         // Log error for debugging
         console.error("❌ Addons fetch error:", {
@@ -1676,6 +1690,7 @@ export default function Cart() {
                                   image: addon.image || addon.images && addon.images[0] || "",
                                   description: addon.description || "",
                                   isVeg: true,
+                                  isAddon: true,
                                   restaurant: cartRestaurantName,
                                   restaurantId: cartRestaurantId
                                 });

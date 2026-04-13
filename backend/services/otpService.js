@@ -71,7 +71,8 @@ const isMockOTPVerifyEnabled = () => {
 const isTestPhoneBypassEnabled = () => {
   // Safety: never allow test-number OTP bypass in production
   if (process.env.NODE_ENV === 'production') return false;
-  return parseBooleanEnv(process.env.ENABLE_TEST_PHONE_OTP_BYPASS, true);
+  // Default false so local/dev uses real SMS unless explicitly enabled.
+  return parseBooleanEnv(process.env.ENABLE_TEST_PHONE_OTP_BYPASS, false);
 };
 
 const isPrpSmsDisabled = () => {

@@ -149,6 +149,11 @@ export default function App() {
     }
   }, [location.pathname])
 
+  useEffect(() => {
+    // Ensure every navigation starts at the top of the page.
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [location.pathname, location.search, location.hash])
+
   return (
     <Routes>
       {/* User routes (public + protected) */}

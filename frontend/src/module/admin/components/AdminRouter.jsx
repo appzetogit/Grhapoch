@@ -185,10 +185,9 @@ export default function AdminRouter() {
 
         {/* SUBSCRIPTION MANAGEMENT */}
         <Route path="subscription-management" element={<SubscriptionManagement />} />
+        <Route path="categories" element={<Category />} />
 
         {/* FOOD MANAGEMENT */}
-        {/* Categories */}
-        <Route path="categories" element={<Category />} />
         {/* Fee Settings */}
         <Route path="fee-settings" element={<FeeSettings />} />
         {/* Foods */}

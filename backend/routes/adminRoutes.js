@@ -26,7 +26,8 @@ import {
   getRestaurantAnalytics,
   getCustomerWalletReport,
   getRestaurantMenu,
-  updateRestaurantMenu
+  updateRestaurantMenu,
+  universalSearch
 } from '../controllers/adminController.js';
 import {
   getBusinessSettings,
@@ -254,6 +255,7 @@ router.use(authenticateAdmin);
 
 // Dashboard
 router.get('/dashboard/stats', getDashboardStats);
+router.get('/search', universalSearch);
 
 // Delivery Partner global cash limit (applies to all delivery boys)
 router.get('/delivery-cash-limit', getDeliveryCashLimit);

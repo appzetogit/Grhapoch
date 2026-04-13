@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Star, Clock, MapPin, ArrowDownUp, Timer, ArrowRight, ChevronDown, Bookmark, Share2, Plus, Minus, X } from "lucide-react";
+import { Star, Clock, MapPin, ArrowDownUp, Timer, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Bookmark, Share2, Plus, Minus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import AnimatedPage from "../components/AnimatedPage";
@@ -30,6 +30,7 @@ export default function Under250() {
   const [under30MinsFilter, setUnder30MinsFilter] = useState(false);
   const [showItemDetail, setShowItemDetail] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemImageIndex, setSelectedItemImageIndex] = useState(0);
   const [quantities, setQuantities] = useState({});
   const [bookmarkedItems, setBookmarkedItems] = useState(new Set());
   const [viewCartButtonBottom, setViewCartButtonBottom] = useState("bottom-20");
@@ -40,6 +41,31 @@ export default function Under250() {
   const [loadingBanner, setLoadingBanner] = useState(true);
   const [under250Restaurants, setUnder250Restaurants] = useState([]);
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
+
+  const getItemImageUrls = useCallback((item) => {
+    if (!item) return [];
+    const rawImages = [];
+
+    if (Array.isArray(item.images)) {
+      item.images.forEach((img) => {
+        if (typeof img === "string") {
+          rawImages.push(img);
+        } else if (img && typeof img === "object" && typeof img.url === "string") {
+          rawImages.push(img.url);
+        }
+      });
+    }
+
+    if (typeof item.image === "string") {
+      rawImages.push(item.image);
+    } else if (item.image && typeof item.image === "object" && typeof item.image.url === "string") {
+      rawImages.push(item.image.url);
+    }
+
+    return [...new Set(rawImages.map((url) => String(url).trim()).filter(Boolean))];
+  }, []);
+
+  const getPrimaryItemImage = useCallback((item) => getItemImageUrls(item)[0] || "", [getItemImageUrls]);
 
   const sortOptions = [
     { id: null, label: 'Relevance' },
@@ -257,7 +283,7 @@ export default function Under250() {
       id: itemId,
       name: item.name,
       price: item.price,
-      image: item.image,
+      image: getPrimaryItemImage(item),
       restaurant: rName,
       restaurantId: rId,
       description: item.description || "",
@@ -285,7 +311,7 @@ export default function Under250() {
     try {
       let success = true;
       if (newQuantity <= 0) {
-        const productInfo = { id: itemId, name: item.name, imageUrl: item.image };
+        const productInfo = { id: itemId, name: item.name, imageUrl: getPrimaryItemImage(item) };
         removeFromCart(itemId, sourcePosition, productInfo);
       } else {
         const existingCartItem = getCartItem(itemId);
@@ -293,7 +319,7 @@ export default function Under250() {
           if (newQuantity > existingCartItem.quantity) {
             success = addToCart(cartItem, sourcePosition);
           } else {
-            updateQuantity(itemId, newQuantity, sourcePosition, { id: itemId, name: item.name, imageUrl: item.image });
+            updateQuantity(itemId, newQuantity, sourcePosition, { id: itemId, name: item.name, imageUrl: getPrimaryItemImage(item) });
           }
         } else {
           success = addToCart(cartItem, sourcePosition);
@@ -323,6 +349,7 @@ export default function Under250() {
       notEligibleForCoupons: item.notEligibleForCoupons || false
     };
     setSelectedItem(itemWithRestaurant);
+    setSelectedItemImageIndex(0);
     setShowItemDetail(true);
   };
 
@@ -340,6 +367,20 @@ export default function Under250() {
 
   // Check if should show grayscale (only when user is out of service)
   const shouldShowGrayscale = isOutOfService;
+  const selectedItemImages = selectedItem ? getItemImageUrls(selectedItem) : [];
+  const selectedItemCurrentImage = selectedItemImages[selectedItemImageIndex] || selectedItemImages[0] || "";
+
+  const handleSelectedItemPrevImage = (e) => {
+    e.stopPropagation();
+    if (selectedItemImages.length <= 1) return;
+    setSelectedItemImageIndex((prev) => (prev - 1 + selectedItemImages.length) % selectedItemImages.length);
+  };
+
+  const handleSelectedItemNextImage = (e) => {
+    e.stopPropagation();
+    if (selectedItemImages.length <= 1) return;
+    setSelectedItemImageIndex((prev) => (prev + 1) % selectedItemImages.length);
+  };
 
   return (
 
@@ -528,6 +569,8 @@ export default function Under250() {
 
                         {restaurant.menuItems.map((item, itemIndex) => {
                           const quantity = quantities[String(item.id)] || 0;
+                          const itemImages = getItemImageUrls(item);
+                          const primaryItemImage = itemImages[0] || "";
                           return (
                             <motion.div
                               key={item.id}
@@ -548,7 +591,7 @@ export default function Under250() {
                                   transition={{ duration: 0.5, ease: "easeOut" }}>
 
                                   <OptimizedImage
-                                    src={item.image}
+                                    src={primaryItemImage}
                                     alt={item.name}
                                     className="w-full h-full"
                                     objectFit="cover"
@@ -557,6 +600,11 @@ export default function Under250() {
                                     priority={itemIndex < 4} />
 
                                 </motion.div>
+                                {itemImages.length > 1 &&
+                                  <span className="absolute top-2 right-2 bg-black/65 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded z-10">
+                                    +{itemImages.length - 1}
+                                  </span>
+                                }
                                 {/* Gradient Overlay on Hover */}
                                 <motion.div
                                   className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"
@@ -766,14 +814,31 @@ export default function Under250() {
 
               {/* Image Section */}
               <div className="relative w-full h-64 md:h-80 lg:h-96 xl:h-[500px] overflow-hidden rounded-t-3xl">
+                <>
                 <OptimizedImage
-                  src={selectedItem.image}
+                  src={selectedItemCurrentImage}
                   alt={selectedItem.name}
                   className="w-full h-full"
                   objectFit="cover"
                   sizes="100vw"
                   priority={true}
                   placeholder="blur" />
+                {selectedItemImages.length > 1 &&
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSelectedItemPrevImage}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/65 transition-colors z-10">
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectedItemNextImage}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/65 transition-colors z-10">
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                }
 
                 {/* Bookmark and Share Icons Overlay */}
                 <div className="absolute bottom-4 right-4 flex items-center gap-3">
@@ -796,7 +861,27 @@ export default function Under250() {
                     <Share2 className="h-5 w-5" />
                   </button>
                 </div>
+                </>
               </div>
+              {selectedItemImages.length > 1 &&
+                <div className="px-4 pt-3 pb-1 bg-white dark:bg-[#1a1a1a]">
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                    {selectedItemImages.map((img, index) =>
+                      <button
+                        key={`${img}-${index}`}
+                        type="button"
+                        onClick={() => setSelectedItemImageIndex(index)}
+                        className={`h-14 w-14 rounded-md overflow-hidden border-2 shrink-0 ${selectedItemImageIndex === index ?
+                          "border-red-500" :
+                          "border-gray-200 dark:border-gray-700"}`
+                        }>
+
+                        <img src={img} alt={`${selectedItem.name} ${index + 1}`} className="h-full w-full object-cover" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              }
 
               {/* Content Section */}
               <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 xl:px-10 py-4 md:py-6 lg:py-8">

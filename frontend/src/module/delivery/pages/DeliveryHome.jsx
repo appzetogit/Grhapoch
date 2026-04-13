@@ -610,6 +610,7 @@ export default function DeliveryHome() {
   const newOrderAcceptButtonSwipeStartX = useRef(0);
   const newOrderAcceptButtonSwipeStartY = useRef(0);
   const newOrderAcceptButtonIsSwiping = useRef(false);
+  const acceptOrderInFlightRef = useRef(false);
   const [newOrderAcceptButtonProgress, setNewOrderAcceptButtonProgress] = useState(0);
   const [newOrderIsAnimatingToComplete, setNewOrderIsAnimatingToComplete] = useState(false);
   const newOrderPopupRef = useRef(null);
@@ -2191,6 +2192,12 @@ export default function DeliveryHome() {
     const threshold = maxSwipe * 0.7; // 70% of max swipe
 
     if (deltaX > threshold) {
+      if (acceptOrderInFlightRef.current) {
+        setNewOrderAcceptButtonProgress(0);
+        setNewOrderIsAnimatingToComplete(false);
+        return;
+      }
+
       // Stop audio immediately when user accepts
       stopNotificationSound();
       if (alertAudioRef.current) {
@@ -2205,6 +2212,10 @@ export default function DeliveryHome() {
 
       // Accept order via backend API and get route
       const acceptOrderAndShowRoute = async () => {
+        if (acceptOrderInFlightRef.current) {
+          return;
+        }
+
         // Get order ID from selectedRestaurant or newOrder (define outside try-catch for error handling)
         const orderId = selectedRestaurant?.id || newOrder?.orderMongoId || newOrder?.orderId;
 
@@ -2243,6 +2254,7 @@ export default function DeliveryHome() {
 
         // Declare currentLocation in outer scope so it's accessible in catch block
         let currentLocation = null;
+        acceptOrderInFlightRef.current = true;
 
         try {
           // Get current LIVE location (prioritize riderLocation which is updated in real-time)
@@ -2880,6 +2892,7 @@ export default function DeliveryHome() {
           setIsNewOrderPopupMinimized(false); // Reset minimized state
           setNewOrderDragY(0); // Reset drag position
         } finally {
+          acceptOrderInFlightRef.current = false;
           // Reset after animation
           setTimeout(() => {
             setNewOrderAcceptButtonProgress(0);

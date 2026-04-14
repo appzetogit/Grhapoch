@@ -1138,15 +1138,14 @@ export default function PocketPage() {
 
         <AvailableCashLimit
           onClose={() => setShowCashLimitPopup(false)}
-          walletData={{
-            ...walletState,
-            totalCashLimit: totalCashLimit,
-            cashInHand: Number(walletState?.cashInHand ?? balances.cashInHand ?? 0),
-            deductions: Number(walletState?.deductions ?? 0),
-            pocketWithdrawals: Number(walletState?.totalWithdrawn ?? balances.totalWithdrawn ?? 0),
-            pendingCodReserve: Number(walletState?.pendingCodReserve ?? 0),
-            availableCashLimit: availableCashLimit
-          }} />
+	          walletData={{
+	            ...walletState,
+	            totalCashLimit: totalCashLimit,
+	            cashInHand: Number(walletState?.cashInHand ?? balances.cashInHand ?? 0),
+	            deductions: Number(walletState?.deductions ?? 0),
+	            pocketWithdrawals: Number(walletState?.totalWithdrawn ?? balances.totalWithdrawn ?? 0),
+	            availableCashLimit: availableCashLimit
+	          }} />
 
       </BottomPopup>
 

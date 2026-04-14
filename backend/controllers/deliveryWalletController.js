@@ -186,105 +186,7 @@ export const getWallet = asyncHandler(async (req, res) => {
     // reduces cash in hand and increases available limit. Do not override with COD.
     const cashInHandForLimit = Math.max(0, Number(wallet.cashInHand) || 0);
 
-    // Pending COD reserve: sum of assigned COD orders not delivered/cancelled and not paid (QR)
-    // This reduces available cash limit so new COD orders are blocked earlier.
-    let pendingCodReserve = 0;
-    try {
-      const deliveryIdStr = delivery._id?.toString?.() || String(delivery._id);
-      const pendingAgg = await Order.aggregate([
-        {
-          $match: {
-            $expr: {
-              $and: [
-                {
-                  $eq: [
-                    { $toString: { $ifNull: ['$deliveryPartnerId', ''] } },
-                    deliveryIdStr
-                  ]
-                },
-                {
-                  $or: [
-                    {
-                      $in: [
-                        { $toLower: { $ifNull: ['$payment.method', ''] } },
-                        ['cash', 'cod', 'cash on delivery']
-                      ]
-                    },
-                    {
-                      $in: [
-                        { $toLower: { $ifNull: ['$paymentMethod', ''] } },
-                        ['cash', 'cod', 'cash on delivery']
-                      ]
-                    }
-                  ]
-                },
-                {
-                  $not: {
-                    $in: [
-                      { $toLower: { $ifNull: ['$paymentStatus', ''] } },
-                      ['paid', 'completed', 'success', 'successful']
-                    ]
-                  }
-                },
-                {
-                  $not: {
-                    $in: [
-                      { $toLower: { $ifNull: ['$payment.status', ''] } },
-                      ['paid', 'completed', 'success', 'successful']
-                    ]
-                  }
-                },
-                {
-                  $not: {
-                    $in: [
-                      { $toLower: { $ifNull: ['$status', ''] } },
-                      ['delivered', 'cancelled']
-                    ]
-                  }
-                },
-                {
-                  $ne: [
-                    { $toLower: { $ifNull: ['$deliveryState.currentPhase', ''] } },
-                    'completed'
-                  ]
-                },
-                {
-                  $ne: [
-                    { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
-                    'delivered'
-                  ]
-                },
-                {
-                  // Reserve only for truly active COD in-transit orders.
-                  // Business rule: only out_for_delivery orders should consume COD reserve.
-                  $eq: [
-                    { $toLower: { $ifNull: ['$status', ''] } },
-                    'out_for_delivery'
-                  ]
-                }
-              ]
-            }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            total: {
-              $sum: {
-                $ifNull: [
-                  '$pricing.total',
-                  { $ifNull: ['$total', 0] }
-                ]
-              }
-            }
-          }
-        }
-      ]);
-      pendingCodReserve = Number(pendingAgg?.[0]?.total) || 0;
-    } catch (e) {
-      console.warn('⚠️ Failed to compute pending COD reserve:', e?.message || e);
-      pendingCodReserve = 0;
-    }
+    // Pending COD reserve disabled: available cash limit is based only on cash-in-hand.
 
     // Get all transactions (sorted by date, newest first)
     // Frontend needs all transactions to calculate weekly earnings and orders
@@ -320,8 +222,7 @@ export const getWallet = asyncHandler(async (req, res) => {
       totalWithdrawn: wallet.totalWithdrawn || 0,
       totalEarned: wallet.totalEarned || 0,
       totalCashLimit: totalCashLimit,
-      pendingCodReserve: pendingCodReserve,
-      availableCashLimit: Math.max(0, totalCashLimit - cashInHandForLimit - pendingCodReserve),
+      availableCashLimit: Math.max(0, totalCashLimit - cashInHandForLimit),
       deliveryWithdrawalLimit: withdrawalLimit,
       // Pocket balance = total balance - cash in hand (withdrawable amount)
       pocketBalance: Math.max(0, (wallet.totalBalance || 0) - cashInHandForLimit),

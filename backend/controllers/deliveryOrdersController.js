@@ -665,132 +665,29 @@ export const acceptOrder = asyncHandler(async (req, res) => {
           configuredCashLimit :
           750;
 
-        const wallet = await DeliveryWallet.findOne({ deliveryId: delivery._id });
-        const cashInHand = Number(wallet?.cashInHand) || 0;
-        const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
-        const deliveryIdStr = delivery?._id?.toString?.() || String(delivery?._id);
-        const currentOrderIdStr = order?._id?.toString?.() || '';
-
-        // Include already assigned/unpaid COD exposure so multiple pending COD accepts
-        // cannot push actual cash-in-hand above configured cash limit after delivery.
-        let pendingCodReserve = 0;
-        const pendingAgg = await Order.aggregate([
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  {
-                    $eq: [
-                      { $toString: { $ifNull: ['$deliveryPartnerId', ''] } },
-                      deliveryIdStr
-                    ]
-                  },
-                  {
-                    $ne: [
-                      { $toString: { $ifNull: ['$_id', ''] } },
-                      currentOrderIdStr
-                    ]
-                  },
-                  {
-                    $or: [
-                      {
-                        $in: [
-                          { $toLower: { $ifNull: ['$payment.method', ''] } },
-                          ['cash', 'cod', 'cash on delivery']
-                        ]
-                      },
-                      {
-                        $in: [
-                          { $toLower: { $ifNull: ['$paymentMethod', ''] } },
-                          ['cash', 'cod', 'cash on delivery']
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    $not: {
-                      $in: [
-                        { $toLower: { $ifNull: ['$paymentStatus', ''] } },
-                        ['paid', 'completed', 'success', 'successful']
-                      ]
-                    }
-                  },
-                  {
-                    $not: {
-                      $in: [
-                        { $toLower: { $ifNull: ['$payment.status', ''] } },
-                        ['paid', 'completed', 'success', 'successful']
-                      ]
-                    }
-                  },
-                  {
-                    $not: {
-                      $in: [
-                        { $toLower: { $ifNull: ['$status', ''] } },
-                        ['delivered', 'cancelled']
-                      ]
-                    }
-                  },
-                  {
-                    $ne: [
-                      { $toLower: { $ifNull: ['$deliveryState.currentPhase', ''] } },
-                      'completed'
-                    ]
-                  },
-                  {
-                    $ne: [
-                      { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
-                      'delivered'
-                    ]
-                  },
-                  {
-                    // Reserve only for truly active COD in-transit orders.
-                    // Business rule: only out_for_delivery orders should consume COD reserve.
-                    $eq: [
-                      { $toLower: { $ifNull: ['$status', ''] } },
-                      'out_for_delivery'
-                    ]
-                  }
-                ]
-              }
-            }
-          },
-          {
-            $group: {
-              _id: null,
-              total: {
-                $sum: {
-                  $ifNull: [
-                    '$pricing.total',
-                    { $ifNull: ['$total', 0] }
-                  ]
-                }
-              }
-            }
-          }
-        ]);
-        pendingCodReserve = Number(pendingAgg?.[0]?.total) || 0;
-
-        const projectedCodExposure = cashInHand + pendingCodReserve + codAmount;
-        if (cashInHand >= cashLimit || projectedCodExposure > cashLimit) {
-          const availableLimit = Math.max(0, cashLimit - cashInHand - pendingCodReserve);
-          return errorResponse(
-            res,
-            400,
-            `Cash limit exceeded (Rs ${cashLimit}). Please deposit collected cash before accepting more COD orders.`,
-            {
-              code: 'DELIVERY_CASH_LIMIT_EXCEEDED',
-              cashLimit,
-              cashInHand,
-              pendingCodReserve,
-              codAmount,
-              projectedCodExposure,
-              availableLimit
-            }
-          );
-        }
-      } catch (limitError) {
-        console.error('Error checking cash limit:', limitError);
+	        const wallet = await DeliveryWallet.findOne({ deliveryId: delivery._id });
+	        const cashInHand = Number(wallet?.cashInHand) || 0;
+	        const codAmount = Number(order.pricing?.total ?? order.total ?? 0);
+	
+	        // Note: We intentionally do NOT reserve/hold cash limit for pending COD orders.
+	        // Cash limit enforcement is based on current cash-in-hand only.
+	        if (cashInHand >= cashLimit) {
+	          const availableLimit = Math.max(0, cashLimit - cashInHand);
+	          return errorResponse(
+	            res,
+	            400,
+	            `Cash limit exceeded (Rs ${cashLimit}). Please deposit collected cash before accepting more COD orders.`,
+	            {
+	              code: 'DELIVERY_CASH_LIMIT_EXCEEDED',
+	              cashLimit,
+	              cashInHand,
+	              codAmount,
+	              availableLimit
+	            }
+	          );
+	        }
+	      } catch (limitError) {
+	        console.error('Error checking cash limit:', limitError);
         return errorResponse(res, 500, 'Failed to validate cash limit. Please try again.');
       }
     }

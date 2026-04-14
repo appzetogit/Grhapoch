@@ -872,10 +872,10 @@ export default function Home() {
             image: image,
             images: allImages, // Array of cover images for carousel (separate from menu images)
             priceRange: restaurant.priceRange || "$$", // Use from API or default
-            featuredDish: restaurant.featuredDish || (restaurant.cuisines && restaurant.cuisines.length > 0 ?
+            featuredDish: restaurant.featuredDish || restaurant.onboarding?.step4?.featuredDish || (restaurant.cuisines && restaurant.cuisines.length > 0 ?
               `${restaurant.cuisines[0]} Special` :
               "Special Dish"),
-            featuredPrice: restaurant.featuredPrice || 249, // Use from API or default
+            featuredPrice: restaurant.featuredPrice || restaurant.onboarding?.step4?.featuredPrice || 249, // Use from API or default
             offer: restaurant.offer || "Flat ₹50 OFF above ₹199", // Use from API or default
             slug: restaurant.slug,
             restaurantId: restaurant.restaurantId,

@@ -7,6 +7,7 @@ import DiningBanner from '../models/DiningBanner.js';
 import Top10Restaurant from '../models/Top10Restaurant.js';
 import GourmetRestaurant from '../models/GourmetRestaurant.js';
 import Restaurant from '../models/Restaurant.js';
+import ServiceSettings from '../models/ServiceSettings.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { uploadToCloudinary } from '../utils/cloudinaryService.js';
 import { cloudinary } from '../config/cloudinary.js';
@@ -1255,17 +1256,65 @@ export const getAllTop10Restaurants = async (req, res) => {
  */
 export const getTop10Restaurants = async (req, res) => {
   try {
-    const restaurants = await Top10Restaurant.find({ isActive: true })
-      .populate('restaurant', 'name restaurantId slug profileImage coverImages menuImages rating estimatedDeliveryTime distance offer featuredDish featuredPrice')
+    const { lat, lng } = req.query;
+    
+    // Build query for Top10Restaurant
+    const top10Query = { isActive: true };
+    
+    let top10Records = await Top10Restaurant.find(top10Query)
       .sort({ rank: 1, order: 1 })
       .lean();
 
+    if (top10Records.length === 0) {
+      return successResponse(res, 200, 'Top 10 restaurants retrieved successfully', {
+        restaurants: []
+      });
+    }
+
+    const restaurantIds = top10Records.map(r => r.restaurant);
+
+    // If coordinates are provided, filter restaurants by radius
+    let query = { _id: { $in: restaurantIds }, isActive: true };
+    
+    if (lat && lng) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        const settings = await ServiceSettings.getSettings();
+        const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+        
+        query.geoLocation = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: serviceRadiusKm * 1000
+          }
+        };
+      }
+    }
+
+    const restaurants = await Restaurant.find(query)
+      .select('name restaurantId slug profileImage coverImages menuImages rating estimatedDeliveryTime distance offer featuredDish featuredPrice geoLocation')
+      .lean();
+
+    // Map back to include rank and maintain rank order
+    const result = top10Records
+      .map(record => {
+        const restaurant = restaurants.find(r => r._id.toString() === record.restaurant.toString());
+        if (!restaurant) return null;
+        return {
+          ...restaurant,
+          rank: record.rank,
+          _id: record._id
+        };
+      })
+      .filter(Boolean);
+
     return successResponse(res, 200, 'Top 10 restaurants retrieved successfully', {
-      restaurants: restaurants.map(r => ({
-        ...r.restaurant,
-        rank: r.rank,
-        _id: r._id
-      }))
+      restaurants: result
     });
   } catch (error) {
     console.error('Error fetching Top 10 restaurants:', error);
@@ -1490,16 +1539,61 @@ export const getAllGourmetRestaurants = async (req, res) => {
  */
 export const getGourmetRestaurants = async (req, res) => {
   try {
-    const restaurants = await GourmetRestaurant.find({ isActive: true })
-      .populate('restaurant', 'name restaurantId slug profileImage coverImages menuImages rating estimatedDeliveryTime distance offer featuredDish featuredPrice')
+    const { lat, lng } = req.query;
+
+    const gourmetRecords = await GourmetRestaurant.find({ isActive: true })
       .sort({ order: 1, createdAt: -1 })
       .lean();
 
+    if (gourmetRecords.length === 0) {
+      return successResponse(res, 200, 'Gourmet restaurants retrieved successfully', {
+        restaurants: []
+      });
+    }
+
+    const restaurantIds = gourmetRecords.map(r => r.restaurant);
+
+    // If coordinates are provided, filter restaurants by radius
+    let query = { _id: { $in: restaurantIds }, isActive: true };
+    
+    if (lat && lng) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        const settings = await ServiceSettings.getSettings();
+        const serviceRadiusKm = Number(settings?.serviceRadiusKm) || 10;
+        
+        query.geoLocation = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: serviceRadiusKm * 1000
+          }
+        };
+      }
+    }
+
+    const restaurants = await Restaurant.find(query)
+      .select('name restaurantId slug profileImage coverImages menuImages rating estimatedDeliveryTime distance offer featuredDish featuredPrice geoLocation')
+      .lean();
+
+    // Map back to maintain order
+    const result = gourmetRecords
+      .map(record => {
+        const restaurant = restaurants.find(r => r._id.toString() === record.restaurant.toString());
+        if (!restaurant) return null;
+        return {
+          ...restaurant,
+          _id: record._id
+        };
+      })
+      .filter(Boolean);
+
     return successResponse(res, 200, 'Gourmet restaurants retrieved successfully', {
-      restaurants: restaurants.map(r => ({
-        ...r.restaurant,
-        _id: r._id
-      }))
+      restaurants: result
     });
   } catch (error) {
     console.error('Error fetching Gourmet restaurants:', error);

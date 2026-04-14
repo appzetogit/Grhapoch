@@ -1,5 +1,16 @@
 import Order from '../models/Order.js';
-import { notifyDeliveryBoyOrderReady } from './deliveryNotificationService.js';
+import '../models/User.js';
+import '../models/Restaurant.js';
+import '../models/Delivery.js';
+import {
+  notifyDeliveryBoyOrderReady,
+  notifyDeliveryBoyNewOrder,
+  notifyMultipleDeliveryBoys
+} from './deliveryNotificationService.js';
+import {
+  assignOrderToDeliveryBoy,
+  findNearestDeliveryBoys
+} from './deliveryAssignmentService.js';
 
 /**
  * Automatically mark orders as ready when ETA becomes 0
@@ -13,30 +24,106 @@ export async function processAutoReadyOrders() {
       status: 'preparing',
       'tracking.preparing.timestamp': { $exists: true },
       estimatedDeliveryTime: { $exists: true, $gt: 0 }
-    }).
-    populate('deliveryPartnerId', 'name phone').
-    lean();
-
-    if (preparingOrders.length === 0) {
-      return { processed: 0, message: 'No preparing orders to check' };
-    }
+    })
+      .populate('deliveryPartnerId', 'name phone')
+      .lean();
 
     const now = new Date();
     let processedCount = 0;
-    const readyOrders = [];
+    let reassignedReadyCount = 0;
+
+    const tryAssignOrBroadcastReadyOrder = async (readyOrder, logOrderId) => {
+      try {
+        const orderDoc = await Order.findById(readyOrder?._id);
+        const coords = readyOrder?.restaurantId?.location?.coordinates;
+
+        if (!orderDoc || !Array.isArray(coords) || coords.length < 2) {
+          return;
+        }
+
+        const [restaurantLng, restaurantLat] = coords;
+        const restaurantId =
+          orderDoc.restaurantId ||
+          readyOrder?.restaurantId?._id?.toString?.() ||
+          readyOrder?.restaurantId?.restaurantId;
+
+        const assignmentResult = await assignOrderToDeliveryBoy(
+          orderDoc,
+          restaurantLat,
+          restaurantLng,
+          restaurantId
+        );
+
+        if (assignmentResult?.deliveryPartnerId) {
+          const assignedOrder = await Order.findById(orderDoc._id)
+            .populate('userId', 'name phone')
+            .lean();
+          if (assignedOrder) {
+            await notifyDeliveryBoyNewOrder(assignedOrder, assignmentResult.deliveryPartnerId);
+          }
+          reassignedReadyCount++;
+          return;
+        }
+
+        const isCod = orderDoc.payment?.method === 'cash' || orderDoc.payment?.method === 'cod';
+        const codAmount = Number(orderDoc?.pricing?.total) || 0;
+
+        let candidates = await findNearestDeliveryBoys(
+          restaurantLat,
+          restaurantLng,
+          restaurantId,
+          20,
+          10,
+          isCod,
+          codAmount
+        );
+
+        if (!candidates || candidates.length === 0) {
+          candidates = await findNearestDeliveryBoys(
+            restaurantLat,
+            restaurantLng,
+            restaurantId,
+            50,
+            20,
+            isCod,
+            codAmount
+          );
+        }
+
+        if (candidates && candidates.length > 0) {
+          const notifyIds = candidates.map((c) => c.deliveryPartnerId);
+          await Order.findByIdAndUpdate(orderDoc._id, {
+            $set: {
+              'assignmentInfo.priorityDeliveryPartnerIds': notifyIds,
+              'assignmentInfo.assignedBy': 'auto_ready',
+              'assignmentInfo.assignedAt': new Date()
+            }
+          });
+
+          const notifyOrder = await Order.findById(orderDoc._id)
+            .populate('userId', 'name phone')
+            .populate('restaurantId', 'name location address phone ownerPhone')
+            .lean();
+          if (notifyOrder) {
+            await notifyMultipleDeliveryBoys(notifyOrder, notifyIds, 'priority');
+            reassignedReadyCount++;
+          }
+        }
+      } catch (assignmentError) {
+        console.error(`Auto-ready assignment failed for order ${logOrderId}:`, assignmentError);
+      }
+    };
 
     for (const order of preparingOrders) {
       const preparingTimestamp = order.tracking?.preparing?.timestamp;
-      if (!preparingTimestamp) {
-        continue;
-      }
+      if (!preparingTimestamp) continue;
 
       // Calculate elapsed time in minutes
       const elapsedMs = now - new Date(preparingTimestamp);
       const elapsedMinutes = Math.floor(elapsedMs / 60000);
       const estimatedTime = order.estimatedDeliveryTime || 0;
 
-      // Check if ETA has elapsed (with 5 second buffer to account for cron interval)
+      // Check if ETA has elapsed
       if (elapsedMinutes >= estimatedTime) {
         try {
           // Update order status to ready
@@ -52,42 +139,62 @@ export async function processAutoReadyOrders() {
               }
             },
             { new: true }
-          ).
-          populate('restaurantId', 'name location address phone').
-          populate('userId', 'name phone').
-          populate('deliveryPartnerId', 'name phone').
-          lean();
+          )
+            .populate('restaurantId', 'name location address phone ownerPhone restaurantId')
+            .populate('userId', 'name phone')
+            .populate('deliveryPartnerId', 'name phone')
+            .lean();
 
-          if (updatedOrder) {
-            readyOrders.push(updatedOrder);
-            processedCount++;
+          if (!updatedOrder) continue;
+          processedCount++;
 
-
-
-            // Notify delivery boy if order is assigned
-            if (updatedOrder.deliveryPartnerId) {
-              try {
-                await notifyDeliveryBoyOrderReady(updatedOrder, updatedOrder.deliveryPartnerId._id || updatedOrder.deliveryPartnerId);
-
-              } catch (notifError) {
-                console.error(`❌ Error notifying delivery boy about order ${order.orderId}:`, notifError);
-              }
+          // If already assigned, notify that rider order is ready.
+          if (updatedOrder.deliveryPartnerId) {
+            try {
+              await notifyDeliveryBoyOrderReady(
+                updatedOrder,
+                updatedOrder.deliveryPartnerId._id || updatedOrder.deliveryPartnerId
+              );
+            } catch (notifError) {
+              console.error(`Error notifying delivery boy about order ${order.orderId}:`, notifError);
             }
+            continue;
           }
+
+          // Unassigned order became ready via cron. Trigger assignment/broadcast.
+          await tryAssignOrBroadcastReadyOrder(updatedOrder, order.orderId);
         } catch (updateError) {
-          console.error(`❌ Error updating order ${order.orderId} to ready:`, updateError);
+          console.error(`Error updating order ${order.orderId} to ready:`, updateError);
         }
       }
     }
 
+    // Retry assignment for already-ready but still-unassigned orders (stuck cases).
+    const stuckReadyOrders = await Order.find({
+      status: 'ready',
+      $or: [
+        { deliveryPartnerId: { $exists: false } },
+        { deliveryPartnerId: null }
+      ]
+    })
+      .populate('restaurantId', 'name location address phone ownerPhone restaurantId')
+      .populate('userId', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .lean();
+
+    for (const readyOrder of stuckReadyOrders) {
+      await tryAssignOrBroadcastReadyOrder(readyOrder, readyOrder.orderId);
+    }
+
     return {
       processed: processedCount,
-      message: processedCount > 0 ?
-      `Marked ${processedCount} order(s) as ready automatically` :
-      'No orders ready yet'
+      message: processedCount > 0
+        ? `Marked ${processedCount} order(s) as ready automatically; reassigned ${reassignedReadyCount} ready order(s)`
+        : `No new auto-ready orders; reassigned ${reassignedReadyCount} ready order(s)`
     };
   } catch (error) {
-    console.error('❌ Error processing auto-ready orders:', error);
+    console.error('Error processing auto-ready orders:', error);
     return { processed: 0, message: `Error: ${error.message}` };
   }
 }

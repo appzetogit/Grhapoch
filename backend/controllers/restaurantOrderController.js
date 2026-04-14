@@ -903,14 +903,6 @@ export const markOrderReady = asyncHandler(async (req, res) => {
     };
     await order.save();
 
-    // Populate order for notifications
-    // Lean order for response
-    const populatedOrder = await Order.findById(order._id).
-      populate('restaurantId', 'name location address phone').
-      populate('userId', 'name phone').
-      populate('deliveryPartnerId', 'name phone').
-      lean();
-
     // Notify user about order being ready
     notifyUserOrderUpdate(order._id, 'ready').catch(err => {
       console.error('Error notifying user about ready status:', err);
@@ -922,20 +914,108 @@ export const markOrderReady = asyncHandler(async (req, res) => {
       console.error('Error sending restaurant notification:', notifError);
     }
 
-    // Notify delivery boy that order is ready for pickup
-    if (populatedOrder.deliveryPartnerId) {
+    // If order is still unassigned at ready-time, try immediate assignment first.
+    // If assignment is not possible, broadcast to nearby riders so it appears in available orders.
+    let assignmentMeta = null;
+    if (!order.deliveryPartnerId) {
+      try {
+        let restaurantDoc = null;
+        if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+          restaurantDoc = await Restaurant.findById(restaurantId).lean();
+        }
+        if (!restaurantDoc) {
+          restaurantDoc = await Restaurant.findOne({
+            $or: [
+              { restaurantId: restaurantId },
+              { _id: restaurantId }
+            ]
+          }).lean();
+        }
+
+        if (restaurantDoc?.location?.coordinates?.length >= 2) {
+          const [restaurantLng, restaurantLat] = restaurantDoc.location.coordinates;
+          const assignmentResult = await assignOrderToDeliveryBoy(order, restaurantLat, restaurantLng, restaurantId);
+
+          if (assignmentResult?.deliveryPartnerId) {
+            // Notify assigned rider with new assignment event.
+            const assignedOrder = await Order.findById(order._id).
+              populate('userId', 'name phone').
+              lean();
+            if (assignedOrder) {
+              await notifyDeliveryBoyNewOrder(assignedOrder, assignmentResult.deliveryPartnerId);
+            }
+            assignmentMeta = assignmentResult;
+          } else {
+            const isCod = order.payment?.method === 'cash' || order.payment?.method === 'cod';
+            const codAmount = Number(order?.pricing?.total) || 0;
+            let candidates = await findNearestDeliveryBoys(
+              restaurantLat,
+              restaurantLng,
+              restaurantId,
+              20,
+              10,
+              isCod,
+              codAmount
+            );
+
+            if (!candidates || candidates.length === 0) {
+              candidates = await findNearestDeliveryBoys(
+                restaurantLat,
+                restaurantLng,
+                restaurantId,
+                50,
+                20,
+                isCod,
+                codAmount
+              );
+            }
+
+            if (candidates && candidates.length > 0) {
+              const notifyIds = candidates.map((c) => c.deliveryPartnerId);
+              await Order.findByIdAndUpdate(order._id, {
+                $set: {
+                  'assignmentInfo.priorityDeliveryPartnerIds': notifyIds,
+                  'assignmentInfo.assignedBy': 'manual',
+                  'assignmentInfo.assignedAt': new Date()
+                }
+              });
+              const notifyOrder = await Order.findById(order._id).
+                populate('userId', 'name phone').
+                populate('restaurantId', 'name location address phone ownerPhone').
+                lean();
+              if (notifyOrder) {
+                await notifyMultipleDeliveryBoys(notifyOrder, notifyIds, 'priority');
+                assignmentMeta = { notifiedCount: notifyIds.length, mode: 'broadcast' };
+              }
+            }
+          }
+        }
+      } catch (assignmentError) {
+        console.error('Error triggering assignment from ready state:', assignmentError);
+      }
+    }
+
+    // Lean order for response + notifications
+    const populatedOrder = await Order.findById(order._id).
+      populate('restaurantId', 'name location address phone').
+      populate('userId', 'name phone').
+      populate('deliveryPartnerId', 'name phone').
+      lean();
+
+    // Notify assigned delivery boy that order is ready for pickup
+    if (populatedOrder?.deliveryPartnerId) {
       try {
         const { notifyDeliveryBoyOrderReady } = await import('../services/deliveryNotificationService.js');
         const deliveryPartnerId = populatedOrder.deliveryPartnerId._id || populatedOrder.deliveryPartnerId;
         await notifyDeliveryBoyOrderReady(populatedOrder, deliveryPartnerId);
-
       } catch (deliveryNotifError) {
         console.error('Error sending delivery boy notification:', deliveryNotifError);
       }
     }
 
     return successResponse(res, 200, 'Order marked as ready', {
-      order: populatedOrder || order
+      order: populatedOrder || order,
+      assignment: assignmentMeta
     });
   } catch (error) {
     console.error('Error updating order status:', error);

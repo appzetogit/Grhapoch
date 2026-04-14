@@ -17,7 +17,7 @@ import {
   ArrowLeft,
   Trash2,
   RefreshCw,
-  Loader2
+  Loader2, Star
 } from
   "lucide-react";
 import BottomNavOrders from "../components/BottomNavOrders";
@@ -70,6 +70,7 @@ export default function HubMenu() {
   const [isDeletingItem, setIsDeletingItem] = useState(false);
   const [addons, setAddons] = useState([]);
   const [loadingAddons, setLoadingAddons] = useState(false);
+  const [updatingFeatured, setUpdatingFeatured] = useState(null);
 
 
   // Add-on form state
@@ -173,6 +174,46 @@ export default function HubMenu() {
 
     fetchRestaurantData();
   }, []);
+
+  const handleMarkAsFeatured = async (e, item) => {
+    e.stopPropagation();
+    if (updatingFeatured === item.id) return;
+    try {
+      setUpdatingFeatured(item.id);
+      
+      // Optimistic update for immediate visual feedback
+      setRestaurantData(prev => ({
+        ...prev,
+        featuredDish: item.name,
+        featuredPrice: item.price
+      }));
+      
+      const response = await restaurantAPI.updateProfile({
+        featuredDish: item.name.trim(),
+        featuredPrice: item.price
+      });
+
+      if (response?.data?.success) {
+        const updatedData = response.data.data?.restaurant || response.data.restaurant;
+        if (updatedData) {
+          setRestaurantData(updatedData);
+          toast.success(`${item.name} is now your Featured Dish!`);
+          return;
+        }
+      }
+      
+      toast.success(`${item.name} is now your Featured Dish!`);
+    } catch (error) {
+      console.error("Error updating featured dish:", error);
+      toast.error("Failed to update featured dish.");
+      // Rollback on error - force cache skip
+      const response = await restaurantAPI.getCurrentRestaurant({ headers: { 'x-skip-cache': true } });
+      const data = response?.data?.data?.restaurant || response?.data?.restaurant;
+      if (data) setRestaurantData(data);
+    } finally {
+      setUpdatingFeatured(null);
+    }
+  };
 
   // Fetch menu from API - reusable function
   const fetchMenu = async (showLoading = true) => {
@@ -1207,9 +1248,9 @@ export default function HubMenu() {
                                 }} />
 
                             }
-                            <div className="flex flex-col gap-2">
-                              <button
-                                onClick={() => handleEditAddon(addon)}
+                             <div className="flex flex-col gap-2">
+                               <button
+                                 onClick={() => handleEditAddon(addon)}
                                 className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
                                 title="Edit add-on">
 
@@ -1356,6 +1397,7 @@ export default function HubMenu() {
                                     </div>
                                   </div>
                                   <div className="flex flex-col gap-2">
+                                    <button onClick={(e) => handleMarkAsFeatured(e, item)} disabled={updatingFeatured === item.id} className="p-1 rounded-lg hover:bg-gray-100 transition-colors" title={(restaurantData?.featuredDish?.trim().toLowerCase() === item.name?.trim().toLowerCase()) ? "Current Featured Dish" : "Mark as Featured"}><Star className={`h-5 w-5 transition-all ${(restaurantData?.featuredDish?.trim().toLowerCase() === item.name?.trim().toLowerCase()) ? "fill-[#ff8100] text-[#ff8100] scale-110" : "text-gray-300 hover:text-gray-400"} ${updatingFeatured === item.id ? "animate-pulse" : ""}`} /></button>
                                     <button
                                       onClick={() => navigate(`/restaurant/hub-menu/item/${item.id}`, { state: { item, groupId: group.id } })}
                                       className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"

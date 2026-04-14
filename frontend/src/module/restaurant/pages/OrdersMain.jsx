@@ -1436,10 +1436,9 @@ export default function OrdersMain() {
           }
         `}</style>
 
-        {/* Verification Pending Card - Show if onboarding is complete (all 4 steps) and restaurant is not active */}
+        {/* Verification Pending Card - Show if restaurant is not active */}
         {!restaurantStatus.isLoading &&
-          !restaurantStatus.isActive &&
-          restaurantStatus.onboarding?.completedSteps === 4 &&
+          restaurantStatus.isActive === false &&
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1465,10 +1464,8 @@ export default function OrdersMain() {
                             {restaurantStatus.rejectionReason.split('\n').map((point, index) =>
                               point.trim() &&
                               <li key={index}>{point.trim()}</li>
-
                             )}
                           </ul> :
-
                           <p className="text-red-700">{restaurantStatus.rejectionReason}</p>
                         }
                       </div>
@@ -1488,12 +1485,10 @@ export default function OrdersMain() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Submitting...
                     </> :
-
                     "Reverify"
                   }
                 </button>
               </> :
-
               <>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Verification Done in 24 Hours</h3>
                 <p className="text-sm text-gray-600">Your account is under verification. You'll be notified once approved.</p>

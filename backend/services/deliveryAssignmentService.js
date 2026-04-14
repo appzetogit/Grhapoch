@@ -133,7 +133,7 @@ async function filterCodEligiblePartners(partners = [], codAmount = 0) {
   }
 
   const orderCodAmount = Number(codAmount) || 0;
-  return partners.filter((partner) => {
+  const eligiblePartners = partners.filter((partner) => {
     const partnerId = partner?._id?.toString();
     if (!partnerId) return false;
     const cashInHand = cashInHandByPartner.get(partnerId) || 0;
@@ -144,6 +144,18 @@ async function filterCodEligiblePartners(partners = [], codAmount = 0) {
     if (projectedExposure > cashLimit) return false;
     return true;
   });
+
+  // Local/dev convenience: keep COD assignment testable even when wallet cash
+  // limit is exceeded. Production behavior remains strict.
+  const bypassCodLimit =
+    process.env.BYPASS_COD_CASH_LIMIT === 'true' ||
+    process.env.NODE_ENV !== 'production';
+
+  if (eligiblePartners.length === 0 && bypassCodLimit) {
+    return partners;
+  }
+
+  return eligiblePartners;
 }
 
 /**

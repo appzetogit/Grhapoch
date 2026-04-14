@@ -840,6 +840,8 @@ export const createRestaurantFromOnboarding = async (onboardingData, restaurantI
   }
 };
 
+
+
 /**
  * Update restaurant profile
  * PUT /api/restaurant/profile
@@ -847,178 +849,103 @@ export const createRestaurantFromOnboarding = async (onboardingData, restaurantI
 export const updateRestaurantProfile = asyncHandler(async (req, res) => {
   try {
     const restaurantId = req.restaurant._id;
-    const { profileImage, menuImages, name, cuisines, location, ownerName, ownerEmail, ownerPhone } = req.body;
-
+    const { profileImage, menuImages, name, cuisines, location, ownerName, ownerEmail, ownerPhone, featuredDish, featuredPrice } = req.body;
     const restaurant = await Restaurant.findById(restaurantId);
-
-    if (!restaurant) {
-      return errorResponse(res, 404, 'Restaurant not found');
-    }
-
+    if (!restaurant) { return errorResponse(res, 404, "Restaurant not found"); }
     const updateData = {};
-
-    // Update profile image if provided
-    if (profileImage) {
-      updateData.profileImage = profileImage;
-    }
-
-    // Update menu images if provided
-    if (menuImages !== undefined) {
-      updateData.menuImages = menuImages;
-    }
-
-    // Update name if provided
+    if (profileImage) updateData.profileImage = profileImage;
+    if (menuImages !== undefined) updateData.menuImages = menuImages;
     if (name) {
       updateData.name = name;
-      // Regenerate slug if name changed
       if (name !== restaurant.name) {
-        let baseSlug = name.
-          toLowerCase().
-          replace(/[^a-z0-9]+/g, '-').
-          replace(/(^-|-$)/g, '');
-
-        // Check if slug already exists for another restaurant
+        let baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         let slug = baseSlug;
         const existingBySlug = await Restaurant.findOne({ slug: baseSlug, _id: { $ne: restaurantId } });
         if (existingBySlug) {
-          let counter = 1;
-          let uniqueSlug = `${baseSlug}-${counter}`;
-          while (await Restaurant.findOne({ slug: uniqueSlug, _id: { $ne: restaurantId } })) {
-            counter++;
-            uniqueSlug = `${baseSlug}-${counter}`;
-          }
+          let counter = 1; let uniqueSlug = `${baseSlug}-${counter}`;
+          while (await Restaurant.findOne({ slug: uniqueSlug, _id: { $ne: restaurantId } })) { counter++; uniqueSlug = `${baseSlug}-${counter}`; }
           slug = uniqueSlug;
         }
         updateData.slug = slug;
       }
     }
-
-    // Update cuisines if provided
     if (cuisines !== undefined) {
-      if (!Array.isArray(cuisines)) {
-        return errorResponse(res, 400, 'Cuisines must be an array of strings');
-      }
+      if (!Array.isArray(cuisines)) { return errorResponse(res, 400, "Cuisines must be an array of strings"); }
       const cleanedCuisines = sanitizeCuisineList(cuisines, 8);
       updateData.cuisines = cleanedCuisines;
-      // Keep onboarding step2 cuisine data in sync with profile cuisine edits.
       if (!restaurant.onboarding) restaurant.onboarding = {};
       if (!restaurant.onboarding.step2) restaurant.onboarding.step2 = {};
       restaurant.onboarding.step2.cuisines = cleanedCuisines;
-      restaurant.markModified('onboarding');
+      restaurant.markModified("onboarding");
     }
-
-    // Update location if provided
     if (location) {
       const normalizedLocationResult = normalizeLocationForSave(location, restaurant.location);
-      if (normalizedLocationResult.error) {
-        return errorResponse(res, 400, normalizedLocationResult.error);
-      }
+      if (normalizedLocationResult.error) { return errorResponse(res, 400, normalizedLocationResult.error); }
       updateData.location = normalizedLocationResult.location;
     }
-
-    // Update owner details if provided
-    if (ownerName !== undefined) {
-      updateData.ownerName = ownerName;
-    }
-    if (ownerEmail !== undefined) {
-      updateData.ownerEmail = ownerEmail;
-    }
-    if (ownerPhone !== undefined) {
-      updateData.ownerPhone = ownerPhone;
-    }
-
-    // Update dining platform fee if provided
+    if (ownerName !== undefined) updateData.ownerName = ownerName;
+    if (ownerEmail !== undefined) updateData.ownerEmail = ownerEmail;
+    if (ownerPhone !== undefined) updateData.ownerPhone = ownerPhone;
     if (req.body.diningPlatformFee !== undefined) {
       updateData.diningPlatformFee = req.body.diningPlatformFee;
     }
 
-    // Update restaurant
+    // Update featured dish and keep onboarding in sync
+    if (featuredDish !== undefined) {
+      updateData.featuredDish = featuredDish;
+      if (!restaurant.onboarding) restaurant.onboarding = {};
+      if (!restaurant.onboarding.step4) restaurant.onboarding.step4 = {};
+      restaurant.onboarding.step4.featuredDish = featuredDish;
+      restaurant.markModified("onboarding");
+    }
+    if (featuredPrice !== undefined) {
+      updateData.featuredPrice = featuredPrice;
+      if (!restaurant.onboarding) restaurant.onboarding = {};
+      if (!restaurant.onboarding.step4) restaurant.onboarding.step4 = {};
+      restaurant.onboarding.step4.featuredPrice = featuredPrice;
+      restaurant.markModified("onboarding");
+    }
+
     Object.assign(restaurant, updateData);
     await restaurant.save();
 
-    return successResponse(res, 200, 'Restaurant profile updated successfully', {
-      restaurant: {
-        id: restaurant._id,
-        restaurantId: restaurant.restaurantId,
-        name: restaurant.name,
-        slug: restaurant.slug,
-        profileImage: restaurant.profileImage,
-        menuImages: restaurant.menuImages,
-        cuisines: restaurant.cuisines,
-        location: restaurant.location,
-        ownerName: restaurant.ownerName,
-        ownerEmail: restaurant.ownerEmail,
-        ownerPhone: restaurant.ownerPhone
-      }
+    // Fetch fresh document to ensure all virtuals and defaults are populated correctly
+    const updatedRestaurant = await Restaurant.findById(restaurantId).lean();
+
+    return successResponse(res, 200, "Restaurant profile updated successfully", { 
+      restaurant: updatedRestaurant 
     });
   } catch (error) {
-    console.error('❌ Error updating restaurant profile:', error);
-    if (error.name === 'ValidationError') {
-      return errorResponse(res, 400, Object.values(error.errors).map(e => e.message).join(', '));
-    }
-    return errorResponse(res, 500, 'Failed to update restaurant profile: ' + error.message);
+    console.error("Error updating restaurant profile:", error);
+    return errorResponse(res, 500, "Failed to update restaurant profile: " + error.message);
   }
 });
 
-/**
- * Update restaurant payout details (Bank, UPI, QR)
- * PUT /api/restaurant/payout-details
- */
 export const updatePayoutDetails = asyncHandler(async (req, res) => {
-  // console.log('🚀 [CONTROLLER] updatePayoutDetails called');
   try {
     const restaurantId = req.restaurant._id;
     const { bank, upiId, qrCode } = req.body;
-
     const restaurant = await Restaurant.findById(restaurantId);
-
-    if (!restaurant) {
-      return errorResponse(res, 404, 'Restaurant not found');
-    }
-
-    if (!restaurant.onboarding) {
-      restaurant.onboarding = { step1: {}, step2: {}, step3: {}, step4: {} };
-    }
-    if (!restaurant.onboarding.step3) {
-      restaurant.onboarding.step3 = {};
-    }
-    if (!restaurant.onboarding.step3.bank) {
-      restaurant.onboarding.step3.bank = {};
-    }
-
-    // Update bank details if provided
+    if (!restaurant) { return errorResponse(res, 404, "Restaurant not found"); }
+    if (!restaurant.onboarding) { restaurant.onboarding = { step1: {}, step2: {}, step3: {}, step4: {} }; }
+    if (!restaurant.onboarding.step3) { restaurant.onboarding.step3 = {}; }
+    if (!restaurant.onboarding.step3.bank) { restaurant.onboarding.step3.bank = {}; }
     if (bank) {
       if (bank.accountNumber) restaurant.onboarding.step3.bank.accountNumber = bank.accountNumber;
       if (bank.ifscCode) restaurant.onboarding.step3.bank.ifscCode = bank.ifscCode;
       if (bank.accountHolderName) restaurant.onboarding.step3.bank.accountHolderName = bank.accountHolderName;
       if (bank.accountType) restaurant.onboarding.step3.bank.accountType = bank.accountType;
     }
-
-    // Update UPI ID if provided
-    if (upiId !== undefined) {
-      restaurant.onboarding.step3.bank.upiId = upiId;
-    }
-
-    // Update QR Code if provided
-    if (qrCode) {
-      restaurant.onboarding.step3.bank.qrCode = qrCode;
-    }
-
+    if (upiId !== undefined) { restaurant.onboarding.step3.bank.upiId = upiId; }
+    if (qrCode) { restaurant.onboarding.step3.bank.qrCode = qrCode; }
     await restaurant.save();
-
-    return successResponse(res, 200, 'Payout details updated successfully', {
-      payoutDetails: restaurant.onboarding.step3.bank
-    });
+    return successResponse(res, 200, "Payout details updated successfully", { payoutDetails: restaurant.onboarding.step3.bank });
   } catch (error) {
-    console.error('Error updating payout details:', error);
-    return errorResponse(res, 500, 'Failed to update payout details');
+    console.error("Error updating payout details:", error);
+    return errorResponse(res, 500, "Failed to update payout details");
   }
 });
 
-/**
- * Upload restaurant profile image
- * POST /api/restaurant/profile/image
- */
 export const uploadProfileImage = asyncHandler(async (req, res) => {
   try {
     if (!req.file) {
@@ -1139,7 +1066,7 @@ export const uploadMenuImage = asyncHandler(async (req, res) => {
       menuImages: restaurant.menuImages
     });
   } catch (error) {
-    console.error('❌ Error uploading menu image:', {
+    console.error('âŒ Error uploading menu image:', {
       message: error.message,
       stack: error.stack,
       errorType: error.constructor.name,
@@ -1273,7 +1200,7 @@ export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get restaurants with dishes under ₹250
+ * Get restaurants with dishes under â‚¹250
  */
 export const getRestaurantsWithDishesUnder250 = async (req, res) => {
   try {
@@ -1346,7 +1273,7 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
             deliveryTime: restaurant.estimatedDeliveryTime || "25-30 mins",
             distance: restaurant.distance || "1.2 km",
             cuisine: restaurant.cuisines && restaurant.cuisines.length > 0 ?
-              restaurant.cuisines.join(' • ') :
+              restaurant.cuisines.join(' â€¢ ') :
               "Multi-cuisine",
             price: restaurant.priceRange || "$$",
             image: restaurant.profileImage?.url || restaurant.menuImages?.[0]?.url || "",
@@ -1421,13 +1348,13 @@ export const getRestaurantsWithDishesUnder250 = async (req, res) => {
       return b.menuItems.length - a.menuItems.length;
     });
 
-    return successResponse(res, 200, 'Restaurants with dishes under ₹250 retrieved successfully', {
+    return successResponse(res, 200, 'Restaurants with dishes under â‚¹250 retrieved successfully', {
       restaurants: restaurantsWithDishes,
       total: restaurantsWithDishes.length
     });
   } catch (error) {
-    console.error('Error fetching restaurants with dishes under ₹250:', error);
-    return errorResponse(res, 500, 'Failed to fetch restaurants with dishes under ₹250');
+    console.error('Error fetching restaurants with dishes under â‚¹250:', error);
+    return errorResponse(res, 500, 'Failed to fetch restaurants with dishes under â‚¹250');
   }
 };
 

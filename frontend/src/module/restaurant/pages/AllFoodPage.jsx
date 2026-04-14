@@ -13,6 +13,8 @@ import BottomNavbar from "../components/BottomNavbar"
 import MenuOverlay from "../components/MenuOverlay"
 import { formatCurrency, usdToInr } from "../utils/currency"
 import { getAllFoods } from "../utils/foodManagement"
+import { restaurantAPI } from "@/lib/api"
+import { toast } from "sonner"
 
 export default function AllFoodPage() {
   const navigate = useNavigate()
@@ -24,6 +26,8 @@ export default function AllFoodPage() {
   const [foodTypeFilter, setFoodTypeFilter] = useState("all")
   const [stockFilter, setStockFilter] = useState("all")
   const [allFoods, setAllFoods] = useState(() => getAllFoods())
+  const [restaurantData, setRestaurantData] = useState(null)
+  const [updatingFeatured, setUpdatingFeatured] = useState(null)
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -77,6 +81,56 @@ export default function AllFoodPage() {
       window.removeEventListener('storage', refreshFoods)
     }
   }, [])
+
+  // Fetch restaurant data to get current featured dish
+  useEffect(() => {
+    const fetchRestaurantData = async () => {
+      try {
+        const response = await restaurantAPI.getCurrentRestaurant()
+        const data = response?.data?.data?.restaurant || response?.data?.restaurant
+        if (data) {
+          setRestaurantData(data)
+        }
+      } catch (error) {
+        console.error("Error fetching restaurant data:", error)
+      }
+    }
+    fetchRestaurantData()
+  }, [])
+
+  const handleMarkAsFeatured = async (e, food) => {
+    e.stopPropagation()
+    
+    if (updatingFeatured === food.id) return
+    
+    try {
+      setUpdatingFeatured(food.id)
+      
+      // Optimistic update
+      setRestaurantData(prev => ({
+        ...prev,
+        featuredDish: food.name,
+        featuredPrice: food.price
+      }))
+      
+      // Update restaurant profile with new featured dish info
+      await restaurantAPI.updateProfile({
+        featuredDish: food.name.trim(),
+        featuredPrice: food.price
+      })
+      
+      toast.success(`${food.name} is now your Featured Dish!`)
+    } catch (error) {
+      console.error("Error updating featured dish:", error)
+      toast.error("Failed to update featured dish. Please try again.")
+      // Re-sync on error
+      const response = await restaurantAPI.getCurrentRestaurant()
+      const data = response?.data?.data?.restaurant || response?.data?.restaurant
+      if (data) setRestaurantData(data)
+    } finally {
+      setUpdatingFeatured(null)
+    }
+  }
 
   // Categories
   const categories = [
@@ -258,7 +312,23 @@ export default function AllFoodPage() {
 
               {/* Food Details */}
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-gray-900 mb-1 line-clamp-1">{food.name}</h3>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-bold text-gray-900 mb-1 line-clamp-1">{food.name}</h3>
+                  <button
+                    onClick={(e) => handleMarkAsFeatured(e, food)}
+                    disabled={updatingFeatured === food.id}
+                    className="flex-shrink-0"
+                    title={(restaurantData?.featuredDish?.trim() === food.name?.trim()) ? "Current Featured Dish" : "Mark as Featured"}
+                  >
+                    <Star 
+                      className={`w-5 h-5 transition-all ${
+                        (restaurantData?.featuredDish?.trim() === food.name?.trim()) 
+                          ? "fill-[#ff8100] text-[#ff8100] scale-110" 
+                          : "text-gray-300 hover:text-gray-400"
+                      } ${updatingFeatured === food.id ? "animate-pulse" : ""}`} 
+                    />
+                  </button>
+                </div>
                 <p className="text-xs text-gray-600 mb-2">{food.category}</p>
                 
                 {/* Rating */}

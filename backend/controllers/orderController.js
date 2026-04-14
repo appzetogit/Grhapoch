@@ -36,6 +36,24 @@ const logger = winston.createLogger({
 const ACTIVE_ORDERS_RT_ROOT = 'active_orders';
 const ORDERS_TRACKING_RT_ROOT = 'orders';
 const sanitizeFirebaseKey = (value) => String(value || '').replace(/[.#$/\[\]]/g, '_');
+const normalizeOrderAddressLabel = (label) => {
+  if (!label) return undefined;
+
+  const normalized = String(label).trim().toLowerCase();
+  if (normalized === 'home') return 'Home';
+  if (normalized === 'office' || normalized === 'work') return 'Office';
+  if (normalized === 'other') return 'Other';
+  if (
+    normalized === 'current location' ||
+    normalized === 'selected location' ||
+    normalized === 'location' ||
+    normalized === 'address'
+  ) {
+    return 'Current Location';
+  }
+
+  return 'Other';
+};
 
 const getOrderRealtimeTracking = async (order) => {
   const db = getFirebaseRealtimeDb();
@@ -487,9 +505,11 @@ export const createOrder = async (req, res) => {
     // ---------------------------------------------
 
     // Normalize address location coordinates for GeoJSON compatibility
+    const normalizedAddressLabel = normalizeOrderAddressLabel(address?.label);
     const coordinates = normalizeCoordinates(address);
     const normalizedAddress = {
       ...address,
+      ...(normalizedAddressLabel ? { label: normalizedAddressLabel } : {}),
       location: {
         type: 'Point',
         coordinates: coordinates || [0, 0]

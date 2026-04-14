@@ -570,18 +570,20 @@ export default function CategoryPage() {
           foundAnyMenu = true;
           const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory);
           if (categoryDishes.length > 0) {
-            categoryDishes.forEach((dish, index) => {
-              if (vegMode && String(dish.foodType || "").toLowerCase() !== "veg") return;
+            // Group by restaurant: Find the first matching dish that respects vegMode
+            const matchingDish = categoryDishes.find(dish => 
+              !vegMode || String(dish.foodType || "").toLowerCase() === "veg"
+            );
+
+            if (matchingDish) {
               expandedDishes.push({
                 ...r,
-                id: `${r.id}-dish-${dish.itemId || index}`,
-                dishId: dish.itemId || `${r.id}-dish-${index}`,
-                categoryDish: dish,
-                categoryDishName: dish.name,
-                categoryDishPrice: dish.price,
-                categoryDishImage: dish.image
+                categoryDish: matchingDish,
+                categoryDishName: matchingDish.name,
+                categoryDishPrice: matchingDish.price,
+                categoryDishImage: matchingDish.image
               });
-            });
+            }
           }
         } else if (isAll) {
           // If 'all' is selected but menu is still loading, keep the restaurant card

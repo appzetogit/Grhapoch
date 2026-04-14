@@ -426,8 +426,8 @@ export default function RestaurantDetails() {
             slug: apiRestaurant?.slug || apiRestaurant?.name?.toLowerCase().replace(/\s+/g, '-') || slug || "unknown",
             restaurantId: apiRestaurant?.restaurantId || apiRestaurant?._id || apiRestaurant?.id || null,
             // Add other fields with defaults
-            featuredDish: apiRestaurant?.featuredDish || "Special Dish",
-            featuredPrice: apiRestaurant?.featuredPrice ?? 249,
+            featuredDish: apiRestaurant?.featuredDish || null,
+            featuredPrice: apiRestaurant?.featuredPrice || null,
             // Additional safety fields
             openDays: Array.isArray(apiRestaurant?.openDays) ? apiRestaurant.openDays : [],
             deliveryTimings: apiRestaurant?.deliveryTimings || {
@@ -1587,6 +1587,110 @@ export default function RestaurantDetails() {
         {/* Menu Items Section */}
         {restaurant?.menuSections && Array.isArray(restaurant.menuSections) && restaurant.menuSections.length > 0 &&
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 sm:py-8 md:py-10 lg:py-12 space-y-6 md:space-y-8 lg:space-y-10">
+            {/* Featured Dish Section */}
+            {(() => {
+              if (!restaurant?.featuredDish) return null;
+              
+              // Find the full item object that matches the featured dish name
+              let featuredItem = null;
+              restaurant.menuSections.forEach(section => {
+                if (featuredItem) return;
+                const items = section.items || [];
+                const matched = items.find(i => i.name?.trim().toLowerCase() === restaurant.featuredDish?.trim().toLowerCase());
+                if (matched) featuredItem = matched;
+                
+                if (!featuredItem && section.subsections) {
+                  section.subsections.forEach(sub => {
+                    if (featuredItem) return;
+                    const subMatched = (sub.items || []).find(i => i.name?.trim().toLowerCase() === restaurant.featuredDish?.trim().toLowerCase());
+                    if (subMatched) featuredItem = subMatched;
+                  });
+                }
+              });
+
+              if (!featuredItem) return null;
+
+              const quantity = quantities[String(featuredItem.id)] || 0;
+              const itemImages = getItemImageUrls(featuredItem);
+              const primaryItemImage = itemImages[0] || "";
+              const isVeg = featuredItem.foodType === "Veg";
+
+              return (
+                <div className="mb-8 overflow-hidden rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-white shadow-xl dark:from-amber-900/10 dark:to-[#1a1a1a] dark:border-amber-500/30">
+                  <div className="px-4 py-3 bg-amber-400 dark:bg-amber-600 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white">
+                      <Star className="h-4 w-4 fill-white" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Chef's Special Recommendation</span>
+                    </div>
+                    {featuredItem.isRecommended && (
+                      <Badge className="bg-white/20 text-white text-[10px] uppercase border-none">Bestseller</Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-4 p-5 cursor-pointer" onClick={() => handleItemClick(featuredItem)}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <FoodTypeIcon isVeg={isVeg} size="sm" />
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter">Must Try</span>
+                      </div>
+                      <h3 className="font-black text-gray-900 dark:text-white text-xl leading-tight mb-1">{featuredItem.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{featuredItem.description}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">₹{Math.round(featuredItem.price)}</p>
+                        {featuredItem.preparationTime && (
+                           <div className="flex items-center gap-1 text-[10px] font-medium text-gray-500 p-1 bg-gray-100 rounded-lg">
+                             <Clock className="h-3 w-3" />
+                             {featuredItem.preparationTime}
+                           </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-4 mt-4">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleBookmarkClick(featuredItem); }}
+                          className={`p-2 border rounded-xl transition-all ${isDishFavorite(featuredItem.id, restaurant?.slug || slug, featuredItem.name) ? "border-red-500 text-red-500 bg-red-50" : "border-gray-200 text-gray-400"}`}
+                        >
+                          <Heart size={18} className={isDishFavorite(featuredItem.id, restaurant?.slug || slug, featuredItem.name) ? "fill-red-500" : ""} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleShareClick(featuredItem); }}
+                          className="p-2 border border-gray-200 rounded-xl text-gray-400"
+                        >
+                          <Share2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="relative w-36 h-36 flex-shrink-0">
+                      {primaryItemImage ? (
+                        <img src={primaryItemImage} alt={featuredItem.name} className="w-full h-full object-cover rounded-2xl shadow-lg ring-4 ring-white dark:ring-gray-800" />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-200">
+                          <span className="text-xs text-gray-400 italic">Chef's Creation</span>
+                        </div>
+                      )}
+                      
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-full px-4">
+                        {quantity > 0 ? (
+                          <div className="bg-white border-2 border-green-600 font-bold px-3 py-1.5 rounded-xl shadow-lg flex items-center justify-between text-green-600">
+                            <button onClick={(e) => { e.stopPropagation(); updateItemQuantity(featuredItem, Math.max(0, quantity - 1), e); }}><Minus size={14} /></button>
+                            <span className="text-sm">{quantity}</span>
+                            <button onClick={(e) => { e.stopPropagation(); updateItemQuantity(featuredItem, quantity + 1, e); }}><Plus size={14} /></button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleItemAdd(featuredItem, e); }}
+                            className="w-full bg-green-600 text-white font-bold py-2 rounded-xl shadow-lg flex items-center justify-center gap-1 hover:bg-green-700 transition-all border-2 border-white"
+                          >
+                            ADD <Plus size={14} className="stroke-[3px]" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             {getFilteredSections().map(({ section, originalIndex }, sectionIndex) => {
               // Handle section name - check for valid non-empty string
               const isRecommendedSection = section?.isRecommendedSection === true;

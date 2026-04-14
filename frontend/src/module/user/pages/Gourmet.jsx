@@ -4,6 +4,7 @@ import { ArrowLeft, Star, Clock, Bookmark, BadgePercent, Loader2 } from "lucide-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { heroBannerAPI } from "@/lib/api"
+import { useUserLocation } from "@/module/user/context/UserLocationContext"
 import { toast } from "sonner"
 
 // Import banner
@@ -15,6 +16,7 @@ export default function Gourmet() {
   const [gourmetRestaurants, setGourmetRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const { location } = useUserLocation()
 
   // Fetch Gourmet restaurants from API
   useEffect(() => {
@@ -22,7 +24,14 @@ export default function Gourmet() {
       try {
         setLoading(true)
         setError(null)
-        const response = await heroBannerAPI.getGourmetRestaurants()
+        
+        const params = {}
+        if (location?.latitude && location?.longitude) {
+          params.lat = location.latitude
+          params.lng = location.longitude
+        }
+        
+        const response = await heroBannerAPI.getGourmetRestaurants(params)
         const data = response?.data?.data
 
         if (data && data.restaurants) {
@@ -42,7 +51,7 @@ export default function Gourmet() {
     }
 
     fetchGourmetRestaurants()
-  }, [])
+  }, [location?.latitude, location?.longitude])
 
   const toggleFavorite = (id) => {
     setFavorites(prev => {
@@ -209,4 +218,3 @@ export default function Gourmet() {
     </div>
   )
 }
-

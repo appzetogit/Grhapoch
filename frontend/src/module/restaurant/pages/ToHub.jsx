@@ -67,7 +67,7 @@ export default function ToHub() {
         const data = response?.data?.data?.restaurant || response?.data?.restaurant;
         if (data) {
           setRestaurantData(data);
-          if (data?.isActive === false) setShowPendingModal(true);
+          // Modal disabled
         }
       } catch (error) {
         // Only log error if it's not a network/timeout error (backend might be down/slow)
@@ -80,7 +80,7 @@ export default function ToHub() {
       }
     };
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = async () => { if (restaurantData && !restaurantData.isActive) return;
       try {
         const response = await restaurantAPI.getNotifications();
         const fetchedNotifications = response?.data?.data?.notifications || [];
@@ -106,15 +106,20 @@ export default function ToHub() {
       return;
     }
 
+    // Don't poll if restaurant is not active yet
+    if (restaurantData && !restaurantData.isActive) return;
+
     try {
       const response = await diningAPI.getRestaurantBookings(restaurantIdForDining);
       const bookings = Array.isArray(response?.data?.data) ? response.data.data : [];
       const pendingCount = bookings.filter((booking) => booking?.bookingStatus === "Pending").length;
       setPendingDiningRequests(pendingCount);
     } catch (error) {
-      console.error("Error fetching pending dining requests:", error);
+      if (error.response?.status !== 401) {
+        console.error("Error fetching pending dining requests:", error);
+      }
     }
-  }, [restaurantIdForDining]);
+  }, [restaurantIdForDining, restaurantData?.isActive]);
 
   useEffect(() => {
     if (!restaurantIdForDining) return;

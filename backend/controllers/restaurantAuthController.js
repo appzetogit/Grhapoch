@@ -989,7 +989,9 @@ export const getCurrentRestaurant = asyncHandler(async (req, res) => {
         daysRemaining,
         showWarning
       },
-      subscriptionPlanName: planName || restaurant.subscription?.planName || 'Basic'
+      subscriptionPlanName: planName || restaurant.subscription?.planName || 'Basic',
+      featuredDish: restaurant.featuredDish,
+      featuredPrice: restaurant.featuredPrice
     }
   });
 });

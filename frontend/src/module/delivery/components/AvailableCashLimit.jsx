@@ -6,11 +6,10 @@ export default function AvailableCashLimit({ onClose, walletData = {} }) {
   const cashInHand = Number(walletData.cashInHand) || 0
   const deductions = Number(walletData.deductions) || 0
   const pocketWithdrawals = Number(walletData.pocketWithdrawals) || 0
-  const pendingCodReserve = Number(walletData.pendingCodReserve) || 0
   const apiAvailable = Number(walletData.availableCashLimit)
   const availableCashLimit = Number.isFinite(apiAvailable) && apiAvailable >= 0 ?
     apiAvailable :
-    Math.max(0, totalCashLimit - cashInHand - deductions - pendingCodReserve)
+    Math.max(0, totalCashLimit - cashInHand - deductions)
 
   return (
     <div className="bg-white text-black flex flex-col no-scrollbar pt-2 mt-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -32,9 +31,6 @@ export default function AvailableCashLimit({ onClose, walletData = {} }) {
         </div>
 
         <DetailRow label="Cash in hand" value={formatCurrency(cashInHand)} />
-        {pendingCodReserve > 0 && (
-          <DetailRow label="Pending COD reserve" value={formatCurrency(pendingCodReserve)} />
-        )}
         <DetailRow label="Deductions" value={formatCurrency(deductions)} />
         <DetailRow label="Pocket withdrawals" value={formatCurrency(pocketWithdrawals)} />
 

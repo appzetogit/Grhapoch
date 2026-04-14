@@ -1065,11 +1065,10 @@ export default function DeliveryHome() {
 
   const totalCashLimit = Number(walletState?.totalCashLimit ?? walletState?.cashLimit ?? 0);
   const cashInHand = Number(walletState?.cashInHand) || 0;
-  const pendingCodReserve = Number(walletState?.pendingCodReserve) || 0;
   const apiAvailableCashLimit = Number(walletState?.availableCashLimit);
   const availableCashLimitValue = Number.isFinite(apiAvailableCashLimit) && apiAvailableCashLimit >= 0 ?
     apiAvailableCashLimit :
-    Math.max(0, totalCashLimit - cashInHand - pendingCodReserve);
+    Math.max(0, totalCashLimit - cashInHand);
   const showCashLimitBanner = totalCashLimit > 0 && availableCashLimitValue <= 0;
 
   // State for active earning addon
@@ -4437,12 +4436,12 @@ export default function DeliveryHome() {
       walletState?.availableCashLimit ??
       0
     );
-    const cashInHand = Number(walletState?.cashInHand) || 0;
-    const apiAvailable = Number(walletState?.availableCashLimit);
-    const pendingReserve = Number(walletState?.pendingCodReserve) || 0;
-    const available = Number.isFinite(apiAvailable) && apiAvailable >= 0 ?
-      apiAvailable :
-      Math.max(0, cashLimit - cashInHand - pendingReserve);
+	    const cashInHand = Number(walletState?.cashInHand) || 0;
+	    const apiAvailable = Number(walletState?.availableCashLimit);
+	    const pendingReserve = 0;
+	    const available = Number.isFinite(apiAvailable) && apiAvailable >= 0 ?
+	      apiAvailable :
+	      Math.max(0, cashLimit - cashInHand);
 
     if (cashLimit <= 0 && available <= 0) {
       // If cash limit is not configured, don't block
@@ -9030,13 +9029,10 @@ export default function DeliveryHome() {
                       <div className="text-xs text-amber-800 mt-1">
                         Deposit cash to receive COD orders.
                       </div>
-                      <div className="mt-2 text-xs text-amber-900/80 space-y-1">
-                        <div>Available limit: {formatCurrency(availableCashLimitValue)}</div>
-                        <div>Cash in hand: {formatCurrency(cashInHand)}</div>
-                        {pendingCodReserve > 0 && (
-                          <div>Pending COD reserve: {formatCurrency(pendingCodReserve)}</div>
-                        )}
-                      </div>
+	                      <div className="mt-2 text-xs text-amber-900/80 space-y-1">
+	                        <div>Available limit: {formatCurrency(availableCashLimitValue)}</div>
+	                        <div>Cash in hand: {formatCurrency(cashInHand)}</div>
+	                      </div>
                       <button
                         onClick={() => navigate("/delivery/requests?openDeposit=1")}
                         className="mt-3 inline-flex items-center justify-center rounded-lg bg-black text-white px-3 py-2 text-xs font-semibold hover:bg-gray-800 transition-colors">

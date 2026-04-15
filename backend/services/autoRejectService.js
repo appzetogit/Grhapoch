@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import { notifyRestaurantOrderUpdate } from './restaurantNotificationService.js';
+import { notifyUserOrderUpdate } from './userNotificationService.js';
 import { calculateCancellationRefund } from './cancellationRefundService.js';
 
 /**
@@ -77,6 +78,9 @@ export async function processAutoRejectOrders() {
           // Notify about status update
           try {
             await notifyRestaurantOrderUpdate(currentOrder._id.toString(), 'cancelled');
+            notifyUserOrderUpdate(currentOrder._id, 'cancelled').catch((userNotifError) => {
+              console.error(`❌ Error sending user cancellation notification for order ${currentOrder.orderId}:`, userNotifError);
+            });
           } catch (notifError) {
             console.error(`❌ Error sending notification for order ${currentOrder.orderId}:`, notifError);
           }

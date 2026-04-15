@@ -167,6 +167,7 @@ export default function Cart() {
   // Track whether we have already applied the default tip/donation amounts.
   // This prevents subsequent re-fetches from overriding values the user has changed.
   const defaultsApplied = useRef(false);
+  const orderAttemptRef = useRef(null);
 
   // Restaurant and pricing state
   const [restaurantData, setRestaurantData] = useState(null);
@@ -243,21 +244,24 @@ export default function Cart() {
       return;
     }
 
-    if (cleanedPhone.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number");
+    // Phone is optional. Validate only when user enters something.
+    if (cleanedPhone.length > 0 && cleanedPhone.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number or leave it blank");
       return;
     }
 
     try {
       setIsSavingContact(true);
-      await userAPI.updateProfile({
-        name: trimmedName,
-        phone: cleanedPhone
-      });
+      const payload = { name: trimmedName };
+      if (cleanedPhone.length === 10) payload.phone = cleanedPhone;
+      await userAPI.updateProfile(payload);
 
       setContactName(trimmedName);
       setContactPhone(cleanedPhone);
-      updateUserProfile({ name: trimmedName, phone: cleanedPhone });
+      updateUserProfile({
+        name: trimmedName,
+        ...(cleanedPhone.length === 10 ? { phone: cleanedPhone } : {})
+      });
       setShowContactSheet(false);
       toast.success("Contact details updated");
     } catch (error) {
@@ -856,7 +860,9 @@ export default function Cart() {
   const handleSelectAddressByLabel = async (label) => {
     const address = addresses.find((addr) => addr.label === label);
     if (!address) {
-      toast.error(`No ${label} address found. Please add an address first.`);
+      toast.info(`No ${label} address found. Please add/select one from map.`);
+      setShowAddressSheet(false);
+      openLocationSelector();
       return;
     }
     handleSelectAddress(address);
@@ -900,6 +906,25 @@ export default function Cart() {
     }
   };
 
+  const handleApplyCouponCode = () => {
+    const code = String(couponCode || "").trim().toUpperCase();
+    if (!code) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+
+    const matchedCoupon = availableCoupons.find(
+      (coupon) => String(coupon.code || "").trim().toUpperCase() === code
+    );
+
+    if (!matchedCoupon) {
+      toast.error("Coupon not available for this order");
+      return;
+    }
+
+    handleApplyCoupon(matchedCoupon);
+  };
+
 
   const handleRemoveCoupon = async () => {
     setAppliedCoupon(null);
@@ -938,6 +963,10 @@ export default function Cart() {
 
 
   const handlePlaceOrder = async () => {
+    if (isPlacingOrder) {
+      return;
+    }
+
     if (!defaultAddress) {
       alert("Please add a delivery address");
       return;
@@ -950,6 +979,13 @@ export default function Cart() {
 
     if (!hasPricing) {
       toast.error("Calculating pricing, please wait...");
+      return;
+    }
+
+    const phoneDigits = String(contactPhone || userProfile?.phone || "").replace(/\D/g, "").slice(-10);
+    if (phoneDigits.length !== 10) {
+      toast.error("Please add your mobile number to place the order");
+      openContactSheet();
       return;
     }
 
@@ -1231,8 +1267,28 @@ export default function Cart() {
         pricing: orderPricing,
         note: note || "",
         sendCutlery: sendCutlery !== false,
-        paymentMethod: selectedPaymentMethod
+        paymentMethod: selectedPaymentMethod,
+        phone: phoneDigits
       };
+
+      const cartSignature = JSON.stringify({
+        items: cart.map((item) => ({
+          id: item.id,
+          quantity: item.quantity || 1,
+          price: item.price
+        })),
+        restaurantId: finalRestaurantId,
+        paymentMethod: selectedPaymentMethod,
+        total: Math.round(Number(orderPricing?.total || 0) * 100),
+        addressKey: defaultAddress?._id || defaultAddress?.id || defaultAddress?.formattedAddress || ''
+      });
+      if (!orderAttemptRef.current || orderAttemptRef.current.signature !== cartSignature) {
+        orderAttemptRef.current = {
+          signature: cartSignature,
+          ref: `co_${Date.now()}_${Math.floor(Math.random() * 1000000)}`
+        };
+      }
+      orderPayload.clientOrderRef = orderAttemptRef.current.ref;
       // Log final order details (including paymentMethod for COD debugging)
 
 
@@ -1279,6 +1335,7 @@ export default function Cart() {
         setPlacedOrderId(order?.orderId || order?.id || null);
         setShowOrderSuccess(true);
         clearCart();
+        orderAttemptRef.current = null;
         setIsPlacingOrder(false);
         return;
       }
@@ -1289,6 +1346,7 @@ export default function Cart() {
         setPlacedOrderId(order?.orderId || order?.id || null);
         setShowOrderSuccess(true);
         clearCart();
+        orderAttemptRef.current = null;
         setIsPlacingOrder(false);
         // Refresh wallet balance
         try {
@@ -1377,6 +1435,7 @@ export default function Cart() {
               setPlacedOrderId(order.orderId);
               setShowOrderSuccess(true);
               clearCart();
+              orderAttemptRef.current = null;
               setIsPlacingOrder(false);
               localStorage.removeItem("pendingOrderId")
             } else {
@@ -1457,6 +1516,12 @@ export default function Cart() {
       // Handle other axios errors
       else if (error.response) {
         // Server responded with error status
+        if (error.response.data?.code === "PHONE_REQUIRED") {
+          toast.error(error.response.data?.message || "Please add your mobile number to place the order");
+          openContactSheet();
+          setIsPlacingOrder(false);
+          return;
+        }
         errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
       }
       // Handle other errors
@@ -1759,6 +1824,23 @@ export default function Cart() {
                             {subtotal < availableCoupons[0].minOrder ? `Min ₹${availableCoupons[0].minOrder}` : 'APPLY'}
                           </Button>
                         </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                            placeholder="Enter coupon code"
+                            className="flex-1 h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111] text-sm text-gray-900 dark:text-gray-100"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 text-xs md:text-sm border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={handleApplyCouponCode}
+                          >
+                            APPLY
+                          </Button>
+                        </div>
                       </div> :
 
                       <div className="flex items-center gap-2 md:gap-3">
@@ -1838,10 +1920,9 @@ export default function Cart() {
                               const realLabel = label === "Work" ? "Office" : label;
                               handleSelectAddressByLabel(realLabel);
                             }}
-                            disabled={!addressExists}
                             className={`text-xs md:text-sm px-2 md:px-3 py-1 md:py-1.5 rounded-md border transition-colors ${addressExists ?
                               'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 bg-white dark:bg-[#1a1a1a]' :
-                              'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'}`
+                              'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 bg-white dark:bg-[#1a1a1a]'}`
                             }>
 
                             {label}

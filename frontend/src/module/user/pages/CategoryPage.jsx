@@ -47,7 +47,7 @@ export default function CategoryPage() {
     const fetchCategories = async () => {
       try {
         setLoadingCategories(true);
-        const response = await adminAPI.getPublicCategories();
+        const response = await adminAPI.getPublicCategories({ categoryFor: "food" });
 
         if (response.data && response.data.success && response.data.data && response.data.data.categories) {
           const categoriesArray = response.data.data.categories;

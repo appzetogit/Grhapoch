@@ -16,6 +16,16 @@ const adminCategoryManagementSchema = new mongoose.Schema(
       trim: true,
       enum: ['Starters', 'Main course', 'Desserts', 'Beverages', 'Varieties'],
     },
+    // Which module should consume this category on the user app
+    // food: delivery/menu categories (default)
+    // restaurant: restaurant listing categories (if used)
+    // dining: dining flow categories (if used)
+    categoryFor: {
+      type: String,
+      trim: true,
+      enum: ['food', 'restaurant', 'dining'],
+      default: 'food',
+    },
     priority: {
       type: String,
       enum: ['High', 'Normal', 'Low'],
@@ -48,6 +58,7 @@ adminCategoryManagementSchema.index({ name: 1 });
 adminCategoryManagementSchema.index({ status: 1 });
 adminCategoryManagementSchema.index({ priority: 1 });
 adminCategoryManagementSchema.index({ createdAt: -1 });
+adminCategoryManagementSchema.index({ categoryFor: 1 });
 
 // Virtual for serial number (for display purposes)
 adminCategoryManagementSchema.virtual('sl').get(function () {

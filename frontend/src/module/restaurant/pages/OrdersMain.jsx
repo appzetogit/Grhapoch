@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { checkOnboardingStatus } from "../utils/onboardingUtils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,11 +23,39 @@ const filterTabs = [
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" }];
 
+const matchesOrderSearch = (orderId, query) => {
+  const q = String(query || "").trim();
+  if (!q) return true;
+
+  const idStr = String(orderId || "").trim();
+  if (!idStr) return false;
+
+  if (idStr.toLowerCase().includes(q.toLowerCase())) return true;
+
+  const idDigits = idStr.replace(/\D/g, "");
+  const qDigits = q.replace(/\D/g, "");
+  if (qDigits && idDigits.includes(qDigits)) return true;
+
+  return false;
+};
+
+const buildOrdersFetchParams = (searchQuery) => {
+  const q = String(searchQuery || "").trim();
+  // When searching by orderId, request a larger slice so old orders are still searchable.
+  // Backend also supports `search` to narrow results when available.
+  if (q) return { page: 1, limit: 500, search: q };
+  return { page: 1, limit: 50 };
+};
+
 
 // Completed Orders List Component
-function CompletedOrders({ onSelectOrder, isActive }) {
+function CompletedOrders({ onSelectOrder, isActive, searchQuery }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesOrderSearch(o.orderId, searchQuery)),
+    [orders, searchQuery]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -39,7 +67,7 @@ function CompletedOrders({ onSelectOrder, isActive }) {
         return;
       }
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await restaurantAPI.getOrders(buildOrdersFetchParams(searchQuery));
 
         if (!isMounted) return;
 
@@ -125,15 +153,15 @@ function CompletedOrders({ onSelectOrder, isActive }) {
         <h2 className="text-base font-semibold text-black">
           Completed orders
         </h2>
-        <span className="text-xs text-gray-500">{orders.length} total</span>
+        <span className="text-xs text-gray-500">{filteredOrders.length} total</span>
       </div>
-      {orders.length === 0 ?
+      {filteredOrders.length === 0 ?
         <div className="text-center py-8 text-gray-500 text-sm">
-          No completed orders yet
+          {String(searchQuery || "").trim() ? "No matching orders" : "No completed orders yet"}
         </div> :
 
         <div>
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             const deliveredDate = order.deliveredAt ?
               new Date(order.deliveredAt).toLocaleDateString('en-US', {
                 month: 'short',
@@ -230,9 +258,13 @@ function CompletedOrders({ onSelectOrder, isActive }) {
 }
 
 // Cancelled Orders List Component
-function CancelledOrders({ onSelectOrder, isActive }) {
+function CancelledOrders({ onSelectOrder, isActive, searchQuery }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesOrderSearch(o.orderId, searchQuery)),
+    [orders, searchQuery]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -244,7 +276,7 @@ function CancelledOrders({ onSelectOrder, isActive }) {
         return;
       }
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await restaurantAPI.getOrders(buildOrdersFetchParams(searchQuery));
 
         if (!isMounted) return;
 
@@ -334,15 +366,15 @@ function CancelledOrders({ onSelectOrder, isActive }) {
         <h2 className="text-base font-semibold text-black">
           Cancelled orders
         </h2>
-        <span className="text-xs text-gray-500">{orders.length} total</span>
+        <span className="text-xs text-gray-500">{filteredOrders.length} total</span>
       </div>
-      {orders.length === 0 ?
+      {filteredOrders.length === 0 ?
         <div className="text-center py-8 text-gray-500 text-sm">
-          No cancelled orders yet
+          {String(searchQuery || "").trim() ? "No matching orders" : "No cancelled orders yet"}
         </div> :
 
         <div>
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             const cancelledDate = order.cancelledAt ?
               new Date(order.cancelledAt).toLocaleDateString('en-US', {
                 month: 'short',
@@ -457,6 +489,7 @@ export default function OrdersMain() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("preparing");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const contentRef = useRef(null);
@@ -1026,7 +1059,8 @@ export default function OrdersMain() {
 
   // Handle PDF download
   const handlePrint = async () => {
-    if (!newOrder) {
+    const orderToPrint = popupOrder || newOrder;
+    if (!orderToPrint) {
       console.warn('No order data available for PDF generation');
       return;
     }
@@ -1278,17 +1312,17 @@ export default function OrdersMain() {
   const renderContent = () => {
     switch (activeFilter) {
       case "preparing":
-        return <PreparingOrders onSelectOrder={handleSelectOrder} onCancel={handleCancelClick} isActive={restaurantStatus.isActive} />;
+        return <PreparingOrders onSelectOrder={handleSelectOrder} onCancel={handleCancelClick} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "ready":
-        return <ReadyOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} />;
+        return <ReadyOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "out-for-delivery":
-        return <OutForDeliveryOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} />;
+        return <OutForDeliveryOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "scheduled":
         return <EmptyState message="Scheduled orders will appear here" />;
       case "completed":
-        return <CompletedOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} />;
+        return <CompletedOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "cancelled":
-        return <CancelledOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} />;
+        return <CancelledOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       default:
         return <EmptyState />;
     }
@@ -1298,7 +1332,11 @@ export default function OrdersMain() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Restaurant Navbar - Sticky at top */}
       <div className="sticky top-0 z-50 bg-white">
-        <RestaurantNavbar showNotifications={false} />
+        <RestaurantNavbar
+          showNotifications={false}
+          searchValue={orderSearchQuery}
+          onSearchChange={setOrderSearchQuery}
+        />
       </div>
 
       {/* Top Filter Bar - Sticky below navbar */}
@@ -1740,7 +1778,10 @@ export default function OrdersMain() {
 
                 {/* Footer */}
                 <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                  <button className="text-sm text-gray-600 hover:text-gray-900 transition-colors underline mx-auto block">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/restaurant/help-centre")}
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors underline mx-auto block">
                     Need help with this order?
                   </button>
                 </div>
@@ -2211,7 +2252,7 @@ function OrderCard({
               {itemsSummary}
             </p>
             {note &&
-              <p className="text-[10px] text-amber-700 mt-1 line-clamp-1">
+              <p className="text-[11px] text-amber-700 mt-1 line-clamp-2 break-words">
                 Note: {note}
               </p>
             }
@@ -2297,12 +2338,16 @@ function OrderCard({
 }
 
 // Preparing Orders List
-function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
+function PreparingOrders({ onSelectOrder, onCancel, isActive, searchQuery }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [markingReadyOrderKey, setMarkingReadyOrderKey] = useState(null);
   const markedReadyOrdersRef = useRef(new Set());
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesOrderSearch(o.orderId, searchQuery)),
+    [orders, searchQuery]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -2316,7 +2361,7 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
       }
       try {
         // Fetch all orders and filter for 'preparing' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await restaurantAPI.getOrders(buildOrdersFetchParams(searchQuery));
 
         if (!isMounted) return;
 
@@ -2523,15 +2568,15 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
         <h2 className="text-base font-semibold text-black">
           Preparing orders
         </h2>
-        <span className="text-xs text-gray-500">{orders.length} active</span>
+        <span className="text-xs text-gray-500">{filteredOrders.length} active</span>
       </div>
-      {orders.length === 0 ?
+      {filteredOrders.length === 0 ?
         <div className="text-center py-8 text-gray-500 text-sm">
-          No orders in preparation
+          {String(searchQuery || "").trim() ? "No matching orders" : "No orders in preparation"}
         </div> :
 
         <div>
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             // Calculate remaining ETA (countdown)
             const elapsedMs = currentTime - order.preparingTimestamp;
             const elapsedMinutes = Math.floor(elapsedMs / 60000);
@@ -2583,9 +2628,13 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive }) {
 }
 
 // Ready Orders List
-function ReadyOrders({ onSelectOrder, isActive }) {
+function ReadyOrders({ onSelectOrder, isActive, searchQuery }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesOrderSearch(o.orderId, searchQuery)),
+    [orders, searchQuery]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -2598,7 +2647,7 @@ function ReadyOrders({ onSelectOrder, isActive }) {
       }
       try {
         // Fetch all orders and filter for 'ready' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await restaurantAPI.getOrders(buildOrdersFetchParams(searchQuery));
 
         if (!isMounted) return;
 
@@ -2682,15 +2731,15 @@ function ReadyOrders({ onSelectOrder, isActive }) {
         <h2 className="text-base font-semibold text-black">
           Ready for pickup
         </h2>
-        <span className="text-xs text-gray-500">{orders.length} active</span>
+        <span className="text-xs text-gray-500">{filteredOrders.length} active</span>
       </div>
-      {orders.length === 0 ?
+      {filteredOrders.length === 0 ?
         <div className="text-center py-8 text-gray-500 text-sm">
-          No orders ready for pickup
+          {String(searchQuery || "").trim() ? "No matching orders" : "No orders ready for pickup"}
         </div> :
 
         <div>
-          {orders.map((order) =>
+          {filteredOrders.map((order) =>
             <OrderCard
               key={order.orderId || order.mongoId}
               {...order}
@@ -2704,9 +2753,13 @@ function ReadyOrders({ onSelectOrder, isActive }) {
 }
 
 // Out for Delivery Orders List
-const OutForDeliveryOrders = ({ onSelectOrder, isActive }) => {
+const OutForDeliveryOrders = ({ onSelectOrder, isActive, searchQuery }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesOrderSearch(o.orderId, searchQuery)),
+    [orders, searchQuery]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -2719,7 +2772,7 @@ const OutForDeliveryOrders = ({ onSelectOrder, isActive }) => {
       }
       try {
         // Fetch all orders and filter for 'out_for_delivery' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await restaurantAPI.getOrders(buildOrdersFetchParams(searchQuery));
 
         if (!isMounted) return;
 
@@ -2803,15 +2856,15 @@ const OutForDeliveryOrders = ({ onSelectOrder, isActive }) => {
         <h2 className="text-base font-semibold text-black">
           Out for delivery
         </h2>
-        <span className="text-xs text-gray-500">{orders.length} active</span>
+        <span className="text-xs text-gray-500">{filteredOrders.length} active</span>
       </div>
-      {orders.length === 0 ?
+      {filteredOrders.length === 0 ?
         <div className="text-center py-8 text-gray-500 text-sm">
-          No orders out for delivery
+          {String(searchQuery || "").trim() ? "No matching orders" : "No orders out for delivery"}
         </div> :
 
         <div>
-          {orders.map((order) =>
+          {filteredOrders.map((order) =>
             <OrderCard
               key={order.orderId || order.mongoId}
               {...order}

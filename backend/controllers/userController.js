@@ -87,6 +87,10 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     }
 
     if (email !== undefined && email !== null && email.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim().toLowerCase())) {
+        return errorResponse(res, 400, 'Invalid email format');
+      }
       // Check if email already exists for another user
       const existingUser = await User.findOne({
         email: email.toLowerCase().trim(),

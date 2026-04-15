@@ -403,14 +403,20 @@ export default function RestaurantLogin() {
     } catch (error) {
       console.error("Firebase Google login error:", error)
       console.error("[RestaurantGoogle] error_meta:", { code: error?.code, message: error?.message })
-      const message =
+      const backendCode = error?.response?.data?.errors?.code || ""
+      let message =
         (error instanceof FlutterGoogleSignInError && error?.code === "missing_token")
           ? "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga."
-          :
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to login with Google. Please try again."
+          : error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            error?.message ||
+            "Failed to login with Google. Please try again."
+
+      if (backendCode === "RESTAURANT_NOT_REGISTERED") {
+        message =
+          "Ye Google email restaurant panel me registered nahi hai. Registered phone/email se login karein (OTP), ya admin/support se contact karein."
+      }
+
       setApiError(message)
     } finally {
       setIsSending(false)

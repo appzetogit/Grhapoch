@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Loader2, User } from "lucide-react"
+import { ArrowLeft, Loader2, Mail, User } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -20,11 +20,25 @@ export default function OTP() {
   const [showNameInput, setShowNameInput] = useState(false)
   const [name, setName] = useState("")
   const [nameError, setNameError] = useState("")
+  const [email, setEmail] = useState("")
+  const [emailError, setEmailError] = useState("")
   const [verifiedOtp, setVerifiedOtp] = useState("")
   const [contactInfo, setContactInfo] = useState("")
   const [contactType, setContactType] = useState("phone")
   const [showExitDialog, setShowExitDialog] = useState(false)
   const inputRefs = useRef([])
+
+  const finalizeAuth = (accessToken, user) => {
+    // Replace old token with new one (handles cross-module login)
+    setUserAuthData("user", accessToken, user)
+    // Dispatch custom event for same-tab updates
+    window.dispatchEvent(new Event("userAuthChanged"))
+
+    setSuccess(true)
+    setTimeout(() => {
+      navigate("/user")
+    }, 500)
+  }
 
   const exitOtpFlow = useCallback(() => {
     const phone = authData?.method === "phone" ? authData?.phone : null
@@ -259,18 +273,7 @@ export default function OTP() {
       // Clear auth data from sessionStorage
       sessionStorage.removeItem("userAuthData")
 
-      // Replace old token with new one (handles cross-module login)
-      setUserAuthData("user", accessToken, user)
-
-      // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new Event("userAuthChanged"))
-
-      setSuccess(true)
-
-      // Redirect to user home after short delay
-      setTimeout(() => {
-        navigate("/user")
-      }, 500)
+      finalizeAuth(accessToken, user)
     } catch (err) {
       const message =
         err?.response?.data?.message ||
@@ -290,6 +293,7 @@ export default function OTP() {
 
   const handleSubmitName = async () => {
     const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
 
     if (!trimmedName) {
       setNameError("Name is required")
@@ -309,15 +313,34 @@ export default function OTP() {
     setIsLoading(true)
     setError("")
     setNameError("")
+    setEmailError("")
 
     try {
       const phone = authData?.method === "phone" ? authData.phone : null
       const currentEmail = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
-      const verificationEmail = authData?.method === "email" ? currentEmail : null
+
+      const verificationEmail = authData?.method === "email"
+        ? currentEmail
+        : (trimmedEmail ? trimmedEmail : null)
+
+      if (verificationEmail && authData?.method === "phone") {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(verificationEmail.toLowerCase())) {
+          setEmailError("Please enter a valid email")
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // For phone signup (new user), require email on the same screen as name.
+      if (authData?.method === "phone" && !verificationEmail) {
+        setEmailError("Email is required")
+        setIsLoading(false)
+        return
+      }
 
       // Second call with name to auto-register and login.
-      // For phone OTP flow, don't send optional email from this step.
       // authAPI.verifyOTP takes: phone, otp, purpose, name, email, role, password
       const response = await authAPI.verifyOTP(
         phone,
@@ -339,18 +362,7 @@ export default function OTP() {
       // Clear auth data from sessionStorage
       sessionStorage.removeItem("userAuthData")
 
-      // Replace old token with new one (handles cross-module login)
-      setUserAuthData("user", accessToken, user)
-
-      // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new Event("userAuthChanged"))
-
-      setSuccess(true)
-
-      // Redirect to user home after short delay
-      setTimeout(() => {
-        navigate("/user")
-      }, 500)
+      finalizeAuth(accessToken, user)
     } catch (err) {
       const message =
         err?.response?.data?.message ||
@@ -403,6 +415,8 @@ export default function OTP() {
     setShowNameInput(false)
     setName("")
     setNameError("")
+    setEmail("")
+    setEmailError("")
     setVerifiedOtp("")
     inputRefs.current[0]?.focus()
   }
@@ -539,6 +553,30 @@ export default function OTP() {
                     </div>
                     {nameError && <p className="text-xs text-red-500 ml-1">{nameError}</p>}
                   </div>
+
+                  {/* Email (optional for phone signup) */}
+                  {authData?.method === "phone" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">
+                        Email
+                      </label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#E23744] transition-colors" />
+                        <Input
+                          type="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value)
+                            if (emailError) setEmailError("")
+                          }}
+                          disabled={isLoading}
+                          placeholder="e.g. you@example.com"
+                          className={`h-12 pl-12 text-base border-2 ${emailError ? "border-red-500" : "border-gray-200 dark:border-gray-700"} bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-xl transition-all focus-visible:ring-0 focus-visible:border-[#E23744]`}
+                        />
+                      </div>
+                      {emailError && <p className="text-xs text-red-500 ml-1">{emailError}</p>}
+                    </div>
+                  )}
 
                   <div className="pt-1">
                     <Button

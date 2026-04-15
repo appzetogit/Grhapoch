@@ -49,22 +49,42 @@ export const authenticate = async (req, res, next) => {
     const hasActiveSubscription = restaurant.subscription?.status === 'active' &&
       restaurant.subscription?.endDate &&
       new Date(restaurant.subscription.endDate) > new Date();
+    const completedSteps = Number(restaurant.onboarding?.completedSteps || 0);
+    const onboardingComplete =
+      restaurant.isActive === true ||
+      restaurant.onboardingCompleted === true ||
+      completedSteps >= 5 ||
+      hasActiveSubscription;
+
+    const enforceOnboarding =
+      String(process.env.RESTAURANT_ENFORCE_ONBOARDING || 'false').toLowerCase() === 'true';
 
     // Block onboarding routes if already completed or has active subscription
     if (isOnboardingRoute && (restaurant.onboardingCompleted || hasActiveSubscription)) {
       return errorResponse(res, 403, 'Onboarding already completed');
     }
 
-    // Check for profile/auth routes
-    // Note: /auth/me and /auth/reverify are handled by restaurantAuthRoutes mounted at /auth, so:
-    // - Full path: /api/restaurant/auth/me or /api/restaurant/auth/reverify
-    // - reqPath: /me or /reverify (relative to /auth mount point)
-    // - baseUrl: /auth (if mounted)
-    // /owner/me is directly under /api/restaurant, so reqPath would be /owner/me
-    const isProfileRoute = requestPath.includes('/auth/me') || requestPath.includes('/auth/reverify') ||
-      requestPath.includes('/owner/me') ||
-      reqPath === '/me' || reqPath === '/reverify' || reqPath === '/owner/me' ||
-      baseUrl.includes('/auth') && (reqPath === '/me' || reqPath === '/reverify');
+    // Check for auth/account routes
+    // `/auth/*` endpoints should remain accessible even during onboarding gating (logout, fcm-token, etc).
+    const isAuthRoute = requestPath.includes('/auth/') || baseUrl.includes('/auth');
+    const isOwnerMeRoute = requestPath.includes('/owner/me') || reqPath === '/owner/me';
+    const isAccountRoute = isAuthRoute || isOwnerMeRoute;
+
+    // Check for subscription routes - restaurants need to pay to activate account
+    const isSubscriptionRoute = requestPath.includes('subscription') || baseUrl.includes('subscription') || reqPath.includes('subscription');
+
+    // Optional strict onboarding gate: block all non-essential routes until onboarding is complete.
+    if (enforceOnboarding && !onboardingComplete) {
+      const allowedDuringOnboarding = isOnboardingRoute || isAccountRoute || isSubscriptionRoute;
+      if (!allowedDuringOnboarding) {
+        return errorResponse(
+          res,
+          403,
+          'Onboarding incomplete. Please complete onboarding to access dashboard.',
+          { code: 'ONBOARDING_INCOMPLETE' }
+        );
+      }
+    }
 
     // Check for menu routes - restaurants need to access menu even when inactive
     // They might need to set up menu during onboarding or after approval
@@ -78,9 +98,6 @@ export const authenticate = async (req, res, next) => {
     const isInventoryRoute = requestPath.includes('/inventory') ||
       reqPath === '/inventory' ||
       reqPath.startsWith('/inventory/');
-
-    // Check for subscription routes - restaurants need to pay to activate account
-    const isSubscriptionRoute = requestPath.includes('subscription') || baseUrl.includes('subscription') || reqPath.includes('subscription');
 
     // Check for dining routes
     const isDiningTableRoute = requestPath.includes('dining-tables') || baseUrl.includes('dining-tables');
@@ -115,7 +132,7 @@ export const authenticate = async (req, res, next) => {
 
     // Allow essential routes even if inactive
     const isAllowed = isOnboardingRoute ||
-      isProfileRoute ||
+      isAccountRoute ||
       isMenuRoute ||
       isInventoryRoute ||
       isSubscriptionRoute ||

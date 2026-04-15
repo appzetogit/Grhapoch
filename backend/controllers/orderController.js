@@ -3,6 +3,7 @@ import Payment from '../models/Payment.js';
 import { createOrder as createRazorpayOrder, verifyPayment } from '../services/razorpayService.js';
 import Restaurant from '../models/Restaurant.js';
 import ServiceSettings from '../models/ServiceSettings.js';
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
 import { calculateOrderPricing, normalizeCoordinates, calculateDeliveryDistance } from '../services/orderCalculationService.js';
@@ -91,6 +92,16 @@ const getOrderRealtimeTracking = async (order) => {
   return null;
 };
 
+const extractOrderPhone = (body) => {
+  if (!body) return null;
+  const raw = body.phone ?? body.contactPhone ?? body.contact_phone ?? body.customerPhone ?? null;
+  if (raw === null || raw === undefined) return null;
+  const digits = String(raw).replace(/\D/g, '').slice(-15);
+  if (!digits) return null;
+  if (digits.length < 10) return null;
+  return digits;
+};
+
 /**
  * Create a new order and initiate Razorpay payment
  */
@@ -117,7 +128,111 @@ export const createOrder = async (req, res) => {
       if (m === 'wallet') return 'wallet';
       return paymentMethod || 'razorpay';
     })();
+    const clientOrderRef = typeof req.body?.clientOrderRef === 'string'
+      ? req.body.clientOrderRef.trim().slice(0, 120)
+      : '';
     logger.info('Order create paymentMethod:', { raw: paymentMethod, normalized: normalizedPaymentMethod, bodyKeys: Object.keys(req.body || {}).filter(k => k.toLowerCase().includes('payment')) });
+
+    // Block order creation until user provides a phone number (profile or in this order request).
+    const existingUserPhone = (req.user?.phone && String(req.user.phone).trim()) || '';
+    const phoneFromOrder = extractOrderPhone(req.body);
+    if (!existingUserPhone) {
+      if (!phoneFromOrder) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHONE_REQUIRED',
+          message: 'Phone number is required to place an order. Please add your mobile number in profile or checkout.'
+        });
+      }
+
+      // Save phone to user profile so downstream notifications always have a phone.
+      try {
+        const userDoc = req.user?._id ? req.user : await User.findById(userId).select('-password');
+        if (userDoc) {
+          userDoc.phone = phoneFromOrder;
+          await userDoc.save();
+          req.user = userDoc;
+        }
+      } catch (phoneSaveError) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHONE_INVALID',
+          message: phoneSaveError?.message || 'Invalid phone number. Please enter a valid mobile number.'
+        });
+      }
+    }
+
+    // Idempotency: if client re-sends the same checkout attempt, reuse existing order.
+    if (clientOrderRef) {
+      const existingOrder = await Order.findOne({ userId, clientOrderRef });
+      if (existingOrder) {
+        let razorpayPayload = null;
+        const existingMethod = String(existingOrder.payment?.method || normalizedPaymentMethod || '').toLowerCase();
+
+        if (existingMethod === 'razorpay') {
+          if (
+            !existingOrder.payment?.razorpayOrderId &&
+            existingOrder.payment?.status !== 'completed' &&
+            !['confirmed', 'delivered', 'cancelled'].includes(existingOrder.status)
+          ) {
+            try {
+              const retryRazorpayOrder = await createRazorpayOrder({
+                amount: Math.round((existingOrder.pricing?.total || 0) * 100),
+                currency: 'INR',
+                receipt: existingOrder.orderId,
+                notes: {
+                  orderId: existingOrder.orderId,
+                  userId: userId.toString()
+                }
+              });
+              if (!existingOrder.payment) {
+                existingOrder.payment = {};
+              }
+              existingOrder.payment.method = 'razorpay';
+              existingOrder.payment.status = existingOrder.payment?.status || 'pending';
+              existingOrder.payment.razorpayOrderId = retryRazorpayOrder.id;
+              await existingOrder.save();
+            } catch (retryRazorpayError) {
+              logger.warn('Unable to create Razorpay order while reusing idempotent order', {
+                orderId: existingOrder.orderId,
+                error: retryRazorpayError.message
+              });
+            }
+          }
+
+          if (existingOrder.payment?.razorpayOrderId) {
+            let razorpayKeyId = null;
+            try {
+              const credentials = await getRazorpayCredentials();
+              razorpayKeyId = credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
+            } catch (keyError) {
+              razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || null;
+            }
+
+            razorpayPayload = {
+              orderId: existingOrder.payment.razorpayOrderId,
+              amount: Math.round((existingOrder.pricing?.total || 0) * 100),
+              currency: 'INR',
+              key: razorpayKeyId
+            };
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Existing order reused for this checkout attempt',
+          data: {
+            order: {
+              id: existingOrder._id.toString(),
+              orderId: existingOrder.orderId,
+              status: existingOrder.status,
+              total: existingOrder.pricing?.total || 0
+            },
+            razorpay: razorpayPayload
+          }
+        });
+      }
+    }
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -519,6 +634,7 @@ export const createOrder = async (req, res) => {
     // Create order in database with pending status
     const order = new Order({
       orderId: generatedOrderId,
+      clientOrderRef: clientOrderRef || undefined,
       userId,
       restaurantId: assignedRestaurantId,
       restaurantName: assignedRestaurantName,

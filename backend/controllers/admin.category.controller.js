@@ -21,8 +21,30 @@ const logger = winston.createLogger({
 export const getPublicCategories = asyncHandler(async (req, res) => {
   try {
     // Only get active categories for public access
-    const categories = await AdminCategoryManagement.find({ status: true })
-      .select('name image _id type')
+    const query = { status: true };
+
+    // Optional categoryFor filter (food/restaurant/dining)
+    // Example: GET /api/categories/public?categoryFor=food
+    if (typeof req.query?.categoryFor === 'string' && req.query.categoryFor.trim()) {
+      const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const requested = req.query.categoryFor.trim();
+      query.$or = [
+        { categoryFor: { $regex: new RegExp(`^${escapeRegExp(requested)}$`, 'i') } },
+        // Backwards compatibility for older categories
+        { categoryFor: { $exists: false } },
+        { categoryFor: null },
+        { categoryFor: '' },
+      ];
+    }
+
+    // Optional "type" filter (course type: Starters/Main course/etc)
+    if (typeof req.query?.type === 'string' && req.query.type.trim()) {
+      const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.type = { $regex: new RegExp(`^${escapeRegExp(req.query.type.trim())}$`, 'i') };
+    }
+
+    const categories = await AdminCategoryManagement.find(query)
+      .select('name image _id type categoryFor')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -31,6 +53,7 @@ export const getPublicCategories = asyncHandler(async (req, res) => {
       name: category.name,
       image: category.image,
       type: category.type || null,
+      categoryFor: category.categoryFor || null,
       slug: category.name.toLowerCase().replace(/\s+/g, '-')
     }));
 
@@ -133,7 +156,7 @@ export const getCategoryById = asyncHandler(async (req, res) => {
  */
 export const createCategory = asyncHandler(async (req, res) => {
   try {
-    const { name, image, status, type } = req.body;
+    const { name, image, status, type, categoryFor } = req.body;
 
     // Validation
     if (!name || !name.trim()) {
@@ -179,6 +202,9 @@ export const createCategory = asyncHandler(async (req, res) => {
       name: name.trim(),
       image: imageUrl,
       type: type && type.trim() ? type.trim() : undefined,
+      categoryFor: categoryFor && String(categoryFor).trim()
+        ? String(categoryFor).trim().toLowerCase()
+        : undefined,
       priority: 'Normal', // Default priority
       status: status !== undefined ? status : true,
       description: '',
@@ -217,7 +243,7 @@ export const createCategory = asyncHandler(async (req, res) => {
 export const updateCategory = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, image, status, type } = req.body;
+    const { name, image, status, type, categoryFor } = req.body;
 
     const category = await AdminCategoryManagement.findById(id);
 
@@ -266,6 +292,10 @@ export const updateCategory = asyncHandler(async (req, res) => {
     if (name !== undefined) category.name = name.trim();
     if (imageUrl !== undefined) category.image = imageUrl;
     if (type !== undefined) category.type = type && type.trim() ? type.trim() : undefined;
+    if (categoryFor !== undefined) {
+      const next = String(categoryFor || '').trim().toLowerCase();
+      if (next) category.categoryFor = next;
+    }
     if (status !== undefined) category.status = status;
     category.updatedBy = req.user._id;
 

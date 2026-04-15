@@ -1163,6 +1163,23 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
         email: normalizedEmail
       });
     } else {
+      const googleAutoRegisterEnabled =
+        String(process.env.RESTAURANT_GOOGLE_AUTO_REGISTER ?? 'true').toLowerCase() !== 'false';
+
+      // If disabled, only already-registered restaurants can use Google sign-in.
+      if (!googleAutoRegisterEnabled) {
+        logger.info('Firebase Google login blocked: restaurant not registered and auto-register disabled', {
+          uid: firebaseUid,
+          email: normalizedEmail
+        });
+        return errorResponse(
+          res,
+          403,
+          'This Google email is not registered as a restaurant. Please login with your registered phone/email, or contact support.',
+          { code: 'RESTAURANT_NOT_REGISTERED' }
+        );
+      }
+
       // Auto-register new restaurant based on Firebase data
       const restaurantData = {
         name: name.trim(),

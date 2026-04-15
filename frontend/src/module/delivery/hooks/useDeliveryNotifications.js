@@ -370,6 +370,22 @@ export const useDeliveryNotifications = () => {
     });
 
     socketRef.current.on('play_notification_sound', (data) => {
+      const soundType = data?.type;
+      const orderId = data?.orderId ? String(data.orderId) : null;
+
+      // Prevent duplicate playback: new_order/new_order_available already play sound
+      // in their dedicated socket handlers above.
+      if (soundType === 'new_order' || soundType === 'new_order_available') {
+        return;
+      }
+
+      if (orderId && rejectedOrderIds.has(orderId)) {
+        return;
+      }
+
+      if (orderId && suppressedSoundOrderIdsRef.current.has(orderId)) {
+        return;
+      }
 
       playNotificationSound();
     });
@@ -390,15 +406,17 @@ export const useDeliveryNotifications = () => {
 
   // Helper functions
   const clearNewOrder = useCallback((orderId = null) => {
+    stopNotificationSound();
     if (orderId) {
       setRejectedOrderIds(prev => new Set([...prev, String(orderId)]));
     }
     setNewOrder(null);
-  }, []);
+  }, [stopNotificationSound]);
 
   const clearOrderReady = useCallback(() => {
+    stopNotificationSound();
     setOrderReady(null);
-  }, []);
+  }, [stopNotificationSound]);
 
   return {
     newOrder,

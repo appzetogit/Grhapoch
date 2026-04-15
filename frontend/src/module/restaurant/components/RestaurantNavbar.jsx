@@ -8,7 +8,9 @@ export default function RestaurantNavbar({
   location: propLocation,
   showSearch = true,
   showOfflineOnlineTag = true,
-  showNotifications = true
+  showNotifications = true,
+  searchValue: controlledSearchValue,
+  onSearchChange
 }) {
   const navigate = useNavigate();
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -235,11 +237,22 @@ export default function RestaurantNavbar({
 
   const handleSearchClose = () => {
     setIsSearchActive(false);
-    setSearchValue("");
+    if (typeof controlledSearchValue === "string") {
+      onSearchChange?.("");
+    } else {
+      setSearchValue("");
+      onSearchChange?.("");
+    }
   };
 
   const handleSearchChange = (e) => {
-    setSearchValue(e.target.value);
+    const nextValue = e.target.value;
+    if (typeof controlledSearchValue === "string") {
+      onSearchChange?.(nextValue);
+    } else {
+      setSearchValue(nextValue);
+      onSearchChange?.(nextValue);
+    }
   };
 
   const handleMenuClick = () => {
@@ -252,13 +265,14 @@ export default function RestaurantNavbar({
 
   // Show search input when search is active
   if (isSearchActive) {
+    const effectiveSearchValue = typeof controlledSearchValue === "string" ? controlledSearchValue : searchValue;
     return (
       <div className="w-full bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
         {/* Search Input */}
         <div className="flex-1 relative">
           <input
             type="text"
-            value={searchValue}
+            value={effectiveSearchValue}
             onChange={handleSearchChange}
             placeholder="Search by order ID"
             className="w-full px-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none"

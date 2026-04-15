@@ -216,7 +216,7 @@ export default function UserAdDetailsPage() {
                 </div>
 
                 {canPay && (
-                  <Button onClick={handlePayNow} disabled={paymentLoading} className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 rounded-lg">
+                  <Button onClick={handlePayNow} disabled={paymentLoading} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg">
                     {paymentLoading ? "Processing..." : "Pay Now To Activate"}
                   </Button>
                 )}
@@ -288,7 +288,7 @@ export default function UserAdDetailsPage() {
 
       {!loading && adData && (
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 px-4 py-4 z-40 md:relative md:bottom-auto md:border-t-0 md:px-4 md:py-4 md:mt-6">
-          <Button onClick={() => navigate("/user/profile/advertisements")} className="w-full bg-black dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2">
+          <Button onClick={() => navigate("/user/profile/advertisements")} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2">
             <span>Back To Ad List</span>
           </Button>
         </div>

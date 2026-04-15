@@ -298,13 +298,15 @@ export default function UserOrderDetails() {
       doc.text(restaurantAddressLines, 60, yPos);
       yPos += restaurantAddressLines.length * 7 + 5;
 
+      const formatPdfCurrency = (value) => `Rs. ${Number(value || 0).toFixed(2)}`;
+
       // Items table
       const tableData = items.map((item) => [
-      item.name || 'Item',
-      String(item.quantity || item.qty || 1),
-      `₹${Number(item.price || 0).toFixed(2)}`,
-      `₹${Number((item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}`]
-      );
+        item.name || 'Item',
+        String(item.quantity || item.qty || 1),
+        formatPdfCurrency(item.price || 0),
+        formatPdfCurrency((item.price || 0) * (item.quantity || item.qty || 1))
+      ]);
 
       autoTable(doc, {
         startY: yPos,
@@ -312,12 +314,18 @@ export default function UserOrderDetails() {
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [0, 0, 0], textColor: 255, fontStyle: 'bold', fontSize: 10 },
-        styles: { fontSize: 9 },
+        styles: { fontSize: 9, overflow: 'linebreak', cellPadding: { top: 2, right: 2, bottom: 2, left: 2 } },
+        bodyStyles: { valign: 'middle' },
         columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: 30, halign: 'center' },
-          2: { cellWidth: 35, halign: 'right' },
-          3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }
+          0: { cellWidth: 86 },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 34, halign: 'right' },
+          3: { cellWidth: 38, halign: 'right', fontStyle: 'bold' }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 0) {
+            data.cell.styles.fontStyle = 'normal';
+          }
         }
       });
 
@@ -328,7 +336,7 @@ export default function UserOrderDetails() {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text('Total:', 145, finalY + 10, { align: 'right' });
-      doc.text(`₹${Number(pricing.total || 0).toFixed(2)}`, 195, finalY + 10, { align: 'right' });
+      doc.text(formatPdfCurrency(pricing.total || 0), 195, finalY + 10, { align: 'right' });
 
       // Save PDF instantly
       const fileName = `Order_Summary_${orderIdDisplay}_${Date.now()}.pdf`;
@@ -646,3 +654,4 @@ export default function UserOrderDetails() {
     </div>);
 
 }
+

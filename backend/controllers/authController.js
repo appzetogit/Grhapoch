@@ -109,6 +109,13 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     return errorResponse(res, 400, 'Either phone number or email, and OTP are required');
   }
 
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
+      return errorResponse(res, 400, 'Invalid email format');
+    }
+  }
+
   // Validate role - admin can be used for admin signup/reset
   const allowedRoles = ['user', 'restaurant', 'delivery', 'admin'];
   const userRole = role || 'user';
@@ -143,6 +150,13 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         return errorResponse(res, 400, `User already exists with this ${identifierType} and role. Please login.`);
       }
 
+      if (normalizedEmail) {
+        const existingEmailUser = await User.findOne({ email: normalizedEmail, role: userRole });
+        if (existingEmailUser) {
+          return errorResponse(res, 400, 'Email already in use');
+        }
+      }
+
       // Name is mandatory for explicit registration
       if (!name) {
         return errorResponse(res, 400, 'Name is required for registration');
@@ -159,12 +173,12 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
       if (normalizedPhone) {
         userData.phone = normalizedPhone;
-        userData.phoneVerified = true;
-      }
-      if (email) {
-        userData.email = normalizedEmail;
-        // Note: We could add emailVerified field if needed
-      }
+      userData.phoneVerified = true;
+    }
+    if (email) {
+      userData.email = normalizedEmail;
+      // Note: We could add emailVerified field if needed
+    }
 
       // If password provided (email/password registration like admin signup), set it
       if (password && !phone) {
@@ -231,6 +245,10 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         }
         // Only include email if provided (don't set to null)
         if (email) {
+          const existingEmailUser = await User.findOne({ email: normalizedEmail, role: userRole });
+          if (existingEmailUser) {
+            return errorResponse(res, 400, 'Email already in use');
+          }
           userData.email = normalizedEmail;
         }
 
@@ -267,9 +285,30 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         // Existing user login - update verification status if needed
         if (normalizedPhone && !user.phoneVerified) {
           user.phoneVerified = true;
+        }
+
+        // If email is provided during phone OTP login, allow attaching it once (if not already set).
+        if (normalizedEmail) {
+          const existingEmail = user.email ? String(user.email).toLowerCase().trim() : '';
+          if (existingEmail && existingEmail !== normalizedEmail) {
+            return errorResponse(res, 400, 'Email already set for this account. Update it from profile settings.');
+          }
+          if (!existingEmail) {
+            const existingEmailUser = await User.findOne({
+              email: normalizedEmail,
+              role: userRole,
+              _id: { $ne: user._id }
+            });
+            if (existingEmailUser) {
+              return errorResponse(res, 400, 'Email already in use');
+            }
+            user.email = normalizedEmail;
+          }
+        }
+
+        if (user.isModified()) {
           await user.save();
         }
-        // Could add email verification status update here if needed
       }
     }
 

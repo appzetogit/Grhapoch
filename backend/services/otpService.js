@@ -236,6 +236,7 @@ class OTPService {
       const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
       const rawDigitsPhone = phone ? phone.replace(/\D/g, '') : null;
       const normalizedEmail = email ? email.toLowerCase().trim() : null;
+      const isPhoneFlow = !!normalizedPhone;
       const phoneVariants = Array.from(
         new Set([normalizedPhone, rawDigitsPhone].filter(Boolean))
       );
@@ -273,7 +274,10 @@ class OTPService {
           expiresAt: { $gt: new Date() }
         };
         if (phoneVariants.length) unverifiedQuery.phone = { $in: phoneVariants };
-        if (normalizedEmail) unverifiedQuery.email = normalizedEmail;
+        // Only constrain by email when the OTP itself was issued for email.
+        // For phone OTP verification we may collect email later (profile completion),
+        // but the OTP record was created for phone and won't have an email value.
+        if (!isPhoneFlow && normalizedEmail) unverifiedQuery.email = normalizedEmail;
 
         otpRecord = await Otp.findOne(unverifiedQuery);
 
@@ -286,7 +290,7 @@ class OTPService {
             expiresAt: { $gt: new Date() }
           };
           if (phoneVariants.length) legacyUnverifiedQuery.phone = { $in: phoneVariants };
-          if (normalizedEmail) legacyUnverifiedQuery.email = normalizedEmail;
+          if (!isPhoneFlow && normalizedEmail) legacyUnverifiedQuery.email = normalizedEmail;
           otpRecord = await Otp.findOne(legacyUnverifiedQuery);
         }
 
@@ -301,7 +305,7 @@ class OTPService {
             updatedAt: { $gt: graceWindow }
           };
           if (phoneVariants.length) verifiedQuery.phone = { $in: phoneVariants };
-          if (normalizedEmail) verifiedQuery.email = normalizedEmail;
+          if (!isPhoneFlow && normalizedEmail) verifiedQuery.email = normalizedEmail;
 
           otpRecord = await Otp.findOne(verifiedQuery);
 
@@ -323,7 +327,7 @@ class OTPService {
               updatedAt: { $gt: graceWindow }
             };
             if (phoneVariants.length) legacyVerifiedQuery.phone = { $in: phoneVariants };
-            if (normalizedEmail) legacyVerifiedQuery.email = normalizedEmail;
+            if (!isPhoneFlow && normalizedEmail) legacyVerifiedQuery.email = normalizedEmail;
             otpRecord = await Otp.findOne(legacyVerifiedQuery);
             if (otpRecord) {
               return {
@@ -342,7 +346,7 @@ class OTPService {
           expiresAt: { $gt: new Date() }
         };
         if (phoneVariants.length) query.phone = { $in: phoneVariants };
-        if (normalizedEmail) query.email = normalizedEmail;
+        if (!isPhoneFlow && normalizedEmail) query.email = normalizedEmail;
 
         otpRecord = await Otp.findOne(query);
 
@@ -355,7 +359,7 @@ class OTPService {
             expiresAt: { $gt: new Date() }
           };
           if (phoneVariants.length) legacyQuery.phone = { $in: phoneVariants };
-          if (normalizedEmail) legacyQuery.email = normalizedEmail;
+          if (!isPhoneFlow && normalizedEmail) legacyQuery.email = normalizedEmail;
           otpRecord = await Otp.findOne(legacyQuery);
         }
       }
@@ -364,7 +368,7 @@ class OTPService {
         // Increment attempts for security (only for unverified OTPs)
         const incrementQuery = { purpose, verified: false };
         if (phoneVariants.length) incrementQuery.phone = { $in: phoneVariants };
-        if (normalizedEmail) incrementQuery.email = normalizedEmail;
+        if (!isPhoneFlow && normalizedEmail) incrementQuery.email = normalizedEmail;
 
         await Otp.updateMany(
           incrementQuery,

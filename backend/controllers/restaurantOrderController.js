@@ -37,7 +37,7 @@ const PAYMENT_CAPTURE_REQUIRED_MESSAGE =
 export const getRestaurantOrders = asyncHandler(async (req, res) => {
   try {
     const restaurant = req.restaurant;
-    const { status, page = 1, limit = 50 } = req.query;
+    const { status, page = 1, limit = 50, search } = req.query;
 
     // Get restaurant ID - normalize to string (Order.restaurantId is String type)
     const restaurantIdString = restaurant._id?.toString() ||
@@ -76,20 +76,47 @@ export const getRestaurantOrders = asyncHandler(async (req, res) => {
     // Also try direct match without ObjectId conversion
     restaurantIdVariations.push(restaurantIdString);
 
-    // Build query - search for orders with any matching restaurantId variation
-    // Use $in for multiple variations and also try direct match as fallback
-    const query = {
-      $or: [
-        { restaurantId: { $in: restaurantIdVariations } },
-        // Direct match fallback
-        { restaurantId: restaurantIdString }]
-
-    };
+    // Build query in composable clauses (avoids $or collisions when search is used)
+    const clauses = [
+      {
+        $or: [
+          { restaurantId: { $in: restaurantIdVariations } },
+          // Direct match fallback
+          { restaurantId: restaurantIdString },
+        ],
+      },
+    ];
 
     // If status filter is provided, add it to query
     if (status && status !== 'all') {
-      query.status = status;
+      clauses.push({ status });
     }
+
+    // Optional search by orderId/clientOrderRef or Mongo _id (helps restaurant UI search)
+    const searchStr = String(search || '').trim();
+    if (searchStr) {
+      const escaped = searchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const digits = searchStr.replace(/\D/g, '');
+
+      const searchOr = [
+        { orderId: { $regex: escaped, $options: 'i' } },
+        { clientOrderRef: { $regex: escaped, $options: 'i' } },
+      ];
+
+      // Also allow searching by numeric part (e.g. "1768751659979" from "ORD-...")
+      if (digits) {
+        searchOr.push({ orderId: { $regex: digits } });
+      }
+
+      // Allow searching by Mongo ObjectId directly (order._id)
+      if (mongoose.Types.ObjectId.isValid(searchStr)) {
+        searchOr.push({ _id: new mongoose.Types.ObjectId(searchStr) });
+      }
+
+      clauses.push({ $or: searchOr });
+    }
+
+    const query = clauses.length === 1 ? clauses[0] : { $and: clauses };
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 

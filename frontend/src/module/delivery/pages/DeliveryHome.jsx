@@ -2483,6 +2483,7 @@ export default function DeliveryHome() {
                 estimatedEarnings: backendEarnings || selectedRestaurant?.estimatedEarnings || 0,
                 amount: earningsValue, // Also set amount for compatibility
                 customerName: order.userId?.name || selectedRestaurant?.customerName,
+                customerPhone: order.userId?.phone || selectedRestaurant?.customerPhone || '',
                 customerAddress: order.address?.formattedAddress || (
                   order.address?.street ? `${order.address.street}, ${order.address.city || ''}, ${order.address.state || ''}`.trim() : '') ||
                   selectedRestaurant?.customerAddress,
@@ -2638,7 +2639,7 @@ export default function DeliveryHome() {
             if (acceptedOrderId) {
               acceptedOrderIdsRef.current.add(acceptedOrderId);
             }
-            clearNewOrder();
+            clearNewOrder(acceptedOrderId);
 
             // Ensure route path is visible
             setShowRoutePath(true);
@@ -3912,6 +3913,38 @@ export default function DeliveryHome() {
     toast.success('Opening Google Maps navigation 🗺️', {
       duration: 2000
     });
+  };
+
+  const handleCallCustomer = async () => {
+    let customerPhone =
+      selectedRestaurant?.customerPhone ||
+      selectedRestaurant?.userPhone ||
+      selectedRestaurant?.userId?.phone ||
+      '';
+
+    // Fallback: fetch latest order details when phone is missing in local state
+    if (!customerPhone && selectedRestaurant?.orderId) {
+      try {
+        const response = await deliveryAPI.getOrderDetails(selectedRestaurant.orderId);
+        const orderData = response?.data?.data;
+        const order = orderData?.order || orderData;
+        customerPhone = order?.userId?.phone || '';
+
+        if (customerPhone) {
+          setSelectedRestaurant((prev) => (prev ? { ...prev, customerPhone } : prev));
+        }
+      } catch (error) {
+        console.error('âŒ [DROP CALL] Failed to fetch customer phone:', error);
+      }
+    }
+
+    if (!customerPhone) {
+      toast.error('Customer phone number not available');
+      return;
+    }
+
+    const cleanPhone = customerPhone.replace(/[^\d+]/g, '');
+    window.location.href = `tel:${cleanPhone}`;
   };
 
   const handleSelectCashPayment = () => {
@@ -10007,7 +10040,7 @@ export default function DeliveryHome() {
         showCloseButton={false}
         closeOnBackdropClick={false}
         disableSwipeToClose={true}
-        maxHeight="70vh"
+        maxHeight="auto"
         showHandle={true}
         showBackdrop={false}
         backdropBlocksInteraction={false}>
@@ -10302,7 +10335,7 @@ export default function DeliveryHome() {
         onClose={() => setShowOrderIdConfirmationPopup(false)}
         showCloseButton={false}
         closeOnBackdropClick={false}
-        maxHeight="60vh"
+        maxHeight="auto"
         showHandle={false}
         showBackdrop={false}
         backdropBlocksInteraction={false}>
@@ -10533,7 +10566,7 @@ export default function DeliveryHome() {
         onClose={() => setShowReachedDropPopup(false)}
         showCloseButton={false}
         closeOnBackdropClick={false}
-        maxHeight="70vh"
+        maxHeight="auto"
         showHandle={true}
         showBackdrop={false}
         backdropBlocksInteraction={false}>
@@ -10561,11 +10594,15 @@ export default function DeliveryHome() {
 
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handleCallCustomer}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
               <Phone className="w-5 h-5 text-gray-700" />
               <span className="text-gray-700 font-medium">Call</span>
             </button>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+            <button
+              onClick={handleStartNavigation}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
               <MapPin className="w-5 h-5 text-white" />
               <span className="text-white font-medium">Map</span>
             </button>
@@ -10644,7 +10681,7 @@ export default function DeliveryHome() {
         }}
         showCloseButton={false}
         closeOnBackdropClick={false}
-        maxHeight="80vh"
+        maxHeight="auto"
         showHandle={true}
         showBackdrop={false}
         backdropBlocksInteraction={false}>

@@ -25,7 +25,8 @@ export default function Category() {
     name: "",
     image: null,
     status: true,
-    type: ""
+    type: "",
+    categoryFor: "food",
   });
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -238,7 +239,8 @@ export default function Category() {
       name: category.name || "",
       image: safeImage || null,
       status: category.status !== undefined ? category.status : true,
-      type: category.type || ""
+      type: category.type || "",
+      categoryFor: category.categoryFor || "food",
     });
     setSelectedImageFile(null);
     setImagePreview(safeImage || null);
@@ -251,7 +253,8 @@ export default function Category() {
       name: "",
       image: null,
       status: true,
-      type: ""
+      type: "",
+      categoryFor: "food",
     });
     setSelectedImageFile(null);
     setImagePreview(null);
@@ -407,6 +410,7 @@ export default function Category() {
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
       formDataToSend.append('type', formData.type);
+      formDataToSend.append('categoryFor', formData.categoryFor);
       formDataToSend.append('status', formData.status.toString());
 
       // Add image file if selected, otherwise use existing image URL
@@ -1017,6 +1021,21 @@ export default function Category() {
                   
                   {/* Form */}
                   <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Category For *
+                      </label>
+                      <select
+                        required
+                        value={formData.categoryFor}
+                        onChange={(e) => setFormData({ ...formData, categoryFor: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="food">Food (User app)</option>
+                        <option value="restaurant">Restaurant</option>
+                        <option value="dining">Dining</option>
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Category Type *

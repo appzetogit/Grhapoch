@@ -368,7 +368,7 @@ export default function MyAdvertisements() {
         <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">My Advertisements</h1>
         <button
           onClick={() => setFormOpen((prev) => !prev)}
-          className="px-3 py-1.5 rounded-lg bg-black text-white text-sm font-medium flex items-center gap-1"
+          className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium flex items-center gap-1 transition-colors"
         >
           <Plus className="w-4 h-4" />
           New
@@ -489,7 +489,7 @@ export default function MyAdvertisements() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={handleCreate} disabled={creating || isOptimizingBanner} className="bg-black hover:bg-gray-800 text-white">
+                <Button onClick={handleCreate} disabled={creating || isOptimizingBanner} className="bg-green-600 hover:bg-green-700 text-white">
                   {isOptimizingBanner ? "Optimizing Banner..." : creating ? "Submitting..." : "Submit Request"}
                 </Button>
                 <Button
@@ -520,7 +520,7 @@ export default function MyAdvertisements() {
               {activeFilter === filter.id && (
                 <Motion.div
                   layoutId="userActiveFilter"
-                  className="absolute inset-0 bg-black dark:bg-gray-700 rounded-full z-0"
+                  className="absolute inset-0 bg-green-600 dark:bg-green-600 rounded-full z-0"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}
@@ -578,7 +578,7 @@ export default function MyAdvertisements() {
                           e.stopPropagation()
                           navigate(`/user/profile/advertisements/${ad.id}`)
                         }}
-                        className="p-2 bg-black dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+                        className="p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex-shrink-0"
                       >
                         <ChevronRight className="w-5 h-5 text-white" />
                       </button>

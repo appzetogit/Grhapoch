@@ -1,6 +1,7 @@
 import RestaurantComplaint from '../models/RestaurantComplaint.js';
 import Order from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
+import mongoose from 'mongoose';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 
@@ -33,8 +34,14 @@ export const submitComplaint = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Invalid complaint type');
     }
 
-    // Get order details
-    const order = await Order.findById(orderId).populate('restaurantId', 'name').lean();
+    // Get order details (support both Mongo ObjectId and business orderId)
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId) && String(orderId).length === 24) {
+      order = await Order.findById(orderId).lean();
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId: String(orderId) }).lean();
+    }
     if (!order) {
       return errorResponse(res, 404, 'Order not found');
     }
@@ -46,13 +53,24 @@ export const submitComplaint = asyncHandler(async (req, res) => {
     }
 
     // Check if complaint already exists for this order
-    const existingComplaint = await RestaurantComplaint.findOne({ orderId, customerId: userId });
+    const existingComplaint = await RestaurantComplaint.findOne({ orderId: order._id, customerId: userId });
     if (existingComplaint) {
       return errorResponse(res, 400, 'You have already submitted a complaint for this order');
     }
 
     // Get restaurant details
-    const restaurant = await Restaurant.findById(order.restaurantId).lean();
+    let restaurant = null;
+    if (order.restaurantId && mongoose.Types.ObjectId.isValid(order.restaurantId)) {
+      restaurant = await Restaurant.findById(order.restaurantId).lean();
+    }
+    if (!restaurant) {
+      restaurant = await Restaurant.findOne({
+        $or: [
+          { _id: order.restaurantId },
+          { restaurantId: String(order.restaurantId) }
+        ]
+      }).lean();
+    }
     if (!restaurant) {
       return errorResponse(res, 404, 'Restaurant not found');
     }
@@ -63,7 +81,7 @@ export const submitComplaint = asyncHandler(async (req, res) => {
       orderNumber: order.orderId || order.orderNumber || `ORD-${order._id.toString().slice(-8)}`,
       customerId: userId,
       customerName: req.user.name || 'Customer',
-      customerPhone: req.user.phone || '',
+      customerPhone: req.user.phone || 'N/A',
       customerEmail: req.user.email || '',
       restaurantId: restaurant._id,
       restaurantName: restaurant.name || 'Restaurant',

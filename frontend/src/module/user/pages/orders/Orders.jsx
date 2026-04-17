@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { shareContent } from "@/lib/utils/share";
 import { useCart } from "../../context/CartContext";
 import FoodTypeIcon from "../../components/FoodTypeIcon";
+import ShareSheet from "../../components/ShareSheet";
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -18,6 +19,9 @@ export default function Orders() {
   const [feedbackText, setFeedbackText] = useState("");
   const { addToCart, clearCart } = useCart();
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [variantQuantity, setVariantQuantity] = useState(1);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareData, setShareData] = useState(null);
   const [countdowns, setCountdowns] = useState({});
   const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
   // Track orders that have shown rating popup - persist in localStorage
@@ -411,20 +415,12 @@ export default function Orders() {
 
     const shareText = `Check out ${order.restaurant} on GrhaPoch!`;
 
-    const result = await shareContent({
+    setShareData({
       title: order.restaurant,
       text: shareText,
       url: restaurantUrl
     });
-
-    if (result.status === "copied") {
-      toast.success("Restaurant details copied to clipboard");
-    } else if (result.status === "unsupported") {
-      toast.info("Sharing is not supported on this device");
-    } else if (result.status !== "shared" && result.status !== "cancelled") {
-      toast.error("Failed to share restaurant");
-    }
-
+    setIsShareSheetOpen(true);
     setActiveMenuOrderId(null);
   };
 
@@ -435,15 +431,8 @@ export default function Orders() {
       url: `${window.location.origin}/user/orders/${order?.orderId || order?._id || order?.id}`
     };
 
-    const result = await shareContent(shareData);
-    if (result.status === "shared") {
-      toast.success("Tracking link shared successfully!");
-    } else if (result.status === "copied") {
-      toast.success("Tracking link copied to clipboard!");
-    } else if (result.status === "unsupported") {
-      toast.error("Sharing is not supported on this device");
-    }
-
+    setShareData(shareData);
+    setIsShareSheetOpen(true);
     setActiveMenuOrderId(null);
   };
 
@@ -1037,6 +1026,11 @@ export default function Orders() {
           </div>
         </div>
       }
+      <ShareSheet
+        isOpen={isShareSheetOpen}
+        onClose={() => setIsShareSheetOpen(false)}
+        shareData={shareData}
+      />
     </div>);
 
 }

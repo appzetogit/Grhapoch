@@ -12,6 +12,7 @@ import axios from "axios";
 import { getRazorpayKeyId } from "@/lib/utils/razorpayKey";
 import { shareContent } from "@/lib/utils/share";
 import { mergeDiningBookings, normalizeDiningBooking, parseBookingDateTime, readDiningBookings, writeDiningBookings } from "../utils/diningBookings";
+import ShareSheet from "../components/ShareSheet";
 
 const CANCELLATION_WINDOW_MS = 4 * 60 * 60 * 1000;
 
@@ -40,6 +41,8 @@ export default function DiningRestaurantDetail() {
   const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [platformFee, setPlatformFee] = useState(0);
   const [lastBookingSummary, setLastBookingSummary] = useState(null);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareData, setShareData] = useState(null);
 
   const normalizePhoneInput = (value = "") => String(value).replace(/\D/g, "").slice(0, 10);
 
@@ -50,19 +53,12 @@ export default function DiningRestaurantDetail() {
     const shareUrl = `${window.location.origin}/user/dining/${category || 'all'}/${restaurantSlug}`;
     const shareText = `Check out ${restaurantName} on GrhaPoch!`;
 
-    const result = await shareContent({
+    setShareData({
       title: restaurantName,
       text: shareText,
       url: shareUrl
     });
-
-    if (result.status === "shared") {
-      toast.success("Restaurant shared successfully");
-    } else if (result.status === "copied") {
-      toast.success("Link copied to clipboard");
-    } else if (result.status === "unsupported") {
-      toast.error("Sharing is not supported on this device");
-    }
+    setIsShareSheetOpen(true);
   };
 
   const handleToggleFavorite = () => {

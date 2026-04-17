@@ -45,6 +45,7 @@ import { useProfile } from "../../context/ProfileContext";
 import AddToCartAnimation from "../../components/AddToCartAnimation";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import FoodTypeIcon from "../../components/FoodTypeIcon";
+import ShareSheet from "../../components/ShareSheet";
 
 
 
@@ -93,6 +94,9 @@ export default function RestaurantDetails() {
       return false;
     }
   })();
+
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareData, setShareData] = useState(null);
 
   useEffect(() => {
     if (!isPureVegModeOnly) return;
@@ -1123,21 +1127,13 @@ export default function RestaurantDetails() {
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}`;
     const shareText = `Check out ${restaurantName} on GrhaPoch!`;
 
-    const result = await shareContent({
+    setShareData({
       title: restaurantName,
       text: shareText,
       url: shareUrl
     });
-
-    if (result.status === "shared") {
-      toast.success("Restaurant shared successfully");
-      setShowMenuOptionsSheet(false);
-    } else if (result.status === "copied") {
-      toast.success("Link copied to clipboard!");
-      setShowMenuOptionsSheet(false);
-    } else if (result.status === "unsupported") {
-      toast.error("Sharing is not supported on this device");
-    }
+    setIsShareSheetOpen(true);
+    setShowMenuOptionsSheet(false);
   };
 
 
@@ -1151,19 +1147,12 @@ export default function RestaurantDetails() {
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}?dish=${dishId}`;
     const shareText = `Check out ${item.name} from ${restaurant?.name || "this restaurant"}!`;
 
-    const result = await shareContent({
+    setShareData({
       title: `${item.name} - ${restaurant?.name || ""}`,
       text: shareText,
       url: shareUrl
     });
-
-    if (result.status === "shared") {
-      toast.success("Dish shared successfully");
-    } else if (result.status === "copied") {
-      toast.success("Link copied to clipboard!");
-    } else if (result.status === "unsupported") {
-      toast.error("Sharing is not supported on this device");
-    }
+    setIsShareSheetOpen(true);
   };
 
   // Handle item card click
@@ -3408,6 +3397,11 @@ export default function RestaurantDetails() {
         }
         confirmText="Yes, Remove"
         cancelText="No, Keep it"
+      />
+      <ShareSheet
+        isOpen={isShareSheetOpen}
+        onClose={() => setIsShareSheetOpen(false)}
+        shareData={shareData}
       />
     </AnimatedPage>);
 

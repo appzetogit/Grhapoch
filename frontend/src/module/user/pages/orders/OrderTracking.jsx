@@ -36,6 +36,7 @@ import { useLocation as useUserLocation } from "../../hooks/useLocation";
 import DeliveryTrackingMap from "../../components/DeliveryTrackingMap";
 import { orderAPI, restaurantAPI } from "@/lib/api";
 import { shareContent } from "@/lib/utils/share";
+import ShareSheet from "../../components/ShareSheet";
 import circleIcon from "@/assets/circleicon.png";
 const AnimatedCheckmark = ({ delay = 0 }) =>
   <motion.svg
@@ -232,6 +233,8 @@ export default function OrderTracking() {
   const [showConfirmation, setShowConfirmation] = useState(confirmed);
   const [orderStatus, setOrderStatus] = useState('placed');
   const [estimatedTime, setEstimatedTime] = useState(29);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareData, setShareData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
@@ -615,14 +618,8 @@ export default function OrderTracking() {
       url: window.location.href
     };
 
-    const result = await shareContent(shareData);
-    if (result.status === "shared") {
-      toast.success("Tracking link shared successfully!");
-    } else if (result.status === "copied") {
-      toast.success("Tracking link copied to clipboard!");
-    } else if (result.status === "unsupported") {
-      toast.error("Sharing is not supported on this device");
-    }
+    setShareData(shareData);
+    setIsShareSheetOpen(true);
   };
 
   const handleCallRestaurant = () => {

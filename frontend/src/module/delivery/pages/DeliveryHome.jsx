@@ -1343,6 +1343,9 @@ export default function DeliveryHome() {
     }
 
     try {
+      // Stop any background notification sound from the hook to prevent parallel ringing
+      stopNotificationSound();
+      
       // Get selected alert sound preference from localStorage
       const selectedSound = localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
       const soundFile = selectedSound === 'original' ? originalSound : alertSound;
@@ -1540,6 +1543,12 @@ export default function DeliveryHome() {
 
       return () => {
         clearTimeout(timeoutId);
+        if (alertAudioRef.current) {
+          alertAudioRef.current.pause();
+          alertAudioRef.current.currentTime = 0;
+          alertAudioRef.current = null;
+        }
+        stopNotificationSound();
       };
     } else {
       // Stop audio when popup closes

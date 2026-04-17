@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import ShareSheet from "../components/ShareSheet"
+import { shareContent } from "@/lib/utils/share"
 
 // Sample product data - in a real app, this would come from an API
 const productsData = {
@@ -132,18 +133,32 @@ export default function ProductDetail() {
     return Math.round((sum / reviews.length) * 10) / 10
   }, [reviews, product])
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!product) return;
     
     const shareUrl = window.location.href;
     const shareText = `Check out ${product.name} from ${product.restaurant} on GrhaPoch!`;
     
-    setShareData({
+    const shareDataPayload = {
       title: product.name,
       text: shareText,
       url: shareUrl
-    });
-    setIsShareSheetOpen(true);
+    };
+
+    try {
+      const result = await shareContent(shareDataPayload);
+      
+      if (result.status === "shared" || result.status === "cancelled") {
+        return;
+      }
+      
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    } catch (error) {
+      console.error("Error sharing:", error);
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    }
   }
 
   const handleAddToCart = () => {

@@ -19,6 +19,7 @@ import api from "@/lib/api";
 import { restaurantAPI } from "@/lib/api";
 import FoodTypeIcon from "../components/FoodTypeIcon";
 import ShareSheet from "../components/ShareSheet";
+import { shareContent } from "@/lib/utils/share";
 
 export default function Under250() {
   const { location } = useLocation();
@@ -357,21 +358,33 @@ export default function Under250() {
     setShowItemDetail(true);
   };
 
-  const handleShareClick = (item) => {
+  const handleShareClick = async (item) => {
     const dishId = item.id || item._id;
     const restaurantId = item.restaurantId;
 
-    // Create share URL - since we are in Under250, we usually link to the restaurant page with search query
-    // But if we have a direct slug, we use that. For now using general search or restaurant detail.
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantId}?dish=${dishId}`;
     const shareText = `Check out ${item.name} from ${item.restaurant || "this restaurant"}! Only for ₹${Math.round(item.price)} on GrhaPoch!`;
 
-    setShareData({
+    const shareDataPayload = {
       title: item.name,
       text: shareText,
       url: shareUrl
-    });
-    setIsShareSheetOpen(true);
+    };
+
+    try {
+      const result = await shareContent(shareDataPayload);
+      
+      if (result.status === "shared" || result.status === "cancelled") {
+        return;
+      }
+      
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    } catch (error) {
+      console.error("Error sharing:", error);
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    }
   };
 
   const handleBookmarkClick = (itemId) => {

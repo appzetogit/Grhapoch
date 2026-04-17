@@ -44,6 +44,7 @@ export default function ProfilePage() {
     return localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
   });
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const previewAudioRef = useRef(null);
 
   useEffect(() => {
     // Initialize Lenis for smooth scrolling
@@ -200,12 +201,64 @@ export default function ProfilePage() {
 
     toast.success("Logged out successfully");
 
-    // Small delay to ensure cleanup completes
     setTimeout(() => {
       // Redirect to sign-in
       navigate("/delivery/sign-in", { replace: true });
     }, 100);
   };
+
+  // Helper to play preview sound correctly
+  const playPreviewSound = (soundPath) => {
+    // Stop and clear any existing preview
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+      previewAudioRef.current = null;
+    }
+
+    try {
+      const audio = new Audio(soundPath);
+      audio.volume = 0.7;
+      previewAudioRef.current = audio;
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Audio playback failed:", err);
+          previewAudioRef.current = null;
+        });
+      }
+
+      // Clear ref when audio ends
+      audio.onended = () => {
+        if (previewAudioRef.current === audio) {
+          previewAudioRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.error("Error playing sound:", err);
+      previewAudioRef.current = null;
+    }
+  };
+
+  // Stop sound when popup closes or unmounts
+  const stopPreviewSound = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+      previewAudioRef.current = null;
+    }
+    setShowAlertSoundPopup(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 font-poppins overflow-x-hidden">
@@ -342,7 +395,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold">Order alert sound</h3>
               <button
-                onClick={() => setShowAlertSoundPopup(false)}
+                onClick={stopPreviewSound}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors">
 
                 <X className="w-5 h-5 text-gray-500" />
@@ -363,22 +416,7 @@ export default function ProfilePage() {
                     onChange={(e) => {
                       setSelectedAlertSound(e.target.value);
                       localStorage.setItem('delivery_alert_sound', e.target.value);
-                      // Play preview sound
-                      try {
-
-                        const audio = new Audio(originalSound);
-                        audio.volume = 0.7;
-                        const playPromise = audio.play();
-                        if (playPromise !== undefined) {
-                          playPromise.
-                            then(() => {
-
-                            }).
-                            catch((err) => {
-                            });
-                        }
-                      } catch (err) {
-                      }
+                      playPreviewSound(originalSound);
                     }}
                     className="w-5 h-5 text-black focus:ring-2 focus:ring-black" />
 
@@ -395,22 +433,7 @@ export default function ProfilePage() {
                     onChange={(e) => {
                       setSelectedAlertSound(e.target.value);
                       localStorage.setItem('delivery_alert_sound', e.target.value);
-                      // Play preview sound
-                      try {
-
-                        const audio = new Audio(alertSound);
-                        audio.volume = 0.7;
-                        const playPromise = audio.play();
-                        if (playPromise !== undefined) {
-                          playPromise.
-                            then(() => {
-
-                            }).
-                            catch((err) => {
-                            });
-                        }
-                      } catch (err) {
-                      }
+                      playPreviewSound(alertSound);
                     }}
                     className="w-5 h-5 text-black focus:ring-2 focus:ring-black" />
 
@@ -421,7 +444,7 @@ export default function ProfilePage() {
             {/* Ok Button */}
             <div className="p-4 border-t border-gray-200">
               <button
-                onClick={() => setShowAlertSoundPopup(false)}
+                onClick={stopPreviewSound}
                 className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
 
                 Ok

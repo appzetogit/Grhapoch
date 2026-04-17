@@ -49,16 +49,34 @@ export default function DiningRestaurantDetail() {
   const handleShareRestaurant = async () => {
     const restaurantSlug = restaurant?.slug || slug || "";
     const restaurantName = restaurant?.name || "this restaurant";
+    
     // Create share URL
     const shareUrl = `${window.location.origin}/user/dining/${category || 'all'}/${restaurantSlug}`;
     const shareText = `Check out ${restaurantName} on GrhaPoch!`;
 
-    setShareData({
+    const shareDataPayload = {
       title: restaurantName,
       text: shareText,
       url: shareUrl
-    });
-    setIsShareSheetOpen(true);
+    };
+
+    try {
+      const result = await shareContent(shareDataPayload);
+      
+      // If native share succeeded or user cancelled, we don't need the custom sheet
+      if (result.status === "shared" || result.status === "cancelled") {
+        return;
+      }
+      
+      // If it returned "copied", we still show the sheet so user can share via other apps if they want
+      // Or if it was "unsupported" (desktop), we show the custom sheet
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    } catch (error) {
+      console.error("Error sharing:", error);
+      setShareData(shareDataPayload);
+      setIsShareSheetOpen(true);
+    }
   };
 
   const handleToggleFavorite = () => {

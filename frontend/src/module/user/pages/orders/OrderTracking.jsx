@@ -616,7 +616,9 @@ export default function OrderTracking() {
     };
 
     const result = await shareContent(shareData);
-    if (result.status === "copied") {
+    if (result.status === "shared") {
+      toast.success("Tracking link shared successfully!");
+    } else if (result.status === "copied") {
       toast.success("Tracking link copied to clipboard!");
     } else if (result.status === "unsupported") {
       toast.error("Sharing is not supported on this device");

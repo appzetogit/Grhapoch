@@ -97,14 +97,10 @@ const tryFlutterShare = async (payload) => {
       });
       const normalizedResult = normalizeBridgeResult(result);
 
-      // Many native bridges are fire-and-forget and return null/undefined on success.
       if (result == null) return true;
-
-      // Most bridges return object/true on success, false or { success:false } on failure.
       if (result === false || normalizedResult.success === false || normalizedResult.cancelled === true) continue;
       return true;
     } catch (_) {
-      // Try next possible handler with text-only argument (some bridges expect a string).
       try {
         const fallbackResult = await bridge.callHandler(handlerName, message);
         const normalizedFallback = normalizeBridgeResult(fallbackResult);
@@ -116,9 +112,7 @@ const tryFlutterShare = async (payload) => {
         ) {
           return true;
         }
-      } catch (_) {
-        // Try next possible handler.
-      }
+      } catch (_) {}
     }
   }
 
@@ -138,57 +132,67 @@ const tryAndroidWebViewShare = async (payload) => {
     try {
       method(message);
       return true;
-    } catch (_) {
-      // Try next bridge method.
-    }
+    } catch (_) {}
   }
   return false;
 };
 
 const isNativeRuntime = () => {
   if (typeof window === "undefined") return false;
-  return Boolean(
-    window?.flutter_inappwebview?.callHandler ||
-    window?.Android ||
-    window?.AndroidInterface ||
-    window?.JSBridge ||
-    window?.webkit?.messageHandlers?.share ||
-    window?.Capacitor?.Plugins?.Share
-  );
+  
+  // Check for specific bridge properties
+  const hasFlutter = !!window?.flutter_inappwebview?.callHandler;
+  const hasAndroid = !!(window?.Android || window?.AndroidInterface);
+  const hasIOS = !!window?.webkit?.messageHandlers?.share;
+  const hasJSBridge = !!window?.JSBridge;
+  const hasCapacitor = !!window?.Capacitor?.Plugins?.Share;
+  
+  // Also check User Agent for common WebView markers if bridges aren't immediately detectable
+  const ua = navigator.userAgent.toLowerCase();
+  const isWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(ua) || 
+                    ua.includes('wv') || 
+                    ua.includes('android');
+
+  return hasFlutter || hasAndroid || hasIOS || hasJSBridge || hasCapacitor || (isWebView && !ua.includes('chrome') && !ua.includes('safari'));
 };
 
 export async function shareContent({ title = "", text = "", url = "" } = {}) {
   const payload = getSharePayload({ title, text, url });
   const isAppRuntime = isNativeRuntime();
   const messageText = getMessageText(payload);
+  const clipboardText = getClipboardText(payload);
 
   if (!payload.title && !payload.text && !payload.url) {
     return { status: "unsupported" };
   }
 
-  try {
-    if (navigator?.share) {
-      if (navigator.canShare && !navigator.canShare(payload)) {
-        // Some environments reject URL payloads but allow text-only shares.
-        const textOnlyPayload = {
-          ...(payload.title ? { title: payload.title } : {}),
-          ...(messageText ? { text: messageText } : {})
-        };
-        if (!navigator.canShare || navigator.canShare(textOnlyPayload)) {
-          await navigator.share(textOnlyPayload);
-          return { status: "shared", method: "web-share-text" };
-        }
-      } else {
+  // 1. Try Web Share API (Primary for browsers)
+  if (navigator?.share) {
+    try {
+      // First try complete payload
+      if (!navigator.canShare || navigator.canShare(payload)) {
         await navigator.share(payload);
         return { status: "shared", method: "web-share" };
       }
-    }
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      return { status: "cancelled", method: "web-share" };
+      
+      // Secondary attempt with text only if URL causes issues
+      const textOnlyPayload = {
+        ...(payload.title ? { title: payload.title } : {}),
+        text: messageText
+      };
+      if (!navigator.canShare || navigator.canShare(textOnlyPayload)) {
+        await navigator.share(textOnlyPayload);
+        return { status: "shared", method: "web-share-text" };
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return { status: "cancelled", method: "web-share" };
+      }
+      // If other types of errors, proceed to native bridges
     }
   }
 
+  // 2. Try Native Bridges (For Android/iOS/Flutter wrappers)
   try {
     const flutterShared = await tryFlutterShare(payload);
     if (flutterShared) return { status: "shared", method: "flutter-bridge" };
@@ -199,15 +203,13 @@ export async function shareContent({ title = "", text = "", url = "" } = {}) {
     if (androidShared) return { status: "shared", method: "android-bridge" };
   } catch (_) {}
 
-  // In native app runtimes, avoid silent clipboard fallback for share actions.
-  if (isAppRuntime) {
-    return { status: "unsupported", method: "native-share-unavailable" };
-  }
-
-  const copied = await copyToClipboard(getClipboardText(payload));
+  // 3. Fallback to Clipboard (Only if not in a native app where we expect a share menu)
+  // If we suspect a native runtime but all bridges failed, still try clipboard but prioritize logging
+  const copied = await copyToClipboard(clipboardText);
   if (copied) {
     return { status: "copied", method: "clipboard" };
   }
 
   return { status: "unsupported" };
 }
+

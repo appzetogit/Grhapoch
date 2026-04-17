@@ -428,6 +428,25 @@ export default function Orders() {
     setActiveMenuOrderId(null);
   };
 
+  const handleShareTracking = async (order) => {
+    const shareData = {
+      title: `Track my order from ${order?.restaurant}`,
+      text: `Hey! I'm tracking my food order #${order?.id} from ${order?.restaurant} on GrhaPoch.`,
+      url: `${window.location.origin}/user/orders/${order?.orderId || order?._id || order?.id}`
+    };
+
+    const result = await shareContent(shareData);
+    if (result.status === "shared") {
+      toast.success("Tracking link shared successfully!");
+    } else if (result.status === "copied") {
+      toast.success("Tracking link copied to clipboard!");
+    } else if (result.status === "unsupported") {
+      toast.error("Sharing is not supported on this device");
+    }
+
+    setActiveMenuOrderId(null);
+  };
+
   const handleViewOrderDetails = (order) => {
     setActiveMenuOrderId(null);
     navigate(`/user/orders/${order.orderId || order._id || order.id}`);
@@ -650,6 +669,14 @@ export default function Orders() {
 
                       Share restaurant
                     </button>
+                    {!['delivered', 'cancelled', 'restaurant_cancelled'].includes(order.status) && (
+                      <button
+                        type="button"
+                        onClick={() => handleShareTracking(order)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200">
+                        Share tracking link
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleViewOrderDetails(order)}

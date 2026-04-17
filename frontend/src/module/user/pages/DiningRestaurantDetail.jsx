@@ -46,8 +46,9 @@ export default function DiningRestaurantDetail() {
   const handleShareRestaurant = async () => {
     const restaurantSlug = restaurant?.slug || slug || "";
     const restaurantName = restaurant?.name || "this restaurant";
+    // Create share URL
     const shareUrl = `${window.location.origin}/user/dining/${category || 'all'}/${restaurantSlug}`;
-    const shareText = `Check out ${restaurantName} on GrhaPoch! ${shareUrl}`;
+    const shareText = `Check out ${restaurantName} on GrhaPoch!`;
 
     const result = await shareContent({
       title: restaurantName,
@@ -140,7 +141,7 @@ export default function DiningRestaurantDetail() {
         writeDiningBookings(mergedBookings);
       }
     } catch (error) {
-
+      console.error("Failed to sync bookings", error);
     }
   };
 

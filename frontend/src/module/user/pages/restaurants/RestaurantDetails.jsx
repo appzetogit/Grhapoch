@@ -1121,7 +1121,7 @@ export default function RestaurantDetails() {
 
     // Create share URL
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}`;
-    const shareText = `Check out ${restaurantName} on GrhaPoch! ${shareUrl}`;
+    const shareText = `Check out ${restaurantName} on GrhaPoch!`;
 
     const result = await shareContent({
       title: restaurantName,
@@ -1149,7 +1149,7 @@ export default function RestaurantDetails() {
 
     // Create share URL
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}?dish=${dishId}`;
-    const shareText = `Check out ${item.name} from ${restaurant?.name || "this restaurant"}! ${shareUrl}`;
+    const shareText = `Check out ${item.name} from ${restaurant?.name || "this restaurant"}!`;
 
     const result = await shareContent({
       title: `${item.name} - ${restaurant?.name || ""}`,

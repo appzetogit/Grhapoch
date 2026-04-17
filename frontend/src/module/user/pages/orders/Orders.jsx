@@ -405,13 +405,16 @@ export default function Orders() {
       order.restaurantLocation ||
       `${order.address?.city || ""}, ${order.address?.state || ""}`.trim();
 
-    const shareText = `Check out ${order.restaurant} on GrhaPoch.
-Location: ${location || "Location not available"}
-Order again from this restaurant in the GrhaPoch app.`;
+    const restaurantId = getRestaurantId(order.restaurantId);
+    const origin = window.location.origin;
+    const restaurantUrl = restaurantId ? `${origin}/user/restaurants/${restaurantId}` : origin;
+
+    const shareText = `Check out ${order.restaurant} on GrhaPoch!`;
 
     const result = await shareContent({
       title: order.restaurant,
-      text: shareText
+      text: shareText,
+      url: restaurantUrl
     });
 
     if (result.status === "copied") {
@@ -700,9 +703,9 @@ Order again from this restaurant in the GrhaPoch app.`;
                                 }
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <span className="text-sm font-semibold text-gray-800">₹{itemTotal.toFixed(2)}</span>
+                                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">₹{itemTotal.toFixed(2)}</span>
                                 {itemQuantity > 1 &&
-                                  <p className="text-xs text-gray-500">₹{itemPrice.toFixed(2)} each</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">₹{itemPrice.toFixed(2)} each</p>
                                 }
                               </div>
                             </div>
@@ -721,19 +724,19 @@ Order again from this restaurant in the GrhaPoch app.`;
                     {order.subtotal > 0 &&
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                        <span className="text-gray-800 font-medium">₹{order.subtotal.toFixed(2)}</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.subtotal.toFixed(2)}</span>
                       </div>
                     }
                     {order.deliveryFee > 0 &&
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">Delivery Fee</span>
-                        <span className="text-gray-800 font-medium">₹{order.deliveryFee.toFixed(2)}</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.deliveryFee.toFixed(2)}</span>
                       </div>
                     }
                     {order.tax > 0 &&
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">Tax</span>
-                        <span className="text-gray-800 font-medium">₹{order.tax.toFixed(2)}</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.tax.toFixed(2)}</span>
                       </div>
                     }
                     {order.pricing?.discount > 0 &&
@@ -745,13 +748,13 @@ Order again from this restaurant in the GrhaPoch app.`;
                     {order.pricing?.couponCode &&
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">Coupon Applied</span>
-                        <span className="text-gray-800 font-medium">{order.pricing.couponCode}</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">{order.pricing.couponCode}</span>
                       </div>
                     }
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-1.5">
                       <div className="flex justify-between">
                         <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Total</span>
-                        <span className="text-base font-bold text-gray-900">₹{order.total.toFixed(2)}</span>
+                        <span className="text-base font-bold text-gray-900 dark:text-white">₹{order.total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

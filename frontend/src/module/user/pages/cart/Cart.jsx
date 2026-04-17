@@ -11,7 +11,7 @@ import { useProfile } from "../../context/ProfileContext";
 import { useOrders } from "../../context/OrdersContext";
 import { useLocation as useUserLocation } from "../../hooks/useLocation";
 import { useLocationSelector } from "../../components/UserLayout";
-import { orderAPI, restaurantAPI, publicAPI, userAPI, API_ENDPOINTS } from "@/lib/api";
+import { orderAPI, restaurantAPI, publicAPI, userAPI, couponAPI, API_ENDPOINTS } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/api/config";
 import { initRazorpayPayment } from "@/lib/utils/razorpay";
 import { toast } from "sonner";
@@ -617,8 +617,8 @@ export default function Cart() {
 
   // Fetch coupons for items in cart
   useEffect(() => {
-    const fetchCouponsForCartItems = async () => {
-      if (cart.length === 0 || !restaurantId) {
+    const fetchCouponsForRestaurant = async () => {
+      if (!restaurantId) {
         setAvailableCoupons([]);
         return;
       }
@@ -626,46 +626,36 @@ export default function Cart() {
       setLoadingCoupons(true);
 
       try {
-        const couponPromises = cart.map(async (cartItem) => {
-          if (!cartItem.id) return [];
-          try {
-            const response = await restaurantAPI.getCouponsByItemIdPublic(restaurantId, cartItem.id);
-            return (response?.data?.success && response?.data?.data?.coupons) ? response.data.data.coupons : [];
-          } catch (error) {
-            console.error(`[CART-COUPONS] Error fetching coupons for item ${cartItem.id}:`, error);
-            return [];
-          }
-        });
-
-        const results = await Promise.all(couponPromises);
-        const allCoupons = [];
-        const uniqueCouponCodes = new Set();
-
-        results.flat().forEach((coupon) => {
-          if (!uniqueCouponCodes.has(coupon.couponCode)) {
-            uniqueCouponCodes.add(coupon.couponCode);
-            allCoupons.push({
-              code: coupon.couponCode,
-              discount: coupon.originalPrice - coupon.discountedPrice,
-              discountPercentage: coupon.discountPercentage,
-              minOrder: coupon.minOrderValue || 0,
-              description: `Save ₹${coupon.originalPrice - coupon.discountedPrice} with '${coupon.couponCode}'`,
-              originalPrice: coupon.originalPrice,
-              discountedPrice: coupon.discountedPrice,
-            });
-          }
-        });
-
-        setAvailableCoupons(allCoupons);
+        const response = await couponAPI.getAvailableCoupons(restaurantId);
+        
+        if (response?.data?.success && response?.data?.data) {
+          const fetchedCoupons = response.data.data.map(coupon => ({
+            code: coupon.couponCode,
+            couponCode: coupon.couponCode, // Keep both for safety
+            discount: 0,
+            discountPercentage: coupon.discountPercentage,
+            minOrder: coupon.minOrderValue || 0,
+            minOrderValue: coupon.minOrderValue || 0,
+            description: coupon.isLegacy ? `Special offer on ${coupon.targetItemName}` : `${coupon.discountPercentage}% OFF on orders above ₹${coupon.minOrderValue}`,
+            maxDiscountLimit: coupon.maxDiscountLimit,
+            isLegacy: coupon.isLegacy,
+            itemId: coupon.itemId,
+            targetItemName: coupon.targetItemName,
+            originalPrice: coupon.originalPrice,
+            discountedPrice: coupon.discountedPrice
+          }));
+          setAvailableCoupons(fetchedCoupons);
+        }
       } catch (error) {
-        console.error("Error in parallel coupon fetch:", error);
+        console.error("[CART-COUPONS] Error fetching coupons:", error);
+        setAvailableCoupons([]);
       } finally {
         setLoadingCoupons(false);
       }
     };
 
-    fetchCouponsForCartItems();
-  }, [cart, restaurantId]);
+    fetchCouponsForRestaurant();
+  }, [restaurantId]);
 
   // Calculate pricing from backend whenever cart, address, or coupon changes
   useEffect(() => {
@@ -802,7 +792,67 @@ export default function Cart() {
   const savings = hasPricing ? pricing.savings : 0;
   const walletInsufficient = hasPricing && selectedPaymentMethod === "wallet" && walletBalance < total;
 
+  // Enriched coupons with potential savings calculated from current subtotal
+  const enrichedCoupons = useMemo(() => {
+    return availableCoupons
+      .map(coupon => {
+        let potentialDiscount = 0;
+
+        // For Legacy Restaurant Offers, we must check if the specific dish is in the cart
+        if (coupon.isLegacy && (coupon.itemId || coupon.targetItemName)) {
+          const itemInCart = cart.find(item => {
+            // First try matching by targetItemName (Most reliable)
+            if (coupon.targetItemName && item.name) {
+              const normalizedCartName = item.name.toLowerCase().trim();
+              const normalizedTargetName = coupon.targetItemName.toLowerCase().trim();
+              if (normalizedCartName === normalizedTargetName) return true;
+            }
+
+            // Fallback to ID matching
+            const cartItemId = (item.id || item._id || "").toString();
+            const targetItemId = (coupon.itemId || "").toString();
+            
+            if (targetItemId && cartItemId) {
+              return cartItemId === targetItemId || 
+                     cartItemId.split('_').pop() === targetItemId ||
+                     targetItemId.split('_').pop() === cartItemId;
+            }
+            return false;
+          });
+
+          if (itemInCart) {
+            const itemQuantity = itemInCart.quantity || 1;
+            const discountPerItem = (coupon.originalPrice || 0) - (coupon.discountedPrice || 0);
+            potentialDiscount = Math.round(discountPerItem * itemQuantity);
+            // Cap at item subtotal
+            const itemSubtotal = (itemInCart.price || 0) * itemQuantity;
+            potentialDiscount = Math.min(potentialDiscount, itemSubtotal);
+          }
+        } else if (!coupon.isLegacy) {
+          // For Global Admin Coupons, calculation is based on total subtotal
+          potentialDiscount = Math.min(
+            Math.round((subtotal * (coupon.discountPercentage || 0)) / 100),
+            coupon.maxDiscountLimit || Infinity
+          );
+        }
+
+        return { ...coupon, discount: potentialDiscount };
+      })
+      .filter(coupon => {
+        // Only show coupons that give some discount
+        // For Global Admin Coupons, show only if subtotal >= minOrderValue
+        if (!coupon.isLegacy) {
+          return subtotal >= (coupon.minOrderValue || 0);
+        }
+        
+        // For Restaurant Offers, ONLY show if the discount is > 0
+        // (This happens only if itemInCart was found and there's a price difference)
+        return coupon.discount > 0;
+      });
+  }, [availableCoupons, subtotal, cart]);
+
   // Restaurant name from data or cart
+
   const restaurantName = restaurantData?.name || cart[0]?.restaurant || "Restaurant";
 
   // Handler to select address (re-calculates pricing)
@@ -1583,7 +1633,7 @@ export default function Cart() {
                 <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{restaurantName === 'MoGrocery' ? 'GrhaPoch' : restaurantName}</p>
                 <p className="text-sm md:text-base font-medium text-gray-800 dark:text-white truncate">
                   {restaurantData?.estimatedDeliveryTime || "10-15 mins"} to <button onClick={() => setShowAddressSheet(true)} className="font-semibold hover:text-red-600 transition-colors">{getLocationDisplayName(defaultAddress)}</button>
-                  <span className="text-gray-400 dark:text-gray-500 ml-1 text-xs md:text-sm">{defaultAddress ? formatFullAddress(defaultAddress) || defaultAddress?.formattedAddress || defaultAddress?.address || defaultAddress?.city || "Select address" : "Select address"}</span>
+                  <span className="text-gray-400 dark:text-gray-300 ml-1 text-xs md:text-sm">{defaultAddress ? formatFullAddress(defaultAddress) || defaultAddress?.formattedAddress || defaultAddress?.address || defaultAddress?.city || "Select address" : "Select address"}</span>
                 </p>
               </div>
             </div>
@@ -1798,16 +1848,16 @@ export default function Cart() {
                       <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
                       <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Loading coupons...</p>
                     </div> :
-                    availableCoupons.length > 0 ?
+                    enrichedCoupons.length > 0 ?
                       <div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 md:gap-3">
                             <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
                             <div>
                               <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">
-                                Save ₹{availableCoupons[0].discount} with '{availableCoupons[0].code}'
+                                Save ₹{enrichedCoupons[0].discount} with '{enrichedCoupons[0].code}'
                               </p>
-                              {availableCoupons.length > 1 &&
+                              {enrichedCoupons.length > 1 &&
                                 <button onClick={() => setShowCoupons(!showCoupons)} className="text-xs md:text-sm text-blue-600 dark:text-blue-400 font-medium">
                                   View all coupons →
                                 </button>
@@ -1818,10 +1868,10 @@ export default function Cart() {
                             size="sm"
                             variant="outline"
                             className="h-7 md:h-8 text-xs md:text-sm border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            onClick={() => handleApplyCoupon(availableCoupons[0])}
-                            disabled={subtotal < availableCoupons[0].minOrder}>
+                            onClick={() => handleApplyCoupon(enrichedCoupons[0])}
+                            disabled={subtotal < enrichedCoupons[0].minOrder}>
 
-                            {subtotal < availableCoupons[0].minOrder ? `Min ₹${availableCoupons[0].minOrder}` : 'APPLY'}
+                            {subtotal < enrichedCoupons[0].minOrder ? `Min ₹${enrichedCoupons[0].minOrder}` : 'APPLY'}
                           </Button>
                         </div>
                         <div className="mt-3 flex items-center gap-2">
@@ -1850,13 +1900,14 @@ export default function Cart() {
                 }
 
                 {/* Coupons List */}
-                {showCoupons && !appliedCoupon && availableCoupons.length > 0 &&
+                {showCoupons && !appliedCoupon && enrichedCoupons.length > 0 &&
                   <div className="mt-3 md:mt-4 space-y-2 md:space-y-3 border-t dark:border-gray-700 pt-3 md:pt-4">
-                    {availableCoupons.map((coupon) =>
+                    {enrichedCoupons.map((coupon) =>
                       <div key={coupon.code} className="flex items-center justify-between py-2 md:py-3 border-b border-dashed dark:border-gray-700 last:border-0">
                         <div>
                           <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">{coupon.code}</p>
                           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{coupon.description}</p>
+                          <p className="text-[10px] md:text-xs text-green-600 dark:text-green-400 font-medium">Save ₹{coupon.discount}</p>
                         </div>
                         <Button
                           size="sm"
@@ -2029,7 +2080,7 @@ export default function Cart() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200">Usai Foundation Donation</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Help us feed the needy. 100% of your donation goes to charity.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-300 mb-3">Help us feed the needy. 100% of your donation goes to charity.</p>
                     <div className="flex flex-wrap gap-2 md:gap-3">
                       {donationOptions.map((amount) => {
                         const isSelected = donationAmount === amount && !showCustomDonation;
@@ -2232,7 +2283,7 @@ export default function Cart() {
               {/* Payment Info */}
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-14 h-14 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-white dark:bg-[#0f0f0f] shadow-sm">
-                  <CreditCard className="w-6 h-6 text-gray-600" />
+                  <CreditCard className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -2248,7 +2299,7 @@ export default function Cart() {
               {/* Delivery Address */}
               <div className="flex items-center gap-4 mb-8">
                 <div className="w-14 h-14 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                  <svg className="w-7 h-7 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <svg className="w-7 h-7 text-gray-600 dark:text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path d="M9 22V12h6v10" />
                   </svg>

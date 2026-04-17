@@ -46,12 +46,6 @@ export const sidebarMenuData = [
     label: "RESTAURANT MANAGEMENT",
     items: [
       {
-        type: "link",
-        label: "Zone Setup",
-        path: "/admin/zone-setup",
-        icon: "MapPin",
-      },
-      {
         type: "expandable",
         label: "Restaurants",
         icon: "UtensilsCrossed",

@@ -86,6 +86,7 @@ import uploadModuleRoutes from './routes/upload.index.js';
 import locationRoutes from './routes/location.routes.js';
 import heroBannerRoutes from './routes/heroBanner.index.js';
 import diningRoutes from './routes/diningRoutes.js';
+import couponRoutes from './routes/couponRoutes.js';
 import { getNearbyRestaurants } from './controllers/restaurantController.js';
 
 
@@ -447,6 +448,7 @@ app.use('/api', uploadModuleRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api', heroBannerRoutes);
 app.use('/api/dining', diningRoutes);
+app.use('/api/coupons', couponRoutes);
 
 // 404 handler - but skip Socket.IO paths
 app.use((req, res, next) => {

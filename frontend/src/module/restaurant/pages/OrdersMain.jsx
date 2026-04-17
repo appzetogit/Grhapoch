@@ -19,9 +19,39 @@ const filterTabs = [
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready" },
   { id: "out-for-delivery", label: "Out for delivery" },
-  { id: "scheduled", label: "Scheduled" },
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" }];
+
+const searchPlaceholderByFilter = {
+  preparing: "Search preparing orders by order ID",
+  ready: "Search ready orders by order ID",
+  "out-for-delivery": "Search out for delivery orders by order ID",
+  completed: "Search completed orders by order ID",
+  cancelled: "Search cancelled orders by order ID"
+};
+
+const mapOrderStatusToFilter = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "preparing") return "preparing";
+  if (normalized === "ready") return "ready";
+  if (normalized === "out_for_delivery") return "out-for-delivery";
+  if (normalized === "delivered" || normalized === "completed") return "completed";
+  if (normalized === "cancelled") return "cancelled";
+  return null;
+};
+
+const scoreOrderSearchMatch = (orderId, query) => {
+  const idStr = String(orderId || "").trim().toLowerCase();
+  const q = String(query || "").trim().toLowerCase();
+  if (!idStr || !q) return -1;
+  if (idStr === q) return 3;
+  const idDigits = idStr.replace(/\D/g, "");
+  const qDigits = q.replace(/\D/g, "");
+  if (qDigits && idDigits === qDigits) return 2;
+  if (idStr.includes(q)) return 1;
+  if (qDigits && idDigits.includes(qDigits)) return 0;
+  return -1;
+};
 
 const matchesOrderSearch = (orderId, query) => {
   const q = String(query || "").trim();
@@ -133,7 +163,7 @@ function CompletedOrders({ onSelectOrder, isActive, searchQuery }) {
         clearInterval(intervalId);
       }
     };
-  }, [isActive]);
+  }, [isActive, searchQuery]);
 
   if (loading) {
     return (
@@ -346,7 +376,7 @@ function CancelledOrders({ onSelectOrder, isActive, searchQuery }) {
         clearInterval(intervalId);
       }
     };
-  }, [isActive]);
+  }, [isActive, searchQuery]);
 
   if (loading) {
     return (
@@ -526,6 +556,47 @@ export default function OrdersMain() {
     isLoading: true
   });
   const [isReverifying, setIsReverifying] = useState(false);
+  const activeSearchPlaceholder = searchPlaceholderByFilter[activeFilter] || "Search orders by order ID";
+
+  useEffect(() => {
+    const query = String(orderSearchQuery || "").trim();
+    if (!query) return;
+
+    let isCancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const response = await restaurantAPI.getOrders({ page: 1, limit: 50, search: query });
+        if (isCancelled) return;
+
+        const orders = response?.data?.data?.orders || [];
+        if (!orders.length) return;
+
+        const bestMatch = orders
+          .map((order) => ({
+            order,
+            score: scoreOrderSearchMatch(order.orderId || order._id, query)
+          }))
+          .filter((entry) => entry.score >= 0)
+          .sort((a, b) => b.score - a.score)[0];
+
+        if (!bestMatch?.order) return;
+
+        const nextFilter = mapOrderStatusToFilter(bestMatch.order.status);
+        if (nextFilter && nextFilter !== activeFilter) {
+          setActiveFilter(nextFilter);
+        }
+      } catch (error) {
+        if (error.code !== "ERR_NETWORK" && error.response?.status !== 404) {
+          console.error("Error resolving order search status:", error);
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [orderSearchQuery, activeFilter]);
 
   const clearNewOrder = () => setNewOrder(null);
 
@@ -1317,8 +1388,6 @@ export default function OrdersMain() {
         return <ReadyOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "out-for-delivery":
         return <OutForDeliveryOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
-      case "scheduled":
-        return <EmptyState message="Scheduled orders will appear here" />;
       case "completed":
         return <CompletedOrders onSelectOrder={handleSelectOrder} isActive={restaurantStatus.isActive} searchQuery={orderSearchQuery} />;
       case "cancelled":
@@ -1336,6 +1405,7 @@ export default function OrdersMain() {
           showNotifications={false}
           searchValue={orderSearchQuery}
           onSearchChange={setOrderSearchQuery}
+          searchPlaceholder={activeSearchPlaceholder}
         />
       </div>
 
@@ -2160,12 +2230,14 @@ function OrderCard({
   onMarkReady,
   isMarkingReady = false
 }) {
-  const isReady = status === "Ready";
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+  const isReady = normalizedStatus === "ready";
+  const showAssignmentControls = normalizedStatus === "preparing" || normalizedStatus === "ready";
 
   return (
     <div className="w-full bg-white rounded-2xl p-3.5 mb-3 border border-gray-200 hover:border-gray-400 transition-colors relative">
       {/* Cancel button - only show for preparing orders */}
-      {status === 'preparing' && onCancel &&
+      {normalizedStatus === 'preparing' && onCancel &&
         <button
           type="button"
           onClick={(e) => {
@@ -2195,7 +2267,7 @@ function OrderCard({
             paymentStatus
           })
         }
-        className={`w-full text-left flex gap-3 items-start cursor-pointer ${status === 'preparing' && onCancel ? 'pr-8' : ''}`}>
+        className={`w-full text-left flex gap-3 items-start cursor-pointer ${normalizedStatus === 'preparing' && onCancel ? 'pr-8' : ''}`}>
 
         {/* Photo */}
         <div className="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 mt-1">
@@ -2268,8 +2340,8 @@ function OrderCard({
                 {type}
                 {tableOrToken ? ` • ${tableOrToken}` : ""}
               </p>
-              {/* Delivery Assignment Status - Only show for preparing orders */}
-              {status === 'preparing' &&
+              {/* Delivery Assignment Status - Show for preparing + ready orders */}
+              {showAssignmentControls &&
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${deliveryPartnerId ?
@@ -2296,7 +2368,7 @@ function OrderCard({
                         mode="resend"
                       />
                     }
-                    {onMarkReady &&
+                    {normalizedStatus === 'preparing' && onMarkReady &&
                       <button
                         type="button"
                         onClick={(e) => {
@@ -2453,7 +2525,7 @@ function PreparingOrders({ onSelectOrder, onCancel, isActive, searchQuery }) {
         clearInterval(countdownIntervalId);
       }
     };
-  }, [isActive]); // Add isActive to dependencies
+  }, [isActive, searchQuery]); // Add active search query so backend refetches matching older orders
 
   // Auto-mark orders as ready when ETA reaches 0
   useEffect(() => {
@@ -2668,7 +2740,8 @@ function ReadyOrders({ onSelectOrder, isActive, searchQuery }) {
             eta: null, // Don't show ETA for ready orders
             itemsSummary: order.items?.map((item) => `${item.quantity}x ${item.name}`).join(', ') || 'No items',
             photoUrl: order.items?.[0]?.image || null,
-            photoAlt: order.items?.[0]?.name || 'Order'
+            photoAlt: order.items?.[0]?.name || 'Order',
+            deliveryPartnerId: order.deliveryPartnerId || null
           }));
 
           if (isMounted) {
@@ -2711,7 +2784,7 @@ function ReadyOrders({ onSelectOrder, isActive, searchQuery }) {
         clearInterval(intervalId);
       }
     };
-  }, [isActive]);
+  }, [isActive, searchQuery]);
 
   if (loading) {
     return (
@@ -2836,7 +2909,7 @@ const OutForDeliveryOrders = ({ onSelectOrder, isActive, searchQuery }) => {
         clearInterval(intervalId);
       }
     };
-  }, [isActive]);
+  }, [isActive, searchQuery]);
 
   if (loading) {
     return (

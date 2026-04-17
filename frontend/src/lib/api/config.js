@@ -392,6 +392,8 @@ export const API_ENDPOINTS = {
     FOOD_APPROVAL_APPROVE: '/admin/food-approvals/:id/approve',
     FOOD_APPROVAL_REJECT: '/admin/food-approvals/:id/reject',
     OFFERS: '/admin/offers',
+    GLOBAL_COUPONS: '/admin/coupons',
+    GLOBAL_COUPON_BY_ID: '/admin/coupons/:id',
     ZONES: '/admin/zones',
     ZONE_BY_ID: '/admin/zones/:id',
     ZONE_STATUS: '/admin/zones/:id/status'
@@ -434,7 +436,6 @@ export const API_ENDPOINTS = {
     TOP_10_PUBLIC: '/hero-banners/top-10/public',
     GOURMET_PUBLIC: '/hero-banners/gourmet/public'
   },
-  // Dining endpoints
   DINING: {
     RESTAURANTS: '/dining/restaurants',
     RESTAURANT_BY_SLUG: '/dining/restaurants/:slug',
@@ -444,6 +445,11 @@ export const API_ENDPOINTS = {
     MUST_TRIES: '/dining/must-tries',
     OFFER_BANNERS: '/dining/offer-banners',
     STORIES: '/dining/stories'
+  },
+  // Global Coupon endpoints
+  COUPONS: {
+    AVAILABLE: '/coupons/available/:restaurantId',
+    APPLY: '/coupons/apply'
   }
 };
 

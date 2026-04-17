@@ -436,7 +436,7 @@ export const createOrder = async (req, res) => {
     try {
       const serverPricing = await calculateOrderPricing({
         items,
-        restaurantId: restaurant._id.toString(),
+        restaurantId: restaurant._id.toString(), // Ensure we pass string ID
         deliveryAddress: address,
         couponCode: pricing.couponCode || null,
         tip: pricing.tip || 0,
@@ -445,36 +445,31 @@ export const createOrder = async (req, res) => {
 
       const clientTotal = Math.round(Number(pricing.total));
       const serverTotal = Math.round(serverPricing.total);
-
-      // Allow a ₹5 tolerance for rounding differences
-      const tolerance = 5;
+      
+      // Increased tolerance to 15 to handle platform fee range jumps and OSRM distance variations
+      const tolerance = 15;
       const diff = Math.abs(clientTotal - serverTotal);
 
       if (diff > tolerance) {
-        logger.warn('⚠️ Pricing tamper detected:', {
-          clientTotal,
-          serverTotal,
-          diff,
-          userId,
-          restaurantId: restaurant._id
-        });
+        logger.warn('\u26a0\ufe0f Pricing tamper detected:', { clientTotal, serverTotal, diff, userId, restaurantId: restaurant._id });
         return res.status(400).json({
           success: false,
           message: 'Order total mismatch. Please refresh and try again.',
-          data: { clientTotal, serverTotal }
+          data: {
+            clientTotal,
+            serverTotal,
+            clientPricing: pricing,
+            serverPricing: serverPricing
+          }
         });
       }
 
-      logger.info('✅ Server-side pricing validated:', {
-        clientTotal,
-        serverTotal,
-        diff
-      });
-
-      // Always persist canonical server pricing so cart, DB and settlement remain consistent.
       Object.assign(pricing, {
         subtotal: serverPricing.subtotal,
         discount: serverPricing.discount,
+        adminDiscount: serverPricing.adminDiscount || 0,
+        restaurantDiscount: serverPricing.restaurantDiscount || 0,
+        couponType: serverPricing.couponType || null,
         deliveryFee: serverPricing.deliveryFee,
         platformFee: serverPricing.platformFee,
         fixedFee: serverPricing.fixedFee,
@@ -496,25 +491,19 @@ export const createOrder = async (req, res) => {
         canonicalDistanceKm = serverPricing.distance;
       }
     } catch (pricingValidationError) {
-      logger.error('❌ Server-side pricing validation failed:', pricingValidationError.message);
+      logger.error('\u274c Server-side pricing validation failed:', pricingValidationError.message);
       return res.status(503).json({
         success: false,
-        message: 'Unable to validate order pricing right now. Please try again.',
-        error: process.env.NODE_ENV === 'development' ? pricingValidationError.message : undefined
+        message: 'Unable to validate order pricing right now. Please try again.'
       });
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
     const hasActiveSubscription = (
       restaurant.businessModel === 'Subscription Base' &&
       restaurant.subscription?.status === 'active' &&
-      (
-        !restaurant.subscription?.endDate ||
-        new Date(restaurant.subscription.endDate) > new Date()
-      )
+      (!restaurant.subscription?.endDate || new Date(restaurant.subscription.endDate) > new Date())
     );
 
-    // --- COMMISSION CALCULATION SNAPSHOT LOGIC ---
     let commissionSnapshot = {
       amount: 0,
       rate: 0,
@@ -524,13 +513,7 @@ export const createOrder = async (req, res) => {
 
     try {
       if (hasActiveSubscription) {
-        // Subscription Base: 0 commission
-        commissionSnapshot = {
-          amount: 0,
-          rate: 0,
-          type: 'percentage',
-          model: 'Subscription Base'
-        };
+        commissionSnapshot.amount = 0;
       } else {
         // Commission Base: Calculate based on rules
         // Default to commission base if undefined

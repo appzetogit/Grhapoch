@@ -458,17 +458,16 @@ export default function UserOrderDetails() {
           <div className="p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">Item total</span>
-              <div>
-                {pricing.originalItemTotal &&
-                <span className="text-gray-400 dark:text-gray-500 line-through mr-1">
-                    ₹{Number(pricing.originalItemTotal).toFixed(2)}
-                  </span>
-                }
-                <span className="text-gray-800 dark:text-gray-200">
-                  ₹{Number(pricing.subtotal || pricing.total || 0).toFixed(2)}
-                </span>
-              </div>
+              <span className="text-gray-800 dark:text-gray-200">
+                ₹{Number(pricing.subtotal || 0).toFixed(2)}
+              </span>
             </div>
+            {pricing.discount > 0 && (
+              <div className="flex justify-between text-green-600 font-medium">
+                <span>Offer/Coupon Applied</span>
+                <span>-₹{Number(pricing.discount).toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">GST (govt. taxes)</span>
               <span className="text-gray-800 dark:text-gray-200">
@@ -488,18 +487,38 @@ export default function UserOrderDetails() {
                 </span>
               </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Platform fee</span>
-              <span className="text-gray-800 dark:text-gray-200">
-                ₹{Number(pricing.platformFee || 0).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Subscription / other fees</span>
-              <span className="text-gray-800 dark:text-gray-200">
-                ₹{Number(pricing.subscriptionFee || 0).toFixed(2)}
-              </span>
-            </div>
+            {pricing.platformFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Platform fee</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  ₹{Number(pricing.platformFee).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {pricing.subscriptionFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Subscription / other fees</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  ₹{Number(pricing.subscriptionFee).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {pricing.tip > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Delivery Tip</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  ₹{Number(pricing.tip).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {pricing.donation > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Donation</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  ₹{Number(pricing.donation).toFixed(2)}
+                </span>
+              </div>
+            )}
 
             <div className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 flex justify-between items-center">
               <span className="font-bold text-gray-800 dark:text-gray-100">Paid</span>
@@ -587,11 +606,17 @@ export default function UserOrderDetails() {
             </div>
             <div>
               <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                Delivery address
+                Delivery address {order.address?.label && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ml-1 font-normal text-gray-500">{order.address.label}</span>}
               </h4>
               <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 leading-relaxed">
                 {addressText || "Address not available"}
               </p>
+              {order.note && (
+                <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/20 rounded-lg">
+                  <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-500 uppercase">Instruction</p>
+                  <p className="text-xs text-yellow-800 dark:text-yellow-400">{order.note}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

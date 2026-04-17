@@ -393,7 +393,7 @@ export default function Profile() {
                     whileHover={{ x: 4 }}
                     transition={{ duration: 0.2 }}>
 
-                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                   </motion.div>
                 </CardContent>
               </Card>
@@ -421,7 +421,7 @@ export default function Profile() {
                     whileHover={{ x: 4 }}
                     transition={{ duration: 0.2 }}>
 
-                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                   </motion.div>
                 </CardContent>
               </Card>
@@ -461,7 +461,7 @@ export default function Profile() {
                       whileHover={{ x: 4 }}
                       transition={{ duration: 0.2 }}>
 
-                      <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                     </motion.div>
                   </div>
                 </CardContent>
@@ -490,7 +490,7 @@ export default function Profile() {
                     whileHover={{ x: 4 }}
                     transition={{ duration: 0.2 }}>
 
-                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                   </motion.div>
                 </CardContent>
               </Card>
@@ -605,7 +605,7 @@ export default function Profile() {
                     whileHover={{ x: 4 }}
                     transition={{ duration: 0.2 }}>
 
-                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                   </motion.div>
                 </CardContent>
               </Card>
@@ -641,7 +641,7 @@ export default function Profile() {
                       whileHover={{ x: 4 }}
                       transition={{ duration: 0.2 }}>
 
-                      <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-400" />
                     </motion.div>
                   </CardContent>
                 </Card>

@@ -971,14 +971,14 @@ export default function OrderTracking() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.65 }}>
 
-          <p className="text-yellow-800 font-medium">
+          <p className="text-yellow-800 dark:text-yellow-200 font-medium">
             All your delivery details in one place 👇
           </p>
         </motion.div>
 
         {/* Contact & Address Section */}
         <motion.div
-          className="bg-white rounded-xl shadow-sm overflow-hidden"
+          className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-800"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}>
@@ -1001,7 +1001,7 @@ export default function OrderTracking() {
               'Phone number not available'
             }
             rightContent={
-              <span className="text-green-600 font-medium text-sm">Edit</span>
+              <span className="text-green-600 dark:text-green-500 font-medium text-sm">Edit</span>
             }
             onClick={() => navigate('/user/profile/edit')} />
 
@@ -1048,7 +1048,7 @@ export default function OrderTracking() {
               return 'Add delivery address';
             })()}
             rightContent={
-              <span className="text-green-600 font-medium text-sm">Edit</span>
+              <span className="text-green-600 dark:text-green-500 font-medium text-sm">Edit</span>
             }
             onClick={() => toast.info('Delivery address cannot be changed once an order is placed. Please call support for emergencies.')} />
 
@@ -1068,45 +1068,45 @@ export default function OrderTracking() {
 
         {/* Restaurant Section */}
         <motion.div
-          className="bg-white rounded-xl shadow-sm overflow-hidden"
+          className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-800"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.75 }}>
 
-          <div className="flex items-center gap-3 p-4 border-b border-dashed border-gray-200">
-            <div className="w-12 h-12 rounded-full bg-orange-100 overflow-hidden flex items-center justify-center">
+          <div className="flex items-center gap-3 p-4 border-b border-dashed border-gray-200 dark:border-gray-700">
+            <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 overflow-hidden flex items-center justify-center">
               <span className="text-2xl">🍔</span>
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-gray-900">{order.restaurant}</p>
-              <p className="text-sm text-gray-500">{order.address?.city || 'Local Area'}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{order.restaurant}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{order.address?.city || 'Local Area'}</p>
             </div>
             <motion.button
-              className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"
+              className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"
               whileTap={{ scale: 0.9 }}
               onClick={handleCallRestaurant}>
 
-              <Phone className="w-5 h-5 text-green-700" />
+              <Phone className="w-5 h-5 text-green-700 dark:text-green-500" />
             </motion.button>
 
           </div>
 
           {/* Order Items */}
           <div
-            className="p-4 border-b border-dashed border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="p-4 border-b border-dashed border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             onClick={() => setShowBillDetail(true)}
           >
 
             <div className="flex items-start gap-3">
-              <Receipt className="w-5 h-5 text-gray-500 mt-0.5" />
+              <Receipt className="w-5 h-5 text-gray-500 dark:text-gray-400 mt-0.5" />
               <div className="flex-1">
                 <div className="flex justify-between items-center">
-                  <p className="font-medium text-gray-900">Order #{order?.id || order?.orderId || 'N/A'}</p>
-                  <span className="text-green-600 text-xs font-semibold">View Detail</span>
+                  <p className="font-medium text-gray-900 dark:text-white">Order #{order?.id || order?.orderId || 'N/A'}</p>
+                  <span className="text-green-600 dark:text-green-500 text-xs font-semibold">View Detail</span>
                 </div>
                 <div className="mt-2 space-y-1">
                   {order?.items?.map((item, index) =>
-                    <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
+                    <div key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <FoodTypeIcon isVeg={item.isVeg !== undefined ? item.isVeg : true} size="sm" />
                       <span>{item.quantity} x {item.name}</span>
                     </div>
@@ -1120,7 +1120,7 @@ export default function OrderTracking() {
 
         {/* Help Section */}
         <motion.div
-          className="bg-white rounded-xl shadow-sm overflow-hidden"
+          className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-800"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}>
@@ -1139,7 +1139,7 @@ export default function OrderTracking() {
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent className="sm:max-w-xl w-[95%] max-w-[600px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
               Cancel Order
             </DialogTitle>
           </DialogHeader>

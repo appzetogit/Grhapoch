@@ -173,6 +173,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
     }).
     populate('userId', 'name phone email').
     select('orderId userId items pricing payment status address createdAt deliveredAt tracking').
+    sort({ createdAt: -1 }).
     lean();
 
     // If no orders found with deliveredAt/tracking, check by createdAt as last resort
@@ -184,6 +185,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
       }).
       populate('userId', 'name phone email').
       select('orderId userId items pricing payment status address createdAt deliveredAt tracking').
+      sort({ createdAt: -1 }).
       lean();
     }
 
@@ -236,8 +238,12 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
     let currentCycleTotal = 0;
     let currentCycleCommission = 0;
     const currentCycleOrdersData = await Promise.all(currentCycleOrders.map(async (order) => {
-      // Food price = subtotal - discount (this is what commission is calculated on)
-      const foodPrice = (order.pricing?.subtotal || 0) - (order.pricing?.discount || 0);
+      // Food price = subtotal - restaurantDiscount (this is what commission is calculated on)
+      // IMPORTANT FIX: Use only restaurant-borne discounts. Admin discounts are NOT deducted from restaurant payout.
+      const restaurantDiscount = order.pricing?.restaurantDiscount !== undefined ? 
+                               order.pricing.restaurantDiscount : 
+                               (order.pricing?.discount || 0);
+      const foodPrice = (order.pricing?.subtotal || 0) - restaurantDiscount;
       const commissionData = calculateCommissionForOrder(order, foodPrice);
       const payout = foodPrice - commissionData.commission;
 
@@ -323,6 +329,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
         orderId: order.orderId || order._id?.toString() || 'N/A',
         orderTotal: foodPrice, // Food price (subtotal - discount) for display
         totalAmount: order.pricing?.total || 0, // Total order amount paid by customer
+        discount: order.pricing?.discount || 0,
         commission: commissionData.commission,
         payout,
         deliveredAt: order.deliveredAt || order.createdAt,
@@ -372,6 +379,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
 
       }).
       populate('userId', 'name phone email').
+      sort({ createdAt: -1 }).
       lean();
 
       // If no orders found with deliveredAt/tracking, check by createdAt as last resort
@@ -383,6 +391,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
         }).
         populate('userId', 'name phone email').
         select('orderId userId items pricing payment status address createdAt deliveredAt tracking').
+        sort({ createdAt: -1 }).
         lean();
       }
 
@@ -424,8 +433,12 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
       let pastCycleTotal = 0;
       let pastCycleCommission = 0;
       const pastCycleOrdersData = await Promise.all(pastCycleOrders.map(async (order) => {
-        // Food price = subtotal - discount (this is what commission is calculated on)
-        const foodPrice = (order.pricing?.subtotal || 0) - (order.pricing?.discount || 0);
+        // Food price = subtotal - restaurantDiscount (this is what commission is calculated on)
+        // IMPORTANT FIX: Use only restaurant-borne discounts. Admin discounts are NOT deducted from restaurant payout.
+        const restaurantDiscount = order.pricing?.restaurantDiscount !== undefined ? 
+                                 order.pricing.restaurantDiscount : 
+                                 (order.pricing?.discount || 0);
+        const foodPrice = (order.pricing?.subtotal || 0) - restaurantDiscount;
         const commissionData = calculateCommissionForOrder(order, foodPrice);
         const payout = foodPrice - commissionData.commission;
 
@@ -489,6 +502,7 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
           orderId: order.orderId || order._id?.toString() || 'N/A',
           orderTotal: foodPrice, // Food price (subtotal - discount) for display
           totalAmount: order.pricing?.total || 0, // Total order amount paid by customer
+          discount: order.pricing?.discount || 0,
           commission: commissionData.commission,
           payout,
           deliveredAt: order.deliveredAt || order.createdAt,

@@ -213,12 +213,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
     }
 
-    // Calculate totals from all settlements - use adminEarning fields
     let totalCommission = 0;
     let totalPlatformFee = 0;
     let totalDeliveryFee = 0;
     let totalDeliveryMargin = 0;
     let totalGST = 0;
+    let totalAdminDiscount = 0;
 
     allSettlements.forEach((s, index) => {
       const commission = s.adminEarning?.commission || 0;
@@ -226,17 +226,14 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
       const deliveryFee = s.adminEarning?.deliveryFee || 0;
       const gst = s.adminEarning?.gst || 0;
       const deliveryMargin = s.adminEarning?.deliveryMargin || 0;
+      const adminDiscount = s.adminEarning?.adminDiscount || 0;
 
       totalCommission += commission;
       totalPlatformFee += platformFee;
       totalDeliveryFee += deliveryFee;
       totalGST += gst;
       totalDeliveryMargin += deliveryMargin;
-
-      // Log each settlement for debugging
-
-
-
+      totalAdminDiscount += adminDiscount;
     });
 
     totalCommission = Math.round(totalCommission * 100) / 100;
@@ -244,6 +241,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     totalDeliveryFee = Math.round(totalDeliveryFee * 100) / 100;
     totalGST = Math.round(totalGST * 100) / 100;
     totalDeliveryMargin = Math.round(totalDeliveryMargin * 100) / 100;
+    totalAdminDiscount = Math.round(totalAdminDiscount * 100) / 100;
 
 
 
@@ -256,6 +254,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     const last30DaysDeliveryFee = last30DaysSettlements.reduce((sum, s) => sum + (s.adminEarning?.deliveryFee || 0), 0);
     const last30DaysDeliveryMargin = last30DaysSettlements.reduce((sum, s) => sum + (s.adminEarning?.deliveryMargin || 0), 0);
     const last30DaysGST = last30DaysSettlements.reduce((sum, s) => sum + (s.adminEarning?.gst || 0), 0);
+    const last30DaysAdminDiscount = last30DaysSettlements.reduce((sum, s) => sum + (s.adminEarning?.adminDiscount || 0), 0);
 
     // Get order statistics
     const orderStats = await Order.aggregate([
@@ -507,6 +506,11 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
         last30Days: revenueData.last30DaysDonations || 0,
         currency: 'INR'
       },
+      adminDiscount: { // New field for Admin Expenses (Coupons)
+        total: totalAdminDiscount,
+        last30Days: last30DaysAdminDiscount,
+        currency: 'INR'
+      },
       subscription: {
         total: totalSubscriptionRevenue,
         last30Days: last30DaysSubscriptionRevenue,
@@ -532,8 +536,9 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
         currency: 'INR'
       },
       totalAdminEarnings: {
-        total: totalCommission + totalPlatformFee + totalDeliveryMargin + totalGST + totalSubscriptionRevenue + advertisementRevenueData.total + (revenueData.totalDonations || 0),
-        last30Days: last30DaysCommission + last30DaysPlatformFee + last30DaysDeliveryMargin + last30DaysGST + last30DaysSubscriptionRevenue + advertisementRevenueData.last30Days + (revenueData.last30DaysDonations || 0),
+        // Corrected calculation: Payout to partners and coupons are subtracted from Gross Earnings
+        total: totalCommission + totalPlatformFee + totalDeliveryMargin + totalGST + totalSubscriptionRevenue + advertisementRevenueData.total + (revenueData.totalDonations || 0) - totalAdminDiscount,
+        last30Days: last30DaysCommission + last30DaysPlatformFee + last30DaysDeliveryMargin + last30DaysGST + last30DaysSubscriptionRevenue + advertisementRevenueData.last30Days + (revenueData.last30DaysDonations || 0) - last30DaysAdminDiscount,
         currency: 'INR'
       },
       orders: {
@@ -2086,6 +2091,10 @@ export const deleteRestaurant = asyncHandler(async (req, res) => {
       // 3. Delete restaurant advertisements and their media assets
       const adCleanupResult = await cleanupRestaurantAdvertisements(id);
       logger.info(`Associated advertisements deleted for restaurant: ${id}`, adCleanupResult);
+
+      // 4. Delete restaurant offers/coupons
+      await Offer.deleteMany({ restaurant: id });
+      logger.info(`Associated offers deleted for restaurant: ${id}`);
     } catch (cleanupError) {
       logger.error(`Error deleting associated data for restaurant ${id}: ${cleanupError.message}`);
       // Continue with restaurant deletion even if cleanup fails
@@ -2154,6 +2163,9 @@ export const getAllOffers = asyncHandler(async (req, res) => {
     // Flatten offers to show each item separately
     const offerItems = [];
     offers.forEach((offer, offerIndex) => {
+      // Skip if restaurant is deleted
+      if (!offer.restaurant) return;
+
       if (offer.items && offer.items.length > 0) {
         offer.items.forEach((item, itemIndex) => {
           // Apply search filter if provided
@@ -2193,9 +2205,13 @@ export const getAllOffers = asyncHandler(async (req, res) => {
     // If search was applied, we need to recalculate total
     let filteredTotal = offerItems.length;
     if (!search) {
-      // Count all items across all offers
-      const allOffers = await Offer.find(query).lean();
-      filteredTotal = allOffers.reduce((sum, offer) => sum + (offer.items?.length || 0), 0);
+      // Count all items across all offers where restaurant exists
+      const allOffers = await Offer.find(query).populate('restaurant', '_id').lean();
+      filteredTotal = allOffers.reduce((sum, offer) => {
+        // Only count items if restaurant still exists
+        if (!offer.restaurant) return sum;
+        return sum + (offer.items?.length || 0);
+      }, 0);
     }
 
     return successResponse(res, 200, 'Offers retrieved successfully', {

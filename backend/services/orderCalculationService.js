@@ -1,8 +1,10 @@
 import Restaurant from '../models/Restaurant.js';
 import Offer from '../models/Offer.js';
+import Coupon from '../models/Coupon.js';
 import FeeSettings from '../models/FeeSettings.js';
 import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
+import Order from '../models/Order.js';
 import { calculateRoute } from './routeCalculationService.js';
 import { calculateDeliveryFee as calculateDeliveryFeeByDistance } from './deliveryFeeService.js';
 
@@ -270,15 +272,21 @@ export const calculateOrderPricing = async ({
     // Get restaurant details
     let restaurant = null;
     if (restaurantId) {
-      if (mongoose.Types.ObjectId.isValid(restaurantId) && restaurantId.length === 24) {
+      // Robust ObjectId check
+      const isObjectId = mongoose.Types.ObjectId.isValid(restaurantId) && 
+                         (typeof restaurantId === 'object' || String(restaurantId).length === 24);
+
+      if (isObjectId) {
         restaurant = await Restaurant.findById(restaurantId).lean();
       }
+      
       if (!restaurant) {
         restaurant = await Restaurant.findOne({
           $or: [
+            { _id: isObjectId ? restaurantId : null },
             { restaurantId: restaurantId },
-            { slug: restaurantId }]
-
+            { slug: restaurantId }
+          ].filter(item => item && (item._id !== null || item.restaurantId || item.slug))
         }).lean();
       }
     }
@@ -287,76 +295,107 @@ export const calculateOrderPricing = async ({
     let discount = 0;
     let appliedCoupon = null;
 
-    if (couponCode && restaurant) {
+    if (couponCode) {
       try {
-        // Get restaurant ObjectId
-        let restaurantObjectId = restaurant._id;
-        if (!restaurantObjectId && mongoose.Types.ObjectId.isValid(restaurantId) && restaurantId.length === 24) {
-          restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+        const now = new Date();
+
+        // 1. Check Global Coupon first (New System)
+        const globalCoupon = await Coupon.findOne({
+          couponCode: couponCode.toUpperCase(),
+          status: 'active',
+          startDate: { $lte: now },
+          endDate: { $gte: now }
+        }).lean();
+
+        if (globalCoupon) {
+          // Validate Restaurant Scope
+          let isRestaurantValid = globalCoupon.restaurantScope === 'all';
+          if (!isRestaurantValid && restaurant) {
+            const rId = restaurant._id?.toString() || restaurantId;
+            isRestaurantValid = globalCoupon.restaurantIds.some(id => id.toString() === rId);
+          }
+
+          // Validate Min Order Value
+          const isMinOrderMet = subtotal >= globalCoupon.minOrderValue;
+
+          if (isRestaurantValid && isMinOrderMet) {
+            // Calculate Discount
+            const calculatedDiscount = Math.round((subtotal * globalCoupon.discountPercentage) / 100);
+            discount = Math.min(calculatedDiscount, globalCoupon.maxDiscountLimit);
+
+            appliedCoupon = {
+              code: globalCoupon.couponCode,
+              discount: discount,
+              discountPercentage: globalCoupon.discountPercentage,
+              minOrder: globalCoupon.minOrderValue,
+              maxDiscountLimit: globalCoupon.maxDiscountLimit,
+              type: 'global' // Admin Coupon
+            };
+          }
         }
 
-        if (restaurantObjectId) {
-          const now = new Date();
+        // 2. Fallback to Legacy Offer Coupon (if no global coupon matched)
+        if (!appliedCoupon && restaurant) {
+          // Get restaurant ObjectId
+          let restaurantObjectId = restaurant._id;
+          if (!restaurantObjectId && mongoose.Types.ObjectId.isValid(restaurantId) && restaurantId.length === 24) {
+            restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+          }
 
-          // Find active offer with this coupon code for this restaurant
-          const offer = await Offer.findOne({
-            restaurant: restaurantObjectId,
-            status: 'active',
-            'items.couponCode': couponCode,
-            startDate: { $lte: now },
-            $or: [
-              { endDate: { $gte: now } },
-              { endDate: null }]
+          if (restaurantObjectId) {
+            // Find active offer with this coupon code for this restaurant
+            const searchCode = couponCode.toUpperCase();
+            const offer = await Offer.findOne({
+              restaurant: restaurantObjectId,
+              status: 'active',
+              'items.couponCode': searchCode,
+              startDate: { $lte: now },
+              $or: [
+                { endDate: { $gte: now } },
+                { endDate: null }]
+            }).lean();
 
-          }).lean();
+            if (offer) {
+              // Find the specific item coupon
+              const couponItem = offer.items.find((item) => item.couponCode.toUpperCase() === searchCode);
 
-          if (offer) {
-            // Find the specific item coupon
-            const couponItem = offer.items.find((item) => item.couponCode === couponCode);
+              if (couponItem) {
+                // Check if coupon is valid for items in cart - use robust string comparison
+                const cartItemIds = items.map((item) => item.itemId?.toString());
+                const isValidForCart = couponItem.itemId && cartItemIds.includes(couponItem.itemId.toString());
 
-            if (couponItem) {
-              // Check if coupon is valid for items in cart
-              const cartItemIds = items.map((item) => item.itemId);
-              const isValidForCart = couponItem.itemId && cartItemIds.includes(couponItem.itemId);
+                // Check minimum order value
+                const minOrderMet = !offer.minOrderValue || subtotal >= offer.minOrderValue;
 
-              // Check minimum order value
-              const minOrderMet = !offer.minOrderValue || subtotal >= offer.minOrderValue;
+                if (isValidForCart && minOrderMet) {
+                  // Calculate discount based on offer item - use robust string comparison
+                  const itemInCart = items.find((item) => item.itemId?.toString() === couponItem.itemId.toString());
+                  if (itemInCart) {
+                    const itemQuantity = itemInCart.quantity || 1;
+                    const discountPerItem = (couponItem.originalPrice || 0) - (couponItem.discountedPrice || 0);
+                    discount = Math.round(discountPerItem * itemQuantity);
+                    const itemSubtotal = (itemInCart.price || 0) * itemQuantity;
+                    discount = Math.min(discount, itemSubtotal);
+                  }
 
-              if (isValidForCart && minOrderMet) {
-                // Calculate discount based on offer type
-                const itemInCart = items.find((item) => item.itemId === couponItem.itemId);
-                if (itemInCart) {
-                  const itemQuantity = itemInCart.quantity || 1;
-
-                  // Calculate discount per item
-                  const discountPerItem = couponItem.originalPrice - couponItem.discountedPrice;
-
-                  // Apply discount to all quantities of this item
-                  discount = Math.round(discountPerItem * itemQuantity);
-
-                  // Ensure discount doesn't exceed item subtotal
-                  const itemSubtotal = (itemInCart.price || 0) * itemQuantity;
-                  discount = Math.min(discount, itemSubtotal);
+                  appliedCoupon = {
+                    code: couponCode,
+                    discount: discount,
+                    discountPercentage: couponItem.discountPercentage,
+                    minOrder: offer.minOrderValue || 0,
+                    type: offer.discountType === 'percentage' ? 'percentage' : 'flat',
+                    itemId: couponItem.itemId,
+                    itemName: couponItem.itemName,
+                    originalPrice: couponItem.originalPrice,
+                    discountedPrice: couponItem.discountedPrice
+                  };
                 }
-
-                appliedCoupon = {
-                  code: couponCode,
-                  discount: discount,
-                  discountPercentage: couponItem.discountPercentage,
-                  minOrder: offer.minOrderValue || 0,
-                  type: offer.discountType === 'percentage' ? 'percentage' : 'flat',
-                  itemId: couponItem.itemId,
-                  itemName: couponItem.itemName,
-                  originalPrice: couponItem.originalPrice,
-                  discountedPrice: couponItem.discountedPrice
-                };
               }
             }
           }
         }
       } catch (error) {
         console.error(`Error fetching coupon from database: ${error.message}`);
-        // Continue without coupon if there's an error
       }
     }
 
@@ -381,9 +420,16 @@ export const calculateOrderPricing = async ({
     // Calculate savings (discount + any delivery savings)
     const savings = discount + (deliveryFee > finalDeliveryFee ? deliveryFee - finalDeliveryFee : 0);
 
+    // Calculate split for settlement
+    const adminDiscount = appliedCoupon?.type === 'global' ? Math.round(discount) : 0;
+    const restaurantDiscount = appliedCoupon?.type !== 'global' ? Math.round(discount) : 0;
+
     return {
       subtotal: Math.round(subtotal),
       discount: Math.round(discount),
+      adminDiscount: adminDiscount,
+      restaurantDiscount: restaurantDiscount,
+      couponType: appliedCoupon?.type || null,
       deliveryFee: Math.round(finalDeliveryFee),
       platformFee: Math.round(platformFee),
       fixedFee: Math.round(fixedFee),
@@ -397,11 +443,14 @@ export const calculateOrderPricing = async ({
       appliedCoupon: appliedCoupon ? {
         code: appliedCoupon.code,
         discount: discount,
-        freeDelivery: appliedCoupon.freeDelivery || false
+        freeDelivery: appliedCoupon.freeDelivery || false,
+        type: appliedCoupon.type
       } : null,
       breakdown: {
         itemTotal: Math.round(subtotal),
         discountAmount: Math.round(discount),
+        adminDiscount: adminDiscount,
+        restaurantDiscount: restaurantDiscount,
         deliveryFee: Math.round(finalDeliveryFee),
         platformFee: Math.round(platformFee),
         fixedFee: Math.round(fixedFee),

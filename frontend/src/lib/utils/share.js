@@ -32,10 +32,11 @@ const getClipboardText = ({ title = "", text = "", url = "" } = {}) => {
 };
 
 const getMessageText = ({ title = "", text = "", url = "" } = {}) => {
-  const safeTitle = toTrimmedString(title);
-  const safeText = toTrimmedString(text);
-  const safeUrl = toTrimmedString(url);
-  return [safeTitle, safeText, safeUrl].filter(Boolean).join("\n").trim();
+  const parts = [];
+  if (title) parts.push(title);
+  if (text) parts.push(text);
+  if (url) parts.push(url);
+  return parts.join("\n\n").trim();
 };
 
 const copyToClipboard = async (text) => {
@@ -150,6 +151,8 @@ const isNativeRuntime = () => {
     window?.flutter_inappwebview?.callHandler ||
     window?.Android ||
     window?.AndroidInterface ||
+    window?.JSBridge ||
+    window?.webkit?.messageHandlers?.share ||
     window?.Capacitor?.Plugins?.Share
   );
 };

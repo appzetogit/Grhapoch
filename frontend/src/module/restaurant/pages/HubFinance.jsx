@@ -434,7 +434,10 @@ export default function HubFinance() {
                       <td>${foodItems}</td>
                       <td>${itemQuantities}</td>
                       <td>₹${orderAmount.toFixed(2)}</td>
-                      <td>₹${earning.toFixed(2)}</td>
+                      <td>₹${earning.toFixed(2)}
+                        ${order.discount > 0 ? `<div style="font-size: 8px; color: #d32f2f;">-₹${order.discount.toFixed(2)} Off</div>` : ''}
+                        ${order.commission > 0 ? `<div style="font-size: 8px; color: #666;">-₹${order.commission.toFixed(2)} Fee</div>` : ''}
+                      </td>
                     </tr>
                   `;
     }).join('')}
@@ -909,7 +912,13 @@ export default function HubFinance() {
                                   ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  Earning
+                                  <p className="text-[10px] text-green-600 font-semibold">Final Earning</p>
+                                  {order.discount > 0 && (
+                                    <p className="text-[9px] text-red-500 font-medium">-₹{order.discount.toFixed(2)} Off (Coupon)</p>
+                                  )}
+                                  {order.commission > 0 && (
+                                    <p className="text-[9px] text-gray-400">-₹{order.commission.toFixed(2)} Fee (Admin)</p>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -936,7 +945,13 @@ export default function HubFinance() {
                                   ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  Earning
+                                  <p className="text-[10px] text-green-600 font-semibold">Final Earning</p>
+                                  {order.discount > 0 && (
+                                    <p className="text-[9px] text-red-500 font-medium">-₹{order.discount.toFixed(2)} Off (Coupon)</p>
+                                  )}
+                                  {order.commission > 0 && (
+                                    <p className="text-[9px] text-gray-400">-₹{order.commission.toFixed(2)} Fee (Admin)</p>
+                                  )}
                                 </p>
                               </div>
                             </div>

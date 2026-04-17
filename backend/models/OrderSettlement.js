@@ -85,9 +85,11 @@ const orderSettlementSchema = new mongoose.Schema({
   adminEarning: {
     commission: { type: Number, required: true, min: 0 },
     platformFee: { type: Number, required: true, min: 0 },
+    fixedFee: { type: Number, default: 0, min: 0 },
     deliveryFee: { type: Number, required: true, min: 0 },
     gst: { type: Number, required: true, min: 0 },
     donation: { type: Number, default: 0, min: 0 },
+    adminDiscount: { type: Number, default: 0, min: 0 }, // Tracks cost of global coupons
     deliveryMargin: { type: Number, default: 0 }, // deliveryFee - deliveryPartnerEarning
     totalEarning: { type: Number, required: true },
     status: {

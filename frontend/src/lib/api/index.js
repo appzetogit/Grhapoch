@@ -1114,6 +1114,20 @@ export const adminAPI = {
     return apiClient.get(API_ENDPOINTS.ADMIN.OFFERS, { params });
   },
 
+  // Global Coupon Management
+  getAllGlobalCoupons: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.GLOBAL_COUPONS);
+  },
+  createGlobalCoupon: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.GLOBAL_COUPONS, data);
+  },
+  updateGlobalCoupon: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.GLOBAL_COUPON_BY_ID.replace(':id', id), data);
+  },
+  deleteGlobalCoupon: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.GLOBAL_COUPON_BY_ID.replace(':id', id));
+  },
+
   // Restaurant Commission Management
   getRestaurantCommissions: (params = {}) => {
     return apiClient.get(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION, { params });
@@ -2020,4 +2034,15 @@ export const categoryAPI = {
     return apiClient.get('/categories/public');
   }
 };
+
+// Export Coupon API helper functions
+export const couponAPI = {
+  getAvailableCoupons: (restaurantId) => {
+    return apiClient.get(API_ENDPOINTS.COUPONS.AVAILABLE.replace(':restaurantId', restaurantId));
+  },
+  applyCoupon: (data) => {
+    return apiClient.post(API_ENDPOINTS.COUPONS.APPLY, data);
+  }
+};
+
 

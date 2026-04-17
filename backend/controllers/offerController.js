@@ -36,6 +36,23 @@ export const createOffer = asyncHandler(async (req, res) => {
     return errorResponse(res, 400, 'At least one item is required for percentage discount');
   }
 
+  // Check if any of these items already have an active offer for this restaurant
+  if (items.length > 0) {
+    const itemIds = items.map(item => item.itemId);
+    const existingOffer = await Offer.findOne({
+      restaurant: restaurantId,
+      status: 'active',
+      'items.itemId': { $in: itemIds }
+    });
+
+    if (existingOffer) {
+      // Find which item is already on offer to provide a better error message
+      const conflictedItem = existingOffer.items.find(item => itemIds.includes(item.itemId));
+      return errorResponse(res, 400, `An active offer already exists for dish: ${conflictedItem?.itemName || 'one of the items'}. Please deactivate the existing offer first.`);
+    }
+  }
+
+
   // Validate each item has required fields
   if (items.length > 0) {
     for (const item of items) {

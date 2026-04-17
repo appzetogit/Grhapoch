@@ -159,10 +159,13 @@ export default function OrderDetails() {
             })) || [],
             billing: {
               itemSubtotal: order.pricing?.subtotal || 0,
+              discount: order.pricing?.discount || 0,
               taxes: order.pricing?.tax || 0,
               total: order.pricing?.total || 0,
               paymentStatus: order.payment?.status === 'completed' ? 'PAID' : 'PENDING'
             },
+            addressLabel: order.address?.label || '',
+            note: order.note || '',
             reason: order.cancellationReason || '',
             timeline: [
               { event: 'Order placed', timestamp: new Date(order.createdAt).toLocaleString('en-GB'), status: 'completed' },
@@ -618,9 +621,21 @@ export default function OrderDetails() {
           </div>
 
           {/* Restaurant Info */}
-          <p className="text-sm text-gray-900 mb-3">
+          <p className="text-sm text-gray-900 mb-2">
             {orderData.restaurant}, {orderData.address}
+            {orderData.addressLabel && (
+              <span className="ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] rounded uppercase font-bold">
+                {orderData.addressLabel}
+              </span>
+            )}
           </p>
+
+          {orderData.note && (
+            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-100 rounded text-xs">
+              <span className="font-bold text-yellow-700 uppercase block mb-1">Customer Note</span>
+              <p className="text-yellow-800">{orderData.note}</p>
+            </div>
+          )}
 
           {/* Divider */}
           <div className="border-t border-gray-200 my-3"></div>
@@ -698,6 +713,12 @@ export default function OrderDetails() {
               <span className="text-sm text-gray-600">Item subtotal</span>
               <span className="text-sm text-gray-900">₹{orderData.billing.itemSubtotal}</span>
             </div>
+            {orderData.billing.discount > 0 && (
+              <div className="flex items-center justify-between mb-3 text-red-600 font-medium">
+                <span className="text-sm">Discount</span>
+                <span className="text-sm">-₹{orderData.billing.discount}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-600">Taxes</span>
               <span className="text-sm text-gray-900">₹{orderData.billing.taxes}</span>

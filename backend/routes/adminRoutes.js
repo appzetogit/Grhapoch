@@ -247,6 +247,12 @@ import {
   listNotificationTemplates,
   upsertNotificationTemplates
 } from '../controllers/notificationTemplateController.js';
+import {
+  createCoupon,
+  getAllCouponsAdmin,
+  updateCoupon,
+  deleteCoupon
+} from '../controllers/couponController.js';
 
 const router = express.Router();
 
@@ -419,6 +425,12 @@ router.post('/food-approvals/:id/reject', rejectFoodItem);
 
 // Offers Management
 router.get('/offers', getAllOffers);
+
+// Coupon Management
+router.post('/coupons', createCoupon);
+router.get('/coupons', getAllCouponsAdmin);
+router.put('/coupons/:id', updateCoupon);
+router.delete('/coupons/:id', deleteCoupon);
 
 // Dining Management
 router.use('/dining', diningAdminRoutes);

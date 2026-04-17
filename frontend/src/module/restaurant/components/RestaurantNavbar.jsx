@@ -10,7 +10,8 @@ export default function RestaurantNavbar({
   showOfflineOnlineTag = true,
   showNotifications = true,
   searchValue: controlledSearchValue,
-  onSearchChange
+  onSearchChange,
+  searchPlaceholder = "Search by order ID"
 }) {
   const navigate = useNavigate();
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -274,7 +275,7 @@ export default function RestaurantNavbar({
             type="text"
             value={effectiveSearchValue}
             onChange={handleSearchChange}
-            placeholder="Search by order ID"
+            placeholder={searchPlaceholder}
             className="w-full px-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none"
             autoFocus />
           

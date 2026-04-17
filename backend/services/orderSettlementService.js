@@ -46,6 +46,8 @@ export const calculateOrderSettlement = async (orderId) => {
     const userPayment = {
       subtotal: order.pricing.subtotal || 0,
       discount: order.pricing.discount || 0,
+      adminDiscount: order.pricing.adminDiscount || 0,
+      restaurantDiscount: order.pricing.restaurantDiscount || 0,
       deliveryFee: order.pricing.deliveryFee || 0,
       platformFee: order.pricing.platformFee || platformFee,
       gst: order.pricing.tax || 0,
@@ -57,8 +59,9 @@ export const calculateOrderSettlement = async (orderId) => {
     };
 
     // Calculate restaurant commission and earnings
-    // Commission is calculated on food price (subtotal - discount)
-    const foodPrice = userPayment.subtotal - userPayment.discount;
+    // IMPORTANT FIX: Use only restaurant-borne discounts for payout calculation
+    // Admin coupons will be borne by Admin from their platform margin
+    const foodPrice = userPayment.subtotal - userPayment.restaurantDiscount;
 
     let commissionAmount = 0;
     let commissionPercentage = 0;
@@ -175,7 +178,10 @@ export const calculateOrderSettlement = async (orderId) => {
     const adminGST = Math.round(userPayment.gst * 100) / 100;
     const adminFixedFee = Math.round((userPayment.fixedFee || 0) * 100) / 100;
     const adminDonation = Math.round((userPayment.donation || 0) * 100) / 100;
-    const adminTotal = Math.round((adminCommission + adminPlatformFee + deliveryMargin + adminGST + adminFixedFee + adminDonation) * 100) / 100;
+
+    // IMPORTANT FIX: Subtract Admin Discount (from Global Coupons) from Admin's Margin
+    const adminTotalBeforeDiscount = adminCommission + adminPlatformFee + deliveryMargin + adminGST + adminFixedFee + adminDonation;
+    const adminTotal = Math.round((adminTotalBeforeDiscount - userPayment.adminDiscount) * 100) / 100;
 
     const adminEarning = {
       commission: adminCommission,
@@ -184,6 +190,7 @@ export const calculateOrderSettlement = async (orderId) => {
       deliveryFee: adminDeliveryFee,
       gst: adminGST,
       donation: adminDonation,
+      adminDiscount: userPayment.adminDiscount, // Track how much admin paid for discounts
       deliveryMargin: Math.round(deliveryMargin * 100) / 100, // Allow negative margin
       totalEarning: adminTotal,
       status: 'pending'

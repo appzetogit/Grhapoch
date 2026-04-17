@@ -2099,7 +2099,7 @@ export default function Home() {
 
                                 {/* Delivery Time & Distance */}
                                 <motion.div
-                                  className="flex items-center gap-1 text-sm lg:text-base text-gray-500 mb-2 lg:mb-3"
+                                  className="flex items-center gap-1 text-sm lg:text-base text-gray-500 dark:text-gray-400 mb-2 lg:mb-3"
                                   variants={{
                                     rest: { opacity: 0.7 },
                                     hover: { opacity: 1 }
@@ -2107,9 +2107,9 @@ export default function Home() {
                                   transition={{ duration: 0.3 }}>
 
                                   <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
-                                  <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.deliveryTime}</span>
-                                  <span className="mx-1">|</span>
-                                  <span className="font-medium dark:text-gray-300 text-gray-700">{restaurant.distance}</span>
+                                  <span className="font-medium text-gray-700 dark:text-gray-200">{restaurant.deliveryTime}</span>
+                                  <span className="mx-1 text-gray-400">|</span>
+                                  <span className="font-medium text-gray-700 dark:text-gray-200">{restaurant.distance}</span>
                                 </motion.div>
 
                                 {/* Offer Badge */}
@@ -2122,8 +2122,8 @@ export default function Home() {
                                     }}
                                     transition={{ duration: 0.3 }}>
 
-                                    <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black" strokeWidth={2} />
-                                    <span className="text-gray-700 dark:text-gray-300 font-medium">{restaurant.offer}</span>
+                                    <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black dark:text-green-500" strokeWidth={2} />
+                                    <span className="text-gray-700 dark:text-gray-200 font-medium">{restaurant.offer}</span>
                                   </motion.div>
                                 }
                               </CardContent>
@@ -2148,7 +2148,6 @@ export default function Home() {
                         </Link>
                       </motion.div>
                     </motion.div>);
-
                 }) :
                 !loadingRestaurants && (
                   <motion.div
@@ -2178,11 +2177,6 @@ export default function Home() {
             </div>
           </div>
           <div className="flex justify-center pt-2 sm:pt-3">
-            {/* <Link to="/user/restaurants">
-               <Button variant="outline" className="bg-transparent outline-none text-green-600 hover:opacity-80 border-none underline shadow-none  text-xs sm:text-sm md:text-base sm:hidden">
-                 See All Restaurants
-               </Button>
-              </Link> */}
           </div>
         </motion.section>
       </motion.div>

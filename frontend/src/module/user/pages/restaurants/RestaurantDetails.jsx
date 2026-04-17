@@ -1344,7 +1344,7 @@ export default function RestaurantDetails() {
               </h2>
               <p className="text-sm text-gray-600 mb-4 max-w-md">{restaurantError}</p>
               {isNetworkError &&
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   Make sure the backend server is running at {API_BASE_URL.replace('/api', '')}
                 </p>
               }
@@ -1472,7 +1472,7 @@ export default function RestaurantDetails() {
                 <Star className="h-3 w-3 fill-white" />
                 {restaurant?.rating ?? 4.5}
               </Badge>
-              <span className="text-xs text-gray-500">By {(restaurant.reviews || 0).toLocaleString()}+</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">By {(restaurant.reviews || 0).toLocaleString()}+</span>
             </div>
           </div>
 
@@ -1489,7 +1489,7 @@ export default function RestaurantDetails() {
 
             <MapPin className="h-4 w-4" />
             <span>{restaurant?.distance || "1.2 km"} · {restaurant?.location || "Location"}</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
+            <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           </div>
 
           {/* Delivery Time */}
@@ -1637,7 +1637,7 @@ export default function RestaurantDetails() {
                       <div className="flex items-center gap-2">
                         <p className="text-lg font-bold text-gray-900 dark:text-white">₹{Math.round(featuredItem.price)}</p>
                         {featuredItem.preparationTime && (
-                           <div className="flex items-center gap-1 text-[10px] font-medium text-gray-500 p-1 bg-gray-100 rounded-lg">
+                           <div className="flex items-center gap-1 text-[10px] font-medium text-gray-500 dark:text-gray-400 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                              <Clock className="h-3 w-3" />
                              {featuredItem.preparationTime}
                            </div>
@@ -3223,7 +3223,7 @@ export default function RestaurantDetails() {
 
                     {/* Disclaimer Text */}
                     <div className="mt-6 px-2">
-                      <p className="text-xs text-gray-500 leading-relaxed">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                         Menu items, prices, photos and descriptions are set directly by the restaurant. In case you see any incorrect information, please report it to us.
                       </p>
                     </div>

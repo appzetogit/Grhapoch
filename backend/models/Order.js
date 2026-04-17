@@ -116,6 +116,16 @@ const orderSchema = new mongoose.Schema({
       default: 0,
       min: 0
     },
+    adminDiscount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    restaurantDiscount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     fixedFee: {
       type: Number,
       default: 0,
@@ -138,6 +148,11 @@ const orderSchema = new mongoose.Schema({
     },
     couponCode: {
       type: String
+    },
+    couponType: {
+      type: String,
+      enum: ['global', 'restaurant', null],
+      default: null
     },
     // Commission Snapshot - Frozen at time of order creation
     commission: {
@@ -421,4 +436,3 @@ orderSchema.pre('save', function (next) {
 });
 
 export default mongoose.model('Order', orderSchema);
-

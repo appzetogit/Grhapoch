@@ -174,7 +174,8 @@ export default function AdminHome() {
   Number(advertisementRevenueData?.total ??
   (restaurantAdvertisementTotal + userAdvertisementTotal)) || 0;
   // Total revenue (net) = Commission + Platform Fee + Delivery Margin + GST + Subscription + Advertisement + Donation
-  const totalAdminEarnings = commissionTotal + platformFeeTotal + deliveryMarginTotal + gstTotal + subscriptionTotal + advertisementTotal + donationsTotal;
+  const adminDiscountTotal = dashboardData?.adminDiscount?.total || 0;
+  const totalAdminEarnings = commissionTotal + platformFeeTotal + deliveryMarginTotal + gstTotal + subscriptionTotal + advertisementTotal + donationsTotal - adminDiscountTotal;
 
   // Additional stats
   const totalRestaurants = dashboardData?.restaurants?.total || 0;
@@ -233,18 +234,6 @@ export default function AdminHome() {
 
           </div>
           <div className="flex flex-wrap gap-3">
-            <Select value={selectedZone} onValueChange={setSelectedZone}>
-              <SelectTrigger className="min-w-[160px] border-neutral-300 bg-white text-neutral-900">
-                <SelectValue placeholder="All zones" />
-              </SelectTrigger>
-              <SelectContent className="border-neutral-200 bg-white text-neutral-900">
-                <SelectItem value="all">All zones</SelectItem>
-                <SelectItem value="zone1">Zone 1</SelectItem>
-                <SelectItem value="zone2">Zone 2</SelectItem>
-                <SelectItem value="zone3">Zone 3</SelectItem>
-                <SelectItem value="zone4">Zone 4</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="min-w-[140px] border-neutral-300 bg-white text-neutral-900">
                 <SelectValue placeholder="Overall" />
@@ -359,9 +348,17 @@ export default function AdminHome() {
               onClick={getCardClick("Total Ad Revenue")}
             />
             <MetricCard
+              title="Coupons Cost"
+              value={`\u20B9${adminDiscountTotal.toLocaleString("en-IN")}`}
+              helper="Total admin discounts given"
+              icon={<Gift className="h-5 w-5 text-red-600" />}
+              accent="bg-red-100/40"
+              onClick={() => navigate("/admin/coupons")}
+            />
+            <MetricCard
               title="Total revenue"
               value={`\u20B9${totalAdminEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              helper={`Com ${commissionTotal.toFixed(0)} + Plat ${platformFeeTotal.toFixed(0)} + Del ${deliveryFeeTotal.toFixed(0)} + GST ${gstTotal.toFixed(0)} + Sub ${subscriptionTotal.toFixed(0)} + Ad(Rest ${restaurantAdvertisementTotal.toFixed(0)} + User ${userAdvertisementTotal.toFixed(0)}) + Don ${donationsTotal.toFixed(0)}`}
+              helper={`Com ${commissionTotal.toFixed(0)} + Plat ${platformFeeTotal.toFixed(0)} + DelMg ${deliveryMarginTotal.toFixed(0)} + GST ${gstTotal.toFixed(0)} + Sub ${subscriptionTotal.toFixed(0)} + Ad ${advertisementTotal.toFixed(0)} + Don ${donationsTotal.toFixed(0)} - Coupons ${adminDiscountTotal.toFixed(0)}`}
               icon={<DollarSign className="h-5 w-5 text-green-600" />}
               accent="bg-green-200/40"
               onClick={getCardClick("Total revenue")}

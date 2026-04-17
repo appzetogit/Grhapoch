@@ -11,6 +11,16 @@ import { useLocation } from "../hooks/useLocation";
 import { useCart } from "../context/CartContext";
 import PageNavbar from "../components/PageNavbar";
 import { foodImages } from "@/constants/images";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import AnimatedPage from "../components/AnimatedPage";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useLocationSelector } from "../components/UserLayout";
+import { useLocation } from "../hooks/useLocation";
+import { useCart } from "../context/CartContext";
+import PageNavbar from "../components/PageNavbar";
+import { foodImages } from "@/constants/images";
 
 import offerImage from "@/assets/offerimage.png";
 import AddToCartAnimation from "../components/AddToCartAnimation";
@@ -18,6 +28,7 @@ import OptimizedImage from "@/components/OptimizedImage";
 import api from "@/lib/api";
 import { restaurantAPI } from "@/lib/api";
 import FoodTypeIcon from "../components/FoodTypeIcon";
+import ShareSheet from "../components/ShareSheet";
 
 export default function Under250() {
   const { location } = useLocation();
@@ -41,6 +52,8 @@ export default function Under250() {
   const [loadingBanner, setLoadingBanner] = useState(true);
   const [under250Restaurants, setUnder250Restaurants] = useState([]);
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareData, setShareData] = useState(null);
 
   const getItemImageUrls = useCallback((item) => {
     if (!item) return [];
@@ -344,6 +357,7 @@ export default function Under250() {
     const itemWithRestaurant = {
       ...item,
       restaurant: restaurant.name,
+      restaurantId: restaurant.id || restaurant._id || restaurant.restaurantId,
       description: item.description || `${item.name} from ${restaurant.name}`,
       customisable: item.customisable || false,
       notEligibleForCoupons: item.notEligibleForCoupons || false
@@ -351,6 +365,23 @@ export default function Under250() {
     setSelectedItem(itemWithRestaurant);
     setSelectedItemImageIndex(0);
     setShowItemDetail(true);
+  };
+
+  const handleShareClick = (item) => {
+    const dishId = item.id || item._id;
+    const restaurantId = item.restaurantId;
+
+    // Create share URL - since we are in Under250, we usually link to the restaurant page with search query
+    // But if we have a direct slug, we use that. For now using general search or restaurant detail.
+    const shareUrl = `${window.location.origin}/user/restaurants/${restaurantId}?dish=${dishId}`;
+    const shareText = `Check out ${item.name} from ${item.restaurant || "this restaurant"}! Only for ₹${Math.round(item.price)} on GrhaPoch!`;
+
+    setShareData({
+      title: item.name,
+      text: shareText,
+      url: shareUrl
+    });
+    setIsShareSheetOpen(true);
   };
 
   const handleBookmarkClick = (itemId) => {
@@ -857,7 +888,12 @@ export default function Under250() {
                       } />
 
                   </button>
-                  <button className="h-10 w-10 rounded-full border border-white bg-white/90 text-gray-600 hover:bg-white flex items-center justify-center transition-colors">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShareClick(selectedItem);
+                    }}
+                    className="h-10 w-10 rounded-full border border-white bg-white/90 text-gray-600 hover:bg-white flex items-center justify-center transition-colors">
                     <Share2 className="h-5 w-5" />
                   </button>
                 </div>
@@ -910,7 +946,12 @@ export default function Under250() {
                         } />
 
                     </button>
-                    <button className="h-8 w-8 lg:h-10 lg:w-10 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center transition-colors">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareClick(selectedItem);
+                      }}
+                      className="h-8 w-8 lg:h-10 lg:w-10 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center transition-colors">
                       <Share2 className="h-4 w-4 lg:h-5 lg:w-5" />
                     </button>
                   </div>
@@ -1020,6 +1061,12 @@ export default function Under250() {
 
       {/* Add to Cart Animation */}
       <AddToCartAnimation dynamicBottom={viewCartButtonBottom} />
+      
+      <ShareSheet 
+        isOpen={isShareSheetOpen}
+        onClose={() => setIsShareSheetOpen(false)}
+        shareData={shareData}
+      />
     </div>);
 
 }

@@ -5,7 +5,7 @@
 import { useState, useMemo } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 
-import { ArrowLeft, Star, Clock, MapPin, ShoppingBag, Plus, Minus, Calendar, ThumbsUp, MessageCircle, Send } from "lucide-react"
+import { ArrowLeft, Star, Clock, MapPin, ShoppingBag, Plus, Minus, Calendar, ThumbsUp, MessageCircle, Send, Share2 } from "lucide-react"
 import AnimatedPage from "../components/AnimatedPage"
 import Footer from "../components/Footer"
 import ScrollReveal from "../components/ScrollReveal"
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import ShareSheet from "../components/ShareSheet"
 
 // Sample product data - in a real app, this would come from an API
 const productsData = {
@@ -102,6 +103,8 @@ export default function ProductDetail() {
     rating: 5,
     comment: "",
   })
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false)
+  const [shareData, setShareData] = useState(null)
   const [reviews, setReviews] = useState(() =>
     product ? generateReviews(product.name) : []
   )
@@ -123,11 +126,22 @@ export default function ProductDetail() {
   }, [orders, product])
 
   // Calculate average rating
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) return product?.rating || 0
-    const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
     return Math.round((sum / reviews.length) * 10) / 10
   }, [reviews, product])
+
+  const handleShare = () => {
+    if (!product) return;
+    
+    const shareUrl = window.location.href;
+    const shareText = `Check out ${product.name} from ${product.restaurant} on GrhaPoch!`;
+    
+    setShareData({
+      title: product.name,
+      text: shareText,
+      url: shareUrl
+    });
+    setIsShareSheetOpen(true);
+  }
 
   const handleAddToCart = () => {
     if (product) {
@@ -281,6 +295,18 @@ export default function ProductDetail() {
               className="rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-md"
             >
               <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* Share Button - Top Left (next to back) */}
+          <div className="absolute top-4 left-16 z-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleShare}
+              className="rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-md"
+            >
+              <Share2 className="h-5 w-5" />
             </Button>
           </div>
 
@@ -739,6 +765,11 @@ export default function ProductDetail() {
         </div>
       </div>
       <Footer />
+      <ShareSheet 
+        isOpen={isShareSheetOpen}
+        onClose={() => setIsShareSheetOpen(false)}
+        shareData={shareData}
+      />
     </AnimatedPage>
   )
 }

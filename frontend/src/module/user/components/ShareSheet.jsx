@@ -27,18 +27,6 @@ const ShareSheet = ({ isOpen, onClose, shareData }) => {
     onClose();
   };
 
-  const handleNativeShare = async () => {
-    try {
-      // Use the utility but ensure we don't block the UI
-      await shareContent({ title, text, url });
-      // We don't necessarily close here because native share menu is an overlay itself
-      // But for better UX if it's a copy-to-clipboard fallback, we close.
-      setTimeout(onClose, 500); 
-    } catch (err) {
-      console.error("Native share error:", err);
-    }
-  };
-
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -76,7 +64,7 @@ const ShareSheet = ({ isOpen, onClose, shareData }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 gap-8 max-w-sm mx-auto">
               {/* WhatsApp */}
               <button
                 onClick={handleWhatsAppShare}
@@ -99,17 +87,6 @@ const ShareSheet = ({ isOpen, onClose, shareData }) => {
                   <Copy className="w-7 h-7" />
                 </div>
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Copy Link</span>
-              </button>
-
-              {/* More / Native */}
-              <button
-                onClick={handleNativeShare}
-                className="flex flex-col items-center gap-3 group"
-              >
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-400 active:scale-90 transition-transform">
-                  <Share2 className="w-7 h-7" />
-                </div>
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">More</span>
               </button>
             </div>
 

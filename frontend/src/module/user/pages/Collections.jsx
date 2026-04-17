@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Share2, UtensilsCrossed, Store, X } from "lucide-react
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProfile } from "../context/ProfileContext"
+import ShareSheet from "../components/ShareSheet"
 
 // Import banner
 import collectionsBanner from "@/assets/collectionspagebanner.png"
@@ -26,6 +27,8 @@ export default function Collections() {
   const [activeTab, setActiveTab] = useState("delivery")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState("")
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false)
+  const [shareData, setShareData] = useState(null)
 
   const restaurantCount = getFavorites().length
   const dishCount = getDishFavorites().length
@@ -67,6 +70,18 @@ export default function Collections() {
 
   const getGradientColor = (index) => {
     return gradientColors[index % gradientColors.length]
+  }
+
+  const handleShare = (collection) => {
+    const shareUrl = window.location.href;
+    const shareText = `Check out my food collection "${collection.name}" on GrhaPoch!`;
+    
+    setShareData({
+      title: collection.name,
+      text: shareText,
+      url: shareUrl
+    });
+    setIsShareSheetOpen(true);
   }
 
   return (
@@ -131,15 +146,16 @@ export default function Collections() {
             >
               <div className={`${getGradientColor(index)} rounded-2xl p-4 h-48 relative overflow-hidden group`}>
                 {/* Share Button */}
-                <button 
-                  className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors z-10"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }}
-                >
-                  <Share2 className="h-5 w-5" />
-                </button>
+                  <button 
+                    className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors z-10"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleShare(collection)
+                    }}
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </button>
 
                 {/* Center Illustration - Two overlapping cards */}
                 <div className="absolute inset-0 flex items-center justify-center pb-10">
@@ -272,6 +288,12 @@ export default function Collections() {
           </div>
         </div>
       )}
+      
+      <ShareSheet 
+        isOpen={isShareSheetOpen}
+        onClose={() => setIsShareSheetOpen(false)}
+        shareData={shareData}
+      />
     </div>
   )
 }

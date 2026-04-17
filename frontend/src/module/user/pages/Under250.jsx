@@ -11,16 +11,6 @@ import { useLocation } from "../hooks/useLocation";
 import { useCart } from "../context/CartContext";
 import PageNavbar from "../components/PageNavbar";
 import { foodImages } from "@/constants/images";
-import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
-import AnimatedPage from "../components/AnimatedPage";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useLocationSelector } from "../components/UserLayout";
-import { useLocation } from "../hooks/useLocation";
-import { useCart } from "../context/CartContext";
-import PageNavbar from "../components/PageNavbar";
-import { foodImages } from "@/constants/images";
 
 import offerImage from "@/assets/offerimage.png";
 import AddToCartAnimation from "../components/AddToCartAnimation";

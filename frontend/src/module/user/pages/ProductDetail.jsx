@@ -126,6 +126,9 @@ export default function ProductDetail() {
   }, [orders, product])
 
   // Calculate average rating
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return 0
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
     return Math.round((sum / reviews.length) * 10) / 10
   }, [reviews, product])
 

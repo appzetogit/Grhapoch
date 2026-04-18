@@ -694,7 +694,7 @@ export default function CreatePercentageDiscount() {
 
       {/* Search Bar (only show in Dish tab) */}
       {activeTab === "dish" &&
-      <div className="sticky top-[113px] z-20 bg-white px-4 py-4 border-b border-gray-200">
+      <div className="sticky top-[113px] z-20 bg-white px-4 py-3 border-b border-gray-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -722,73 +722,61 @@ export default function CreatePercentageDiscount() {
                   </div> :
 
         <div className="space-y-3">
-            {filteredItems.map((item) => {
-            return (
+            {filteredItems.map((item) => (
               <motion.div
                 key={item.id}
                 whileTap={{ scale: 0.98 }}
-                className="bg-white rounded-lg p-4 border-2 border-gray-200 transition-all">
-                
-                  <div className="flex items-start gap-4">
-                    {/* Item Image */}
-                    <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
+                className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Item Image */}
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden shrink-0 shadow-inner">
+                    <img
                       src={item.image || item.images?.[0] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop"}
                       alt={item.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop";
-                      }} />
+                      }}
+                    />
                     
-                      {/* Veg/Non-Veg Indicator */}
-                      <div className="absolute top-1 left-1">
-                        <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                      item.foodType === "Veg" ? "border-green-600 bg-white" : "border-red-600 bg-white"}`
-                      }>
-                          <div className={`w-2 h-2 rounded-full ${
-                        item.foodType === "Veg" ? "bg-green-600" : "bg-red-600"}`
-                        } />
+                    {/* Veg/Non-Veg Indicator */}
+                    <div className="absolute top-1 left-1">
+                      <div className={`w-4 h-4 border border-white rounded flex items-center justify-center ${
+                      item.foodType === "Veg" ? "bg-green-600" : "bg-red-600"}`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      </div>
                     </div>
-            </div>
-          </div>
+                  </div>
 
-                    {/* Item Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-1">
-                            {item.name}
-                          </h3>
-                          {item.description &&
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-2">
-                              {item.description}
-                            </p>
-                        }
-              <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-gray-900">
-                              ₹{item.price || 0}
-                            </span>
-                </div>
-              </div>
-            </div>
-
-
-                      {/* Make Offer Button */}
-                      <div className="-mt-13.5 pt-2">
-                  <button
-                        onClick={() => openMakeOfferModal(item)}
-                        className="ml-32 mb-2 w-30  py-1.5 px-3 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
-                        
-                          <Tag className="w-3.5 h-3.5" />
-                          Make Offer
-                  </button>
+                  {/* Item Details & Button */}
+                  <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-gray-900 truncate">
+                        {item.name}
+                      </h3>
+                      {item.description && (
+                        <p className="text-[10px] text-gray-500 line-clamp-1 mt-0.5">
+                          {item.description}
+                        </p>
+                      )}
+                      <p className="text-sm font-bold text-gray-800 mt-1">
+                        ₹{item.price || 0}
+                      </p>
+                    </div>
+                    
+                    <button
+                      onClick={() => openMakeOfferModal(item)}
+                      className="shrink-0 py-2 px-3 bg-green-600 text-white rounded-lg text-[10px] font-bold hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
+                    >
+                      <Tag className="w-3 h-3" />
+                      Make Offer
+                    </button>
                   </div>
                 </div>
-              </div>
-                </motion.div>);
-
-          })}
+              </motion.div>
+            ))}
               </div> :
 
 
@@ -902,11 +890,11 @@ export default function CreatePercentageDiscount() {
                     {offer.items && offer.items.length > 0 &&
               <div className="mt-3 space-y-2">
                         {offer.items.slice(0, 3).map((item, index) =>
-                <div key={index} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
+                <div key={index} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2 overflow-hidden">
                             <img
                     src={item.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop"}
                     alt={item.itemName}
-                    className="w-12 h-12 rounded object-cover" />
+                    className="w-10 h-10 rounded object-cover shrink-0 shadow-sm" />
                   
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{item.itemName}</p>
@@ -920,8 +908,8 @@ export default function CreatePercentageDiscount() {
                                 </span>
                   </div>
                 </div>
-                            <div className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                              {item.couponCode}
+                            <div className="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded shrink-0">
+                               {item.couponCode}
               </div>
             </div>
                 )}
@@ -1069,9 +1057,9 @@ export default function CreatePercentageDiscount() {
             onClick={(e) => e.stopPropagation()}>
             
               {/* Header */}
-              <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">
-                  {makeOfferModal.editingOffer ? "Edit Offer" : "Make Offer"} - {makeOfferModal.item.name || makeOfferModal.item.itemName}
+              <div className="px-4 py-4 border-b border-gray-200 flex items-start justify-between gap-2">
+                <h2 className="text-lg font-bold text-gray-900 line-clamp-1">
+                  {makeOfferModal.editingOffer ? "Edit" : "Make"} Offer - {makeOfferModal.item.name || makeOfferModal.item.itemName}
                 </h2>
                 <button
                 onClick={closeMakeOfferModal}

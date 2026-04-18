@@ -12,6 +12,7 @@ import creditIcon from "../../assets/Dashboard-icons/image1.png"
 import balanceIcon from "../../assets/Dashboard-icons/image6.png"
 
 export default function CustomerWalletReport() {
+  const today = new Date().toISOString().split('T')[0];
   const [searchQuery, setSearchQuery] = useState("")
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -163,13 +164,14 @@ export default function CustomerWalletReport() {
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="date"
-                      value={filters.fromDate}
-                      onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="dd-mm-yyyy"
-                    />
+                      <input
+                        type="date"
+                        value={filters.fromDate}
+                        max={today}
+                        onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="dd-mm-yyyy"
+                      />
                   </div>
                 </div>
 
@@ -182,6 +184,7 @@ export default function CustomerWalletReport() {
                     <input
                       type="date"
                       value={filters.toDate}
+                      max={today}
                       onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
                       className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="dd-mm-yyyy"

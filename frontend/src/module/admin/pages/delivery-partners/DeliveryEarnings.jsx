@@ -21,6 +21,7 @@ const formatDate = (dateString) => {
 }
 
 export default function DeliveryEarnings() {
+  const today = new Date().toISOString().split('T')[0];
   const [searchQuery, setSearchQuery] = useState("")
   const [earnings, setEarnings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -283,6 +284,7 @@ export default function DeliveryEarnings() {
               <input
                 type="date"
                 value={filters.fromDate}
+                max={today}
                 onChange={(e) => handleFilterChange('fromDate', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -292,6 +294,7 @@ export default function DeliveryEarnings() {
               <input
                 type="date"
                 value={filters.toDate}
+                max={today}
                 onChange={(e) => handleFilterChange('toDate', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

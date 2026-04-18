@@ -33,6 +33,6 @@ export const disbursementReportDeliverymenDummy = [
 export const disbursementStatsDeliverymen = {
   pending: "$ 3,922.90",
   completed: "$ 0.00",
-  canceled: "$ 0.00",
+  cancelled: "$ 0.00",
 }
 

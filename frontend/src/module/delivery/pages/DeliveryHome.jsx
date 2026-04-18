@@ -1486,7 +1486,7 @@ export default function DeliveryHome() {
         countdownTimerRef.current = null;
       }
     };
-  }, [showNewOrderPopup, countdownSeconds]);
+  }, [showNewOrderPopup]);
 
   // Play audio when New Order popup appears (only for real orders from Socket.IO)
   useEffect(() => {
@@ -1657,9 +1657,7 @@ export default function DeliveryHome() {
 
   // Reset popup state on page load/refresh - ensure no popup shows on refresh
   useEffect(() => {
-    // Clear any popup state on mount
     setShowNewOrderPopup(false);
-    setSelectedRestaurant(null);
     setHasAutoShown(false);
     setCountdownSeconds(300);
 
@@ -2641,8 +2639,11 @@ export default function DeliveryHome() {
               });
             }
 
-            // Close popup and show route on main map (not full-screen directions map)
+            // Close new order popup and show the active trip UI (Reached Pickup popup)
             setShowNewOrderPopup(false);
+            setShowreachedPickupPopup(true);
+            setIsNewOrderPopupMinimized(false);
+            setNewOrderDragY(0);
             // CRITICAL: Clear newOrder notification immediately to prevent duplicate notifications
             const acceptedOrderId = restaurantInfo.id || restaurantInfo.orderId || newOrder?.orderMongoId || newOrder?.orderId;
             if (acceptedOrderId) {
@@ -4445,6 +4446,30 @@ export default function DeliveryHome() {
     };
   }, []);
 
+  // Synchronize selectedRestaurant with localStorage for persistence across refreshes
+  useEffect(() => {
+    if (selectedRestaurant) {
+      const currentStored = localStorage.getItem('deliveryActiveOrder');
+      let activeOrderData = currentStored ? JSON.parse(currentStored) : {};
+      
+      // Update restaurantInfo with latest state
+      activeOrderData = {
+        ...activeOrderData,
+        orderId: selectedRestaurant.orderId || selectedRestaurant.id || activeOrderData.orderId,
+        restaurantInfo: selectedRestaurant,
+        // Preserve other fields if they exist
+        acceptedAt: activeOrderData.acceptedAt || new Date().toISOString(),
+        riderLocation: riderLocation || activeOrderData.riderLocation,
+        routeCoordinates: routePolyline || activeOrderData.routeCoordinates,
+        hasDirectionsAPI: !!directionsResponse || activeOrderData.hasDirectionsAPI
+      };
+      
+      localStorage.setItem('deliveryActiveOrder', JSON.stringify(activeOrderData));
+      // Also sync the generic 'activeOrder' key used by some other logic
+      localStorage.setItem('activeOrder', JSON.stringify(activeOrderData));
+    }
+  }, [selectedRestaurant, routePolyline, directionsResponse, riderLocation]);
+
   // Helper function to calculate time away from distance
   const calculateTimeAway = useCallback((distanceStr) => {
     if (!distanceStr) return '0 mins';
@@ -4635,7 +4660,7 @@ export default function DeliveryHome() {
       };
 
       setSelectedRestaurant(restaurantData);
-      setShowNewOrderPopup(true);
+      setIsNewOrderPopupMinimized(false);setNewOrderDragY(0);setShowreachedPickupPopup(false);setShowOrderIdConfirmationPopup(false);setShowReachedDropPopup(false);setShowNewOrderPopup(true);
       setCountdownSeconds(300); // Reset countdown to 5 minutes
     }
   }, [newOrder, calculateTimeAway, riderLocation, getCashLimitStatus, clearNewOrder, walletLoaded, suppressOrderSound, unsuppressOrderSound]);
@@ -5132,7 +5157,7 @@ export default function DeliveryHome() {
           };
 
           setSelectedRestaurant(restaurantData);
-          setShowNewOrderPopup(true);
+          setIsNewOrderPopupMinimized(false);setNewOrderDragY(0);setShowreachedPickupPopup(false);setShowOrderIdConfirmationPopup(false);setShowReachedDropPopup(false);setShowNewOrderPopup(true);
           setCountdownSeconds(300); // Reset countdown to 5 minutes
         } else if (!newOrderRef.current) {
           try {
@@ -6740,12 +6765,63 @@ export default function DeliveryHome() {
   useEffect(() => {
     const restoreActiveOrder = async () => {
       try {
-        const savedOrder = localStorage.getItem('deliveryActiveOrder');
-        if (!savedOrder) {
-          return;
+        let savedOrder = localStorage.getItem('deliveryActiveOrder');
+        let activeOrderData = null;
+
+        if (savedOrder) {
+          activeOrderData = JSON.parse(savedOrder);
+        } else {
+          // Fallback: If no order in localStorage, check server for active assigned orders
+          try {
+            const response = await deliveryAPI.getOrders({ status: { $nin: ['delivered', 'cancelled'] } });
+            if (response.data?.success && response.data?.data?.orders?.length > 0) {
+              // Get the most recent active order
+              const order = response.data.data.orders[0];
+              
+              // Map backend order structure to the frontend selectedRestaurant structure
+              const reconstructedInfo = {
+                id: order._id,
+                orderId: order.orderId,
+                orderMongoId: order._id,
+                name: order.restaurantId?.name || 'Restaurant',
+                address: order.restaurantId?.address || order.restaurantId?.location?.address || 'Restaurant Address',
+                lat: order.restaurantId?.location?.coordinates?.[1],
+                lng: order.restaurantId?.location?.coordinates?.[0],
+                phone: order.restaurantId?.phone || order.restaurantId?.ownerPhone,
+                customerName: order.userId?.name || 'Customer',
+                customerPhone: order.userId?.phone,
+                customerAddress: order.address?.formattedAddress || order.address?.address || 'Customer Address',
+                customerLat: order.address?.location?.coordinates?.[1],
+                customerLng: order.address?.location?.coordinates?.[0],
+                status: order.status,
+                orderStatus: order.status,
+                paymentStatus: order.paymentStatus || order.payment?.status,
+                paymentMethod: order.payment?.method || order.paymentMethod,
+                deliveryPhase: order.deliveryState?.currentPhase,
+                deliveryState: order.deliveryState,
+                total: order.pricing?.total ?? order.total,
+                acceptedAt: order.assignmentInfo?.assignedAt || order.createdAt,
+                tripDistance: order.deliveryState?.estimatedDistance,
+                tripTime: order.deliveryState?.estimatedDuration
+              };
+
+              activeOrderData = {
+                orderId: order._id,
+                acceptedAt: order.assignmentInfo?.assignedAt || order.createdAt,
+                restaurantInfo: reconstructedInfo
+              };
+              
+              // Sync back to localStorage for persistence
+              localStorage.setItem('deliveryActiveOrder', JSON.stringify(activeOrderData));
+            }
+          } catch (serverError) {
+            console.error('❌ Error fetching active orders from server:', serverError);
+          }
         }
 
-        const activeOrderData = JSON.parse(savedOrder);
+        if (!activeOrderData) {
+          return;
+        }
 
         // Get order ID from saved data
         const orderId = activeOrderData.orderId || activeOrderData.restaurantInfo?.id || activeOrderData.restaurantInfo?.orderId;
@@ -6799,7 +6875,44 @@ export default function DeliveryHome() {
 
         // Restore selectedRestaurant state
         if (activeOrderData.restaurantInfo) {
-          setSelectedRestaurant(activeOrderData.restaurantInfo);
+          const restaurantInfo = activeOrderData.restaurantInfo;
+          setSelectedRestaurant(restaurantInfo);
+
+          // Restore correct popup visibility based on order phase/status
+          const orderStatus = restaurantInfo.orderStatus || restaurantInfo.status;
+          const deliveryStateStatus = restaurantInfo.deliveryState?.status || '';
+          const deliveryPhase = restaurantInfo.deliveryPhase || restaurantInfo.deliveryState?.currentPhase;
+
+          // 1. Final state: Order already delivered/completed
+          if (orderStatus === 'delivered' || deliveryPhase === 'completed' || deliveryPhase === 'delivered') {
+            setShowOrderDeliveredAnimation(true);
+            setShowReachedDropPopup(false);
+            setShowreachedPickupPopup(false);
+            setShowOrderIdConfirmationPopup(false);
+          }
+          // 2. Rider at customer or on the way to customer: Show Reached Drop popup
+          // After picking up, we always show this popup as it contains Map/Call buttons
+          else if (deliveryPhase === 'at_delivery' || deliveryStateStatus === 'reached_drop' || 
+                   orderStatus === 'out_for_delivery' || deliveryPhase === 'en_route_to_delivery' || deliveryPhase === 'picked_up') {
+            setShowReachedDropPopup(true);
+            setShowOrderDeliveredAnimation(false);
+            setShowreachedPickupPopup(false);
+            setShowOrderIdConfirmationPopup(false);
+          }
+          // 3. Rider reached restaurant: Show Order ID Confirmation popup
+          else if (deliveryPhase === 'at_pickup' || orderStatus === 'reached_pickup' || deliveryStateStatus === 'reached_pickup') {
+            setShowOrderIdConfirmationPopup(true);
+            setShowreachedPickupPopup(false);
+            setShowReachedDropPopup(false);
+            setShowOrderDeliveredAnimation(false);
+          }
+          // 4. Rider accepted order: Show Reached Pickup popup (Active Trip UI)
+          else if (deliveryPhase === 'en_route_to_pickup' || orderStatus === 'accepted' || deliveryStateStatus === 'accepted' || orderStatus === 'confirmed') {
+            setShowreachedPickupPopup(true);
+            setShowOrderIdConfirmationPopup(false);
+            setShowReachedDropPopup(false);
+            setShowOrderDeliveredAnimation(false);
+          }
         }
 
         // Wait for map to be ready

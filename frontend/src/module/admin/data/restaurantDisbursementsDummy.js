@@ -26,7 +26,7 @@ export const restaurantDisbursementsDummy = [
   },
   {
     id: "998",
-    status: "Canceled",
+    status: "Cancelled",
     createdAt: "17 Nov 2023 11:30 am",
     totalAmount: 15600.75,
   },

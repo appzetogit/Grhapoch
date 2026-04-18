@@ -107,7 +107,7 @@ export default function DisbursementPage({
     if (statusLower === "partially completed") {
       return "bg-orange-100 text-orange-700"
     }
-    if (statusLower === "canceled") {
+    if (statusLower === "cancelled") {
       return "bg-red-100 text-red-700"
     }
     return "bg-slate-100 text-slate-700"
@@ -289,7 +289,7 @@ export default function DisbursementPage({
                 <option value="processing">Processing</option>
                 <option value="completed">Completed</option>
                 <option value="partially completed">Partially Completed</option>
-                <option value="canceled">Canceled</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
             <div>

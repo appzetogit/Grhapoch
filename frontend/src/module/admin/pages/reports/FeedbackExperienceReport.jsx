@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
 
 export default function FeedbackExperienceReport() {
+  const today = new Date().toISOString().split('T')[0];
   const [searchQuery, setSearchQuery] = useState("")
   const [feedbackExperiences, setFeedbackExperiences] = useState([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +57,7 @@ export default function FeedbackExperienceReport() {
 
   const filteredFeedback = useMemo(() => {
     let result = [...feedbackExperiences]
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
       result = result.filter(feedback =>
@@ -154,7 +155,7 @@ export default function FeedbackExperienceReport() {
     return labels[experience] || experience
   }
 
-  const activeFiltersCount = (filters.fromDate ? 1 : 0) + (filters.toDate ? 1 : 0) + 
+  const activeFiltersCount = (filters.fromDate ? 1 : 0) + (filters.toDate ? 1 : 0) +
     (filters.rating ? 1 : 0) + (filters.experience ? 1 : 0) + (filters.module ? 1 : 0)
 
   return (
@@ -181,7 +182,7 @@ export default function FeedbackExperienceReport() {
               className={`w-5 h-5 text-slate-600 transition-transform ${isFilterOpen ? "rotate-180" : ""}`}
             />
           </button>
-          
+
           {isFilterOpen && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -194,6 +195,7 @@ export default function FeedbackExperienceReport() {
                     <input
                       type="date"
                       value={filters.fromDate}
+                      max={today}
                       onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
                       className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -209,6 +211,7 @@ export default function FeedbackExperienceReport() {
                     <input
                       type="date"
                       value={filters.toDate}
+                      max={today}
                       onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
                       className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -281,11 +284,10 @@ export default function FeedbackExperienceReport() {
                   <RefreshCw className="w-4 h-4" />
                   Reset
                 </button>
-                <button 
+                <button
                   onClick={fetchFeedbackExperiences}
-                  className={`px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center gap-2 relative ${
-                    activeFiltersCount > 0 ? "ring-2 ring-blue-300" : ""
-                  }`}
+                  className={`px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center gap-2 relative ${activeFiltersCount > 0 ? "ring-2 ring-blue-300" : ""
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
                   Filter

@@ -253,6 +253,12 @@ import {
   updateCoupon,
   deleteCoupon
 } from '../controllers/couponController.js';
+import {
+  sendPushNotification,
+  getAllPushNotifications,
+  toggleNotificationStatus,
+  deletePushNotification
+} from '../controllers/pushNotificationController.js';
 
 const router = express.Router();
 
@@ -431,6 +437,12 @@ router.post('/coupons', createCoupon);
 router.get('/coupons', getAllCouponsAdmin);
 router.put('/coupons/:id', updateCoupon);
 router.delete('/coupons/:id', deleteCoupon);
+
+// Push Notification Management
+router.get('/push-notifications', getAllPushNotifications);
+router.post('/push-notifications', uploadMiddleware.single('image'), sendPushNotification);
+router.patch('/push-notifications/:id/status', toggleNotificationStatus);
+router.delete('/push-notifications/:id', deletePushNotification);
 
 // Dining Management
 router.use('/dining', diningAdminRoutes);

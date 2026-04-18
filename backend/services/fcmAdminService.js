@@ -52,7 +52,7 @@ export async function sendPushNotification(tokens, payload) {
         notification: {
             title: payload.title,
             body: payload.body,
-            ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {})
+            ...(payload.imageUrl ? { image: payload.imageUrl } : {})
         },
         data: dataMap,
         // WebPush configuration for browser notifications

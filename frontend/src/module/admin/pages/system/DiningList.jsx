@@ -79,22 +79,22 @@ export default function DiningList() {
                         || (cuisinesArray[0] || restaurant.cuisine || "N/A");
 
                     return {
-                    id: restaurant.restaurantId || restaurant._id || restaurant.id,
-                    _id: restaurant._id,
-                    name: restaurant.name || "N/A",
-                    ownerName: restaurant.ownerName || "N/A",
-                    ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
-                    zone: restaurant.location?.area || restaurant.location?.city || restaurant.zone || "N/A",
-                    status: restaurant.isActive !== false ? "Active" : "Inactive",
-                    rating: restaurant.rating || restaurant.ratings?.average || 0,
-                    logo: restaurant.profileImage?.url || restaurant.logo || null,
-                    // Using default values for now since these fields might not be fully integrated into Restaurant model yet
-                    diningEnabled: restaurant.diningEnabled || false, // Use database value or false
-                    guests: restaurant.diningGuests || 15, // Use database value or 15
-                    cuisine: primaryCuisine,
-                    diningCategories: normalizedDiningCategories,
-                    cuisinesArray
-                };
+                        id: restaurant.restaurantId || restaurant._id || restaurant.id,
+                        _id: restaurant._id,
+                        name: restaurant.name || "N/A",
+                        ownerName: restaurant.ownerName || "N/A",
+                        ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
+                        zone: restaurant.location?.area || restaurant.location?.city || restaurant.zone || "N/A",
+                        status: restaurant.isActive !== false ? "Active" : "Inactive",
+                        rating: restaurant.rating || restaurant.ratings?.average || 0,
+                        logo: restaurant.profileImage?.url || restaurant.logo || null,
+                        // Using default values for now since these fields might not be fully integrated into Restaurant model yet
+                        diningEnabled: restaurant.diningEnabled || false, // Use database value or false
+                        guests: restaurant.diningGuests || 15, // Use database value or 15
+                        cuisine: primaryCuisine,
+                        diningCategories: normalizedDiningCategories,
+                        cuisinesArray
+                    };
                 });
                 setRestaurants(mappedRestaurants);
             } else {
@@ -269,10 +269,6 @@ export default function DiningList() {
                         <CardTitle className="text-xl font-bold p-0 mb-1">Dining List</CardTitle>
                         <CardDescription>Manage restaurants available for dining.</CardDescription>
                     </div>
-                    <Button onClick={() => navigate("/admin/restaurants/add")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-2">
-                        <Plus size={16} />
-                        Add Restaurant
-                    </Button>
                 </CardHeader>
             </Card>
 
@@ -291,8 +287,6 @@ export default function DiningList() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {/* Filters UI removed as requested */}
-
                     <div className="overflow-x-auto">
                         {loading ? (
                             <div className="flex items-center justify-center py-20">

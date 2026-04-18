@@ -512,9 +512,7 @@ export default function RestaurantsList() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <button className="p-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-all">
-                <Settings className="w-4 h-4" />
-              </button>
+
             </div>
           </div>
 
@@ -878,6 +876,13 @@ export default function RestaurantsList() {
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${restaurantDetails?.isActive !== false ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`
                       }>
                             {restaurantDetails?.isActive !== false ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 mb-1">Business Model</p>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${restaurantDetails?.businessModel === 'Subscription Base' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`
+                      }>
+                            {restaurantDetails?.businessModel || "Commission Base"}
                           </span>
                         </div>
                       </div>

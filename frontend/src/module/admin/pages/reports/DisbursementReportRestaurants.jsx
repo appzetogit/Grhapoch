@@ -138,7 +138,7 @@ export default function DisbursementReportRestaurants() {
             </div>
           </div>
 
-          {/* Canceled Transactions */}
+          {/* Cancelled Transactions */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative">
             <div className="absolute top-4 right-4">
               <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
@@ -147,10 +147,10 @@ export default function DisbursementReportRestaurants() {
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center mb-4 relative">
-                <img src={canceledIcon} alt="Canceled" className="w-10 h-10" />
+                <img src={canceledIcon} alt="Cancelled" className="w-10 h-10" />
               </div>
               <p className="text-2xl font-bold text-red-600 mb-1">{disbursementStats.canceled}</p>
-              <p className="text-sm text-slate-600">Canceled Transactions</p>
+              <p className="text-sm text-slate-600">Cancelled Transactions</p>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function DisbursementReportRestaurants() {
                   <option value="All status">All status</option>
                   <option value="Pending">Pending</option>
                   <option value="Completed">Completed</option>
-                  <option value="Canceled">Canceled</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
                 <ChevronDown className="absolute right-2 bottom-2.5 w-4 h-4 text-slate-500 pointer-events-none" />
               </div>

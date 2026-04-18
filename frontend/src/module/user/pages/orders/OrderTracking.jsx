@@ -38,6 +38,7 @@ import { orderAPI, restaurantAPI } from "@/lib/api";
 import { shareContent } from "@/lib/utils/share";
 import ShareSheet from "../../components/ShareSheet";
 import circleIcon from "@/assets/circleicon.png";
+import FoodTypeIcon from "../../components/FoodTypeIcon";
 const AnimatedCheckmark = ({ delay = 0 }) =>
   <motion.svg
     width="80"

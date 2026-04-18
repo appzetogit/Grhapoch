@@ -1175,7 +1175,6 @@ export const getRestaurantReport = asyncHandler(async (req, res) => {
           restaurantQuery.$or = [
             { _id: { $in: ordersInZone } },
             { restaurantId: { $in: ordersInZone } }];
-
         } else {
           // No restaurants found in this zone
           return successResponse(res, 200, 'Restaurant report retrieved successfully', {
@@ -1191,17 +1190,34 @@ export const getRestaurantReport = asyncHandler(async (req, res) => {
       }
     }
 
-    // Active/Inactive filter
-    if (all && all !== 'All') {
-      restaurantQuery.isActive = all === 'Active';
+    // Type (Business Model) filter
+    if (type && type !== 'All types') {
+      restaurantQuery.businessModel = type === 'Commission' ? 'Commission Base' : 'Subscription Base';
     }
 
-    // Search filter
-    if (search) {
-      restaurantQuery.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { restaurantId: { $regex: search, $options: 'i' } }];
+    // Active/Inactive filter
+    if (all && all !== 'All') {
+      restaurantQuery.isActive = (String(all).toLowerCase() === 'active');
+    }
 
+    // Search filter - combine with existing $or if necessary
+    if (search) {
+      const searchOR = [
+        { name: { $regex: search, $options: 'i' } },
+        { restaurantId: { $regex: search, $options: 'i' } }
+      ];
+
+      if (restaurantQuery.$or) {
+        // We already have a zone $or, so we must combine them with $and
+        const existingOR = restaurantQuery.$or;
+        delete restaurantQuery.$or;
+        restaurantQuery.$and = [
+          { $or: existingOR },
+          { $or: searchOR }
+        ];
+      } else {
+        restaurantQuery.$or = searchOR;
+      }
     }
 
     // Get all restaurants matching the query
@@ -1315,7 +1331,8 @@ export const getRestaurantReport = asyncHandler(async (req, res) => {
           {
             $match: {
               restaurantId: restaurantObjectId,
-              rating: { $exists: true, $ne: null, $gt: 0 }
+              rating: { $exists: true, $ne: null, $gt: 0 },
+              ...(dateQuery.createdAt ? { createdAt: dateQuery.createdAt } : {})
             }
           },
           {

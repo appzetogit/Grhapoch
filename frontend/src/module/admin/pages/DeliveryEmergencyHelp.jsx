@@ -45,18 +45,14 @@ export default function DeliveryEmergencyHelp() {
     const errors = {}
     const phoneRegex = /^[\d\s\-\+\(\)]+$/
 
-    if (formData.medicalEmergency && !phoneRegex.test(formData.medicalEmergency.trim())) {
-      errors.medicalEmergency = "Invalid phone number format"
-    }
-    if (formData.accidentHelpline && !phoneRegex.test(formData.accidentHelpline.trim())) {
-      errors.accidentHelpline = "Invalid phone number format"
-    }
-    if (formData.contactPolice && !phoneRegex.test(formData.contactPolice.trim())) {
-      errors.contactPolice = "Invalid phone number format"
-    }
-    if (formData.insurance && !phoneRegex.test(formData.insurance.trim())) {
-      errors.insurance = "Invalid phone number format"
-    }
+    Object.keys(formData).forEach(key => {
+      const value = formData[key]?.trim()
+      if (!value) {
+        errors[key] = `${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} is required`
+      } else if (!phoneRegex.test(value)) {
+        errors[key] = "Invalid phone number format"
+      }
+    })
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -190,11 +186,13 @@ export default function DeliveryEmergencyHelp() {
                 <label className="block text-sm font-semibold text-slate-900">
                   <span className="mr-2">{field.icon}</span>
                   {field.label}
+                  <span className="text-red-500 ml-1">*</span>
                 </label>
                 <p className="text-xs text-slate-600 mb-2">{field.description}</p>
                 <div className="relative">
                   <input
                     type="text"
+                    required
                     value={formData[field.id]}
                     onChange={(e) => handleInputChange(field.id, e.target.value)}
                     placeholder={field.placeholder}

@@ -36,9 +36,12 @@ export const getRestaurantCommissions = asyncHandler(async (req, res) => {
     }
 
     // Hide orphan commission rows whose restaurant document was deleted.
+    // Also exclude restaurants that are on Subscription Base model.
     // This keeps commission management consistent with active restaurant master data.
-    const existingRestaurantIds = await Restaurant.distinct('_id');
-    query.restaurant = { $in: existingRestaurantIds };
+    const activeCommissionRestaurantIds = await Restaurant.find({
+      businessModel: { $ne: 'Subscription Base' }
+    }).distinct('_id');
+    query.restaurant = { $in: activeCommissionRestaurantIds };
 
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);

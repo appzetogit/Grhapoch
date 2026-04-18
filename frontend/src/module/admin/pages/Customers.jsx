@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react"
-import { Search, Download, ChevronDown, Calendar, Eye, FileDown, FileSpreadsheet, FileText, X, Mail, Phone, MapPin, Package, DollarSign, Calendar as CalendarIcon, User, CheckCircle, XCircle } from "lucide-react"
+import { Search, Download, ChevronDown, Calendar, Eye, FileDown, FileSpreadsheet, FileText, X, Mail, Phone, MapPin, Package, DollarSign, Calendar as CalendarIcon, User, CheckCircle, XCircle, RefreshCw, Filter } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { exportCustomersToCSV, exportCustomersToExcel, exportCustomersToPDF } from "../components/customers/customersExportUtils"
 import { adminAPI } from "@/lib/api"
@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function Customers() {
+  const today = new Date().toISOString().split('T')[0];
   const [searchQuery, setSearchQuery] = useState("")
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,6 +23,7 @@ export default function Customers() {
     sortBy: "",
     chooseFirst: "",
   })
+  const activeFiltersCount = Object.values(filters).filter(v => v !== "").length;
 
   const filteredCustomers = useMemo(() => {
     let result = [...customers]
@@ -94,7 +96,9 @@ export default function Customers() {
           ...(searchQuery && { search: searchQuery }),
           ...(filters.status && { status: filters.status }),
           ...(filters.joiningDate && { joiningDate: filters.joiningDate }),
+          ...(filters.orderDate && { orderDate: filters.orderDate }),
           ...(filters.sortBy && { sortBy: filters.sortBy }),
+          ...(filters.chooseFirst && { limit: parseInt(filters.chooseFirst) }),
         }
 
         const response = await adminAPI.getUsers(params)
@@ -117,8 +121,9 @@ export default function Customers() {
       }
     }
 
-    fetchCustomers()
-  }, [searchQuery, filters.status, filters.joiningDate, filters.sortBy])
+    const timeoutId = setTimeout(fetchCustomers, 500)
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, filters])
 
   const handleToggleStatus = async (customerId) => {
     try {
@@ -215,6 +220,7 @@ export default function Customers() {
                 <input
                   type="date"
                   value={filters.orderDate}
+                  max={today}
                   onChange={(e) => handleFilterChange("orderDate", e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
@@ -230,6 +236,7 @@ export default function Customers() {
                 <input
                   type="date"
                   value={filters.joiningDate}
+                  max={today}
                   onChange={(e) => handleFilterChange("joiningDate", e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
@@ -285,14 +292,6 @@ export default function Customers() {
 
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => {
-                  // Filters are applied automatically via useMemo
-                }}
-                className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all"
-              >
-                Apply Filters
-              </button>
               <button
                 onClick={() => {
                   setFilters({
@@ -303,13 +302,19 @@ export default function Customers() {
                     chooseFirst: "",
                   })
                 }}
-                className="px-6 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all"
+                className="px-6 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2 relative group"
               >
+                <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
                 Reset Filters
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    {activeFiltersCount}
+                  </span>
+                )}
               </button>
             </div>
-            <div className="text-sm text-slate-600">
-              {loading ? 'Loading...' : `Showing ${filteredCustomers.length} of ${totalCustomers} customers`}
+            <div className="text-sm text-slate-600 font-medium">
+              {loading ? 'Fetching data...' : `Found ${filteredCustomers.length} results`}
             </div>
           </div>
         </div>
@@ -416,7 +421,7 @@ export default function Customers() {
                         <span className="text-sm text-slate-700">{customer.totalOrder || 0}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-slate-900">$ {(customer.totalOrderAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-sm font-medium text-slate-900">₹ {(customer.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-slate-700">{customer.joiningDate}</span>
@@ -530,7 +535,7 @@ export default function Customers() {
                     <span className="text-xs font-semibold text-slate-700">Total Spent</span>
                   </div>
                   <p className="text-xl font-bold text-green-600">
-                    ${(userDetails.totalOrderAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹ {(userDetails.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3">
@@ -588,7 +593,7 @@ export default function Customers() {
                           <p className="text-xs text-slate-600">{order.restaurantName}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-slate-900">${(order.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-semibold text-slate-900">₹ {(order.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           <p className="text-xs text-slate-600 capitalize">{order.status}</p>
                         </div>
                       </div>

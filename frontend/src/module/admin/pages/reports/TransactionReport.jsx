@@ -36,6 +36,7 @@ export default function TransactionReport() {
   })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [restaurants, setRestaurants] = useState([])
+
   const metricFilter = useMemo(() => {
     const metric = new URLSearchParams(location.search).get("metric")
     return metric ? metric.toLowerCase() : ""
@@ -45,7 +46,6 @@ export default function TransactionReport() {
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        // Fetch restaurants
         const restaurantsResponse = await adminAPI.getRestaurants({ limit: 1000 })
         if (restaurantsResponse?.data?.success && restaurantsResponse.data.data?.restaurants) {
           setRestaurants(restaurantsResponse.data.data.restaurants)
@@ -62,12 +62,11 @@ export default function TransactionReport() {
     const fetchTransactionReport = async () => {
       try {
         setLoading(true)
-        
-        // Build date range based on time filter
+
         let fromDate = null
         let toDate = null
         const now = new Date()
-        
+
         if (filters.time === "Today") {
           fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
@@ -131,7 +130,7 @@ export default function TransactionReport() {
     if (metricFilter === "platform_fee") {
       return transactions.filter((tx) => (tx.platformFee || 0) > 0)
     }
-    return transactions // Backend already filters, so just return transactions
+    return transactions
   }, [transactions, metricFilter])
 
   const metricSummary = useMemo(() => {
@@ -166,12 +165,11 @@ export default function TransactionReport() {
       }
     }
     return null
-  }, [metricFilter, filteredTransactions])
+  }, [metricFilter, filteredTransactions, summary])
 
   const displaySummary = metricSummary ? {
     completedTransaction: metricSummary.primaryValue,
     refundedTransaction: 0,
-    // Keep admin earning from backend summary (includes ads + subscriptions), regardless of metric filter
     adminEarning: summary.adminEarning || 0,
     restaurantEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.restaurantEarning || 0), 0),
     deliverymanEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.deliverymanEarning || 0), 0)
@@ -190,10 +188,6 @@ export default function TransactionReport() {
     }
   }
 
-  const handleFilterApply = () => {
-    // Filters are already applied via useMemo
-  }
-
   const handleResetFilters = () => {
     setFilters({
       restaurant: "All restaurants",
@@ -207,11 +201,35 @@ export default function TransactionReport() {
     if (amount >= 1000) {
       return `₹ ${(amount / 1000).toFixed(2)}K`
     }
-    return `₹ ${amount.toFixed(2)}`
+    return `₹ ${(amount || 0).toFixed(2)}`
   }
 
   const formatFullCurrency = (amount) => {
-    return `₹ ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `₹ ${(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  // Column highlight config per metric
+  const colHighlight = {
+    gst: { col: "gst", bg: "bg-amber-50", text: "text-amber-700", headerBg: "bg-amber-50", headerText: "text-amber-800" },
+    platform_fee: { col: "platform_fee", bg: "bg-violet-50", text: "text-violet-700", headerBg: "bg-violet-50", headerText: "text-violet-800" },
+    delivery_fee: { col: "delivery_fee", bg: "bg-sky-50", text: "text-sky-700", headerBg: "bg-sky-50", headerText: "text-sky-800" },
+    gross: { col: "gross", bg: "bg-emerald-50", text: "text-emerald-700", headerBg: "bg-emerald-50", headerText: "text-emerald-800" },
+    admin_earning: { col: "admin_earning", bg: "bg-blue-50", text: "text-blue-700", headerBg: "bg-blue-50", headerText: "text-blue-800" },
+  }
+  const hl = colHighlight[metricFilter] || null
+
+  const thClass = (col) => {
+    const base = "px-1.5 py-2 text-left text-[8px] font-bold uppercase tracking-wider"
+    if (hl && hl.col === col) return `${base} ${hl.headerBg} ${hl.headerText}`
+    return `${base} text-slate-700`
+  }
+  const tdClass = (col) => {
+    if (hl && hl.col === col) return `px-1.5 py-1 ${hl.bg}`
+    return "px-1.5 py-1"
+  }
+  const spanClass = (col, defaultClass = "text-slate-700") => {
+    if (hl && hl.col === col) return `text-[10px] font-semibold ${hl.text}`
+    return `text-[10px] ${defaultClass}`
   }
 
   if (loading) {
@@ -237,28 +255,33 @@ export default function TransactionReport() {
             <h1 className="text-lg font-bold text-slate-900">Transaction Report</h1>
             {metricFilter === "gst" && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                GST only
+                GST view
               </span>
             )}
             {metricFilter === "gross" && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                Gross revenue only
+                Gross Revenue view
               </span>
             )}
             {metricFilter === "delivery_fee" && (
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
-                Delivery fee only
+                Delivery Fee view
               </span>
             )}
             {metricFilter === "platform_fee" && (
               <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                Platform fee only
+                Platform Fee view
+              </span>
+            )}
+            {metricFilter === "admin_earning" && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                Admin Earning view
               </span>
             )}
           </div>
         </div>
 
-        {/* Search Data Section */}
+        {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 mb-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="relative flex-1 min-w-0">
@@ -289,33 +312,19 @@ export default function TransactionReport() {
               <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
             </div>
 
-            <button 
-              onClick={handleFilterApply}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all whitespace-nowrap relative ${
-                activeFiltersCount > 0 ? "ring-2 ring-blue-300" : ""
-              }`}
-            >
-              Filter
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-white rounded-full text-[8px] flex items-center justify-center font-bold">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-            <button 
+            <button
               onClick={handleResetFilters}
               className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap"
             >
-              Reset
+              Reset {activeFiltersCount > 0 && `(${activeFiltersCount})`}
             </button>
           </div>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          {/* Left Column - Large Cards */}
           <div className="space-y-3">
-            {/* Completed Transaction - Green */}
+            {/* Primary metric card */}
             <div className="rounded-lg shadow-sm border border-slate-200 p-4" style={{ backgroundColor: '#f1f5f9' }}>
               <div className="relative mb-3 flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
@@ -331,7 +340,7 @@ export default function TransactionReport() {
               </div>
             </div>
 
-            {/* Refunded Transaction - Red */}
+            {/* Refunded */}
             <div className="rounded-lg shadow-sm border border-slate-200 p-4" style={{ backgroundColor: '#f1f5f9' }}>
               <div className="relative mb-3 flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
@@ -348,7 +357,6 @@ export default function TransactionReport() {
             </div>
           </div>
 
-          {/* Right Column - Small Cards */}
           <div className="space-y-3">
             {/* Admin Earning */}
             <div className="rounded-lg shadow-sm border border-slate-200 p-3" style={{ backgroundColor: '#f1f5f9' }}>
@@ -406,10 +414,10 @@ export default function TransactionReport() {
           </div>
         </div>
 
-        {/* Order Transactions Section */}
+        {/* Order Transactions Table */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-            <h2 className="text-base font-bold text-slate-900">Order Transactions {filteredTransactions.length}</h2>
+            <h2 className="text-base font-bold text-slate-900">Order Transactions ({filteredTransactions.length})</h2>
 
             <div className="flex items-center gap-2">
               <div className="relative flex-1 sm:flex-initial min-w-[180px]">
@@ -431,28 +439,25 @@ export default function TransactionReport() {
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 animate-in fade-in-0 zoom-in-95 duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
+                <DropdownMenuContent align="end" className="w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   <DropdownMenuLabel>Export Format</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleExport("csv")} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Export as CSV
+                    <FileText className="w-4 h-4 mr-2" /> Export as CSV
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleExport("excel")} className="cursor-pointer">
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    Export as Excel
+                    <FileSpreadsheet className="w-4 h-4 mr-2" /> Export as Excel
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleExport("pdf")} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Export as PDF
+                    <FileText className="w-4 h-4 mr-2" /> Export as PDF
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleExport("json")} className="cursor-pointer">
-                    <Code className="w-4 h-4 mr-2" />
-                    Export as JSON
+                    <Code className="w-4 h-4 mr-2" /> Export as JSON
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <button 
+
+              <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-all"
               >
@@ -462,22 +467,33 @@ export default function TransactionReport() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto scrollbar-hide">
-            <table className="w-full" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <thead className="bg-slate-50 border-b border-slate-200">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px]">
+              <thead className="border-b border-slate-200">
                 <tr>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '3%' }}>SI</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '7%' }}>Order Id</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '10%' }}>Restaurant</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '10%' }}>Customer Name</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '9%' }}>Total Item Amount</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Item Discount</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Coupon Discount</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Referral Discount</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Discounted Amount</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '7%' }}>Vat/Tax</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Delivery Charge</th>
-                  <th className="px-1.5 py-1 text-left text-[8px] font-bold text-slate-700 uppercase tracking-wider" style={{ width: '8%' }}>Order Amount</th>
+                  <th className={thClass("")} style={{ width: '3%' }}>SI</th>
+                  <th className={thClass("")} style={{ width: '8%' }}>Order ID</th>
+                  <th className={thClass("")} style={{ width: '11%' }}>Restaurant</th>
+                  <th className={thClass("")} style={{ width: '9%' }}>Customer</th>
+                  <th className={thClass("")} style={{ width: '8%' }}>Item Amount</th>
+                  <th className={thClass("")} style={{ width: '7%' }}>Coupon Disc.</th>
+                  <th className={thClass("")} style={{ width: '7%' }}>Disc. Amount</th>
+                  {/* Highlighted columns */}
+                  <th className={thClass("gst")} style={{ width: '7%' }}>
+                    GST{metricFilter === "gst" ? " ▲" : ""}
+                  </th>
+                  <th className={thClass("platform_fee")} style={{ width: '8%' }}>
+                    Platform Fee{metricFilter === "platform_fee" ? " ▲" : ""}
+                  </th>
+                  <th className={thClass("delivery_fee")} style={{ width: '8%' }}>
+                    Delivery Fee{metricFilter === "delivery_fee" ? " ▲" : ""}
+                  </th>
+                  <th className={thClass("gross")} style={{ width: '8%' }}>
+                    Order Amount{metricFilter === "gross" ? " ▲" : ""}
+                  </th>
+                  <th className={thClass("admin_earning")} style={{ width: '8%' }}>
+                    Admin Earning{metricFilter === "admin_earning" ? " ▲" : ""}
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -486,62 +502,59 @@ export default function TransactionReport() {
                     <td colSpan={12} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <p className="text-lg font-semibold text-slate-700 mb-1">No Data Found</p>
-                        <p className="text-sm text-slate-500">No transactions match your search</p>
+                        <p className="text-sm text-slate-500">No transactions match the selected filters</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   filteredTransactions.map((transaction, index) => (
-                    <tr
-                      key={transaction.id}
-                      className="hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="px-1.5 py-1">
+                    <tr key={transaction.id || index} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-1.5 py-1.5">
                         <span className="text-[10px] font-medium text-slate-700">{index + 1}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{transaction.orderId}</span>
+                      <td className="px-1.5 py-1.5">
+                        <span className="text-[10px] text-slate-700 truncate block">{transaction.orderId}</span>
                       </td>
-                      <td className="px-1.5 py-1">
+                      <td className="px-1.5 py-1.5">
                         <span className="text-[10px] text-slate-700 truncate block">{transaction.restaurant}</span>
                       </td>
-                      <td className="px-1.5 py-1">
+                      <td className="px-1.5 py-1.5">
                         <span className={`text-[10px] truncate block ${
-                          transaction.customerName === "Invalid Customer Data" 
-                            ? "text-red-600 font-semibold" 
+                          transaction.customerName === "Invalid Customer Data"
+                            ? "text-red-600 font-semibold"
                             : "text-slate-700"
                         }`}>
                           {transaction.customerName}
                         </span>
                       </td>
-                      <td className="px-1.5 py-1">
+                      <td className="px-1.5 py-1.5">
                         <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.totalItemAmount)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.itemDiscount)}</span>
-                      </td>
-                      <td className="px-1.5 py-1">
+                      <td className="px-1.5 py-1.5">
                         <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.couponDiscount)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.referralDiscount)}</span>
+                      <td className="px-1.5 py-1.5">
+                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.discountedAmount)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">
-                          {transaction.discountedAmount >= 1000 
-                            ? formatCurrency(transaction.discountedAmount)
-                            : formatFullCurrency(transaction.discountedAmount)
-                          }
-                        </span>
+                      {/* GST */}
+                      <td className={tdClass("gst")}>
+                        <span className={spanClass("gst")}>{formatFullCurrency(transaction.vatTax)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.vatTax)}</span>
+                      {/* Platform Fee */}
+                      <td className={tdClass("platform_fee")}>
+                        <span className={spanClass("platform_fee")}>{formatFullCurrency(transaction.platformFee)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.deliveryCharge)}</span>
+                      {/* Delivery Fee */}
+                      <td className={tdClass("delivery_fee")}>
+                        <span className={spanClass("delivery_fee")}>{formatFullCurrency(transaction.deliveryCharge)}</span>
                       </td>
-                      <td className="px-1.5 py-1">
-                        <span className="text-[10px] font-medium text-slate-900">{formatFullCurrency(transaction.orderAmount)}</span>
+                      {/* Order Amount */}
+                      <td className={tdClass("gross")}>
+                        <span className={spanClass("gross", "font-medium text-slate-900")}>{formatFullCurrency(transaction.orderAmount)}</span>
+                      </td>
+                      {/* Admin Earning */}
+                      <td className={tdClass("admin_earning")}>
+                        <span className={spanClass("admin_earning")}>{formatFullCurrency(transaction.adminEarning)}</span>
                       </td>
                     </tr>
                   ))
@@ -554,7 +567,7 @@ export default function TransactionReport() {
 
       {/* Settings Dialog */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-md bg-white p-0 opacity-0 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 transition-opacity duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:scale-100 data-[state=closed]:scale-100">
+        <DialogContent className="max-w-md bg-white p-0">
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />

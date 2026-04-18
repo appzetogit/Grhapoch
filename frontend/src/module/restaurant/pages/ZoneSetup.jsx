@@ -376,7 +376,7 @@ export default function ZoneSetup() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <RestaurantNavbar />
+      <RestaurantNavbar showSearch={false} />
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">

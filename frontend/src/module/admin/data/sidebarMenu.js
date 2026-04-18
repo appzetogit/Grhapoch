@@ -87,7 +87,7 @@ export const sidebarMenuData = [
           { label: "Processing", path: "/admin/orders/processing" },
           { label: "Food On The Way", path: "/admin/orders/food-on-the-way" },
           { label: "Delivered", path: "/admin/orders/delivered" },
-          { label: "Canceled", path: "/admin/orders/canceled" },
+          { label: "Cancelled", path: "/admin/orders/cancelled" },
           { label: "Restaurant cancelled", path: "/admin/orders/restaurant-cancelled" },
           { label: "Payment Failed", path: "/admin/orders/payment-failed" },
           { label: "Refunded", path: "/admin/orders/refunded" },

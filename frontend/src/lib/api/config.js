@@ -396,7 +396,10 @@ export const API_ENDPOINTS = {
     GLOBAL_COUPON_BY_ID: '/admin/coupons/:id',
     ZONES: '/admin/zones',
     ZONE_BY_ID: '/admin/zones/:id',
-    ZONE_STATUS: '/admin/zones/:id/status'
+    ZONE_STATUS: '/admin/zones/:id/status',
+    PUSH_NOTIFICATIONS: '/admin/push-notifications',
+    PUSH_NOTIFICATION_STATUS: '/admin/push-notifications/:id/status',
+    PUSH_NOTIFICATION_BY_ID: '/admin/push-notifications/:id'
   },
   // Order endpoints
   ORDER: {

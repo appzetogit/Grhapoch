@@ -25,7 +25,7 @@ const statusMeta = {
   Processing: { label: "Processing Orders", color: "text-indigo-600", bg: "bg-indigo-50", icon: processingIcon },
   "Food On The Way": { label: "Food On The Way", color: "text-cyan-600", bg: "bg-cyan-50", icon: onTheWayIcon },
   Delivered: { label: "Delivered", color: "text-emerald-600", bg: "bg-emerald-50", icon: deliveredIcon },
-  Canceled: { label: "Canceled", color: "text-red-600", bg: "bg-red-50", icon: canceledIcon },
+  Cancelled: { label: "Cancelled Orders", color: "text-red-600", bg: "bg-red-50", icon: canceledIcon },
   "Payment Failed": { label: "Payment Failed", color: "text-orange-600", bg: "bg-orange-50", icon: paymentFailedIcon },
   Refunded: { label: "Refunded", color: "text-teal-600", bg: "bg-teal-50", icon: refundedIcon },
 }
@@ -223,7 +223,7 @@ export default function RegularOrderReport() {
           Processing: 0,
           "Food On The Way": 0,
           Delivered: 0,
-          Canceled: 0,
+          Cancelled: 0,
           "Payment Failed": 0,
           Refunded: 0,
         }
@@ -389,7 +389,7 @@ export default function RegularOrderReport() {
           {renderStatusRow("Food On The Way")}
           {renderStatusRow("Accepted")}
           {renderStatusRow("Delivered")}
-          {renderStatusRow("Canceled")}
+          {renderStatusRow("Cancelled")}
           {renderStatusRow("Payment Failed")}
           {renderStatusRow("Refunded")}
         </div>

@@ -32,7 +32,7 @@ export const deliverymanDisbursementsDummy = [
   },
   {
     id: "996",
-    status: "Canceled",
+    status: "Cancelled",
     createdAt: "16 Nov 2023 09:15 am",
     totalAmount: 1500.00,
   },

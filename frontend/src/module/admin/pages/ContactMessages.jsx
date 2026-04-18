@@ -136,7 +136,7 @@ export default function ContactMessages() {
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${colorClass} flex items-center gap-1`}>
         <Star className="w-3 h-3 fill-current" />
-        {rating}
+        {(rating * 2) || 0} / 10
       </span>
     )
   }
@@ -517,7 +517,7 @@ export default function ContactMessages() {
                       {renderStars(selectedFeedback.rating)}
                     </div>
                     <span className="text-lg font-bold text-slate-900 dark:text-white">
-                      {selectedFeedback.rating} / 5
+                      {(selectedFeedback.rating * 2) || 0} / 10
                     </span>
                   </div>
                 </div>

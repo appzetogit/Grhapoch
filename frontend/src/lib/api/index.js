@@ -1014,8 +1014,8 @@ export const adminAPI = {
   },
 
   // Get dashboard stats
-  getDashboardStats: () => {
-    return apiClient.get(API_ENDPOINTS.ADMIN.DASHBOARD_STATS);
+  getDashboardStats: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DASHBOARD_STATS, { params });
   },
 
   // Get users
@@ -1396,6 +1396,30 @@ export const adminAPI = {
 
   getCategoryById: (id) => {
     return apiClient.get(API_ENDPOINTS.ADMIN.CATEGORY_BY_ID.replace(':id', id));
+  },
+
+  // Push Notification Management
+  getPushNotifications: () => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATIONS);
+  },
+  sendPushNotification: (data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (key === 'image' && data[key]) {
+        formData.append('image', data[key]);
+      } else if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key]);
+      }
+    });
+    return apiClient.post(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATIONS, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  togglePushNotificationStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATION_STATUS.replace(':id', id));
+  },
+  deletePushNotification: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATION_BY_ID.replace(':id', id));
   },
 
   createCategory: (data) => {

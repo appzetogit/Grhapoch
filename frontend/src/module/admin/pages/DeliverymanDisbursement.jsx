@@ -3,7 +3,7 @@ import DisbursementPage from "../components/disbursement/DisbursementPage"
 import { deliverymanDisbursementsDummy } from "../data/deliverymanDisbursementsDummy"
 
 export default function DeliverymanDisbursement() {
-  const tabs = ["All", "Pending", "Processing", "Completed", "Partially completed", "Canceled"]
+  const tabs = ["All", "Pending", "Processing", "Completed", "Partially completed", "Cancelled"]
   
   return (
     <DisbursementPage

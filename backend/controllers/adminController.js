@@ -36,16 +36,42 @@ const logger = winston.createLogger({
  */
 export const getDashboardStats = asyncHandler(async (req, res) => {
   try {
+    // Parse filters from query
+    const { period } = req.query;
+
     // Calculate date ranges
     const now = new Date();
     const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Dynamic date filter for "total" counts based on period
+    let dateFilter = {};
+    let startDate = null;
+    if (period && period !== 'overall') {
+      const pNow = new Date();
+      if (period === 'today') {
+        startDate = new Date(pNow.setHours(0, 0, 0, 0));
+      } else if (period === 'week') {
+        startDate = new Date(pNow.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === 'month') {
+        startDate = new Date(pNow.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (period === 'year') {
+        startDate = new Date(pNow.getTime() - 365 * 24 * 60 * 60 * 1000);
+      }
+      if (startDate) {
+        dateFilter = { createdAt: { $gte: startDate } };
+      }
+    }
+
+    // Combined filter for Order related queries
+    const orderQueryFilter = { ...dateFilter };
 
     // Get total revenue (sum of all completed orders)
     const revenueStats = await Order.aggregate([
     {
       $match: {
         status: 'delivered',
-        'pricing.total': { $exists: true }
+        'pricing.total': { $exists: true },
+        ...orderQueryFilter
       }
     },
     {
@@ -100,7 +126,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     {
       $facet: {
         total: [
-        { $match: { status: 'success' } },
+        { $match: { status: 'success', ...(dateFilter.createdAt ? { paymentDate: dateFilter.createdAt } : {}) } },
         { $group: { _id: null, amount: { $sum: '$amount' } } }],
         last30Days: [
         { $match: { status: 'success', paymentDate: { $gte: last30Days } } },
@@ -123,7 +149,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
             adType: 'restaurant_banner',
             paymentStatus: 'paid',
             isDeleted: false,
-            price: { $gt: 0 }
+            price: { $gt: 0 },
+            ...(startDate ? { updatedAt: { $gte: startDate } } : {})
           }
         },
         {
@@ -152,7 +179,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
           $match: {
             paymentStatus: 'paid',
             isDeleted: false,
-            totalAmount: { $gt: 0 }
+            totalAmount: { $gt: 0 },
+            ...(startDate ? { updatedAt: { $gte: startDate } } : {})
           }
         },
         {
@@ -193,7 +221,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
     // Get all settlements for delivered orders only (to match with revenue calculation)
     // First get delivered order IDs
-    const deliveredOrderIds = await Order.find({ status: 'delivered' }).select('_id').lean();
+    const deliveredOrderIds = await Order.find({ status: 'delivered', ...orderQueryFilter }).select('_id').lean();
     const deliveredOrderIdArray = deliveredOrderIds.map((o) => o._id);
 
     // Get settlements only for delivered orders
@@ -258,6 +286,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
     // Get order statistics
     const orderStats = await Order.aggregate([
+    { $match: orderQueryFilter },
     {
       $group: {
         _id: '$status',
@@ -272,7 +301,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     });
 
     // Get total orders processed
-    const totalOrders = await Order.countDocuments({ status: 'delivered' });
+    const totalOrders = await Order.countDocuments({ status: 'delivered', ...orderQueryFilter });
 
     // Get active partners count
     const activeRestaurants = await Restaurant.countDocuments({ isActive: true });

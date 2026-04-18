@@ -40,9 +40,15 @@ export default function BottomPopup({
   const [isDragging, setIsDragging] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Reset drag state when popup closes
+  // Reset state when popup opens or closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      // Ensure it starts expanded when opened
+      setIsCollapsed(false);
+      setDragY(0);
+      setIsDragging(false);
+      isSwiping.current = false;
+    } else {
       setDragY(0);
       setIsDragging(false);
       isSwiping.current = false;

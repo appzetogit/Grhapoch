@@ -84,6 +84,7 @@ const DeliveryTrackingMap = ({
     if (typeof encodedPolyline !== 'string' || !encodedPolyline.trim()) return;
 
     const decodedPoints = decodePolyline(encodedPolyline.trim());
+    console.log('🗺️ Decoded realtime polyline points:', decodedPoints.length);
     if (!Array.isArray(decodedPoints) || decodedPoints.length < 2) return;
 
     routePolylinePointsRef.current = decodedPoints;
@@ -177,13 +178,14 @@ const DeliveryTrackingMap = ({
       realtimePolylineRef.current = '';
     }
   }, [
-  order?.realtimeTracking?.boy_lat,
-  order?.realtimeTracking?.boy_lng,
-  order?.realtimeTracking?.heading,
-  order?.realtimeTracking?.polyline,
-  order?.realtimeTracking?.last_updated,
-  applyRealtimeTrackingUpdate]
-  );
+    isMapLoaded,
+    order?.realtimeTracking?.boy_lat,
+    order?.realtimeTracking?.boy_lng,
+    order?.realtimeTracking?.heading,
+    order?.realtimeTracking?.polyline,
+    order?.realtimeTracking?.last_updated,
+    applyRealtimeTrackingUpdate
+  ]);
 
   useEffect(() => {
     if (!orderId || !database) {
@@ -361,11 +363,13 @@ const DeliveryTrackingMap = ({
     };
 
     try {
+      console.log('🗺️ Fetching directions route...', { startLat, startLng, endLat, endLng });
       directionsServiceRef.current.route({
         origin: { lat: startLat, lng: startLng },
         destination: { lat: endLat, lng: endLng },
         travelMode: window.google.maps.TravelMode.DRIVING
       }, (result, status) => {
+        console.log('🗺️ Directions API Status:', status);
         if (status === 'OK' && result) {
           // Cache the result
           directionsCacheRef.current.set(cacheKey, {
@@ -730,7 +734,14 @@ const DeliveryTrackingMap = ({
                 // Fallback: Move to nearest point on polyline (STAY ON ROAD)
                 const nearestPosition = new window.google.maps.LatLng(nearest.nearestPoint.lat, nearest.nearestPoint.lng);
                 bikeMarkerRef.current.setPosition(nearestPosition);
-                bikeMarkerRef.current.setRotation(heading || 0);
+                
+                // Update rotation safely
+                if (typeof bikeMarkerRef.current.setRotation === 'function') {
+                  bikeMarkerRef.current.setRotation(heading || 0);
+                } else if (bikeMarkerRef.current.icon && typeof bikeMarkerRef.current.icon === 'object') {
+                  const newIcon = { ...bikeMarkerRef.current.icon, rotation: heading || 0 };
+                  bikeMarkerRef.current.setIcon(newIcon);
+                }
 
               }
             }
@@ -1081,12 +1092,12 @@ const DeliveryTrackingMap = ({
         directionsServiceRef.current = new window.google.maps.DirectionsService();
         directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
           map: mapInstance.current,
-          suppressMarkers: true, // We'll add custom markers
-          preserveViewport: true, // CRITICAL: Don't auto-adjust viewport when route is set - keep map stable
+          suppressMarkers: true,
+          preserveViewport: true,
           polylineOptions: {
             strokeColor: '#10b981',
-            strokeWeight: 0, // Hide default polyline, we'll use custom dashed one
-            strokeOpacity: 0
+            strokeWeight: 6,
+            strokeOpacity: 0.7
           }
         });
 

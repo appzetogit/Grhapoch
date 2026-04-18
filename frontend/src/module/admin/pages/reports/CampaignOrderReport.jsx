@@ -103,7 +103,7 @@ export default function CampaignOrderReport() {
     const statusColors = {
       Delivered: "bg-green-100 text-green-800",
       Pending: "bg-blue-100 text-blue-800",
-      Canceled: "bg-red-100 text-red-800",
+      Cancelled: "bg-red-100 text-red-800",
       "In Progress": "bg-yellow-100 text-yellow-800",
       Failed: "bg-orange-100 text-orange-800"
     };
@@ -284,14 +284,14 @@ export default function CampaignOrderReport() {
             </div>
           </div>
 
-          {/* Canceled orders */}
+          {/* Cancelled orders */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-3 py-3">
             <div className="flex flex-col items-center text-center">
               <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center mb-2">
                 <X className="w-6 h-6 text-red-600" />
               </div>
-              <p className="text-lg font-bold text-slate-900 mb-0.5">{campaignOrderStats.canceledOrders}</p>
-              <p className="text-[11px] text-slate-600">Canceled orders</p>
+              <p className="text-lg font-bold text-slate-900 mb-0.5">{campaignOrderStats.cancelledOrders}</p>
+              <p className="text-[11px] text-slate-600">Cancelled orders</p>
             </div>
           </div>
         </div>

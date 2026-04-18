@@ -71,7 +71,7 @@ export const campaignOrderReportDummy = [
     orderAmountStatus: "Unpaid",
     amountReceivedBy: "Not Received Yet",
     paymentMethod: "Cash On Delivery",
-    orderStatus: "Canceled",
+    orderStatus: "Cancelled",
   },
   {
     sl: 5,
@@ -89,7 +89,7 @@ export const campaignOrderReportDummy = [
     orderAmountStatus: "Unpaid",
     amountReceivedBy: "Not Received Yet",
     paymentMethod: "Cash On Delivery",
-    orderStatus: "Canceled",
+    orderStatus: "Cancelled",
   },
   {
     sl: 6,
@@ -191,6 +191,6 @@ export const campaignOrderStats = {
   deliveredOrders: "5",
   failedOrders: "0",
   refundedOrders: "0",
-  canceledOrders: "2",
+  cancelledOrders: "2",
 }
 

@@ -19,6 +19,16 @@ import { useCart } from "../../context/CartContext";
 import FoodTypeIcon from "../../components/FoodTypeIcon";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 as LoaderIcon } from "lucide-react";
 
 export default function UserOrderDetails() {
   const navigate = useNavigate();
@@ -27,6 +37,9 @@ export default function UserOrderDetails() {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const { addToCart, clearCart } = useCart();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -122,6 +135,35 @@ export default function UserOrderDetails() {
     toast.success("Order items added to cart");
     navigate("/user/cart");
   };
+
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a reason for cancellation");
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+      const response = await orderAPI.cancelOrder(orderId, cancelReason);
+      if (response?.data?.success) {
+        toast.success(response.data.message || "Order cancelled successfully");
+        setShowCancelDialog(false);
+        // Refresh order data
+        const refreshResponse = await orderAPI.getOrderDetails(orderId);
+        if (refreshResponse?.data?.success && refreshResponse.data.data?.order) {
+          setOrder(refreshResponse.data.data.order);
+        }
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error(error?.response?.data?.message || "Failed to cancel order");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const isActive = order && ["pending", "confirmed", "preparing", "out_for_delivery"].includes(order.status);
+  const isCancellable = order && ["pending", "confirmed"].includes(order.status);
 
   if (loading) {
     return (
@@ -379,6 +421,13 @@ export default function UserOrderDetails() {
               "Order status: " + (order.status || "Processing")}
             </h2>
           </div>
+          {isActive && order.status !== "pending" && (
+            <button
+              onClick={() => navigate(`/user/orders/${orderId}/track`)}
+              className="ml-auto px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-lg border border-blue-100 dark:border-blue-800">
+              Track Order
+            </button>
+          )}
         </div>
 
         {/* Restaurant Info Card */}
@@ -632,15 +681,69 @@ export default function UserOrderDetails() {
           <RotateCcw className="w-4 h-4" />
           Reorder
         </button>
-        <button
-          type="button"
-          onClick={handleDownloadSummary}
-          className="flex-1 bg-white dark:bg-transparent border border-[#E23744] text-[#E23744] py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-          
-          <Download className="w-4 h-4" />
-          Invoice
-        </button>
+        {isCancellable ? (
+          <button
+            type="button"
+            onClick={() => setShowCancelDialog(true)}
+            className="flex-1 bg-white dark:bg-transparent border border-red-500 text-red-500 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            Cancel Order
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleDownloadSummary}
+            className="flex-1 bg-white dark:bg-transparent border border-[#E23744] text-[#E23744] py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            
+            <Download className="w-4 h-4" />
+            Invoice
+          </button>
+        )}
       </div>
+
+      {/* Cancellation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-500">
+              Are you sure you want to cancel your order? Please tell us why.
+            </p>
+            <Textarea
+              placeholder="Enter reason for cancellation..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+              disabled={isCancelling}
+              className="flex-1"
+            >
+              No, Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="flex-1 bg-red-600"
+            >
+              {isCancelling ? (
+                <>
+                  <LoaderIcon className="w-4 h-4 mr-2 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Confirm Cancel"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Restaurant Complaint Button - Below Order Details */}
       {order &&

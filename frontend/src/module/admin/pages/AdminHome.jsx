@@ -6,8 +6,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue } from
-"@/components/ui/select";
+  SelectValue
+} from "@/components/ui/select";
 import {
   Area,
   AreaChart,
@@ -21,30 +21,50 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis } from
-"recharts";
-import { Activity, ArrowUpRight, ShoppingBag, CreditCard, Truck, Receipt, DollarSign, Store, UserCheck, Package, UserCircle, Clock, CheckCircle, Plus, Gift } from "lucide-react";
+  YAxis
+} from "recharts";
+import { 
+  Activity, 
+  ArrowUpRight, 
+  ShoppingBag, 
+  CreditCard, 
+  Truck, 
+  Receipt, 
+  DollarSign, 
+  Store, 
+  UserCheck, 
+  Package, 
+  UserCircle, 
+  Clock, 
+  CheckCircle, 
+  Plus, 
+  Gift 
+} from "lucide-react";
 
 import { adminAPI } from "@/lib/api";
 
 export default function AdminHome() {
   const navigate = useNavigate();
-  const [selectedZone, setSelectedZone] = useState("all");
+
   const [selectedPeriod, setSelectedPeriod] = useState("overall");
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-  // Fetch dashboard stats on mount and keep refreshing for live sections
+  // Fetch dashboard stats on mount and when filters change
   useEffect(() => {
     let isMounted = true;
+    let pollTimer;
 
     const fetchDashboardStats = async (showLoader = false) => {
       try {
         if (showLoader) {
           setIsLoading(true);
         }
-        const response = await adminAPI.getDashboardStats();
+        const params = {
+          period: selectedPeriod
+        };
+        const response = await adminAPI.getDashboardStats(params);
         if (!isMounted) return;
 
         if (response.data?.success && response.data?.data) {
@@ -63,7 +83,9 @@ export default function AdminHome() {
     };
 
     fetchDashboardStats(true);
-    const pollTimer = setInterval(() => {
+    
+    // Set up polling
+    pollTimer = setInterval(() => {
       fetchDashboardStats(false);
     }, 15000);
 
@@ -71,35 +93,26 @@ export default function AdminHome() {
       isMounted = false;
       clearInterval(pollTimer);
     };
-  }, []);
-
-  // Update loading state when filters change
-  useEffect(() => {
-    if (dashboardData) {
-      setIsLoading(true);
-      const timer = setTimeout(() => setIsLoading(false), 350);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedZone, selectedPeriod]);
+  }, [selectedPeriod]);
 
   // Get order stats from real data
   const getOrderStats = () => {
     if (!dashboardData?.orders?.byStatus) {
       return [
-      { label: "Delivered", value: 0, color: "#0ea5e9" },
-      { label: "Cancelled", value: 0, color: "#ef4444" },
-      { label: "Refunded", value: 0, color: "#f59e0b" },
-      { label: "Pending", value: 0, color: "#10b981" }];
-
+        { label: "Delivered", value: 0, color: "#0ea5e9" },
+        { label: "Cancelled", value: 0, color: "#ef4444" },
+        { label: "Refunded", value: 0, color: "#f59e0b" },
+        { label: "Pending", value: 0, color: "#10b981" }
+      ];
     }
 
     const byStatus = dashboardData.orders.byStatus;
     return [
-    { label: "Delivered", value: byStatus.delivered || 0, color: "#0ea5e9" },
-    { label: "Cancelled", value: byStatus.cancelled || 0, color: "#ef4444" },
-    { label: "Refunded", value: 0, color: "#f59e0b" }, // Refunded not tracked separately
-    { label: "Pending", value: byStatus.pending || 0, color: "#10b981" }];
-
+      { label: "Delivered", value: byStatus.delivered || 0, color: "#0ea5e9" },
+      { label: "Cancelled", value: byStatus.cancelled || 0, color: "#ef4444" },
+      { label: "Refunded", value: 0, color: "#f59e0b" }, // Refunded not tracked separately
+      { label: "Pending", value: byStatus.pending || 0, color: "#10b981" }
+    ];
   };
 
   // Get monthly data from real data
@@ -150,7 +163,6 @@ export default function AdminHome() {
   const getCardClick = (title) => cardLinks[title] ? () => navigate(cardLinks[title]) : undefined;
 
   // Calculate totals from real data
-  // Gross Revenue = Total Order Revenue (GMV)
   const revenueTotal = (dashboardData?.revenue?.total || 0);
   const commissionTotal = dashboardData?.commission?.total || 0;
   const ordersTotal = dashboardData?.orders?.total || 0;
@@ -163,17 +175,17 @@ export default function AdminHome() {
   const subscriptionTotal = dashboardData?.subscription?.total || 0;
   const advertisementRevenueData = dashboardData?.advertisementRevenue || {};
   const restaurantAdvertisementTotal =
-  dashboardData?.restaurantAdvertisementRevenue?.total ??
-  advertisementRevenueData?.restaurantTotal ??
-  0;
+    dashboardData?.restaurantAdvertisementRevenue?.total ??
+    advertisementRevenueData?.restaurantTotal ??
+    0;
   const userAdvertisementTotal =
-  dashboardData?.userAdvertisementRevenue?.total ??
-  advertisementRevenueData?.userTotal ??
-  0;
+    dashboardData?.userAdvertisementRevenue?.total ??
+    advertisementRevenueData?.userTotal ??
+    0;
   const advertisementTotal =
-  Number(advertisementRevenueData?.total ??
-  (restaurantAdvertisementTotal + userAdvertisementTotal)) || 0;
-  // Total revenue (net) = Commission + Platform Fee + Delivery Margin + GST + Subscription + Advertisement + Donation
+    Number(advertisementRevenueData?.total ??
+    (restaurantAdvertisementTotal + userAdvertisementTotal)) || 0;
+  
   const adminDiscountTotal = dashboardData?.adminDiscount?.total || 0;
   const totalAdminEarnings = commissionTotal + platformFeeTotal + deliveryMarginTotal + gstTotal + subscriptionTotal + advertisementTotal + donationsTotal - adminDiscountTotal;
 
@@ -217,7 +229,7 @@ export default function AdminHome() {
     <div className="px-4 pb-10 lg:px-6 pt-4">
       <div className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-[0_30px_120px_-60px_rgba(0,0,0,0.28)]">
         {isLoading &&
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-sm">
             <div className="flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm text-neutral-700 ring-1 ring-neutral-200">
               <span className="h-3 w-3 animate-ping rounded-full bg-neutral-800/70" />
               Updating metrics...
@@ -231,7 +243,6 @@ export default function AdminHome() {
               <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Admin Overview</p>
               <h1 className="text-2xl font-semibold text-neutral-900">Operations Command</h1>
             </div>
-
           </div>
           <div className="flex flex-wrap gap-3">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -253,7 +264,7 @@ export default function AdminHome() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               title="Gross revenue"
-              value={`\u20B9${revenueTotal.toLocaleString("en-IN")}`}
+              value={`₹${revenueTotal.toLocaleString("en-IN")}`}
               helper="Orders GMV"
               icon={<ShoppingBag className="h-5 w-5 text-emerald-600" />}
               accent="bg-emerald-200/40"
@@ -261,7 +272,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Commission earned"
-              value={`\u20B9${commissionTotal.toLocaleString("en-IN")}`}
+              value={`₹${commissionTotal.toLocaleString("en-IN")}`}
               helper="Restaurant commission"
               icon={<ArrowUpRight className="h-5 w-5 text-indigo-600" />}
               accent="bg-indigo-200/40"
@@ -277,7 +288,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Platform fee"
-              value={`\u20B9${platformFeeTotal.toLocaleString("en-IN")}`}
+              value={`₹${platformFeeTotal.toLocaleString("en-IN")}`}
               helper="Total platform fees"
               icon={<CreditCard className="h-5 w-5 text-purple-600" />}
               accent="bg-purple-200/40"
@@ -285,7 +296,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Delivery fee"
-              value={`\u20B9${deliveryFeeTotal.toLocaleString("en-IN")}`}
+              value={`₹${deliveryFeeTotal.toLocaleString("en-IN")}`}
               helper="Collected delivery fees"
               icon={<Truck className="h-5 w-5 text-blue-600" />}
               accent="bg-blue-200/40"
@@ -293,7 +304,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="GST"
-              value={`\u20B9${gstTotal.toLocaleString("en-IN")}`}
+              value={`₹${gstTotal.toLocaleString("en-IN")}`}
               helper="Total GST collected"
               icon={<Receipt className="h-5 w-5 text-orange-600" />}
               accent="bg-orange-200/40"
@@ -301,7 +312,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Tips collected"
-              value={`\u20B9${tipsTotal.toLocaleString("en-IN")}`}
+              value={`₹${tipsTotal.toLocaleString("en-IN")}`}
               helper="Total tips for delivery partners"
               icon={<Plus className="h-5 w-5 text-orange-500" />}
               accent="bg-orange-100/30"
@@ -309,7 +320,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Total Donations"
-              value={`\u20B9${donationsTotal.toLocaleString("en-IN")}`}
+              value={`₹${donationsTotal.toLocaleString("en-IN")}`}
               helper="Total donations collected"
               icon={<Gift className="h-5 w-5 text-pink-500" />}
               accent="bg-pink-100/30"
@@ -317,7 +328,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Subscription Revenue"
-              value={`\u20B9${subscriptionTotal.toLocaleString("en-IN")}`}
+              value={`₹${subscriptionTotal.toLocaleString("en-IN")}`}
               helper="Total subscription fees"
               icon={<Receipt className="h-5 w-5 text-teal-600" />}
               accent="bg-teal-100/30"
@@ -325,7 +336,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Restaurant Ad Revenue"
-              value={`\u20B9${restaurantAdvertisementTotal.toLocaleString("en-IN")}`}
+              value={`₹${restaurantAdvertisementTotal.toLocaleString("en-IN")}`}
               helper="Paid restaurant banners"
               icon={<Store className="h-5 w-5 text-violet-600" />}
               accent="bg-violet-100/30"
@@ -333,7 +344,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="User Ad Revenue"
-              value={`\u20B9${userAdvertisementTotal.toLocaleString("en-IN")}`}
+              value={`₹${userAdvertisementTotal.toLocaleString("en-IN")}`}
               helper="Paid user advertisements"
               icon={<UserCircle className="h-5 w-5 text-fuchsia-600" />}
               accent="bg-fuchsia-100/30"
@@ -341,7 +352,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Total Ad Revenue"
-              value={`\u20B9${advertisementTotal.toLocaleString("en-IN")}`}
+              value={`₹${advertisementTotal.toLocaleString("en-IN")}`}
               helper="Restaurant + user advertisements"
               icon={<Activity className="h-5 w-5 text-violet-600" />}
               accent="bg-violet-100/30"
@@ -349,7 +360,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Coupons Cost"
-              value={`\u20B9${adminDiscountTotal.toLocaleString("en-IN")}`}
+              value={`₹${adminDiscountTotal.toLocaleString("en-IN")}`}
               helper="Total admin discounts given"
               icon={<Gift className="h-5 w-5 text-red-600" />}
               accent="bg-red-100/40"
@@ -357,7 +368,7 @@ export default function AdminHome() {
             />
             <MetricCard
               title="Total revenue"
-              value={`\u20B9${totalAdminEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={`₹${totalAdminEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               helper={`Com ${commissionTotal.toFixed(0)} + Plat ${platformFeeTotal.toFixed(0)} + DelMg ${deliveryMarginTotal.toFixed(0)} + GST ${gstTotal.toFixed(0)} + Sub ${subscriptionTotal.toFixed(0)} + Ad ${advertisementTotal.toFixed(0)} + Don ${donationsTotal.toFixed(0)} - Coupons ${adminDiscountTotal.toFixed(0)}`}
               icon={<DollarSign className="h-5 w-5 text-green-600" />}
               accent="bg-green-200/40"
@@ -436,6 +447,7 @@ export default function AdminHome() {
               onClick={getCardClick("Completed orders")}
             />
           </div>
+
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2 border-neutral-200 bg-white">
               <CardHeader className="flex flex-col gap-2 border-b border-neutral-200 pb-4">
@@ -489,7 +501,6 @@ export default function AdminHome() {
                         radius={[6, 6, 0, 0]}
                         name="Orders"
                         barSize={10} />
-                      
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -500,7 +511,7 @@ export default function AdminHome() {
               <CardHeader className="flex items-center justify-between border-b border-neutral-200 pb-4">
                 <div>
                   <CardTitle className="text-lg text-neutral-900">Order mix</CardTitle>
-                  <p className="text-sm text-neutral-500">Distribution by state</p>
+                  <p className="text-sm text-neutral-500">Distribution by status</p>
                 </div>
                 <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700">
                   {orderStats.reduce((s, o) => s + o.value, 0)} orders
@@ -517,28 +528,24 @@ export default function AdminHome() {
                         innerRadius={60}
                         outerRadius={90}
                         paddingAngle={4}>
-                        
                         {pieData.map((entry, index) =>
-                        <Cell key={index} fill={entry.fill} stroke="none" />
+                          <Cell key={index} fill={entry.fill} stroke="none" />
                         )}
                       </Pie>
                       <Tooltip
                         contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12 }}
                         labelStyle={{ color: "#111827" }}
                         itemStyle={{ color: "#111827" }} />
-                      
                       <Legend
                         formatter={(value) => <span style={{ color: "#111827", fontSize: 12 }}>{value}</span>} />
-                      
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   {orderStats.map((item) =>
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-3 py-2">
-                    
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-3 py-2">
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
                         <p className="text-sm text-neutral-800">{item.label}</p>
@@ -551,90 +558,11 @@ export default function AdminHome() {
             </Card>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="border-neutral-200 bg-white">
-              <CardHeader className="flex items-center justify-between border-b border-neutral-200 pb-4">
-                <CardTitle className="text-lg text-neutral-900">Momentum snapshot</CardTitle>
-                <span className="text-xs text-neutral-500">No data available</span>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyData.slice(-6)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="month" stroke="#6b7280" />
-                      <YAxis stroke="#6b7280" />
-                      <Tooltip
-                        contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12 }}
-                        labelStyle={{ color: "#111827" }}
-                        itemStyle={{ color: "#111827" }} />
-                      
-                      <Legend />
-                      <Bar dataKey="orders" fill="#0ea5e9" radius={[8, 8, 0, 0]} name="Orders" />
-                      <Bar dataKey="commission" fill="#a855f7" radius={[8, 8, 0, 0]} name="Commission" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card className="border-neutral-200 bg-white">
-              <CardHeader className="border-b border-neutral-200 pb-4">
-                <CardTitle className="text-lg text-neutral-900">Live signals</CardTitle>
-                <p className="text-sm text-neutral-500">
-                  Ops notes and service health
-                  {lastUpdatedAt ? ` - Updated ${lastUpdatedAt.toLocaleTimeString("en-IN")}` : ""}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                {activityFeed.map((item, idx) =>
-                <div
-                  key={idx}
-                  className="flex items-start justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
-                  
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                      <p className="text-xs text-neutral-600">{item.detail}</p>
-                    </div>
-                    <span className="text-xs text-neutral-500">{item.time}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-neutral-200 bg-white">
-              <CardHeader className="border-b border-neutral-200 pb-4">
-                <CardTitle className="text-lg text-neutral-900">Order states</CardTitle>
-                <p className="text-sm text-neutral-500">Quick glance by status</p>
-              </CardHeader>
-              <CardContent className="grid gap-3 pt-4">
-                {orderStats.map((item) =>
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
-                  
-                    <div className="flex items-center gap-3">
-                      <span
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-neutral-900"
-                      style={{ background: `${item.color}1A`, color: item.color }}>
-                      
-                        {item.label.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div>
-                        <p className="text-sm text-neutral-900">{item.label}</p>
-                        <p className="text-xs text-neutral-500">Tracked in {selectedPeriod}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-semibold text-neutral-900">{item.value}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
 
 function MetricCard({ title, value, helper, icon, accent, onClick }) {
@@ -666,7 +594,6 @@ function MetricCard({ title, value, helper, icon, accent, onClick }) {
           </div>
         </div>
       </CardContent>
-    </Card>);
-
+    </Card>
+  );
 }
-

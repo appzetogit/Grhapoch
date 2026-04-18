@@ -915,7 +915,8 @@ export const acceptOrder = asyncHandler(async (req, res) => {
             'deliveryState.acceptedAt': new Date(),
             'deliveryState.currentPhase': 'en_route_to_pickup',
             'deliveryState.routeToPickup': routeToPickup,
-            'assignmentInfo.distance': deliveryDistanceForSave // Save distance for settlement calc
+            'assignmentInfo.distance': deliveryDistanceForSave, // Save distance for settlement calc
+            status: order.status === 'pending' ? 'confirmed' : order.status
           }
         },
         { new: true }
@@ -1929,7 +1930,8 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
     if (order.deliveryState.currentPhase !== 'at_delivery') {
       try {
         // Update the order document directly since we have it
-        order.deliveryState.status = 'en_route_to_delivery';
+        order.status = 'out_for_delivery';
+        order.deliveryState.status = 'reached_drop';
         order.deliveryState.currentPhase = 'at_delivery';
         order.deliveryState.reachedDropAt = new Date();
 

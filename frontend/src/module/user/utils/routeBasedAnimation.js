@@ -98,17 +98,36 @@ export function animateMarkerSmoothly(marker, currentPos, targetPos, duration = 
             lng: startLng + deltaLng * easeOutCubic(Math.max(0, progress - 0.1)) }
         : currentPos;
       
-      const bearing = calculateBearing(prevPos, { lat: currentLat, lng: currentLng });
-      const currentRotation = marker.getRotation() || 0;
+      // Update rotation safely
+      let currentRotation = 0;
+      if (typeof marker.getRotation === 'function') {
+        currentRotation = marker.getRotation() || 0;
+      } else if (marker.icon && typeof marker.icon.rotation === 'number') {
+        currentRotation = marker.icon.rotation;
+      }
+
       const smoothedBearing = smoothRotation(currentRotation, bearing, 0.4);
-      marker.setRotation(smoothedBearing);
+      
+      if (typeof marker.setRotation === 'function') {
+        marker.setRotation(smoothedBearing);
+      } else if (marker.icon && typeof marker.icon === 'object') {
+        // Update icon with new rotation
+        const newIcon = { ...marker.icon, rotation: smoothedBearing };
+        marker.setIcon(newIcon);
+      }
       
       requestAnimationFrame(animate);
     } else {
       // Animation complete
       marker.setPosition(targetPos);
       const finalBearing = calculateBearing(currentPos, targetPos);
-      marker.setRotation(finalBearing);
+      
+      if (typeof marker.setRotation === 'function') {
+        marker.setRotation(finalBearing);
+      } else if (marker.icon && typeof marker.icon === 'object') {
+        const newIcon = { ...marker.icon, rotation: finalBearing };
+        marker.setIcon(newIcon);
+      }
       
       if (onComplete) onComplete();
     }

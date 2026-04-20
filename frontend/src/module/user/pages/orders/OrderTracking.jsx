@@ -1141,52 +1141,54 @@ export default function OrderTracking() {
 
       </div>
 
-      {/* Cancel Order Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent className="sm:max-w-xl w-[95%] max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+        <DialogContent className="sm:max-w-[420px] rounded-[32px] p-8 border-none shadow-2xl bg-white dark:bg-[#1a1a1a]">
+          <DialogHeader className="space-y-2 mb-6">
+            <DialogTitle className="text-2xl font-black text-gray-900 dark:text-white text-center tracking-tight">
               Cancel Order
             </DialogTitle>
+            <DialogDescription className="text-center text-gray-500 dark:text-gray-400 text-[13px] leading-relaxed px-2">
+              Are you sure you want to cancel your order? We'd appreciate it if you could tell us why.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-6 px-2">
-            <div className="space-y-2 w-full">
-              <Textarea
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                placeholder="e.g., Changed my mind, Wrong address, etc."
-                className="w-full min-h-[100px] resize-none border-2 border-gray-300 rounded-lg px-4 py-3 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-200"
-                disabled={isCancelling} />
 
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCancelDialog(false);
-                  setCancellationReason("");
-                }}
-                disabled={isCancelling}
-                className="flex-1">
-
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmCancel}
-                disabled={isCancelling || !cancellationReason.trim()}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-
-                {isCancelling ?
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cancelling...
-                  </> :
-
-                  'Confirm Cancellation'
-                }
-              </Button>
-            </div>
+          <div className="py-2">
+            <Textarea
+              placeholder="e.g., Changed my mind, Wrong address, etc."
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              className="min-h-[130px] rounded-[20px] bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 focus:border-red-200 focus:bg-white dark:focus:bg-gray-800 focus:ring-4 focus:ring-red-50 dark:focus:ring-red-900/10 placeholder:text-gray-400 dark:placeholder:text-gray-600 transition-all duration-300 text-sm p-4 resize-none shadow-inner"
+              disabled={isCancelling}
+            />
           </div>
+
+          <DialogFooter className="flex flex-col gap-3 sm:flex-col items-center mt-8 w-full">
+            <Button
+              onClick={handleConfirmCancel}
+              disabled={isCancelling || !cancellationReason.trim()}
+              className="w-full bg-[#E23744] hover:bg-[#c12a35] text-white h-14 rounded-2xl font-bold text-[15px] transition-all duration-300 active:scale-[0.98] shadow-[0_10px_20px_rgba(226,55,68,0.2)]"
+            >
+              {isCancelling ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Cancelling...</span>
+                </div>
+              ) : (
+                "Confirm Cancellation"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowCancelDialog(false);
+                setCancellationReason("");
+              }}
+              disabled={isCancelling}
+              className="w-full h-14 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 text-[15px] transition-all duration-300"
+            >
+              No, Keep it
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* Bill Detail Dialog */}

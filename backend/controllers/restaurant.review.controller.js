@@ -29,7 +29,7 @@ export const getRestaurantReviews = asyncHandler(async (req, res) => {
     
     if (rating) {
       const ratingNum = parseInt(rating);
-      if (ratingNum >= 1 && ratingNum <= 5) {
+      if (ratingNum >= 1 && ratingNum <= 10) {
         query['review.rating'] = ratingNum;
       }
     }
@@ -67,14 +67,16 @@ export const getRestaurantReviews = asyncHandler(async (req, res) => {
     ]);
     
     let avgRating = 0;
-    let ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    // Updated to 10-point distribution
+    let ratingDistribution = { 10: 0, 9: 0, 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     
     if (avgRatingResult.length > 0) {
       avgRating = avgRatingResult[0].avgRating || 0;
       const distribution = avgRatingResult[0].ratingDistribution || [];
       distribution.forEach(rating => {
-        if (rating >= 1 && rating <= 5) {
-          ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
+        if (rating >= 1 && rating <= 10) {
+          const roundedRating = Math.round(rating);
+          ratingDistribution[roundedRating] = (ratingDistribution[roundedRating] || 0) + 1;
         }
       });
     }
@@ -164,3 +166,55 @@ export const getReviewByOrderId = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Reply to a review
+ * PUT /api/restaurant/reviews/:orderId/reply
+ */
+export const replyToReview = asyncHandler(async (req, res) => {
+  try {
+    const restaurant = req.restaurant;
+    
+    if (!restaurant || !restaurant._id) {
+      return errorResponse(res, 401, 'Restaurant authentication required');
+    }
+    
+    const { orderId } = req.params;
+    const { reply } = req.body;
+    const restaurantId = restaurant._id.toString();
+    
+    if (!reply || !reply.trim()) {
+      return errorResponse(res, 400, 'Reply content is required');
+    }
+    
+    const order = await Order.findOne({
+      $or: [
+        { orderId: orderId },
+        { _id: orderId }
+      ],
+      restaurantId: restaurantId
+    });
+    
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+    
+    if (!order.review || !order.review.rating) {
+      return errorResponse(res, 400, 'This order has not been reviewed yet');
+    }
+    
+    // Update the review with restaurant reply
+    order.review.restaurantReply = reply.trim();
+    order.review.restaurantReplyAt = new Date();
+    
+    await order.save();
+    
+    return successResponse(res, 200, 'Reply sent successfully', {
+      orderId: order.orderId,
+      restaurantReply: order.review.restaurantReply,
+      restaurantReplyAt: order.review.restaurantReplyAt
+    });
+  } catch (error) {
+    console.error('Error replying to review:', error);
+    return errorResponse(res, 500, `Failed to send reply: ${error.message}`);
+  }
+});

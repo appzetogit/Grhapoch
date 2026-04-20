@@ -1960,6 +1960,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
       // Admin created restaurants are active by default
       isActive: true,
       isAcceptingOrders: true,
+      onboardingCompleted: true,
       approvedAt: new Date(),
       approvedBy: adminId
     };
@@ -2025,7 +2026,8 @@ export const createRestaurant = asyncHandler(async (req, res) => {
         featuredPrice: featuredPrice || 249,
         offer: offer || ''
       },
-      completedSteps: 4
+      completedSteps: 4,
+      status: 'approved'
     };
 
     // Create restaurant
@@ -2068,13 +2070,6 @@ export const createRestaurant = asyncHandler(async (req, res) => {
         slug: restaurant.slug
       }
     };
-
-    // Include generated password in response if email was provided and password was auto-generated
-    // This allows admin to share the password with the restaurant
-    if (email && !password && finalPassword) {
-      responseData.generatedPassword = finalPassword;
-      responseData.message = 'Restaurant created successfully. Please share the generated password with the restaurant.';
-    }
 
     return successResponse(res, 201, 'Restaurant created successfully', responseData);
   } catch (error) {

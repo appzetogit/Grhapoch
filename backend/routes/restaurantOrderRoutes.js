@@ -10,7 +10,8 @@ import {
 } from '../controllers/restaurantOrderController.js';
 import {
   getRestaurantReviews,
-  getReviewByOrderId
+  getReviewByOrderId,
+  replyToReview
 } from '../controllers/reviewController.js';
 import { authenticate } from '../middleware/restaurant.auth.js';
 
@@ -28,6 +29,7 @@ router.post('/orders/:id/resend-delivery-notification', authenticate, resendDeli
 // Review routes
 router.get('/reviews', authenticate, getRestaurantReviews);
 router.get('/reviews/:orderId', authenticate, getReviewByOrderId);
+router.put('/reviews/:orderId/reply', authenticate, replyToReview);
 
 // Complaint routes - will be imported and used in restaurant index
 export default router;

@@ -322,6 +322,7 @@ apiClient.interceptors.request.use(
       !normalizedRequestUrl.includes('/restaurant/wallet') &&
       !normalizedRequestUrl.includes('/restaurant/analytics') &&
       !normalizedRequestUrl.includes('/restaurant/complaints') &&
+      !normalizedRequestUrl.includes('/restaurant/reviews') &&
       !normalizedRequestUrl.includes('/restaurant/notifications') &&
       !normalizedRequestUrl.includes('/restaurant/dining-tables') &&
       !normalizedRequestUrl.includes('/restaurant/dining-activation') && (

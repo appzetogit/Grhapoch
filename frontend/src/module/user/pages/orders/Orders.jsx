@@ -466,18 +466,31 @@ export default function Orders() {
 
       const order = ratingModal.order;
 
-      await api.post(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE_CREATE, {
+      // 1. Submit review to the specific order (this updates the Order model)
+      const reviewOrderId = order.mongoId || order.id || order._id;
+      await api.post(API_ENDPOINTS.ORDER.SUBMIT_REVIEW.replace(':id', reviewOrderId), {
         rating: selectedRating,
-        module: "user",
-        restaurantId: order.restaurantId || null,
-        metadata: {
-          orderId: order.id,
-          orderMongoId: order.mongoId,
-          orderTotal: order.total,
-          restaurantName: order.restaurant,
-          comment: feedbackText || undefined
-        }
+        comment: feedbackText || ""
       });
+
+      // 2. Also keep the general feedback experience for admin analytics
+      try {
+        await api.post(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE_CREATE, {
+          rating: selectedRating,
+          module: "user",
+          restaurantId: order.restaurantId || null,
+          metadata: {
+            orderId: order.id,
+            orderMongoId: order.mongoId,
+            orderTotal: order.total,
+            restaurantName: order.restaurant,
+            comment: feedbackText || undefined
+          }
+        });
+      } catch (err) {
+        // Silently fail if analytic endpoint fails, main review is more important
+        console.warn("Analytics feedback failed:", err);
+      }
 
       // Update local state so UI shows "You rated"
       setOrders((prev) =>
@@ -846,12 +859,12 @@ export default function Orders() {
                         </div>
                         <span className="text-xs font-semibold text-red-500">Payment failed</span>
                       </div> :
-                      isDelivered && order.rating ?
+                    isDelivered && order.rating ?
                         <div>
                           <div className="flex items-center gap-1">
                             <span className="text-sm text-gray-800 dark:text-gray-100">You rated</span>
                             <div className="flex bg-yellow-400 text-white px-1 rounded text-[10px] items-center gap-0.5 h-4">
-                              {order.rating}<Star className="w-2 h-2 fill-current" />
+                              {(order.rating / 2).toFixed(1)}<Star className="w-2 h-2 fill-current" />
                             </div>
                           </div>
                         </div> :

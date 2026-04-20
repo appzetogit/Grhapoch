@@ -23,6 +23,7 @@ import UserWallet from '../models/UserWallet.js';
 import RestaurantCommission from '../models/RestaurantCommission.js';
 import { getFirebaseRealtimeDb } from '../config/firebaseRealtime.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { uploadToCloudinary } from '../utils/cloudinaryService.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -445,7 +446,7 @@ export const createOrder = async (req, res) => {
 
       const clientTotal = Math.round(Number(pricing.total));
       const serverTotal = Math.round(serverPricing.total);
-      
+
       // Increased tolerance to 15 to handle platform fee range jumps and OSRM distance variations
       const tolerance = 15;
       const diff = Math.abs(clientTotal - serverTotal);
@@ -2013,3 +2014,112 @@ export const addTipToOrder = async (req, res) => {
   }
 };
 
+/**
+ * Submit order review and rating
+ * POST /api/orders/:id/review
+ */
+export const submitOrderReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const userId = req.user.id;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5'
+      });
+    }
+
+    // Find order
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      order = await Order.findById(id);
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId: id });
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Check if order belongs to user
+    if (order.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to review this order'
+      });
+    }
+
+    // Check if order is delivered
+    if (order.status !== 'delivered' && order.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only delivered orders can be reviewed'
+      });
+    }
+
+    // Update order review
+    // Normalize rating from user (1-5) to platform (1-10) by multiplying by 2
+    order.review = {
+      ...order.review, // Preserve existing fields like restaurantReply
+      rating: Number(rating) * 2,
+      comment: comment || '',
+      submittedAt: new Date(),
+      reviewedBy: userId
+    };
+
+    await order.save();
+
+    // Update restaurant rating stats
+    try {
+      const restaurantId = order.restaurantId;
+      const reviews = await Order.find({
+        restaurantId,
+        'review.rating': { $exists: true, $ne: null }
+      }).select('review.rating');
+
+      if (reviews.length > 0) {
+        const totalRating = reviews.reduce((acc, curr) => acc + curr.review.rating, 0);
+        const avgRating = totalRating / reviews.length;
+
+        // Find the actual restaurant to update its master record
+        const orConditions = [];
+        if (mongoose.isValidObjectId(restaurantId)) {
+          orConditions.push({ _id: restaurantId });
+        }
+        orConditions.push({ restaurantId: restaurantId });
+
+        await Restaurant.updateOne(
+          { $or: orConditions },
+          {
+            $set: {
+              rating: Math.round(avgRating * 10) / 10,
+              totalRatings: reviews.length
+            }
+          }
+        );
+      }
+    } catch (restError) {
+      logger.error(`Error updating restaurant rating: ${restError.message}`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Review submitted successfully',
+      data: {
+        review: order.review
+      }
+    });
+  } catch (error) {
+    logger.error(`Error submitting review: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit review'
+    });
+  }
+};

@@ -210,7 +210,8 @@ export const API_ENDPOINTS = {
       STATUS: '/restaurant/subscription/status',
       PLANS: '/restaurant/subscription/plans',
       CANCEL: '/restaurant/subscription/cancel'
-    }
+    },
+    REVIEW_REPLY: '/restaurant/reviews/:orderId/reply'
   },
   // Delivery endpoints
   DELIVERY: {
@@ -410,7 +411,8 @@ export const API_ENDPOINTS = {
     VERIFY_PAYMENT: '/order/verify-payment',
     CALCULATE: '/order/calculate',
     CANCEL: '/order/:id/cancel',
-    CREATE_PAYMENT: '/order/:id/create-payment'
+    CREATE_PAYMENT: '/order/:id/create-payment',
+    SUBMIT_REVIEW: '/order/:id/review'
   },
   // Payment endpoints
   PAYMENT: {

@@ -8,9 +8,11 @@ import {
   ChevronRight,
   ChevronDown,
   ThumbsUp,
-  ThumbsDown } from
+  ThumbsDown,
+  Loader2 } from
 "lucide-react";
 import BottomPopup from "@/module/delivery/components/BottomPopup";
+import { restaurantAPI } from "@/lib/api";
 // Using placeholder for restaurant review banner
 const restaurantReviewBanner = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&h=400&fit=crop";
 
@@ -53,6 +55,26 @@ export default function RatingsReviews() {
   const [showThankYouPopup, setShowThankYouPopup] = useState(false);
   const [showNotHelpfulPopup, setShowNotHelpfulPopup] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [restaurantData, setRestaurantData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch restaurant data
+  useEffect(() => {
+    const fetchRestaurantData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await restaurantAPI.getCurrentRestaurant();
+        if (response.data?.success && response.data.data?.restaurant) {
+          setRestaurantData(response.data.data.restaurant);
+        }
+      } catch (error) {
+        console.error("Error fetching restaurant data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRestaurantData();
+  }, []);
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -134,8 +156,14 @@ export default function RatingsReviews() {
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-base font-semibold text-gray-900">Your restaurant's rating</h2>
           <div className="bg-green-600 px-3 py-1.5 rounded-lg flex items-center gap-1">
-            <span className="text-white text-sm font-bold">4.0</span>
-            <Star className="w-4 h-4 text-white fill-white" />
+            <span className="text-white text-sm font-bold">
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                restaurantData?.rating ? restaurantData.rating.toFixed(1) : "0.0"
+              )}
+            </span>
+            {!isLoading && <Star className="w-4 h-4 text-white fill-white" />}
           </div>
         </div>
         <button

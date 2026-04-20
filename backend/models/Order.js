@@ -301,7 +301,7 @@ const orderSchema = new mongoose.Schema({
     rating: {
       type: Number,
       min: 1,
-      max: 5,
+      max: 10,
       sparse: true
     },
     comment: {
@@ -316,6 +316,14 @@ const orderSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       sparse: true
+    },
+    restaurantReply: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+    restaurantReplyAt: {
+      type: Date
     }
   },
   assignmentInfo: {

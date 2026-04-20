@@ -612,6 +612,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         profileImage: restaurant.profileImage,
         isActive: restaurant.isActive,
         onboarding: restaurant.onboarding,
+        onboardingCompleted: restaurant.onboardingCompleted,
         businessModel: restaurant.businessModel
       }
     });
@@ -776,6 +777,7 @@ export const login = asyncHandler(async (req, res) => {
       profileImage: restaurant.profileImage,
       isActive: restaurant.isActive,
       onboarding: restaurant.onboarding,
+      onboardingCompleted: restaurant.onboardingCompleted,
       businessModel: restaurant.businessModel
     }
   });
@@ -962,6 +964,7 @@ export const getCurrentRestaurant = asyncHandler(async (req, res) => {
       profileImage: restaurant.profileImage,
       isActive: restaurant.isActive,
       onboarding: restaurant.onboarding,
+      onboardingCompleted: restaurant.onboardingCompleted,
       ownerName: restaurant.ownerName,
       ownerEmail: restaurant.ownerEmail,
       ownerPhone: restaurant.ownerPhone,
@@ -1299,6 +1302,7 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
         profileImage: restaurant.profileImage,
         isActive: restaurant.isActive,
         onboarding: restaurant.onboarding,
+        onboardingCompleted: restaurant.onboardingCompleted,
         businessModel: restaurant.businessModel
       }
     });

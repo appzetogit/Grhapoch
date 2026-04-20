@@ -317,9 +317,12 @@ export default function ItemDetailsPage() {
   }];
 
 
-  const handleImageAdd = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const hasFlutterBridge = () => {
+    return !!(window.flutter_inappwebview && window.flutter_inappwebview.callHandler);
+  };
+
+  const processFiles = (files) => {
+    if (!files || files.length === 0) return;
 
     // Validate file types and size (mobile camera images can be HEIC/HEIF and larger)
     const validFiles = files.filter((file) => {
@@ -357,6 +360,54 @@ export default function ItemDetailsPage() {
     setImages([...images, ...newImagePreviews]);
     setImageFiles(newImageFilesMap);
     if (errors.images) setErrors({ ...errors, images: null });
+  };
+
+  const handleOpenCamera = async () => {
+    if (hasFlutterBridge()) {
+      try {
+        const result = await window.flutter_inappwebview.callHandler('openCamera');
+        if (result && result.success && (result.base64 || result.file)) {
+          let file;
+          if (result.file instanceof File) {
+            file = result.file;
+          } else {
+            // Convert base64 to File object more robustly
+            const base64Data = result.base64.replace(/\s/g, '');
+            const mimeType = result.mimeType || 'image/jpeg';
+            const fileName = result.fileName || `camera_${Date.now()}.jpg`;
+            
+            const byteCharacters = atob(base64Data);
+            const byteArrays = [];
+            
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+              const slice = byteCharacters.slice(offset, offset + 512);
+              const byteNumbers = new Array(slice.length);
+              for (let i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              byteArrays.push(byteArray);
+            }
+            
+            const blob = new Blob(byteArrays, { type: mimeType });
+            file = new File([blob], fileName, { type: mimeType });
+          }
+          
+          processFiles([file]);
+        }
+      } catch (err) {
+        console.error("Flutter camera error:", err);
+        // Fallback to standard file picker if bridge fails
+        fileInputRef.current?.click();
+      }
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleImageAdd = (e) => {
+    const files = Array.from(e.target.files);
+    processFiles(files);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -971,7 +1022,7 @@ export default function ItemDetailsPage() {
 
           <div
             className="relative w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}>
+            onClick={handleOpenCamera}>
               <div className="text-center">
                 <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
                   <Camera className="w-10 h-10 text-gray-400" />
@@ -994,8 +1045,8 @@ export default function ItemDetailsPage() {
               className="hidden"
               id="image-upload" />
             
-            <label
-              htmlFor="image-upload"
+            <div
+              onClick={handleOpenCamera}
               className={`flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-sm font-semibold cursor-pointer hover:from-gray-800 hover:to-gray-700 transition-all shadow-md hover:shadow-lg active:scale-95 ${
                 errors.images ? "ring-2 ring-red-500 ring-offset-2" : ""
               }`}>
@@ -1004,7 +1055,7 @@ export default function ItemDetailsPage() {
                 <Plus className="w-4 h-4" />
               </div>
               <span id="error-images">Add Images</span> <span className="text-red-500 ml-1">*</span>
-            </label>
+            </div>
             {errors.images && (
               <p className="text-xs text-red-500 mt-2 text-center">{errors.images}</p>
             )}

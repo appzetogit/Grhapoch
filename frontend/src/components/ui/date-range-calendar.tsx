@@ -72,6 +72,10 @@ export function DateRangeCalendar({ startDate, endDate, onDateRangeChange, onClo
   
   // Handle date click
   const handleDateClick = (date: Date) => {
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+    if (date.getTime() > today.getTime()) return
+    
     if (!tempStartDate || (tempStartDate && tempEndDate)) {
       // Start new selection
       setTempStartDate(date)
@@ -160,18 +164,23 @@ export function DateRangeCalendar({ startDate, endDate, onDateRangeChange, onClo
           const isStart = isStartDate(date)
           const isEnd = isEndDate(date)
           
+          const today = new Date()
+          today.setHours(23, 59, 59, 999)
+          const isFuture = date.getTime() > today.getTime()
+          
           return (
             <button
               key={index}
               onClick={() => handleDateClick(date)}
+              disabled={isFuture}
               className={`
                 h-9 w-9 text-xs rounded-md transition-colors relative
-                ${isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}
+                ${isCurrentMonthDay ? (isFuture ? 'text-gray-300' : 'text-gray-900') : 'text-gray-400'}
                 ${isStart || isEnd
                   ? 'bg-green-500 text-white font-semibold' 
                   : inRange
                   ? 'bg-green-100 text-green-700'
-                  : 'hover:bg-gray-100'
+                  : isFuture ? 'cursor-not-allowed' : 'hover:bg-gray-100'
                 }
                 ${isToday && !isStart && !isEnd && !inRange ? 'bg-blue-50 text-blue-600 font-medium' : ''}
               `}

@@ -245,132 +245,64 @@ export default function Feedback() {
     const fetchReviews = async () => {
       try {
         setIsLoadingReviews(true);
-        // Fetch all delivered orders
-        let allOrders = [];
-        let page = 1;
-        let hasMore = true;
-        const limit = 1000;
-        const maxPages = 50;
+        const response = await restaurantAPI.getReviews({
+          limit: 100 // Get recent reviews
+        });
 
-        while (hasMore && page <= maxPages) {
-          try {
-            const response = await restaurantAPI.getOrders({
-              page,
-              limit,
-              status: 'delivered'
+        if (response.data?.success && response.data.data?.reviews) {
+          const reviewsData = response.data.data.reviews;
+          const stats = response.data.data.statistics;
+
+          // Transform reviews to UI format
+          const transformedReviews = reviewsData.map((review, index) => {
+            const reviewDate = new Date(review.submittedAt || review.deliveredAt || Date.now());
+            // Format date as "30 Dec, 2023 2:05 PM"
+            const day = reviewDate.getDate();
+            const month = reviewDate.toLocaleDateString('en-GB', { month: 'short' });
+            const year = reviewDate.getFullYear();
+            const hours = reviewDate.getHours();
+            const minutes = reviewDate.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            const displayMinutes = minutes.toString().padStart(2, '0');
+            const formattedDate = `${day} ${month}, ${year} ${displayHours}:${displayMinutes} ${ampm}`;
+
+            return {
+              id: review.orderMongoId || review.orderId || `review-${index}`,
+              orderNumber: review.orderId || String(index),
+              outlet: restaurantData?.name || 'Restaurant',
+              userName: review.customer?.name || 'Customer',
+              userImage: review.customer?.userImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.customer?.name || 'Customer')}&background=random`,
+              ordersCount: review.customer?.ordersCount || 0,
+              rating: review.rating || 5,
+              date: formattedDate,
+              reviewText: review.comment || (review.rating ? `${review.rating}★ rating` : 'No review text'),
+              reply: review.restaurantReply || null,
+              orderData: review // Keep original data
+            };
+          });
+
+          if (stats) {
+            setRatingSummary({
+              averageRating: stats.averageRating || 0,
+              totalRatings: stats.totalReviews || 0,
+              totalReviews: stats.totalReviews || 0
             });
+          }
 
-            if (response.data?.success && response.data.data?.orders) {
-              const orders = response.data.data.orders;
-              allOrders = [...allOrders, ...orders];
+          setReviews(transformedReviews);
 
-              const totalPages = response.data.data.pagination?.totalPages || response.data.data.totalPages || 1;
-              if (orders.length < limit || totalPages > 0 && page >= totalPages) {
-                hasMore = false;
-              } else {
-                page++;
-              }
-            } else {
-              hasMore = false;
+          // Save to localStorage for offline access
+          try {
+            if (typeof window !== "undefined") {
+              localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(transformedReviews));
             }
-          } catch (pageError) {
-            console.error(`Error fetching orders page ${page}:`, pageError);
-            hasMore = false;
+          } catch (error) {
+            console.error("Error saving reviews to storage:", error);
           }
-        }
-
-        // Transform orders to reviews format
-        // Note: If orders have review/rating fields, use them. Otherwise, we'll show delivered orders as reviews
-        const transformedReviews = allOrders.
-        filter((order) => order.status === 'delivered').
-        map((order, index) => {
-          const orderDate = new Date(order.createdAt || order.deliveredAt || Date.now());
-          // Format date as "30 Dec, 2023 2:05 PM"
-          const day = orderDate.getDate();
-          const month = orderDate.toLocaleDateString('en-GB', { month: 'short' });
-          const year = orderDate.getFullYear();
-          const hours = orderDate.getHours();
-          const minutes = orderDate.getMinutes();
-          const ampm = hours >= 12 ? 'PM' : 'AM';
-          const displayHours = hours % 12 || 12;
-          const displayMinutes = minutes.toString().padStart(2, '0');
-          const formattedDate = `${day} ${month}, ${year} ${displayHours}:${displayMinutes} ${ampm}`;
-
-          // Extract user info
-          const userName = order.userId?.name ||
-          typeof order.userId === 'object' && order.userId?.name ||
-          'Customer';
-          const userImage = order.userId?.profileImage ||
-          typeof order.userId === 'object' && order.userId?.profileImage ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
-
-          // Get outlet/restaurant name
-          const outlet = order.restaurantName ||
-          restaurantData?.name ||
-          'Restaurant';
-
-          // Get rating if available (from order.review or order.rating)
-          const rating = order.review?.rating ||
-          order.rating ||
-          order.feedback?.rating ||
-          null;
-          const reviewText = order.review?.comment ||
-          order.review?.text ||
-          order.feedback?.comment ||
-          order.feedback?.text || (
-          rating ? `${rating}★ rating` : 'No review text');
-
-          // Count user's orders with this restaurant
-          const userOrdersCount = allOrders.filter((o) =>
-          (o.userId?._id || o.userId) === (order.userId?._id || order.userId)
-          ).length;
-
-          return {
-            id: order._id || order.orderId || `review-${index}`,
-            orderNumber: order.orderId || order.orderNumber || String(index),
-            outlet: outlet,
-            userName: userName,
-            userImage: userImage,
-            ordersCount: userOrdersCount,
-            rating: rating || 5, // Default to 5 if no rating
-            date: formattedDate,
-            reviewText: reviewText,
-            reply: order.review?.reply || order.feedback?.reply || null,
-            orderData: order // Keep original order data
-          };
-        }).
-        filter((review) => {
-          // Include reviews that have a rating or have review text (not the default "No review text")
-          return review.rating !== null || review.reviewText && review.reviewText !== 'No review text';
-        });
-
-        // Calculate rating summary
-        const ratings = transformedReviews.map((r) => r.rating).filter((r) => r !== null);
-        const averageRating = ratings.length > 0 ?
-        (ratings.reduce((sum, r) => sum + r, 0) / ratings.length).toFixed(1) :
-        0;
-        const totalRatings = ratings.length;
-        const totalReviews = transformedReviews.length;
-
-        setRatingSummary({
-          averageRating: parseFloat(averageRating),
-          totalRatings,
-          totalReviews
-        });
-
-        setReviews(transformedReviews);
-
-        // Save to localStorage for offline access
-        try {
-          if (typeof window !== "undefined") {
-            localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(transformedReviews));
-          }
-        } catch (error) {
-          console.error("Error saving reviews to storage:", error);
         }
       } catch (error) {
         console.error("Error fetching reviews:", error);
-        // Keep existing reviews on error
       } finally {
         setIsLoadingReviews(false);
       }
@@ -442,32 +374,22 @@ export default function Feedback() {
     if (!selectedReview || !replyText.trim()) return;
 
     try {
-      // TODO: Implement API call to save reply to backend
-      // For now, update local state
-      setReviews((prev) =>
-      prev.map((review) =>
-      review.id === selectedReview.id ?
-      { ...review, reply: replyText.trim() } :
-      review
-      )
-      );
+      const orderId = selectedReview.orderNumber || selectedReview.id;
+      const response = await restaurantAPI.replyToReview(orderId, replyText.trim());
 
-      setSelectedReview((prev) => prev ? { ...prev, reply: replyText.trim() } : null);
-      setReplyText("");
-      setIsReviewModalOpen(false);
+      if (response.data?.success) {
+        // Update local state
+        setReviews((prev) =>
+          prev.map((review) =>
+            review.id === selectedReview.id ?
+              { ...review, reply: replyText.trim() } :
+              review
+          )
+        );
 
-      // Save to localStorage
-      try {
-        if (typeof window !== "undefined") {
-          const updatedReviews = reviews.map((review) =>
-          review.id === selectedReview.id ?
-          { ...review, reply: replyText.trim() } :
-          review
-          );
-          localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updatedReviews));
-        }
-      } catch (error) {
-        console.error("Error saving reply to storage:", error);
+        setSelectedReview((prev) => prev ? { ...prev, reply: replyText.trim() } : null);
+        setReplyText("");
+        setIsReviewModalOpen(false);
       }
     } catch (error) {
       console.error("Error sending reply:", error);
@@ -945,7 +867,7 @@ export default function Feedback() {
                       <div className="absolute -top-2 left-4 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[8px] border-b-gray-100"></div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-700 text-white text-[11px] font-semibold">
-                          {review.rating}★
+                          {review.rating}/10 ★
                         </span>
                         <span className="text-[11px] text-gray-500">
                           {review.date}

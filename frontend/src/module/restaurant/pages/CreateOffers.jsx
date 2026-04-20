@@ -196,7 +196,7 @@ export default function CreateOffers() {
                     key={goal.id}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
-                      navigate(`/restaurant/hub-growth/create-offers/${goal.id}`)
+                      navigate(`/restaurant/hub-growth/create-offers/${goal.id}/percentage/create`)
                     }}
                     className="bg-white rounded-lg p-4 flex items-center gap-4 border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
                   >

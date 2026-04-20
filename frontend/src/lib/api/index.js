@@ -740,6 +740,14 @@ export const restaurantAPI = {
   },
   verifyDiningActivationPayment: (paymentData) => {
     return apiClient.post(API_ENDPOINTS.RESTAURANT.DINING_ACTIVATION.VERIFY_PAYMENT, paymentData);
+  },
+
+  // Review & Feedback
+  getReviews: (params = {}) => {
+    return apiClient.get('/restaurant/reviews', { params });
+  },
+  replyToReview: (orderId, reply) => {
+    return apiClient.put(`/restaurant/reviews/${orderId}/reply`, { reply });
   }
 };
 

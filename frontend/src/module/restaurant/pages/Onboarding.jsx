@@ -213,13 +213,21 @@ const base64ToFile = (base64Input, mimeType = "image/jpeg", fileName = `capture-
     normalized = normalized.split(",")[1];
   }
 
-  const byteCharacters = atob(normalized);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  const base64Data = normalized.replace(/\s/g, '');
+  const byteCharacters = atob(base64Data);
+  const byteArrays = [];
+
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
   }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: mimeType });
+
+  const blob = new Blob(byteArrays, { type: mimeType });
   return new File([blob], fileName, { type: mimeType });
 };
 
@@ -445,6 +453,18 @@ export default function RestaurantOnboarding() {
         else if (!/^[A-Za-z\s]+$/.test(v) || v.length < 2) error = "Please enter a valid city name.";
         break;
       }
+      case 'state': {
+        const v = newValue !== undefined ? newValue : step1.location?.state?.trim();
+        if (!v) error = "State is required";
+        else if (!/^[A-Za-z\s]+$/.test(v) || v.length < 2) error = "Please enter a valid state name.";
+        break;
+      }
+      case 'pincode': {
+        const v = (newValue !== undefined ? newValue : step1.location?.pincode)?.trim()?.replace(/\D/g, '');
+        if (!v) error = "Pin code is required";
+        else if (!/^\d{6}$/.test(v)) error = "Please enter a valid 6-digit pin code.";
+        break;
+      }
       case 'addressLine1': {
         const v = newValue !== undefined ? newValue : step1.location?.addressLine1?.trim();
         if (!v) error = "Building number is required";
@@ -610,6 +630,8 @@ export default function RestaurantOnboarding() {
       addressLine2: "",
       area: "",
       city: "",
+      state: "",
+      pincode: "",
       landmark: ""
     }
   });
@@ -1058,9 +1080,9 @@ export default function RestaurantOnboarding() {
           console.error("Authentication error fetching onboarding:", err);
           // Don't show error to user, they can still fill the form
           // The error might be because restaurant is not yet active (pending verification)
-        } else if (err?.response?.status === 403 && 
-                  (err?.response?.data?.message?.includes("already completed") || 
-                   err?.response?.data?.error?.includes("already completed"))) {
+        } else if (err?.response?.status === 403 &&
+          (err?.response?.data?.message?.includes("already completed") ||
+            err?.response?.data?.error?.includes("already completed"))) {
           // Keep local auth state in sync with backend to avoid onboarding<->hub redirect loops.
           try {
             const rawUser = localStorage.getItem("restaurant_user");
@@ -1385,6 +1407,8 @@ export default function RestaurantOnboarding() {
         "primaryContactNumber",
         "area",
         "city",
+        "state",
+        "pincode",
         "addressLine1",
         "addressLine2",
         "landmark"
@@ -1833,9 +1857,9 @@ export default function RestaurantOnboarding() {
         }, 800);
       }
     } catch (err) {
-      if (err?.response?.status === 403 && 
-          (err?.response?.data?.message?.includes("already completed") || 
-           err?.response?.data?.error?.includes("already completed"))) {
+      if (err?.response?.status === 403 &&
+        (err?.response?.data?.message?.includes("already completed") ||
+          err?.response?.data?.error?.includes("already completed"))) {
         // If it's already completed, treat as success and move to hub
         syncLocalRestaurantUserOnOnboardingSuccess(step5.businessModel || "Commission Base");
         toast.success("Registration Successful!");
@@ -2013,6 +2037,44 @@ export default function RestaurantOnboarding() {
               className={`bg-white text-sm ${formErrors.city ? "border-red-500" : "border-gray-200"}`}
               placeholder="City name" />
             {formErrors.city && <p className="text-red-500 text-[10px] mt-1">{formErrors.city}</p>}
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-700">State<span className="text-red-500">*</span></Label>
+            <Input
+              value={step1.location?.state || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStep1({
+                  ...step1,
+                  location: { ...step1.location, state: val }
+                });
+                validateField('state', val);
+              }}
+              onFocus={() => setFormErrors(prev => ({ ...prev, state: null }))}
+              onBlur={() => validateField('state')}
+              className={`bg-white text-sm ${formErrors.state ? "border-red-500" : "border-gray-200"}`}
+              placeholder="State name" />
+            {formErrors.state && <p className="text-red-500 text-[10px] mt-1">{formErrors.state}</p>}
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-700">Pin Code<span className="text-red-500">*</span></Label>
+            <Input
+              value={step1.location?.pincode || ""}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setStep1({
+                  ...step1,
+                  location: { ...step1.location, pincode: val }
+                });
+                validateField('pincode', val);
+              }}
+              onFocus={() => setFormErrors(prev => ({ ...prev, pincode: null }))}
+              onBlur={() => validateField('pincode')}
+              className={`bg-white text-sm ${formErrors.pincode ? "border-red-500" : "border-gray-200"}`}
+              placeholder="6-digit Pin Code" />
+            {formErrors.pincode && <p className="text-red-500 text-[10px] mt-1">{formErrors.pincode}</p>}
           </div>
 
           <div>
@@ -2838,7 +2900,7 @@ export default function RestaurantOnboarding() {
                       const month = String(date.getMonth() + 1).padStart(2, '0');
                       const day = String(date.getDate()).padStart(2, '0');
                       const formattedDate = `${year}-${month}-${day}`;
-                      
+
                       setStep3({ ...step3, fssaiExpiry: formattedDate });
                       validateField('fssaiExpiry', formattedDate);
                     }

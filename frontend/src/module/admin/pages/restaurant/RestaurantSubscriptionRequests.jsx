@@ -180,7 +180,7 @@ export default function RestaurantSubscriptionRequests() {
 
             {/* Manage Modal */}
             {isModalOpen && selectedRequest && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Manage Subscription</h3>

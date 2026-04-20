@@ -586,12 +586,7 @@ export default function OrderDetails() {
                 <Printer className="w-5 h-5 text-gray-900" />
               )}
             </button>
-            <button
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Receipt"
-            >
-              <FileText className="w-5 h-5 text-gray-900" />
-            </button>
+
           </div>
         </div>
       </div>

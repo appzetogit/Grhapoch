@@ -27,7 +27,9 @@ import {
   X,
   CheckCircle,
   Calendar,
-  MapPin } from
+  MapPin,
+  Tag,
+  TrendingUp } from
 "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DateRangeCalendar } from "@/components/ui/date-range-calendar";
@@ -705,10 +707,15 @@ export default function ExploreMore() {
   const accountingItems = [
   { id: 1, label: "Payout", icon: IndianRupee, route: "/restaurant/hub-finance" }];
 
+  const growthItems = [
+    { id: 1, label: "Offers", icon: Tag, route: "/restaurant/hub-growth/create-offers" }
+  ];
+
 
   // All sections with their items
   const allSections = [
   { title: "Manage outlet", items: manageOutletItems, key: "manage-outlet" },
+  { title: "Marketing & Growth", items: growthItems, key: "growth" },
   { title: "Settings", items: settingsItems, key: "settings" },
   { title: "Orders", items: ordersItems, key: "orders" },
   { title: "Help", items: helpItems, key: "help" },

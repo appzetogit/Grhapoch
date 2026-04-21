@@ -12,6 +12,11 @@ export default function RestaurantGlobalOrderSoundListener() {
   const [hasNewOrders, setHasNewOrders] = useState(false);
   const seenOrderIdsRef = useRef(new Set());
   const isFirstLoadRef = useRef(true);
+  const isRestaurantRoute = location.pathname.startsWith("/restaurant");
+  const excludeRoutes = ['/onboarding', '/login', '/signup', '/auth', '/forgot-password', '/welcome'];
+  const isExcludedPath = excludeRoutes.some(route => location.pathname.includes(route));
+  // OrdersMain on "/restaurant" already has its own looping audio popup logic.
+  const shouldSkipBecauseOrdersMainHandles = location.pathname === "/restaurant";
 
   // Initialize audio
   useEffect(() => {
@@ -21,15 +26,18 @@ export default function RestaurantGlobalOrderSoundListener() {
 
   // Socket and Polling listener
   useEffect(() => {
+    if (!isRestaurantRoute || isExcludedPath || shouldSkipBecauseOrdersMainHandles) {
+      setHasNewOrders(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      return undefined;
+    }
+
     let socket = null;
 
     const fetchOrders = async () => {
-      // Don't poll on restricted routes to avoid 401/403 errors
-      const excludeRoutes = ['/onboarding', '/login', '/signup', '/auth'];
-      if (excludeRoutes.some(route => location.pathname.includes(route))) {
-        return;
-      }
-
       try {
         const response = await restaurantAPI.getOrders({ status: 'pending' });
         
@@ -68,6 +76,11 @@ export default function RestaurantGlobalOrderSoundListener() {
     // Initialize Socket Connection
     const initSocket = async () => {
       try {
+        const token = localStorage.getItem('restaurant_accessToken') || localStorage.getItem('accessToken');
+        if (!token) {
+          return;
+        }
+
         const { default: io } = await import('socket.io-client');
         import('@/lib/api/config').then(({ API_BASE_URL }) => {
           const socketUrl = API_BASE_URL.replace(/\/api\/?$/, '') + '/restaurant';
@@ -75,7 +88,7 @@ export default function RestaurantGlobalOrderSoundListener() {
             path: '/socket.io/',
             transports: ['polling', 'websocket'],
             auth: {
-              token: localStorage.getItem('restaurant_accessToken') || localStorage.getItem('accessToken')
+              token
             }
           });
 
@@ -114,7 +127,7 @@ export default function RestaurantGlobalOrderSoundListener() {
         socket.disconnect();
       }
     };
-  }, [location.pathname]);
+  }, [location.pathname, isRestaurantRoute, isExcludedPath, shouldSkipBecauseOrdersMainHandles]);
 
   const stopSound = () => {
     setHasNewOrders(false);

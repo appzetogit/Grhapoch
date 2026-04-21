@@ -1376,19 +1376,41 @@ export default function Cart() {
         return;
       }
 
-      // If a pending order exists, reuse it for payment retry
+      // If a pending order exists, reuse it only when cart signature still matches.
       let pendingOrderId = null
+      let pendingOrderMeta = null
       if (selectedPaymentMethod === "razorpay") {
         pendingOrderId = localStorage.getItem("pendingOrderId")
+        try {
+          pendingOrderMeta = JSON.parse(localStorage.getItem("pendingOrderMeta") || "null")
+        } catch {
+          pendingOrderMeta = null
+        }
+      } else {
+        localStorage.removeItem("pendingOrderId")
+        localStorage.removeItem("pendingOrderMeta")
+      }
+
+      if (pendingOrderId) {
+        const signatureMatches = pendingOrderMeta?.signature === cartSignature
+        if (!signatureMatches) {
+          pendingOrderId = null
+          localStorage.removeItem("pendingOrderId")
+          localStorage.removeItem("pendingOrderMeta")
+        }
       }
 
       let orderResponse
       if (pendingOrderId && selectedPaymentMethod === "razorpay") {
         try {
-          orderResponse = await orderAPI.createPaymentOrder(pendingOrderId)
+          orderResponse = await orderAPI.createPaymentOrder(pendingOrderId, {
+            expectedTotalPaise: Math.round(Number(orderPricing?.total || 0) * 100),
+            cartSignature
+          })
         } catch (reuseError) {
           console.warn("Pending order reuse failed, creating new order:", reuseError)
           localStorage.removeItem("pendingOrderId")
+          localStorage.removeItem("pendingOrderMeta")
           orderResponse = await orderAPI.createOrder(orderPayload)
         }
       } else {
@@ -1461,6 +1483,11 @@ export default function Cart() {
       let paymentCompleted = false
       // Store pending order id for retry
       localStorage.setItem("pendingOrderId", order.id)
+      localStorage.setItem("pendingOrderMeta", JSON.stringify({
+        id: order.id,
+        signature: cartSignature,
+        totalPaise: Math.round(Number(orderPricing?.total || 0) * 100)
+      }))
 
       // Initialize Razorpay payment
       await initRazorpayPayment({
@@ -1509,6 +1536,7 @@ export default function Cart() {
               orderAttemptRef.current = null;
               setIsPlacingOrder(false);
               localStorage.removeItem("pendingOrderId")
+              localStorage.removeItem("pendingOrderMeta")
             } else {
               throw new Error(verifyResponse.data.message || "Payment verification failed");
             }

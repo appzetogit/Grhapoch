@@ -1,4 +1,5 @@
 import Order from '../models/Order.js';
+import PendingOrderCheckout from '../models/PendingOrderCheckout.js';
 import Payment from '../models/Payment.js';
 import { createOrder as createRazorpayOrder, verifyPayment } from '../services/razorpayService.js';
 import Restaurant from '../models/Restaurant.js';
@@ -18,7 +19,6 @@ import { holdEscrow } from '../services/escrowWalletService.js';
 import { processCancellationRefund } from '../services/cancellationRefundService.js';
 import etaCalculationService from '../services/etaCalculationService.js';
 import etaWebSocketService from '../services/etaWebSocketService.js';
-import OrderEvent from '../models/OrderEvent.js';
 import UserWallet from '../models/UserWallet.js';
 import RestaurantCommission from '../models/RestaurantCommission.js';
 import { getFirebaseRealtimeDb } from '../config/firebaseRealtime.js';
@@ -103,6 +103,15 @@ const extractOrderPhone = (body) => {
   return digits;
 };
 
+const resolveRazorpayKeyId = async () => {
+  try {
+    const credentials = await getRazorpayCredentials();
+    return credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || null;
+  } catch (error) {
+    return process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || null;
+  }
+};
+
 /**
  * Create a new order and initiate Razorpay payment
  */
@@ -163,8 +172,66 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Idempotency: if client re-sends the same checkout attempt, reuse existing order.
+    // Idempotency: if client re-sends the same checkout attempt, reuse existing order/checkout.
     if (clientOrderRef) {
+      if (normalizedPaymentMethod === 'razorpay') {
+        const existingPendingCheckout = await PendingOrderCheckout.findOne({
+          userId,
+          clientOrderRef,
+          status: 'pending'
+        });
+
+        if (existingPendingCheckout) {
+          if (!existingPendingCheckout.payment?.razorpayOrderId) {
+            try {
+              const retryRazorpayOrder = await createRazorpayOrder({
+                amount: Math.round((existingPendingCheckout.orderData?.pricing?.total || 0) * 100),
+                currency: 'INR',
+                receipt: existingPendingCheckout.orderId,
+                notes: {
+                  orderId: existingPendingCheckout.orderId,
+                  userId: userId.toString()
+                }
+              });
+
+              existingPendingCheckout.payment = {
+                ...(existingPendingCheckout.payment || {}),
+                method: 'razorpay',
+                status: 'pending',
+                razorpayOrderId: retryRazorpayOrder.id
+              };
+              await existingPendingCheckout.save();
+            } catch (retryRazorpayError) {
+              logger.warn('Unable to create Razorpay order while reusing pending checkout', {
+                checkoutId: existingPendingCheckout._id?.toString(),
+                orderId: existingPendingCheckout.orderId,
+                error: retryRazorpayError.message
+              });
+            }
+          }
+
+          const razorpayKeyId = await resolveRazorpayKeyId();
+          return res.status(200).json({
+            success: true,
+            message: 'Existing checkout reused for this payment attempt',
+            data: {
+              order: {
+                id: existingPendingCheckout._id.toString(),
+                orderId: existingPendingCheckout.orderId,
+                status: 'payment_pending',
+                total: existingPendingCheckout.orderData?.pricing?.total || 0
+              },
+              razorpay: existingPendingCheckout.payment?.razorpayOrderId ? {
+                orderId: existingPendingCheckout.payment.razorpayOrderId,
+                amount: Math.round((existingPendingCheckout.orderData?.pricing?.total || 0) * 100),
+                currency: 'INR',
+                key: razorpayKeyId
+              } : null
+            }
+          });
+        }
+      }
+
       const existingOrder = await Order.findOne({ userId, clientOrderRef });
       if (existingOrder) {
         let razorpayPayload = null;
@@ -202,14 +269,7 @@ export const createOrder = async (req, res) => {
           }
 
           if (existingOrder.payment?.razorpayOrderId) {
-            let razorpayKeyId = null;
-            try {
-              const credentials = await getRazorpayCredentials();
-              razorpayKeyId = credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
-            } catch (keyError) {
-              razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || null;
-            }
-
+            const razorpayKeyId = await resolveRazorpayKeyId();
             razorpayPayload = {
               orderId: existingOrder.payment.razorpayOrderId,
               amount: Math.round((existingOrder.pricing?.total || 0) * 100),
@@ -629,8 +689,7 @@ export const createOrder = async (req, res) => {
       }
     };
 
-    // Create order in database with pending status
-    const order = new Order({
+    const baseOrderData = {
       orderId: generatedOrderId,
       clientOrderRef: clientOrderRef || undefined,
       userId,
@@ -641,7 +700,7 @@ export const createOrder = async (req, res) => {
       pricing: {
         ...pricing,
         couponCode: pricing.couponCode || null,
-        commission: commissionSnapshot // Add snapshot here
+        commission: commissionSnapshot
       },
       assignmentInfo: (typeof canonicalDistanceKm === 'number' && !Number.isNaN(canonicalDistanceKm))
         ? { distance: canonicalDistanceKm }
@@ -653,7 +712,7 @@ export const createOrder = async (req, res) => {
         method: normalizedPaymentMethod,
         status: 'pending'
       }
-    });
+    };
 
     // Parse preparation time from order items
     // Extract maximum preparation time from items (e.g., "20-25 mins" -> 25)
@@ -672,7 +731,7 @@ export const createOrder = async (req, res) => {
         }
       });
     }
-    order.preparationTime = maxPreparationTime;
+    baseOrderData.preparationTime = maxPreparationTime;
     logger.info('📋 Preparation time extracted from items:', {
       maxPreparationTime,
       itemsCount: items?.length || 0
@@ -705,31 +764,17 @@ export const createOrder = async (req, res) => {
         const finalMinETA = etaResult.minETA + maxPreparationTime;
         const finalMaxETA = etaResult.maxETA + maxPreparationTime;
 
-        // Update order with ETA (including preparation time)
-        order.eta = {
+        // Update order data with ETA (including preparation time)
+        baseOrderData.eta = {
           min: finalMinETA,
           max: finalMaxETA,
           lastUpdated: new Date(),
           additionalTime: 0 // Will be updated when restaurant adds time
         };
-        order.estimatedDeliveryTime = Math.ceil((finalMinETA + finalMaxETA) / 2);
-
-        // Create order created event
-        await OrderEvent.create({
-          orderId: order._id,
-          eventType: 'ORDER_CREATED',
-          data: {
-            initialETA: {
-              min: finalMinETA,
-              max: finalMaxETA
-            },
-            preparationTime: maxPreparationTime
-          },
-          timestamp: new Date()
-        });
+        baseOrderData.estimatedDeliveryTime = Math.ceil((finalMinETA + finalMaxETA) / 2);
 
         logger.info('✅ ETA calculated for order:', {
-          orderId: order.orderId,
+          orderId: generatedOrderId,
           eta: `${finalMinETA}-${finalMaxETA} mins`,
           preparationTime: maxPreparationTime,
           baseETA: `${etaResult.minETA}-${etaResult.maxETA} mins`
@@ -742,23 +787,11 @@ export const createOrder = async (req, res) => {
       // Continue with order creation even if ETA calculation fails
     }
 
-    await order.save();
-
-    // Log order creation for debugging
-    logger.info('Order created successfully:', {
-      orderId: order.orderId,
-      orderMongoId: order._id.toString(),
-      restaurantId: order.restaurantId,
-      userId: order.userId,
-      status: order.status,
-      total: order.pricing.total,
-      eta: order.eta ? `${order.eta.min}-${order.eta.max} mins` : 'N/A',
-      paymentMethod: normalizedPaymentMethod
-    });
-
-    // For wallet payments, check balance and deduct before creating order
+    // For wallet payments, create real order immediately and deduct wallet.
     if (normalizedPaymentMethod === 'wallet') {
       try {
+        const order = new Order(baseOrderData);
+
         // Find or create wallet
         const wallet = await UserWallet.findOrCreateByUserId(userId);
 
@@ -812,6 +845,8 @@ export const createOrder = async (req, res) => {
             newBalance: wallet.balance
           });
         }
+
+        await order.save();
 
         // Create payment record
         try {
@@ -897,9 +932,11 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // For cash-on-delivery orders, confirm immediately and notify restaurant.
-    // Online (Razorpay) orders follow the existing verifyOrderPayment flow.
+    // For cash-on-delivery orders, create real order immediately and notify restaurant.
     if (normalizedPaymentMethod === 'cash') {
+      const order = new Order(baseOrderData);
+      await order.save();
+
       // Best-effort payment record; even if it fails we still proceed with order.
       try {
         const payment = new Payment({
@@ -978,81 +1015,74 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Note: For Razorpay / online payments, restaurant notification will be sent
-    // after payment verification in verifyOrderPayment. This ensures restaurant
-    // only receives prepaid orders after successful payment.
-
-    // Create Razorpay order for online payments
+    // Razorpay flow: do NOT create real order before payment success.
+    // Store only a temporary checkout snapshot and materialize order after verify-payment.
     let razorpayOrder = null;
-    if (normalizedPaymentMethod === 'razorpay' || !normalizedPaymentMethod) {
-      try {
-        razorpayOrder = await createRazorpayOrder({
-          amount: Math.round(pricing.total * 100), // Convert to paise
-          currency: 'INR',
-          receipt: order.orderId,
-          notes: {
-            orderId: order.orderId,
-            userId: userId.toString(),
-            restaurantId: restaurantId || 'unknown'
-          }
-        });
-
-        // Update order with Razorpay order ID
-        order.payment.razorpayOrderId = razorpayOrder.id;
-        await order.save();
-      } catch (razorpayError) {
-        logger.error(`Error creating Razorpay order: ${razorpayError.message}`);
-        // Continue with order creation even if Razorpay fails
-        // Payment can be handled later
-      }
+    try {
+      razorpayOrder = await createRazorpayOrder({
+        amount: Math.round(pricing.total * 100), // Convert to paise
+        currency: 'INR',
+        receipt: generatedOrderId,
+        notes: {
+          orderId: generatedOrderId,
+          userId: userId.toString(),
+          restaurantId: restaurantId || 'unknown'
+        }
+      });
+    } catch (razorpayError) {
+      logger.error(`Error creating Razorpay order: ${razorpayError.message}`);
+      return res.status(503).json({
+        success: false,
+        message: 'Unable to initialize payment right now. Please try again.'
+      });
     }
 
-    logger.info(`Order created: ${order.orderId}`, {
-      orderId: order.orderId,
+    const pendingCheckout = new PendingOrderCheckout({
+      orderId: generatedOrderId,
+      userId,
+      clientOrderRef: clientOrderRef || undefined,
+      status: 'pending',
+      orderData: {
+        ...baseOrderData,
+        payment: {
+          ...baseOrderData.payment,
+          method: 'razorpay',
+          status: 'pending',
+          razorpayOrderId: razorpayOrder.id
+        }
+      },
+      payment: {
+        method: 'razorpay',
+        status: 'pending',
+        razorpayOrderId: razorpayOrder.id
+      }
+    });
+    await pendingCheckout.save();
+
+    logger.info(`Pending checkout created: ${pendingCheckout.orderId}`, {
+      checkoutId: pendingCheckout._id.toString(),
       userId,
       amount: pricing.total,
-      razorpayOrderId: razorpayOrder?.id
+      razorpayOrderId: razorpayOrder.id
     });
 
-    // Get Razorpay key ID from env service
-    let razorpayKeyId = null;
-    if (razorpayOrder) {
-      try {
-        const credentials = await getRazorpayCredentials();
-        razorpayKeyId = credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
-        if (razorpayKeyId) {
-          const maskedKeyId = `${String(razorpayKeyId).slice(0, 8)}...${String(razorpayKeyId).slice(-4)}`;
-          logger.info('Razorpay key id resolved (masked)', { keyId: maskedKeyId });
-        } else {
-          logger.warn('Razorpay key id missing while creating order');
-        }
-      } catch (error) {
-        logger.warn(`Failed to get Razorpay key ID from env service: ${error.message}`);
-        razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
-        if (razorpayKeyId) {
-          const maskedKeyId = `${String(razorpayKeyId).slice(0, 8)}...${String(razorpayKeyId).slice(-4)}`;
-          logger.info('Razorpay key id resolved from env fallback (masked)', { keyId: maskedKeyId });
-        } else {
-          logger.warn('Razorpay key id missing from env fallback');
-        }
-      }
-    }
+    const razorpayKeyId = await resolveRazorpayKeyId();
 
     res.status(201).json({
       success: true,
       data: {
         order: {
-          id: order._id.toString(),
-          orderId: order.orderId,
-          status: order.status,
+          id: pendingCheckout._id.toString(),
+          orderId: pendingCheckout.orderId,
+          status: 'payment_pending',
           total: pricing.total
         },
-        razorpay: razorpayOrder ? {
+        razorpay: {
           orderId: razorpayOrder.id,
           amount: razorpayOrder.amount,
           currency: razorpayOrder.currency,
           key: razorpayKeyId
-        } : null
+        }
       }
     });
   } catch (error) {
@@ -1083,36 +1113,27 @@ export const verifyOrderPayment = async (req, res) => {
       });
     }
 
-    // Find order (support both MongoDB ObjectId and orderId string)
-    let order;
-    try {
-      // Try to find by MongoDB ObjectId first
-      if (mongoose.Types.ObjectId.isValid(orderId)) {
-        order = await Order.findOne({
-          _id: orderId,
-          userId
-        });
-      }
-
-      // If not found, try by orderId string
-      if (!order) {
-        order = await Order.findOne({
-          orderId: orderId,
-          userId
-        });
-      }
-    } catch (error) {
-      // Fallback: try both
-      order = await Order.findOne({
-        $or: [
-          { _id: orderId },
-          { orderId: orderId }
-        ],
-        userId
-      });
+    // Backward compatibility: first look for an already created order.
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      order = await Order.findOne({ _id: orderId, userId });
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId, userId });
     }
 
+    // New flow: Razorpay checkout is stored in pending collection until payment success.
+    let pendingCheckout = null;
     if (!order) {
+      if (mongoose.Types.ObjectId.isValid(orderId)) {
+        pendingCheckout = await PendingOrderCheckout.findOne({ _id: orderId, userId, status: 'pending' });
+      }
+      if (!pendingCheckout) {
+        pendingCheckout = await PendingOrderCheckout.findOne({ orderId, userId, status: 'pending' });
+      }
+    }
+
+    if (!order && !pendingCheckout) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
@@ -1123,13 +1144,61 @@ export const verifyOrderPayment = async (req, res) => {
     const isValid = await verifyPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature);
 
     if (!isValid) {
-      // Update order payment status to failed
-      order.payment.status = 'failed';
-      await order.save();
+      if (pendingCheckout) {
+        pendingCheckout.status = 'failed';
+        pendingCheckout.payment = {
+          ...(pendingCheckout.payment || {}),
+          status: 'failed',
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature
+        };
+        await pendingCheckout.save();
+      } else if (order) {
+        order.payment.status = 'failed';
+        await order.save();
+      }
 
       return res.status(400).json({
         success: false,
         message: 'Invalid payment signature'
+      });
+    }
+
+    if (!order && pendingCheckout) {
+      const orderData = pendingCheckout.orderData || {};
+      order = new Order({
+        ...orderData,
+        payment: {
+          ...(orderData.payment || {}),
+          method: 'razorpay',
+          status: 'pending',
+          razorpayOrderId: razorpayOrderId
+        }
+      });
+      await order.save();
+    }
+
+    if (order.payment?.status === 'completed' && order.status === 'confirmed') {
+      const existingPayment = await Payment.findOne({
+        orderId: order._id,
+        transactionId: razorpayPaymentId
+      }).lean();
+
+      return res.json({
+        success: true,
+        data: {
+          order: {
+            id: order._id.toString(),
+            orderId: order.orderId,
+            status: order.status
+          },
+          payment: existingPayment ? {
+            id: existingPayment._id?.toString?.() || null,
+            paymentId: existingPayment.paymentId,
+            status: existingPayment.status
+          } : null
+        }
       });
     }
 
@@ -1171,6 +1240,18 @@ export const verifyOrderPayment = async (req, res) => {
     order.status = 'confirmed';
     order.tracking.confirmed = { status: true, timestamp: new Date() };
     await order.save();
+
+    if (pendingCheckout) {
+      pendingCheckout.status = 'paid';
+      pendingCheckout.payment = {
+        ...(pendingCheckout.payment || {}),
+        status: 'completed',
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature
+      };
+      await pendingCheckout.deleteOne();
+    }
 
 
 
@@ -1299,9 +1380,77 @@ export const createOrderPayment = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
+    const expectedTotalPaise = Number(req.body?.expectedTotalPaise);
 
-    // Find order by MongoDB _id or orderId
-    let order;
+    let pendingCheckout = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      pendingCheckout = await PendingOrderCheckout.findOne({ _id: id, userId, status: 'pending' });
+    }
+    if (!pendingCheckout) {
+      pendingCheckout = await PendingOrderCheckout.findOne({ orderId: id, userId, status: 'pending' });
+    }
+
+    if (pendingCheckout) {
+      const orderData = pendingCheckout.orderData || {};
+      const storedTotalPaise = Math.round((orderData.pricing?.total || 0) * 100);
+      if (Number.isFinite(expectedTotalPaise) && expectedTotalPaise > 0 && storedTotalPaise !== expectedTotalPaise) {
+        return res.status(409).json({
+          success: false,
+          code: 'CHECKOUT_AMOUNT_MISMATCH',
+          message: 'Cart total changed. Please start payment again.'
+        });
+      }
+
+      const razorpayOrder = await createRazorpayOrder({
+        amount: storedTotalPaise,
+        currency: 'INR',
+        receipt: pendingCheckout.orderId,
+        notes: {
+          orderId: pendingCheckout.orderId,
+          userId: userId.toString(),
+          restaurantId: orderData.restaurantId?.toString() || 'unknown'
+        }
+      });
+
+      pendingCheckout.payment = {
+        ...(pendingCheckout.payment || {}),
+        method: 'razorpay',
+        status: 'pending',
+        razorpayOrderId: razorpayOrder.id
+      };
+      pendingCheckout.orderData = {
+        ...(pendingCheckout.orderData || {}),
+        payment: {
+          ...(pendingCheckout.orderData?.payment || {}),
+          method: 'razorpay',
+          status: 'pending',
+          razorpayOrderId: razorpayOrder.id
+        }
+      };
+      await pendingCheckout.save();
+
+      const razorpayKeyId = await resolveRazorpayKeyId();
+      return res.status(201).json({
+        success: true,
+        data: {
+          order: {
+            id: pendingCheckout._id.toString(),
+            orderId: pendingCheckout.orderId,
+            status: 'payment_pending',
+            total: orderData.pricing?.total || 0
+          },
+          razorpay: {
+            orderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            key: razorpayKeyId
+          }
+        }
+      });
+    }
+
+    // Legacy fallback for already-created orders.
+    let order = null;
     if (mongoose.Types.ObjectId.isValid(id)) {
       order = await Order.findOne({ _id: id, userId });
     }
@@ -1321,41 +1470,26 @@ export const createOrderPayment = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'Order payment already completed' });
     }
 
-    let razorpayOrder = null;
-    try {
-      razorpayOrder = await createRazorpayOrder({
-        amount: Math.round((order.pricing?.total || 0) * 100),
-        currency: 'INR',
-        receipt: order.orderId,
-        notes: {
-          orderId: order.orderId,
-          userId: userId.toString(),
-          restaurantId: order.restaurantId?.toString() || 'unknown'
-        }
-      });
+    const razorpayOrder = await createRazorpayOrder({
+      amount: Math.round((order.pricing?.total || 0) * 100),
+      currency: 'INR',
+      receipt: order.orderId,
+      notes: {
+        orderId: order.orderId,
+        userId: userId.toString(),
+        restaurantId: order.restaurantId?.toString() || 'unknown'
+      }
+    });
 
-      order.payment = {
-        ...(order.payment || {}),
-        method: 'razorpay',
-        status: 'pending',
-        razorpayOrderId: razorpayOrder.id
-      };
-      await order.save();
-    } catch (razorpayError) {
-      return res.status(500).json({
-        success: false,
-        message: razorpayError.message || 'Failed to create payment order'
-      });
-    }
+    order.payment = {
+      ...(order.payment || {}),
+      method: 'razorpay',
+      status: 'pending',
+      razorpayOrderId: razorpayOrder.id
+    };
+    await order.save();
 
-    let razorpayKeyId = null;
-    try {
-      const credentials = await getRazorpayCredentials();
-      razorpayKeyId = credentials.keyId || process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
-    } catch (error) {
-      razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY;
-    }
-
+    const razorpayKeyId = await resolveRazorpayKeyId();
     return res.status(201).json({
       success: true,
       data: {

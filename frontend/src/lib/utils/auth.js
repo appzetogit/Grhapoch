@@ -141,11 +141,35 @@ export function isModuleAuthenticated(module) {
  * @param {string} module - Module name (admin, restaurant, delivery, user)
  */
 export function clearModuleAuth(module) {
+  let userCartKey = null;
+  if (module === 'user') {
+    try {
+      const rawUser = localStorage.getItem('user_user') || localStorage.getItem('user');
+      if (rawUser) {
+        const parsedUser = JSON.parse(rawUser);
+        const userId = parsedUser?._id || parsedUser?.id || parsedUser?.userId;
+        if (userId) {
+          userCartKey = `cart_${String(userId)}`;
+        }
+      }
+    } catch {
+      userCartKey = null;
+    }
+  }
+
   localStorage.removeItem(`${module}_accessToken`);
   localStorage.removeItem(`${module}_authenticated`);
   localStorage.removeItem(`${module}_user`);
   // Also clear any sessionStorage data
   sessionStorage.removeItem(`${module}AuthData`);
+
+  if (module === 'user') {
+    // Remove user cart keys to avoid cart leakage across accounts.
+    if (userCartKey) {
+      localStorage.removeItem(userCartKey);
+    }
+    localStorage.removeItem('cart');
+  }
 
   // Remove FCM token from backend on logout (fire-and-forget)
   if (module === 'user' || module === 'delivery' || module === 'restaurant') {

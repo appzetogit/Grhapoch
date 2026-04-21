@@ -1953,8 +1953,8 @@ export const orderAPI = {
     return apiClient.patch(API_ENDPOINTS.ORDER.CANCEL.replace(':id', orderId), { reason });
   },
   // Create/refresh Razorpay order for pending payment
-  createPaymentOrder: (orderId) => {
-    return apiClient.post(API_ENDPOINTS.ORDER.CREATE_PAYMENT.replace(':id', orderId));
+  createPaymentOrder: (orderId, payload = {}) => {
+    return apiClient.post(API_ENDPOINTS.ORDER.CREATE_PAYMENT.replace(':id', orderId), payload);
   },
 
 };

@@ -825,21 +825,21 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
 
 
 
-    // Build query for orders
-    const query = {};
+    // Build base query from filters
+    const baseQuery = {};
 
     // Date range filter
     if (fromDate || toDate) {
-      query.createdAt = {};
+      baseQuery.createdAt = {};
       if (fromDate) {
         const startDate = new Date(fromDate);
         startDate.setHours(0, 0, 0, 0);
-        query.createdAt.$gte = startDate;
+        baseQuery.createdAt.$gte = startDate;
       }
       if (toDate) {
         const endDate = new Date(toDate);
         endDate.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endDate;
+        baseQuery.createdAt.$lte = endDate;
       }
     }
 
@@ -855,7 +855,7 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
       }).select('_id restaurantId').lean();
 
       if (restaurantDoc) {
-        query.restaurantId = restaurantDoc._id?.toString() || restaurantDoc.restaurantId;
+        baseQuery.restaurantId = restaurantDoc._id?.toString() || restaurantDoc.restaurantId;
       }
     }
 
@@ -867,20 +867,27 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
       }).select('_id name').lean();
 
       if (zoneDoc) {
-        query['assignmentInfo.zoneId'] = zoneDoc._id?.toString();
+        baseQuery['assignmentInfo.zoneId'] = zoneDoc._id?.toString();
       }
     }
 
     // Search filter (orderId)
     if (search) {
-      query.orderId = { $regex: search, $options: 'i' };
+      baseQuery.orderId = { $regex: search, $options: 'i' };
     }
+
+    // Transaction report should include only successfully fulfilled orders.
+    // This prevents cancelled orders from contributing to report metrics anywhere.
+    const reportOrderQuery = {
+      ...baseQuery,
+      status: 'delivered'
+    };
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Fetch orders with population
-    const orders = await Order.find(query).
+    const orders = await Order.find(reportOrderQuery).
       populate('userId', 'name email phone').
       populate('restaurantId', 'name slug').
       sort({ createdAt: -1 }).
@@ -889,7 +896,7 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
       lean();
 
     // Get total count
-    const total = await Order.countDocuments(query);
+    const total = await Order.countDocuments(reportOrderQuery);
 
     // Calculate summary statistics
     const AdminCommission = (await import('../models/AdminCommission.js')).default;
@@ -928,7 +935,7 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
     }
 
     // Get all orders for summary calculation (without pagination)
-    const summaryQuery = { ...query };
+    const summaryQuery = { ...reportOrderQuery };
     const allOrdersForSummary = await Order.find(summaryQuery).
       populate('userId', 'name').
       populate('restaurantId', 'name').
@@ -943,9 +950,11 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
     );
 
     // Calculate refunded transactions
-    const refundedOrders = allOrdersForSummary.filter((order) =>
-      order.payment?.status === 'refunded' || order.status === 'cancelled'
-    );
+    const refundedOrders = await Order.find({
+      ...baseQuery,
+      'payment.status': 'refunded',
+      status: { $ne: 'cancelled' }
+    }).lean();
     const refundedTransaction = refundedOrders.reduce((sum, order) =>
       sum + (order.pricing?.total || 0), 0
     );

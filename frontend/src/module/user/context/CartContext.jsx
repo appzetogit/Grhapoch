@@ -19,17 +19,39 @@ const defaultCartContext = {
 
 const CartContext = createContext(defaultCartContext)
 
+const parseStoredUser = () => {
+  if (typeof window === "undefined") return null;
+
+  const raw = localStorage.getItem("user_user") || localStorage.getItem("user");
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const getCartStorageKey = () => {
+  const user = parseStoredUser();
+  const userId = user?._id || user?.id || user?.userId;
+  return userId ? `cart_${String(userId)}` : "cart_guest";
+};
+
+const loadCartFromStorage = (storageKey) => {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = localStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
 export function CartProvider({ children }) {
+  const [cartStorageKey, setCartStorageKey] = useState(() => getCartStorageKey());
   // Safe init (works with SSR and bad JSON)
-  const [cart, setCart] = useState(() => {
-    if (typeof window === "undefined") return []
-    try {
-      const saved = localStorage.getItem("cart")
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+  const [cart, setCart] = useState(() => loadCartFromStorage(getCartStorageKey()))
 
   // Track last add event for animation
   const [lastAddEvent, setLastAddEvent] = useState(null)
@@ -40,14 +62,31 @@ export function CartProvider({ children }) {
   const [cartConflict, setCartConflict] = useState(null) // { existingRestaurant, newRestaurant, pendingItem }
   const pendingItemRef = useRef(null) // Stores the item that caused the conflict
 
-  // Persist to localStorage whenever cart changes
+  // Persist to user-scoped localStorage key whenever cart changes
   useEffect(() => {
     try {
-      localStorage.setItem("cart", JSON.stringify(cart))
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart))
     } catch {
       // ignore storage errors (private mode, quota, etc.)
     }
-  }, [cart])
+  }, [cart, cartStorageKey])
+
+  // Switch cart when auth state changes (login/logout/user switch)
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleAuthChange = () => {
+      setCartStorageKey(getCartStorageKey());
+    };
+
+    window.addEventListener("userAuthChanged", handleAuthChange);
+    return () => window.removeEventListener("userAuthChanged", handleAuthChange);
+  }, []);
+
+  // Reload cart from the newly active storage key
+  useEffect(() => {
+    setCart(loadCartFromStorage(cartStorageKey));
+  }, [cartStorageKey]);
 
   const addToCart = (item, sourcePosition = null, quantity = 1) => {
     const newItemRestaurantId = String(item?.restaurantId || "");

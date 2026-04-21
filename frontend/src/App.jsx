@@ -93,6 +93,7 @@ import DiningManagement from "@/module/restaurant/pages/DiningManagement"
 import DiningSlotsDiscountsPage from "@/module/restaurant/pages/DiningSlotsDiscountsPage"
 import ManageTablesPage from "@/module/restaurant/pages/ManageTablesPage"
 import TableBookingsPage from "@/module/restaurant/pages/TableBookingsPage"
+import RestaurantGlobalOrderSoundListener from "@/module/restaurant/components/RestaurantGlobalOrderSoundListener"
 
 import AdminRouter from "@/module/admin/components/AdminRouter"
 import AdminLogin from "@/module/admin/pages/auth/AdminLogin"
@@ -155,7 +156,9 @@ export default function App() {
   }, [location.pathname, location.search, location.hash])
 
   return (
-    <Routes>
+    <>
+      <RestaurantGlobalOrderSoundListener />
+      <Routes>
       {/* User routes (public + protected) */}
       <Route path="/user/*" element={<UserRouter />} />
       <Route path="/*" element={<UserRouter />} />
@@ -883,6 +886,7 @@ export default function App() {
         path="/*"
         element={<UserRouter />}
       />
-    </Routes>
+      </Routes>
+    </>
   )
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { restaurantAPI } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api/config";
 
 const POLL_INTERVAL = 15000; // 15 seconds fallback polling
 
@@ -22,6 +23,31 @@ export default function RestaurantGlobalOrderSoundListener() {
   useEffect(() => {
     audioRef.current = new Audio(alertSound);
     audioRef.current.loop = true;
+
+    const unlockAudio = () => {
+      if (!audioRef.current) return;
+      audioRef.current.play()
+        .then(() => {
+          if (!audioRef.current) return;
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current.volume = 1;
+        })
+        .catch(() => {
+          // Keep volume safe even if warm-up play is blocked.
+          if (!audioRef.current) return;
+          audioRef.current.volume = 1;
+          audioRef.current.currentTime = 0;
+        });
+    };
+
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio);
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
   }, []);
 
   // Socket and Polling listener
@@ -36,6 +62,11 @@ export default function RestaurantGlobalOrderSoundListener() {
     }
 
     let socket = null;
+
+    const resolveRestaurantId = (restaurantObj) => {
+      if (!restaurantObj) return null;
+      return restaurantObj._id || restaurantObj.id || restaurantObj.restaurantId || null;
+    };
 
     const fetchOrders = async () => {
       try {
@@ -77,40 +108,89 @@ export default function RestaurantGlobalOrderSoundListener() {
     const initSocket = async () => {
       try {
         const token = localStorage.getItem('restaurant_accessToken') || localStorage.getItem('accessToken');
-        if (!token) {
-          return;
-        }
 
         const { default: io } = await import('socket.io-client');
-        import('@/lib/api/config').then(({ API_BASE_URL }) => {
-          const socketUrl = API_BASE_URL.replace(/\/api\/?$/, '') + '/restaurant';
-          socket = io(socketUrl, {
-            path: '/socket.io/',
-            transports: ['polling', 'websocket'],
-            auth: {
-              token
-            }
-          });
 
-          socket.on('connect', async () => {
-            try {
-              const res = await restaurantAPI.getCurrentRestaurant();
-              const restaurantId = res.data?.data?.restaurant?._id;
-              if (restaurantId) {
-                socket.emit('join-restaurant', restaurantId);
+        // Keep Socket URL normalization aligned with restaurant notification hook,
+        // otherwise malformed env URLs can silently break sound on non-order pages.
+        let backendUrl = API_BASE_URL;
+        try {
+          const urlObj = new URL(backendUrl);
+          const pathname = urlObj.pathname.replace(/^\/api\/?$/, '');
+          backendUrl = `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? `:${urlObj.port}` : ''}${pathname}`;
+        } catch (e) {
+          backendUrl = backendUrl.replace(/\/api\/?$/, '');
+          backendUrl = backendUrl.replace(/\/+$/, '');
+          backendUrl = backendUrl.replace(/^(https?):\/+/gi, '$1://');
+        }
+        backendUrl = backendUrl.replace(/\/+$/, '');
+        const socketUrl = `${backendUrl}/restaurant`;
+
+        socket = io(socketUrl, {
+          path: '/socket.io/',
+          transports: ['polling'],
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: Infinity,
+          timeout: 20000,
+          auth: { token: token || undefined }
+        });
+
+        socket.on('connect', async () => {
+          let joined = false;
+          // First try local cache to avoid waiting on network before room join.
+          try {
+            const cached = localStorage.getItem('restaurant_user');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              const cachedRestaurantId = resolveRestaurantId(parsed);
+              if (cachedRestaurantId) {
+                socket.emit('join-restaurant', cachedRestaurantId);
+                joined = true;
               }
-            } catch (err) {}
-          });
-
-          socket.on('new_order', (orderData) => {
-            const id = orderData.orderId || orderData._id;
-            if (!seenOrderIdsRef.current.has(id)) {
-              seenOrderIdsRef.current.add(id);
-              window.dispatchEvent(new CustomEvent('restaurant:new-order', { detail: orderData }));
-              setHasNewOrders(true);
-              audioRef.current?.play().catch(e => console.log("Socket audio play blocked", e));
             }
-          });
+          } catch (e) {}
+
+          try {
+            const res = await restaurantAPI.getCurrentRestaurant();
+            const restaurantObj = res.data?.data?.restaurant || res.data?.restaurant || null;
+            const restaurantId = resolveRestaurantId(restaurantObj);
+            if (restaurantId) {
+              socket.emit('join-restaurant', restaurantId);
+              joined = true;
+              setTimeout(() => {
+                if (socket?.connected) {
+                  socket.emit('join-restaurant', restaurantId);
+                }
+              }, 2000);
+            }
+          } catch (err) {}
+
+          // Last fallback: emit with known route key if available from local storage.
+          if (!joined) {
+            const fallbackId = localStorage.getItem('restaurantId');
+            if (fallbackId) {
+              socket.emit('join-restaurant', fallbackId);
+            }
+          }
+        });
+
+        socket.on('new_order', (orderData) => {
+          const id = orderData.orderId || orderData._id;
+          if (!seenOrderIdsRef.current.has(id)) {
+            seenOrderIdsRef.current.add(id);
+            window.dispatchEvent(new CustomEvent('restaurant:new-order', { detail: orderData }));
+            setHasNewOrders(true);
+            audioRef.current?.play().catch(e => console.log("Socket audio play blocked", e));
+          }
+        });
+
+        // Backend also emits explicit sound event for restaurant notifications.
+        // Listen to it so audio still works even if order payload event is delayed/missed.
+        socket.on('play_notification_sound', () => {
+          setHasNewOrders(true);
+          audioRef.current?.play().catch(e => console.log("Socket audio play blocked", e));
         });
       } catch (err) {
         console.error("Socket initialization failed:", err);

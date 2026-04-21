@@ -14,10 +14,19 @@ export default function PhoneNumbersPage() {
   const [pendingPhoneData, setPendingPhoneData] = useState(null) // Store phone data to save after OTP verification
 
   // Phone numbers data - only mobile now
-  const [phoneData, setPhoneData] = useState({
-    orderReminder1: "+91-9981127415",
-    orderReminder2: "+91-9981127415",
-    restaurantPage: "+91-9981127415"
+  const [phoneData, setPhoneData] = useState(() => {
+    const user = JSON.parse(localStorage.getItem("restaurant_user") || "{}");
+    const basePhone = user?.phone || "9981127415"; // fallback to old hardcoded for legacy
+    // Ensure format is +91-XXXXXXXXXX
+    const formatted = basePhone.startsWith("+91") ?
+      (basePhone.includes("-") ? basePhone : `+91-${basePhone.slice(3)}`) :
+      `+91-${basePhone.replace(/^91/, "")}`;
+
+    return {
+      orderReminder1: formatted,
+      orderReminder2: formatted,
+      restaurantPage: formatted
+    }
   })
 
   const countryCodeDetails = { code: "+91", country: "India", flag: "🇮🇳" }
@@ -32,13 +41,13 @@ export default function PhoneNumbersPage() {
 
   const handleSaveEdit = () => {
     if (!editingNumber || !phoneNumber.trim()) return
-    
+
     // Validate 10 digits
     if (phoneNumber.replace(/\D/g, "").length !== 10) {
       // In a real app we'd show an error state, here we just return
       return
     }
-    
+
     // Store the data to save after OTP verification
     setPendingPhoneData({
       type: editingNumber,
@@ -46,7 +55,7 @@ export default function PhoneNumbersPage() {
       countryCode: "+91",
       phoneNumber: phoneNumber.trim()
     })
-    
+
     // Close edit popup and show OTP popup
     setEditingNumber(null)
     setShowOtpPopup(true)
@@ -61,16 +70,16 @@ export default function PhoneNumbersPage() {
 
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return // Only allow digits
-    
+
     const newOtp = [...otp]
     newOtp[index] = value.slice(-1) // Only take last character
-    
+
     // Auto-focus next input
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`)
       if (nextInput) nextInput.focus()
     }
-    
+
     setOtp(newOtp)
   }
 
@@ -83,7 +92,7 @@ export default function PhoneNumbersPage() {
 
   const handleVerifyOtp = () => {
     const otpString = otp.join("")
-    
+
     // For demo purposes, accept any 6-digit OTP
     // In production, this would verify against the backend
     if (otpString.length === 6) {
@@ -94,7 +103,7 @@ export default function PhoneNumbersPage() {
           [pendingPhoneData.type]: pendingPhoneData.value
         }))
       }
-      
+
       // Close OTP popup and reset
       setShowOtpPopup(false)
       setPendingPhoneData(null)
@@ -215,10 +224,15 @@ export default function PhoneNumbersPage() {
         {/* Manage contact details link */}
         <button
           onClick={() => navigate("/restaurant/contact-details")}
-          className="w-full flex items-center justify-between py-4 text-blue-600 hover:text-blue-700 transition-colors"
+          className="w-full flex items-center justify-between p-4 bg-slate-900 rounded-2xl text-white shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-[0.98]"
         >
-          <span className="text-sm font-medium">Manage contact details for your staff</span>
-          <ArrowRight className="w-5 h-5" />
+          <div className="flex flex-col items-start px-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Settings</span>
+            <span className="text-sm font-bold">Manage staff contact details</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+            <ArrowRight className="w-4 h-4" />
+          </div>
         </button>
       </div>
 
@@ -231,72 +245,88 @@ export default function PhoneNumbersPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleCancelEdit}
-              className="fixed inset-0 bg-black/50 z-50"
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50"
             />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[70vh] flex flex-col"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50 max-h-[80vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold text-gray-900">Edit phone number</h2>
+              <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
+              <div className="flex items-center justify-between px-6 py-6 ring-1 ring-slate-50">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Edit Contact</h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Update your registered phone number</p>
+                </div>
                 <button
                   onClick={handleCancelEdit}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-4 py-4">
-                <div className="space-y-4">
+              
+              <div className="flex-1 overflow-y-auto px-6 py-8">
+                <div className="space-y-8">
                   {/* Country Code Selector */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      Country code
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 block">
+                      Region
                     </label>
-                    <div className="w-full px-4 py-3 border border-gray-300 rounded-lg text-left flex items-center gap-2 bg-gray-50 select-none transition-colors">
-                      <span className="text-lg">
-                        {countryCodeDetails.flag}
-                      </span>
-                      <span className="text-sm text-gray-900">{countryCodeDetails.code}</span>
+                    <div className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex items-center justify-between select-none">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{countryCodeDetails.flag}</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-900">{countryCodeDetails.country}</span>
+                          <span className="text-[10px] font-bold text-slate-500">{countryCodeDetails.code}</span>
+                        </div>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-300" />
                     </div>
                   </div>
 
                   {/* Phone Number Input */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      Phone number
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 block">
+                      New phone number
                     </label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="Enter phone number"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-300">+91</span>
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="00000 00000"
+                        className="w-full pl-16 pr-5 py-5 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl text-lg font-extrabold text-slate-900 outline-none transition-all placeholder:text-slate-200"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium mt-3 px-1 leading-relaxed">
+                      We'll send a one-time verification code to this number to ensure it's yours.
+                    </p>
                   </div>
                 </div>
               </div>
-              <div className="px-4 py-4 border-t border-gray-200 flex gap-3">
+
+              <div className="px-6 py-6 bg-slate-50/50 flex gap-4">
                 <button
                   onClick={handleCancelEdit}
-                  className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-900 bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-4 px-6 border border-slate-200 rounded-2xl font-bold text-slate-600 hover:bg-white hover:shadow-sm transition-all active:scale-[0.98]"
                 >
-                  Cancel
+                  Discard
                 </button>
                 <button
                   onClick={handleSaveEdit}
                   disabled={phoneNumber.replace(/\D/g, "").length !== 10}
-                  className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                  className={`flex-[1.5] py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-slate-200 ${
                     phoneNumber.replace(/\D/g, "").length === 10
-                      ? "bg-black text-white hover:bg-gray-800"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      ? "bg-slate-900 text-white hover:bg-slate-800"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
                   }`}
                 >
-                  Save
+                  Send Verification
                 </button>
               </div>
             </motion.div>
@@ -314,38 +344,46 @@ export default function PhoneNumbersPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleCancelOtp}
-              className="fixed inset-0 bg-black/50 z-50"
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50"
             />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[70vh] flex flex-col"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-2xl z-50 max-h-[80vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold text-gray-900">Verify OTP</h2>
+              <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1" />
+              <div className="flex items-center justify-between px-6 py-6 border-b border-slate-50">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Security Check</h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Verification code sent</p>
+                </div>
                 <button
                   onClick={handleCancelOtp}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-4 py-6">
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-2">
-                      We've sent a 6-digit OTP to
+
+              <div className="flex-1 overflow-y-auto px-6 py-10">
+                <div className="space-y-8 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-2">
+                      <Phone className="w-8 h-8 text-slate-900" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Please enter the 6-digit code sent to
                     </p>
-                    <p className="text-base font-semibold text-gray-900">
-                      {pendingPhoneData ? `${pendingPhoneData.countryCode}-${pendingPhoneData.phoneNumber}` : ""}
+                    <p className="text-lg font-extrabold text-slate-900 tracking-tight">
+                      {pendingPhoneData ? `${pendingPhoneData.countryCode} ${pendingPhoneData.phoneNumber}` : ""}
                     </p>
                   </div>
 
                   {/* OTP Input Fields */}
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-2 md:gap-3">
                     {otp.map((digit, index) => (
                       <input
                         key={index}
@@ -356,39 +394,41 @@ export default function PhoneNumbersPage() {
                         value={digit}
                         onChange={(e) => handleOtpChange(index, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                        className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-12 h-16 text-center text-2xl font-extrabold border-2 border-slate-100 rounded-xl bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all"
                         autoFocus={index === 0}
                       />
                     ))}
                   </div>
 
-                  <div className="text-center">
+                  <div className="pt-4">
+                    <p className="text-xs text-slate-500 font-medium mb-3">Didn't receive the code?</p>
                     <button
                       onClick={handleResendOtp}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="px-6 py-2 rounded-full border border-slate-200 text-xs font-bold text-slate-900 hover:bg-slate-50 transition-all active:scale-95"
                     >
-                      Resend OTP
+                      Resend Code
                     </button>
                   </div>
                 </div>
               </div>
-              <div className="px-4 py-4 border-t border-gray-200 flex gap-3">
+
+              <div className="px-6 py-6 bg-slate-50/50 flex gap-4">
                 <button
                   onClick={handleCancelOtp}
-                  className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-900 bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-4 px-6 border border-slate-200 rounded-2xl font-bold text-slate-600 hover:bg-white transition-all active:scale-[0.98]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleVerifyOtp}
                   disabled={otp.join("").length !== 6}
-                  className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${
+                  className={`flex-[1.5] py-4 px-6 rounded-2xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-slate-200 ${
                     otp.join("").length === 6
-                      ? "bg-black text-white hover:bg-gray-800"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      ? "bg-slate-900 text-white hover:bg-slate-800"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
                   }`}
                 >
-                  Verify
+                  Verify Code
                 </button>
               </div>
             </motion.div>

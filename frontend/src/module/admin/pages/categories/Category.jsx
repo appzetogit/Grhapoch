@@ -25,7 +25,6 @@ export default function Category() {
     name: "",
     image: null,
     status: true,
-    type: "",
     categoryFor: "food",
   });
   const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -239,7 +238,6 @@ export default function Category() {
       name: category.name || "",
       image: safeImage || null,
       status: category.status !== undefined ? category.status : true,
-      type: category.type || "",
       categoryFor: category.categoryFor || "food",
     });
     setSelectedImageFile(null);
@@ -253,8 +251,7 @@ export default function Category() {
       name: "",
       image: null,
       status: true,
-      type: "",
-      categoryFor: "food",
+      categoryFor: "food"
     });
     setSelectedImageFile(null);
     setImagePreview(null);
@@ -393,8 +390,7 @@ export default function Category() {
     setFormData({
       name: "",
       image: null,
-      status: true,
-      type: ""
+      status: true
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -409,7 +405,6 @@ export default function Category() {
       // Prepare FormData for file upload
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
-      formDataToSend.append('type', formData.type);
       formDataToSend.append('categoryFor', formData.categoryFor);
       formDataToSend.append('status', formData.status.toString());
 
@@ -1038,35 +1033,16 @@ export default function Category() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Category Type *
-                      </label>
-                      <select
-                    required
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    
-                        <option value="">Select category type</option>
-                        <option value="Starters">Starters</option>
-                        <option value="Main course">Main course</option>
-                        <option value="Desserts">Desserts</option>
-                        <option value="Beverages">Beverages</option>
-                        <option value="Varieties">Varieties</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
                         Category Name *
                       </label>
                       <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter category name" />
-                  
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter category name"
+                      />
                     </div>
 
                     <div>
@@ -1075,119 +1051,92 @@ export default function Category() {
                       </label>
                       <div className="space-y-3">
                         {/* Image Preview */}
-                        {(imagePreview || formData.image) &&
-                    <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-slate-300">
-                            <div className="w-full h-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner">
-                        { (imagePreview || formData.image) ? (
-                            <>
-                              <img
-                                src={imagePreview || formData.image}
-                                alt={formData.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div className="hidden items-center justify-center w-full h-full uppercase text-6xl font-extrabold">
-                                 {formData.name?.charAt(0) || 'C'}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex items-center justify-center w-full h-full uppercase text-6xl font-extrabold">
-                               {formData.name?.charAt(0) || 'C'}
-                            </div>
-                          )}
-                              </div>
-                            {imagePreview &&
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors">
-                        
+                        {(imagePreview || formData.image) && (
+                          <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-slate-300">
+                            <img
+                              src={imagePreview || formData.image}
+                              alt={formData.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {imagePreview && (
+                              <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                              >
                                 <X className="w-4 h-4" />
                               </button>
-                      }
+                            )}
                           </div>
-                    }
+                        )}
                         
-                        {/* File Input */}
                         <div className="flex items-center gap-3">
                           <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/jpg,image/webp"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                        id="category-image-upload" />
-                      
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                            id="category-image-upload"
+                          />
                           <label
-                        htmlFor="category-image-upload"
-                        className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                        
+                            htmlFor="category-image-upload"
+                            className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                          >
                             <Upload className="w-4 h-4 text-slate-600" />
                             <span className="text-sm text-slate-700">
                               {imagePreview ? 'Change Image' : 'Upload Image'}
                             </span>
                           </label>
-                          {uploadingImage &&
-                      <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                      }
+                          {uploadingImage && <Loader2 className="w-5 h-5 animate-spin text-blue-600" />}
                         </div>
-                        <p className="text-xs text-slate-500">
-                          Supported formats: PNG, JPG, JPEG, WEBP (Max 5MB)
-                        </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
                       <input
-                    type="checkbox"
-                    id="status"
-                    checked={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500" />
-                  
+                        type="checkbox"
+                        id="status"
+                        checked={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                      />
                       <label htmlFor="status" className="text-sm font-medium text-slate-700">
                         Active Status
                       </label>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center gap-3 pt-4">
+                    <div className="flex items-center gap-3 pt-6 border-t mt-4">
                       <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">
-                    
+                        type="button"
+                        onClick={handleCloseModal}
+                        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
                         Cancel
                       </button>
                       <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    
-                        {editingCategory ? 'Update' : 'Create'}
+                        type="submit"
+                        disabled={uploadingImage}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                      >
+                        {uploadingImage ? 'Saving...' : (editingCategory ? 'Update' : 'Create')}
                       </button>
                     </div>
                   </form>
                 </motion.div>
               </div>
-          }
+            }
           </AnimatePresence>,
         document.body
       )}
 
       <style>{`
         @keyframes slideUp {
-          0% {
-            transform: translateY(100%);
-          }
-          100% {
-            transform: translateY(0);
-          }
+          0% { transform: translateY(100%); }
+          100% { transform: translateY(0); }
         }
       `}</style>
-    </div>);
-
+    </div>
+  );
 }

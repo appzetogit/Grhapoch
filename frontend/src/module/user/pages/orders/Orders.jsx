@@ -864,7 +864,7 @@ export default function Orders() {
                           <div className="flex items-center gap-1">
                             <span className="text-sm text-gray-800 dark:text-gray-100">You rated</span>
                             <div className="flex bg-yellow-400 text-white px-1 rounded text-[10px] items-center gap-0.5 h-4">
-                              {(order.rating / 2).toFixed(1)}<Star className="w-2 h-2 fill-current" />
+                              {Number(order.rating).toFixed(1)}<Star className="w-2 h-2 fill-current" />
                             </div>
                           </div>
                         </div> :

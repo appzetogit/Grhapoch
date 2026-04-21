@@ -17,8 +17,12 @@ const restaurantNotificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['subscription_expired', 'subscription_activated', 'general', 'alert'],
+        enum: ['subscription_expired', 'subscription_activated', 'general', 'alert', 'payment'],
         default: 'general'
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     },
     isRead: {
         type: Boolean,

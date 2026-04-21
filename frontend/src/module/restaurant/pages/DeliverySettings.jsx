@@ -7,7 +7,6 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent } from "@/components/ui/card"
 
 const STORAGE_KEY = "restaurant_outlet_timings"
-const DELIVERY_STATUS_KEY = "restaurant_delivery_status"
 
 export default function DeliverySettings() {
   const navigate = useNavigate()
@@ -41,12 +40,11 @@ export default function DeliverySettings() {
   // Load delivery status from localStorage on mount
   useEffect(() => {
     try {
-      const savedStatus = localStorage.getItem(DELIVERY_STATUS_KEY)
+      const savedStatus = localStorage.getItem("restaurant_online_status")
       if (savedStatus !== null) {
         setDeliveryStatus(JSON.parse(savedStatus))
       }
     } catch (error) {
-      // Only log error if it's not a network/timeout error (backend might be down/slow)
       if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
         console.error("Error loading delivery status:", error)
       }
@@ -123,10 +121,26 @@ export default function DeliverySettings() {
     setTimeout(() => setShowSuccessToast(false), 3000)
   }
 
-  const saveDeliveryStatus = (status) => {
+  const saveDeliveryStatus = async (status) => {
     try {
-      localStorage.setItem(DELIVERY_STATUS_KEY, JSON.stringify(status))
+      // 1. Save to standard localStorage key used by the rest of the app
+      localStorage.setItem("restaurant_online_status", JSON.stringify(status))
       setDeliveryStatus(status)
+
+      // 2. Dispatch event so TopBar and other components update immediately
+      window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
+        detail: { isOnline: status }
+      }));
+
+      // 3. Update backend
+      try {
+        const { restaurantAPI } = await import("@/lib/api");
+        await restaurantAPI.updateDeliveryStatus(status);
+      } catch (apiError) {
+        console.error("Backend update failed:", apiError);
+        // Note: We keep local state updated even if backend fails briefly, 
+        // as the user's intent is captured.
+      }
 
       if (status) {
         showToast("Delivery is now ON - You're receiving orders")

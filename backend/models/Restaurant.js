@@ -133,7 +133,7 @@ const restaurantSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
-      max: 10,
+      max: 5,
     },
     totalRatings: {
       type: Number,

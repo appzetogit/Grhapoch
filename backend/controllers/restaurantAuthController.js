@@ -1,4 +1,4 @@
-import Restaurant from '../models/Restaurant.js';
+﻿import Restaurant from '../models/Restaurant.js';
 import otpService from '../services/otpService.js';
 import jwtService from '../services/jwtService.js';
 import firebaseAuthService from '../services/firebaseAuthService.js';
@@ -158,14 +158,14 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
       if (restaurant) {
         // Restaurant already exists - verify OTP and log them in gracefully.
-        // If onboarding is complete  → OTP.jsx redirects to dashboard.
-        // If onboarding is incomplete → OTP.jsx redirects to continue onboarding.
+        // If onboarding is complete  â†’ OTP.jsx redirects to dashboard.
+        // If onboarding is incomplete â†’ OTP.jsx redirects to continue onboarding.
         await otpService.verifyOTP(normalizedPhone || null, otp, purpose, normalizedEmail || null);
         if (normalizedPhone && !restaurant.phoneVerified) {
           restaurant.phoneVerified = true;
           await restaurant.save();
         }
-        // restaurant is already set → fall through to token generation below
+        // restaurant is already set â†’ fall through to token generation below
       } else {
         // Name is mandatory for new registration
         if (!name) {
@@ -349,29 +349,15 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       // For phone, search in both formats (with and without country code) to handle old data
       let findQuery;
       if (normalizedPhone) {
-        // Check if normalized phone has country code (starts with 91 and is 12 digits)
-        if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-          // Search for both: with country code (917610416911) and without (7610416911)
-          const phoneWithoutCountryCode = normalizedPhone.substring(2);
-          findQuery = {
-            $or: [
-              { phone: normalizedPhone },
-              { phone: phoneWithoutCountryCode },
-              { phone: `+${normalizedPhone}` },
-              { phone: `+91${phoneWithoutCountryCode}` }
-            ]
-          };
-        } else {
-          // If it's already without country code, also check with country code
-          findQuery = {
-            $or: [
-              { phone: normalizedPhone },
-              { phone: `91${normalizedPhone}` },
-              { phone: `+91${normalizedPhone}` },
-              { phone: `+${normalizedPhone}` }
-            ]
-          };
-        }
+        const tenDigits = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+        findQuery = {
+          $or: [
+            { phone: normalizedPhone },
+            { phone: tenDigits },
+            { phone: '91' + tenDigits },
+            { phone: '+91' + tenDigits }
+          ]
+        };
       } else {
         findQuery = { email: normalizedEmail };
       }

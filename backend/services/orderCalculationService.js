@@ -262,7 +262,9 @@ export const calculateOrderPricing = async ({
 
     // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => {
-      return sum + (item.price || 0) * (item.quantity || 1);
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const price = Number(item.price) || 0;
+      return sum + (price * quantity);
     }, 0);
 
     if (subtotal <= 0) {
@@ -371,10 +373,11 @@ export const calculateOrderPricing = async ({
                   // Calculate discount based on offer item - use robust string comparison
                   const itemInCart = items.find((item) => item.itemId?.toString() === couponItem.itemId.toString());
                   if (itemInCart) {
-                    const itemQuantity = itemInCart.quantity || 1;
+                    const itemQuantity = Math.max(1, Number(itemInCart.quantity) || 1);
                     const discountPerItem = (couponItem.originalPrice || 0) - (couponItem.discountedPrice || 0);
                     discount = Math.round(discountPerItem * itemQuantity);
-                    const itemSubtotal = (itemInCart.price || 0) * itemQuantity;
+                    const itemPrice = Number(itemInCart.price) || 0;
+                    const itemSubtotal = itemPrice * itemQuantity;
                     discount = Math.min(discount, itemSubtotal);
                   }
 

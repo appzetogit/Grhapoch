@@ -301,7 +301,7 @@ const orderSchema = new mongoose.Schema({
     rating: {
       type: Number,
       min: 1,
-      max: 10,
+      max: 5,
       sparse: true
     },
     comment: {

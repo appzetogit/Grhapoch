@@ -444,14 +444,28 @@ export const createOrder = async (req, res) => {
         donation: pricing.donation || 0
       });
 
-      const clientTotal = Math.round(Number(pricing.total));
-      const serverTotal = Math.round(serverPricing.total);
+      const clientTotal = Math.round(Number(pricing.total || 0));
+      const serverTotal = Math.round(Number(serverPricing.total || 0));
+
+      // Debug logging for pricing validation
+      logger.info('🔍 Pricing Validation:', {
+        clientTotal,
+        serverTotal,
+        itemsCount: items?.length,
+        itemsQuantities: items?.map(i => `${i.name || i.itemId}: x${i.quantity}`),
+        pricingReceived: {
+          subtotal: pricing.subtotal,
+          total: pricing.total,
+          discount: pricing.discount,
+          fees: (pricing.deliveryFee || 0) + (pricing.platformFee || 0) + (pricing.fixedFee || 0)
+        }
+      });
 
       // Increased tolerance to 15 to handle platform fee range jumps and OSRM distance variations
       const tolerance = 15;
       const diff = Math.abs(clientTotal - serverTotal);
 
-      if (diff > tolerance) {
+      if (diff > tolerance || isNaN(clientTotal) || isNaN(serverTotal)) {
         logger.warn('\u26a0\ufe0f Pricing tamper detected:', { clientTotal, serverTotal, diff, userId, restaurantId: restaurant._id });
         return res.status(400).json({
           success: false,
@@ -2063,11 +2077,10 @@ export const submitOrderReview = async (req, res) => {
       });
     }
 
-    // Update order review
-    // Normalize rating from user (1-5) to platform (1-10) by multiplying by 2
+    // Store rating as selected by user (1-5)
     order.review = {
       ...order.review, // Preserve existing fields like restaurantReply
-      rating: Number(rating) * 2,
+      rating: Number(rating),
       comment: comment || '',
       submittedAt: new Date(),
       reviewedBy: userId

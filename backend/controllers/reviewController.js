@@ -1,4 +1,5 @@
 import Order from '../models/Order.js';
+import mongoose from 'mongoose';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
@@ -79,6 +80,32 @@ export const getRestaurantReviews = asyncHandler(async (req, res) => {
       });
     }
     
+    // Get order counts for each user in this restaurant
+    const userIds = reviews.map(r => r.userId?._id).filter(Boolean);
+    
+    // Build match condition for restaurantId (handle both ObjectId and string)
+    const restaurantMatch = {
+      $or: [
+        { restaurantId: new mongoose.Types.ObjectId(restaurantId) },
+        { restaurantId: restaurantId }
+      ]
+    };
+
+    const orderCounts = await Order.aggregate([
+      { 
+        $match: { 
+          ...restaurantMatch,
+          userId: { $in: userIds } 
+        } 
+      },
+      { $group: { _id: '$userId', count: { $sum: 1 } } }
+    ]);
+
+    const countMap = {};
+    orderCounts.forEach(oc => {
+      countMap[oc._id.toString()] = oc.count;
+    });
+
     return successResponse(res, 200, 'Reviews fetched successfully', {
       reviews: reviews.map(review => ({
         orderId: review.orderId,
@@ -86,7 +113,8 @@ export const getRestaurantReviews = asyncHandler(async (req, res) => {
         customer: {
           id: review.userId?._id || review.userId,
           name: review.userId?.name || 'Anonymous',
-          phone: review.userId?.phone
+          phone: review.userId?.phone,
+          ordersCount: review.userId?._id ? (countMap[review.userId._id.toString()] || 0) : 0
         },
         rating: review.review?.rating,
         comment: review.review?.comment,

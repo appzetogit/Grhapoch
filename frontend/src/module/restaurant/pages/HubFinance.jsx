@@ -619,59 +619,55 @@ export default function HubFinance() {
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => navigate("/restaurant/withdrawal-history")}
               title="Withdrawal History">
-              
+
               <Wallet className="w-5 h-5 text-gray-700" />
             </button>
             <button
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => navigate("/restaurant/notifications")}>
-              
+
               <Bell className="w-5 h-5 text-gray-700" />
             </button>
             <button
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => navigate("/restaurant/explore")}>
-              
+
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Primary Navigation Tabs */}
-      <div className="px-4 py-3">
-        <div className="flex gap-2">
-          <button
-            disabled
-            className={`flex-1 py-3 px-4 rounded-full font-medium text-sm transition-colors ${
-            activeTab === "payouts" ?
-            "bg-black text-white" :
-            "bg-white text-gray-600 border border-gray-300"}`
-            }>
-            
-            Payouts
-          </button>
-        </div>
+      {/* Page Heading Section */}
+      <div className="px-5 py-3 bg-white border-b border-gray-50">
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight text-center">Payouts</h1>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {activeTab === "payouts" &&
-        <div className="space-y-6">
+          <div className="space-y-6">
             {/* Current cycle */}
             <div>
-              <h2 className="text-base font-bold text-gray-900 mb-3">Current cycle</h2>
+              <h2 className="text-base font-bold text-gray-900 mb-3">Available Balance</h2>
               <div className="bg-white rounded-lg p-4">
                 {loading ?
-              <div className="py-8 text-center text-gray-500">Loading...</div> :
+                  <div className="py-8 text-center text-gray-500">Loading...</div> :
 
-              <>
+                  <>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
-                      ₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{(financeData?.currentCycle?.availablePayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p className="text-sm text-gray-600 mb-4">
-                      {financeData?.currentCycle?.totalOrders || 0} {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
-                    </p>
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold">Earnings (This Week)</p>
+                        <p className="text-sm font-bold text-emerald-600">₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold">Total Orders</p>
+                        <p className="text-sm font-bold text-gray-900">{financeData?.currentCycle?.totalOrders || 0}</p>
+                      </div>
+                    </div>
                     {(financeData?.currentCycle?.estimatedPayout || 0) > 0 &&
                       <div className="flex flex-col gap-2 mt-4">
                         <button
@@ -705,199 +701,199 @@ export default function HubFinance() {
                 <div className="flex gap-2">
                   <div className="flex-1 relative" ref={dateRangePickerRef}>
                     <button
-                    onClick={() => setShowDateRangePicker(!showDateRangePicker)}
-                    className="w-full bg-white rounded-lg px-4 py-3 flex items-center justify-between border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
-                    
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">{selectedDateRange}</span>
-                    </div>
+                      onClick={() => setShowDateRangePicker(!showDateRangePicker)}
+                      className="w-full bg-white rounded-lg px-4 py-3 flex items-center justify-between border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
+
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">{selectedDateRange}</span>
+                      </div>
                       <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showDateRangePicker ? 'rotate-180' : ''}`} />
                     </button>
-                    
+
                     {/* Date Range Picker Dropdown */}
                     <AnimatePresence>
                       {showDateRangePicker &&
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                      
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+
                           <div className="p-4">
                             <h3 className="text-sm font-semibold text-gray-900 mb-3">Select Date Range</h3>
                             <div className="space-y-2">
                               {(() => {
-                            const getDateRanges = () => {
-                              const today = new Date();
-                              today.setHours(23, 59, 59, 999);
+                                const getDateRanges = () => {
+                                  const today = new Date();
+                                  today.setHours(23, 59, 59, 999);
 
-                              // Last 7 days
-                              const last7DaysStart = new Date(today);
-                              last7DaysStart.setDate(today.getDate() - 7);
-                              last7DaysStart.setHours(0, 0, 0, 0);
+                                  // Last 7 days
+                                  const last7DaysStart = new Date(today);
+                                  last7DaysStart.setDate(today.getDate() - 7);
+                                  last7DaysStart.setHours(0, 0, 0, 0);
 
-                              // Last 30 days
-                              const last30DaysStart = new Date(today);
-                              last30DaysStart.setDate(today.getDate() - 30);
-                              last30DaysStart.setHours(0, 0, 0, 0);
+                                  // Last 30 days
+                                  const last30DaysStart = new Date(today);
+                                  last30DaysStart.setDate(today.getDate() - 30);
+                                  last30DaysStart.setHours(0, 0, 0, 0);
 
-                              // This week (Monday to Sunday)
-                              const currentDay = today.getDay();
-                              const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
-                              const thisWeekStart = new Date(today);
-                              thisWeekStart.setDate(today.getDate() - daysFromMonday);
-                              thisWeekStart.setHours(0, 0, 0, 0);
-                              const thisWeekEnd = new Date(thisWeekStart);
-                              thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
-                              thisWeekEnd.setHours(23, 59, 59, 999);
+                                  // This week (Monday to Sunday)
+                                  const currentDay = today.getDay();
+                                  const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+                                  const thisWeekStart = new Date(today);
+                                  thisWeekStart.setDate(today.getDate() - daysFromMonday);
+                                  thisWeekStart.setHours(0, 0, 0, 0);
+                                  const thisWeekEnd = new Date(thisWeekStart);
+                                  thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+                                  thisWeekEnd.setHours(23, 59, 59, 999);
 
-                              // Last week
-                              const lastWeekStart = new Date(thisWeekStart);
-                              lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-                              const lastWeekEnd = new Date(thisWeekEnd);
-                              lastWeekEnd.setDate(thisWeekEnd.getDate() - 7);
+                                  // Last week
+                                  const lastWeekStart = new Date(thisWeekStart);
+                                  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+                                  const lastWeekEnd = new Date(thisWeekEnd);
+                                  lastWeekEnd.setDate(thisWeekEnd.getDate() - 7);
 
-                              // This month
-                              const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                              const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+                                  // This month
+                                  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                                  const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
-                              // Last month
-                              const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                              const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+                                  // Last month
+                                  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                                  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
 
-                              return {
-                                today,
-                                last7DaysStart,
-                                last30DaysStart,
-                                thisWeekStart,
-                                thisWeekEnd,
-                                lastWeekStart,
-                                lastWeekEnd,
-                                thisMonthStart,
-                                thisMonthEnd,
-                                lastMonthStart,
-                                lastMonthEnd
-                              };
-                            };
+                                  return {
+                                    today,
+                                    last7DaysStart,
+                                    last30DaysStart,
+                                    thisWeekStart,
+                                    thisWeekEnd,
+                                    lastWeekStart,
+                                    lastWeekEnd,
+                                    thisMonthStart,
+                                    thisMonthEnd,
+                                    lastMonthStart,
+                                    lastMonthEnd
+                                  };
+                                };
 
-                            const formatDateForDisplay = (date) => {
-                              const day = date.getDate();
-                              const month = date.toLocaleString('en-US', { month: 'short' });
-                              const year = date.getFullYear().toString().slice(-2);
-                              return `${day} ${month}'${year}`;
-                            };
+                                const formatDateForDisplay = (date) => {
+                                  const day = date.getDate();
+                                  const month = date.toLocaleString('en-US', { month: 'short' });
+                                  const year = date.getFullYear().toString().slice(-2);
+                                  return `${day} ${month}'${year}`;
+                                };
 
-                            const formatDateRange = (start, end) => {
-                              return `${formatDateForDisplay(start)} - ${formatDateForDisplay(end)}`;
-                            };
+                                const formatDateRange = (start, end) => {
+                                  return `${formatDateForDisplay(start)} - ${formatDateForDisplay(end)}`;
+                                };
 
-                            const ranges = getDateRanges();
-                            const dateOptions = [
-                            {
-                              label: "Last 7 days",
-                              range: formatDateRange(ranges.last7DaysStart, ranges.today),
-                              startDate: ranges.last7DaysStart,
-                              endDate: ranges.today
-                            },
-                            {
-                              label: "Last 30 days",
-                              range: formatDateRange(ranges.last30DaysStart, ranges.today),
-                              startDate: ranges.last30DaysStart,
-                              endDate: ranges.today
-                            },
-                            {
-                              label: "This week",
-                              range: formatDateRange(ranges.thisWeekStart, ranges.thisWeekEnd),
-                              startDate: ranges.thisWeekStart,
-                              endDate: ranges.thisWeekEnd
-                            },
-                            {
-                              label: "Last week",
-                              range: formatDateRange(ranges.lastWeekStart, ranges.lastWeekEnd),
-                              startDate: ranges.lastWeekStart,
-                              endDate: ranges.lastWeekEnd
-                            },
-                            {
-                              label: "This month",
-                              range: formatDateRange(ranges.thisMonthStart, ranges.thisMonthEnd),
-                              startDate: ranges.thisMonthStart,
-                              endDate: ranges.thisMonthEnd
-                            },
-                            {
-                              label: "Last month",
-                              range: formatDateRange(ranges.lastMonthStart, ranges.lastMonthEnd),
-                              startDate: ranges.lastMonthStart,
-                              endDate: ranges.lastMonthEnd
-                            }];
+                                const ranges = getDateRanges();
+                                const dateOptions = [
+                                  {
+                                    label: "Last 7 days",
+                                    range: formatDateRange(ranges.last7DaysStart, ranges.today),
+                                    startDate: ranges.last7DaysStart,
+                                    endDate: ranges.today
+                                  },
+                                  {
+                                    label: "Last 30 days",
+                                    range: formatDateRange(ranges.last30DaysStart, ranges.today),
+                                    startDate: ranges.last30DaysStart,
+                                    endDate: ranges.today
+                                  },
+                                  {
+                                    label: "This week",
+                                    range: formatDateRange(ranges.thisWeekStart, ranges.thisWeekEnd),
+                                    startDate: ranges.thisWeekStart,
+                                    endDate: ranges.thisWeekEnd
+                                  },
+                                  {
+                                    label: "Last week",
+                                    range: formatDateRange(ranges.lastWeekStart, ranges.lastWeekEnd),
+                                    startDate: ranges.lastWeekStart,
+                                    endDate: ranges.lastWeekEnd
+                                  },
+                                  {
+                                    label: "This month",
+                                    range: formatDateRange(ranges.thisMonthStart, ranges.thisMonthEnd),
+                                    startDate: ranges.thisMonthStart,
+                                    endDate: ranges.thisMonthEnd
+                                  },
+                                  {
+                                    label: "Last month",
+                                    range: formatDateRange(ranges.lastMonthStart, ranges.lastMonthEnd),
+                                    startDate: ranges.lastMonthStart,
+                                    endDate: ranges.lastMonthEnd
+                                  }];
 
 
-                            return dateOptions.map((option, index) =>
-                            <button
-                              key={index}
-                              onClick={() => {
-                                setSelectedDateRange(option.range);
-                                setShowDateRangePicker(false);
-                                // Fetch data for selected range
-                                fetchPastCyclesData(option.startDate, option.endDate);
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-sm">
-                              
+                                return dateOptions.map((option, index) =>
+                                  <button
+                                    key={index}
+                                    onClick={() => {
+                                      setSelectedDateRange(option.range);
+                                      setShowDateRangePicker(false);
+                                      // Fetch data for selected range
+                                      fetchPastCyclesData(option.startDate, option.endDate);
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-sm">
+
                                     <div className="font-medium text-gray-900">{option.label}</div>
                                     <div className="text-xs text-gray-500">{option.range}</div>
-                  </button>
-                            );
-                          })()}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
                         </motion.div>
-                    }
+                      }
                     </AnimatePresence>
                   </div>
                   <div className="relative" ref={downloadMenuRef}>
                     <button
-                    onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                    className="bg-black text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors">
-                    
+                      onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                      className="bg-black text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors">
+
                       <Download className="w-4 h-4" />
                       <span className="text-sm font-medium">Get report</span>
                       <ChevronDown className="w-4 h-4" />
                     </button>
-                    
+
                     <AnimatePresence>
                       {showDownloadMenu &&
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
-                      className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 min-w-[180px]">
-                      
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 min-w-[180px]">
+
                           <button
-                        onClick={downloadPDF}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        
+                            onClick={downloadPDF}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+
                             <div className="w-6 h-6 rounded-md bg-red-50 flex items-center justify-center">
                               <FileText className="w-4 h-4 text-red-600" />
                             </div>
                             <span>Download PDF</span>
                           </button>
                         </motion.div>
-                    }
+                      }
                     </AnimatePresence>
                   </div>
                 </div>
                 {loadingPastCycles ?
-              <div className="bg-white rounded-lg p-4">
+                  <div className="bg-white rounded-lg p-4">
                     <p className="text-sm text-gray-600 text-center">Loading past cycles...</p>
                   </div> :
 
-              <>
+                  <>
                     {/* Show past cycles orders if available */}
                     {pastCyclesData && pastCyclesData.orders && pastCyclesData.orders.length > 0 &&
-                <div className="bg-white rounded-lg p-4 space-y-3">
+                      <div className="bg-white rounded-lg p-4 space-y-3">
                         {pastCyclesData.orders.map((order, index) =>
-                  <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
+                          <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-gray-900 mb-1">
@@ -923,14 +919,14 @@ export default function HubFinance() {
                               </div>
                             </div>
                           </div>
-                  )}
+                        )}
                       </div>
-                }
+                    }
                     {/* Show current cycle orders if past cycles data is not available or has no orders */}
                     {(!pastCyclesData || !pastCyclesData.orders || pastCyclesData.orders.length === 0) && !loadingPastCycles && financeData?.currentCycle?.orders && financeData.currentCycle.orders.length > 0 &&
-                <div className="bg-white rounded-lg p-4 space-y-3">
+                      <div className="bg-white rounded-lg p-4 space-y-3">
                         {financeData.currentCycle.orders.map((order, index) =>
-                  <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
+                          <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-gray-900 mb-1">
@@ -956,11 +952,11 @@ export default function HubFinance() {
                               </div>
                             </div>
                           </div>
-                  )}
+                        )}
                       </div>
-                }
+                    }
                   </>
-              }
+                }
               </div>
             </div>
           </div>
@@ -970,38 +966,38 @@ export default function HubFinance() {
       {/* Withdrawal Modal */}
       <AnimatePresence>
         {showWithdrawalModal &&
-        <>
+          <>
             <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => setShowWithdrawalModal(false)} />
-          
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setShowWithdrawalModal(false)} />
+
             <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}>
-            
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onClick={(e) => e.stopPropagation()}>
+
               <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-900">Withdraw Amount</h2>
                   <button
-                  onClick={() => {
-                    setShowWithdrawalModal(false);
-                    setWithdrawalAmount('');
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                  
+                    onClick={() => {
+                      setShowWithdrawalModal(false);
+                      setWithdrawalAmount('');
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+
                     <X className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
-                
+
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-2">
-                    Available Balance: <span className="font-semibold text-gray-900">₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    Available Balance: <span className="font-semibold text-gray-900">₹{(financeData?.currentCycle?.availablePayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </p>
 
                   <div className="mb-4">
@@ -1009,7 +1005,7 @@ export default function HubFinance() {
                       <label className="block text-sm font-medium text-gray-700">Payout details</label>
                     </div>
                     <p className="text-[10px] text-gray-500 mb-2">Admin will choose the payout method using your saved details.</p>
-                    
+
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] text-gray-600">
                         Saved methods: {
@@ -1022,7 +1018,7 @@ export default function HubFinance() {
                           })()
                         }
                       </span>
-                      <button 
+                      <button
                         onClick={() => navigate('/restaurant/update-bank-details')}
                         className="text-[10px] font-medium text-blue-600 hover:text-blue-700"
                       >
@@ -1108,7 +1104,7 @@ export default function HubFinance() {
                   >
                     Use full amount (₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN')})
                   </button>
-                
+
                   {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0) && (
                     <p className="text-sm text-red-600 mt-1 mb-3">Amount cannot exceed available balance</p>
                   )}
@@ -1116,51 +1112,51 @@ export default function HubFinance() {
 
                 <div className="flex gap-3">
                   <button
-                  onClick={() => {
-                    setShowWithdrawalModal(false);
-                    setWithdrawalAmount('');
-                  }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                  
+                    onClick={() => {
+                      setShowWithdrawalModal(false);
+                      setWithdrawalAmount('');
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+
                     Cancel
                   </button>
                   <button
-                  onClick={async () => {
-                    const amount = parseFloat(withdrawalAmount);
-                    if (!amount || amount <= 0) {
-                      alert('Please enter a valid amount');
-                      return;
-                    }
-                    if (amount > (financeData?.currentCycle?.estimatedPayout || 0)) {
-                      alert('Amount cannot exceed available balance');
-                      return;
-                    }
-
-                    try {
-                      setSubmittingWithdrawal(true);
-                      const response = await restaurantAPI.createWithdrawalRequest(amount);
-                      if (response.data?.success) {
-                        alert('Withdrawal request submitted successfully!');
-                        setShowWithdrawalModal(false);
-                        setWithdrawalAmount('');
-                        // Refresh finance data
-                        const financeResponse = await restaurantAPI.getFinance();
-                        if (financeResponse.data?.success && financeResponse.data?.data) {
-                          setFinanceData(financeResponse.data.data);
-                        }
-                      } else {
-                        alert(response.data?.message || 'Failed to submit withdrawal request');
+                    onClick={async () => {
+                      const amount = parseFloat(withdrawalAmount);
+                      if (!amount || amount <= 0) {
+                        alert('Please enter a valid amount');
+                        return;
                       }
-                    } catch (error) {
-                      console.error('Error submitting withdrawal request:', error);
-                      alert(error.response?.data?.message || 'Failed to submit withdrawal request. Please try again.');
-                    } finally {
-                      setSubmittingWithdrawal(false);
-                    }
-                  }}
-                  disabled={submittingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0)}
-                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">
-                  
+                      if (amount > (financeData?.currentCycle?.estimatedPayout || 0)) {
+                        alert('Amount cannot exceed available balance');
+                        return;
+                      }
+
+                      try {
+                        setSubmittingWithdrawal(true);
+                        const response = await restaurantAPI.createWithdrawalRequest(amount);
+                        if (response.data?.success) {
+                          alert('Withdrawal request submitted successfully!');
+                          setShowWithdrawalModal(false);
+                          setWithdrawalAmount('');
+                          // Refresh finance data
+                          const financeResponse = await restaurantAPI.getFinance();
+                          if (financeResponse.data?.success && financeResponse.data?.data) {
+                            setFinanceData(financeResponse.data.data);
+                          }
+                        } else {
+                          alert(response.data?.message || 'Failed to submit withdrawal request');
+                        }
+                      } catch (error) {
+                        console.error('Error submitting withdrawal request:', error);
+                        alert(error.response?.data?.message || 'Failed to submit withdrawal request. Please try again.');
+                      } finally {
+                        setSubmittingWithdrawal(false);
+                      }
+                    }}
+                    disabled={submittingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0)}
+                    className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">
+
                     {submittingWithdrawal ? 'Submitting...' : 'Submit Request'}
                   </button>
                 </div>

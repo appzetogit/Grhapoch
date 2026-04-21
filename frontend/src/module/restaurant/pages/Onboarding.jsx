@@ -152,6 +152,14 @@ const NAME_REGEX = /^[A-Za-z\s]+$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", 
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", 
+  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", 
+  "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", 
+  "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
 const isValidDateInput = (value) => {
   if (!value) return false;
   const date = new Date(value);
@@ -167,13 +175,23 @@ const isPastDate = (value) => {
   return selected < today;
 };
 
+const toTitleCase = (str) => {
+  return str.replace(
+    /\w\S*/g,
+    function(txt) {
+      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    }
+  );
+};
+
 const isValidName = (name) => {
   const v = name?.trim();
   return v && v.length >= 3 && v.length <= 50 && NAME_REGEX.test(v);
 };
 
 const handleNameChange = (val) => {
-  return val.replace(/[^A-Za-z\s]/g, '').slice(0, 50);
+  // Allow letters and spaces, max 60 chars
+  return val.replace(/[^A-Za-z\s]/g, '').slice(0, 60);
 };
 
 // Memoized helper to prevent flickering when using URL.createObjectURL
@@ -415,6 +433,7 @@ export default function RestaurantOnboarding() {
         if (!v) error = "Restaurant name is required";
         else if (v.length < 3 || v.length > 60) error = "Restaurant name must be between 3 and 60 characters.";
         else if (/^\d+$/.test(v)) error = "Restaurant name cannot contain only numbers.";
+        // Auto-format to title case on blur or validation
         break;
       }
       case 'ownerName': {
@@ -651,9 +670,11 @@ export default function RestaurantOnboarding() {
       setPendingData(null);
       setStep1(prev => ({
         ...prev,
-        restaurantName: prev.restaurantName || "",
+        restaurantName: prev.restaurantName || (restaurantUser?.name || ""),
         ownerName: prev.ownerName || (isGoogleAuth ? (restaurantUser?.name || "") : ""),
-        ownerEmail: prev.ownerEmail || (isGoogleAuth ? (restaurantUser?.email || "") : "")
+        ownerEmail: prev.ownerEmail || (isGoogleAuth ? (restaurantUser?.email || "") : ""),
+        ownerPhone: prev.ownerPhone || restaurantUser?.phone || "",
+        primaryContactNumber: prev.primaryContactNumber || restaurantUser?.phone || ""
       }));
     } else if (pending) {
       // Legacy pending data (older flow). Still allow but mark as prospect.
@@ -1912,9 +1933,13 @@ export default function RestaurantOnboarding() {
                 validateField('restaurantName', val);
               }}
               onFocus={() => setFormErrors(prev => ({ ...prev, restaurantName: null }))}
-              onBlur={() => validateField('restaurantName')}
-              className={`mt-1 bg-white text-sm text-black placeholder-black ${formErrors.restaurantName ? "border-red-500" : "border-gray-200"}`}
-              placeholder="Enter Restaurant Name"
+              onBlur={() => {
+                const formatted = toTitleCase(step1.restaurantName || "");
+                setStep1(prev => ({ ...prev, restaurantName: formatted }));
+                validateField('restaurantName', formatted);
+              }}
+              className={`mt-1 bg-white text-sm text-black placeholder-gray-400 ${formErrors.restaurantName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"}`}
+              placeholder="e.g., The Grand Kitchen"
             />
             {formErrors.restaurantName && <p className="text-red-500 text-[10px] mt-1">{formErrors.restaurantName}</p>}
           </div>
@@ -2041,20 +2066,26 @@ export default function RestaurantOnboarding() {
 
           <div>
             <Label className="text-xs text-gray-700">State<span className="text-red-500">*</span></Label>
-            <Input
+            <Select
               value={step1.location?.state || ""}
-              onChange={(e) => {
-                const val = e.target.value;
+              onValueChange={(val) => {
                 setStep1({
                   ...step1,
                   location: { ...step1.location, state: val }
                 });
                 validateField('state', val);
+                setFormErrors(prev => ({ ...prev, state: null }));
               }}
-              onFocus={() => setFormErrors(prev => ({ ...prev, state: null }))}
-              onBlur={() => validateField('state')}
-              className={`bg-white text-sm ${formErrors.state ? "border-red-500" : "border-gray-200"}`}
-              placeholder="State name" />
+            >
+              <SelectTrigger className={`bg-white text-sm ${formErrors.state ? "border-red-500" : "border-gray-200"}`}>
+                <SelectValue placeholder="Select State" />
+              </SelectTrigger>
+              <SelectContent className="bg-white max-h-[250px]">
+                {INDIAN_STATES.map((state) => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {formErrors.state && <p className="text-red-500 text-[10px] mt-1">{formErrors.state}</p>}
           </div>
 

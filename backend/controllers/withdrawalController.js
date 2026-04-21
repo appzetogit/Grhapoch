@@ -1,6 +1,8 @@
 import WithdrawalRequest from '../models/WithdrawalRequest.js';
 import RestaurantWallet from '../models/RestaurantWallet.js';
 import Restaurant from '../models/Restaurant.js';
+import RestaurantNotification from '../models/RestaurantNotification.js';
+import { notifyRestaurantFCM } from '../services/fcmNotificationService.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import winston from 'winston';
@@ -363,6 +365,33 @@ export const approveWithdrawalRequest = asyncHandler(async (req, res) => {
 
     logger.info(`Withdrawal request approved: ${id} by admin: ${admin._id}`);
 
+    // Send Notification to Restaurant
+    try {
+      const title = 'Withdrawal Approved';
+      const body = `Your withdrawal request for ₹${withdrawalRequest.amount.toFixed(2)} has been approved and processed.`;
+      
+      // Save to database
+      await RestaurantNotification.create({
+        restaurant: withdrawalRequest.restaurantId,
+        title,
+        message: body,
+        type: 'payment',
+        metadata: {
+          withdrawalRequestId: withdrawalRequest._id,
+          amount: withdrawalRequest.amount,
+          status: 'Approved'
+        }
+      });
+
+      // Send Push Notification
+      await notifyRestaurantFCM(withdrawalRequest.restaurantId, title, body, {
+        type: 'WITHDRAWAL_APPROVED',
+        withdrawalRequestId: withdrawalRequest._id.toString()
+      });
+    } catch (notifError) {
+      logger.error(`Error sending approval notification: ${notifError.message}`);
+    }
+
     return successResponse(res, 200, 'Withdrawal request approved successfully', {
       withdrawalRequest: {
         id: withdrawalRequest._id,
@@ -447,6 +476,33 @@ export const rejectWithdrawalRequest = asyncHandler(async (req, res) => {
     await wallet.save();
 
     logger.info(`Withdrawal request rejected: ${id} by admin: ${admin._id}. Balance refunded.`);
+
+    // Send Notification to Restaurant
+    try {
+      const title = 'Withdrawal Rejected';
+      const body = `Your withdrawal request for ₹${withdrawalRequest.amount.toFixed(2)} was rejected. Reason: ${rejectionReason || 'Contact support'}`;
+      
+      // Save to database
+      await RestaurantNotification.create({
+        restaurant: withdrawalRequest.restaurantId,
+        title,
+        message: body,
+        type: 'payment',
+        metadata: {
+          withdrawalRequestId: withdrawalRequest._id,
+          amount: withdrawalRequest.amount,
+          status: 'Rejected'
+        }
+      });
+
+      // Send Push Notification
+      await notifyRestaurantFCM(withdrawalRequest.restaurantId, title, body, {
+        type: 'WITHDRAWAL_REJECTED',
+        withdrawalRequestId: withdrawalRequest._id.toString()
+      });
+    } catch (notifError) {
+      logger.error(`Error sending rejection notification: ${notifError.message}`);
+    }
 
     return successResponse(res, 200, 'Withdrawal request rejected successfully', {
       withdrawalRequest: {

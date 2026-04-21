@@ -333,7 +333,7 @@ export function CartProvider({ children }) {
     }))
 
     const itemCount = cart.reduce((total, item) => total + (item.quantity || 0), 0)
-    const total = cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0)
+    const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Math.max(1, Number(item.quantity) || 1)), 0)
 
     return {
       items,

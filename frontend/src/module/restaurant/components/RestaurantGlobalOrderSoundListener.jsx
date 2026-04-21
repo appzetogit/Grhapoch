@@ -4,6 +4,8 @@ import { restaurantAPI } from "@/lib/api";
 
 const POLL_INTERVAL = 15000; // 15 seconds fallback polling
 
+import alertSound from "@/assets/audio/alert.mp3";
+
 export default function RestaurantGlobalOrderSoundListener() {
   const location = useLocation();
   const audioRef = useRef(null);
@@ -13,14 +15,17 @@ export default function RestaurantGlobalOrderSoundListener() {
 
   // Initialize audio
   useEffect(() => {
-    audioRef.current = new Audio("/sounds/new_order_sound.mp3");
+    audioRef.current = new Audio(alertSound);
     audioRef.current.loop = true;
   }, []);
 
+  // Socket and Polling listener
   useEffect(() => {
+    let socket = null;
+
     const fetchOrders = async () => {
-      // Don't poll on restaurant profile or onboarding or to-hub routes to avoid 401 errors
-      const excludeRoutes = ['/restaurant', '/onboarding', '/to-hub'];
+      // Don't poll on restricted routes to avoid 401/403 errors
+      const excludeRoutes = ['/onboarding', '/login', '/signup', '/auth'];
       if (excludeRoutes.some(route => location.pathname.includes(route))) {
         return;
       }
@@ -33,19 +38,16 @@ export default function RestaurantGlobalOrderSoundListener() {
           const pendingOrders = orders.filter(o => o.status === 'pending');
           
           if (pendingOrders.length > 0) {
-            // Check if there are any NEW pending orders we haven't seen
             let newlyDetected = false;
             pendingOrders.forEach(order => {
               const id = order.orderId || order._id;
               if (!seenOrderIdsRef.current.has(id)) {
                 newlyDetected = true;
                 seenOrderIdsRef.current.add(id);
-                // Dispatch event for components to listen
                 window.dispatchEvent(new CustomEvent('restaurant:new-order', { detail: order }));
               }
             });
 
-            // If it's not the first load and we have new orders, play sound
             if (newlyDetected && !isFirstLoadRef.current) {
               setHasNewOrders(true);
               audioRef.current?.play().catch(e => console.log("Audio play blocked", e));
@@ -54,21 +56,64 @@ export default function RestaurantGlobalOrderSoundListener() {
             setHasNewOrders(false);
             audioRef.current?.pause();
           }
-          
           isFirstLoadRef.current = false;
         }
       } catch (error) {
-        // Silently fail for 401/403 as it means restaurant is pending or logged out
         if (error.response?.status !== 401 && error.response?.status !== 403) {
-          console.error("Order listener error:", error);
+          console.error("Order listener polling error:", error);
         }
       }
     };
 
-    const interval = setInterval(fetchOrders, POLL_INTERVAL);
-    fetchOrders(); // Initial check
+    // Initialize Socket Connection
+    const initSocket = async () => {
+      try {
+        const { default: io } = await import('socket.io-client');
+        import('@/lib/api/config').then(({ API_BASE_URL }) => {
+          const socketUrl = API_BASE_URL.replace(/\/api\/?$/, '') + '/restaurant';
+          socket = io(socketUrl, {
+            path: '/socket.io/',
+            transports: ['polling', 'websocket'],
+            auth: {
+              token: localStorage.getItem('restaurant_accessToken') || localStorage.getItem('accessToken')
+            }
+          });
 
-    return () => clearInterval(interval);
+          socket.on('connect', async () => {
+            try {
+              const res = await restaurantAPI.getCurrentRestaurant();
+              const restaurantId = res.data?.data?.restaurant?._id;
+              if (restaurantId) {
+                socket.emit('join-restaurant', restaurantId);
+              }
+            } catch (err) {}
+          });
+
+          socket.on('new_order', (orderData) => {
+            const id = orderData.orderId || orderData._id;
+            if (!seenOrderIdsRef.current.has(id)) {
+              seenOrderIdsRef.current.add(id);
+              window.dispatchEvent(new CustomEvent('restaurant:new-order', { detail: orderData }));
+              setHasNewOrders(true);
+              audioRef.current?.play().catch(e => console.log("Socket audio play blocked", e));
+            }
+          });
+        });
+      } catch (err) {
+        console.error("Socket initialization failed:", err);
+      }
+    };
+
+    const interval = setInterval(fetchOrders, POLL_INTERVAL);
+    fetchOrders(); // Initial polling check
+    initSocket(); // Initialize real-time socket
+
+    return () => {
+      clearInterval(interval);
+      if (socket) {
+        socket.disconnect();
+      }
+    };
   }, [location.pathname]);
 
   const stopSound = () => {

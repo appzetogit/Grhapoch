@@ -867,7 +867,7 @@ export default function Feedback() {
                       <div className="absolute -top-2 left-4 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[8px] border-b-gray-100"></div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-700 text-white text-[11px] font-semibold">
-                          {review.rating}/10 ★
+                          {review.rating} ★
                         </span>
                         <span className="text-[11px] text-gray-500">
                           {review.date}
@@ -894,19 +894,7 @@ export default function Feedback() {
                       </div>
                   }
 
-                    {/* Reply link */}
-                    <div className="flex justify-end">
-                      <button
-                      className="text-xs font-medium text-blue-700 flex items-center gap-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReviewClick(review);
-                      }}>
-                      
-                        <Reply className="w-3.5 h-3.5" />
-                        <span>{review.reply ? "Edit Reply" : "Reply"}</span>
-                      </button>
-                    </div>
+                    {/* Removed Reply link as per user request */}
                   </div>
                 )
                 }
@@ -992,34 +980,7 @@ export default function Feedback() {
                 </div>
               </div>
 
-              {/* Reply Input Area */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <input
-                  type="text"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Type your reply"
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter" && replyText.trim()) {
-                      handleSendReply();
-                    }
-                  }} />
-                
-                  <button
-                  onClick={handleSendReply}
-                  disabled={!replyText.trim()}
-                  className={`w-11 h-11 rounded-lg flex items-center justify-center transition-colors ${
-                  replyText.trim() ?
-                  "bg-gray-900 text-white hover:bg-gray-800" :
-                  "bg-gray-200 text-gray-400 cursor-not-allowed"}`
-                  }>
-                  
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+                     {/* Removed Reply Input Area as per user request */}
             </motion.div>
           </>
         }

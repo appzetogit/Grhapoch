@@ -2,6 +2,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import DeliveryWithdrawalRequest from '../models/DeliveryWithdrawalRequest.js';
 import DeliveryWallet from '../models/DeliveryWallet.js';
+import { notifyDeliveryFCM } from '../services/fcmNotificationService.js';
 
 /**
  * Get all delivery withdrawal requests (admin)
@@ -181,6 +182,19 @@ export const approveDeliveryWithdrawal = asyncHandler(async (req, res) => {
     wallet.markModified('transactions');
     await wallet.save();
 
+    // Send Push Notification back to Delivery Partner
+    try {
+      const title = 'Withdrawal Approved';
+      const body = `Your withdrawal request for ₹${request.amount.toFixed(2)} has been approved and processed.`;
+      
+      await notifyDeliveryFCM(request.deliveryId, title, body, {
+        type: 'WITHDRAWAL_APPROVED',
+        withdrawalRequestId: request._id.toString()
+      });
+    } catch (notifError) {
+      console.error(`Error sending approval notification to rider: ${notifError.message}`);
+    }
+
     return successResponse(res, 200, 'Withdrawal request approved successfully', {
       request: {
         id: request._id,
@@ -279,6 +293,19 @@ export const rejectDeliveryWithdrawal = asyncHandler(async (req, res) => {
           refunded = true;
         }
       }
+    }
+
+    // Send Push Notification back to Delivery Partner
+    try {
+      const title = 'Withdrawal Rejected';
+      const body = `Your withdrawal request for ₹${request.amount.toFixed(2)} was rejected. Reason: ${rejectionReason || 'Contact support'}`;
+      
+      await notifyDeliveryFCM(request.deliveryId, title, body, {
+        type: 'WITHDRAWAL_REJECTED',
+        withdrawalRequestId: request._id.toString()
+      });
+    } catch (notifError) {
+      console.error(`Error sending rejection notification to rider: ${notifError.message}`);
     }
 
     return successResponse(res, 200, 'Withdrawal request rejected successfully', {

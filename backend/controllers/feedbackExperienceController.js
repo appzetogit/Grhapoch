@@ -33,8 +33,7 @@ const updateRestaurantRatingStats = async (restaurantId) => {
 
   let restaurantRating = 0;
   if (totalRatings > 0) {
-    // If ratings are on 1-5 scale, keep as-is; if 1-10 scale, convert to 1-5
-    restaurantRating = maxRating <= 5 ? avgRating : avgRating / 2;
+    restaurantRating = avgRating;
   }
 
   restaurantRating = Math.round(restaurantRating * 10) / 10;
@@ -83,8 +82,8 @@ export const createFeedbackExperience = asyncHandler(async (req, res) => {
       return errorResponse(res, 400, 'Rating is required');
     }
 
-    if (rating < 0 || rating > 10 || !Number.isInteger(rating)) {
-      return errorResponse(res, 400, 'Rating must be an integer between 0 and 10');
+    if (rating < 0 || rating > 5 || !Number.isInteger(rating)) {
+      return errorResponse(res, 400, 'Rating must be an integer between 0 and 5');
     }
 
     // Extract user info based on role (user, restaurant, or delivery)

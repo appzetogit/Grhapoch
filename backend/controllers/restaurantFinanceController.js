@@ -534,18 +534,9 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
     // Calculate current cycle payout (total - commission)
     const currentCyclePayout = Math.round((currentCycleTotal - currentCycleCommission) * 100) / 100;
 
-    // Get all withdrawal requests (pending + approved) to subtract from estimatedPayout
-    // This ensures that once a withdrawal is made, it's immediately reflected in the available balance
-    const allWithdrawals = await WithdrawalRequest.find({
-      restaurantId: restaurant._id,
-      status: { $in: ['Pending', 'Approved'] }
-    }).lean();
-
-    const totalWithdrawals = allWithdrawals.reduce((sum, req) => sum + (req.amount || 0), 0);
-
-    // Subtract all withdrawals (pending + approved) from estimatedPayout to show available balance
-    // This ensures end-to-end withdrawal calculation works correctly
-    const availablePayout = Math.max(0, Math.round((currentCyclePayout - totalWithdrawals) * 100) / 100);
+    const RestaurantWallet = (await import('../models/RestaurantWallet.js')).default;
+    const wallet = await RestaurantWallet.findOne({ restaurantId: restaurant._id });
+    const availablePayout = wallet ? wallet.totalBalance : 0;
 
 
 
@@ -562,9 +553,10 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
         totalOrders: currentCycleOrders.length,
         totalOrderValue: Math.round(currentCycleTotal * 100) / 100,
         totalCommission: Math.round(currentCycleCommission * 100) / 100,
-        estimatedPayout: availablePayout, // Show available balance after pending withdrawals
-        payoutDate: null, // Will be set when payout is processed
-        orders: currentCycleOrdersData // Include orders array in response
+        estimatedPayout: currentCyclePayout, // Net earnings for THIS period
+        availablePayout: Math.max(0, Math.round(availablePayout * 100) / 100), // Actual balance available to withdraw
+        payoutDate: null,
+        orders: currentCycleOrdersData
       },
       pastCycles: pastCyclesData,
       restaurant: {

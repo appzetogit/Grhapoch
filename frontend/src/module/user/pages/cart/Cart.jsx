@@ -670,12 +670,14 @@ export default function Cart() {
         const items = cart.map((item) => ({
           itemId: item.id,
           name: item.name,
-          price: item.price, // Price should already be in INR
-          quantity: item.quantity || 1,
+          price: Number(item.price) || 0,
+          quantity: Math.max(1, Number(item.quantity) || 1),
           image: item.image,
           description: item.description,
           isVeg: item.isVeg !== false
         }));
+
+        console.log("🔍 [Cart] Main pricing calculation for:", items.map(i => `${i.name} (x${i.quantity})`));
 
         const response = await orderAPI.calculateOrder({
           items,
@@ -930,8 +932,8 @@ export default function Cart() {
           const items = cart.map((item) => ({
             itemId: item.id,
             name: item.name,
-            price: item.price,
-            quantity: item.quantity || 1,
+            price: Number(item.price) || 0,
+            quantity: Math.max(1, Number(item.quantity) || 1),
             image: item.image,
             description: item.description,
             isVeg: item.isVeg !== false
@@ -986,12 +988,14 @@ export default function Cart() {
         const items = cart.map((item) => ({
           itemId: item.id,
           name: item.name,
-          price: item.price,
-          quantity: item.quantity || 1,
+          price: Number(item.price) || 0,
+          quantity: Math.max(1, Number(item.quantity) || 1),
           image: item.image,
           description: item.description,
           isVeg: item.isVeg !== false
         }));
+
+        console.log("🔍 [Cart] Calculating pricing for:", items.map(i => `${i.name} (x${i.quantity})`));
 
         const response = await orderAPI.calculateOrder({
           items,
@@ -1104,12 +1108,29 @@ export default function Cart() {
       const orderItems = cart.map((item) => ({
         itemId: item.id,
         name: item.name,
-        price: item.price,
-        quantity: item.quantity || 1,
-        image: item.image || "",
-        description: item.description || "",
+        price: Number(item.price) || 0,
+        quantity: Math.max(1, Number(item.quantity) || 1),
+        image: item.image,
+        description: item.description,
         isVeg: item.isVeg !== false
       }));
+
+      // Validate pricing subtotal matches cart subtotal to prevent stale state issues
+      const currentCartSubtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const pricingSubtotal = Number(orderPricing?.subtotal || 0);
+
+      console.log("🚀 [Cart] Validating subtotal:", { currentCartSubtotal, pricingSubtotal });
+
+      if (Math.abs(currentCartSubtotal - pricingSubtotal) > 5) {
+        console.error("❌ [Cart] Pricing subtotal mismatch detected!", { currentCartSubtotal, pricingSubtotal });
+        alert("Pricing is slightly out of sync. Recalculating...");
+        // Re-trigger pricing calculation and stop
+        setPricing(null);
+        setIsPlacingOrder(false);
+        return;
+      }
+
+      console.log("🚀 [Cart] Placing order with items:", orderItems.map(i => `${i.name} (x${i.quantity})`));
 
 
 
@@ -1324,8 +1345,8 @@ export default function Cart() {
       const cartSignature = JSON.stringify({
         items: cart.map((item) => ({
           id: item.id,
-          quantity: item.quantity || 1,
-          price: item.price
+          quantity: Math.max(1, Number(item.quantity) || 1),
+          price: Number(item.price) || 0
         })),
         restaurantId: finalRestaurantId,
         paymentMethod: selectedPaymentMethod,

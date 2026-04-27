@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button"
 import BottomNavbar from "../components/BottomNavbar"
 import MenuOverlay from "../components/MenuOverlay"
 import { getRestaurantData, updateRestaurantData } from "../utils/restaurantManagement"
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
+
 
 export default function EditRestaurantPage() {
   const navigate = useNavigate()
@@ -120,15 +122,42 @@ export default function EditRestaurantPage() {
 
   const handleImageUpload = (field, file) => {
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
+      if (file instanceof File) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setFormData(prev => ({
+            ...prev,
+            [field]: reader.result
+          }))
+        }
+        reader.readAsDataURL(file)
+      } else if (typeof file === 'string' && file.startsWith('data:')) {
+        // Direct base64 support if needed
         setFormData(prev => ({
           ...prev,
-          [field]: reader.result
+          [field]: file
         }))
       }
-      reader.readAsDataURL(file)
     }
+  }
+
+  const handleBridgePickForField = async (field, inputId) => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: field 
+        });
+        if (file) {
+          handleImageUpload(field, file);
+          return;
+        }
+      } catch (err) {
+        console.warn(`Flutter bridge failed for ${field}, falling back to web:`, err);
+      }
+    }
+    // Fallback: Trigger the hidden file input
+    document.getElementById(inputId)?.click();
   }
 
   const handleSubmit = (e) => {
@@ -279,15 +308,20 @@ export default function EditRestaurantPage() {
                     <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center mb-3">
                       <ImageIcon className="w-8 h-8 text-gray-400" />
                     </div>
-                    <label className="cursor-pointer">
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePickForField("logo", "logoInput")}
+                      className="text-sm text-gray-600 underline"
+                    >
                       <input
+                        id="logoInput"
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
                         onChange={(e) => handleImageUpload("logo", e.target.files[0])}
                         className="hidden"
                       />
-                      <span className="text-sm text-gray-600 underline">Upload Logo</span>
-                    </label>
+                      Upload Logo
+                    </button>
                   </>
                 )}
               </div>
@@ -322,15 +356,20 @@ export default function EditRestaurantPage() {
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                    <label className="cursor-pointer">
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePickForField("cover", "coverInput")}
+                      className="text-sm text-gray-600 underline"
+                    >
                       <input
+                        id="coverInput"
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
                         onChange={(e) => handleImageUpload("cover", e.target.files[0])}
                         className="hidden"
                       />
-                      <span className="text-sm text-gray-600 underline">Upload Cover</span>
-                    </label>
+                      Upload Cover
+                    </button>
                   </>
                 )}
               </div>
@@ -395,15 +434,20 @@ export default function EditRestaurantPage() {
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                    <label className="cursor-pointer">
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePickForField("metaImage", "metaImageInput")}
+                      className="text-sm text-gray-600 underline"
+                    >
                       <input
+                        id="metaImageInput"
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
                         onChange={(e) => handleImageUpload("metaImage", e.target.files[0])}
                         className="hidden"
                       />
-                      <span className="text-sm text-gray-600 underline">Upload Meta Image</span>
-                    </label>
+                      Upload Meta Image
+                    </button>
                   </>
                 )}
               </div>

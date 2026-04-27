@@ -60,6 +60,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                       const file = await requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType });
                       if (file) handleFileSelect(docType, file);
                     } catch (e) {
+                      console.warn("Bridge camera failed, falling back to web camera:", e);
                       setActiveCamera(docType);
                     }
                   } else {
@@ -84,6 +85,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                       const file = await requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType });
                       if (file) handleFileSelect(docType, file);
                     } catch (e) {
+                      console.warn("Bridge gallery failed, falling back to device picker:", e);
                       galleryInputRef.current?.click();
                     }
                   } else {
@@ -247,9 +249,7 @@ export default function SignupStep2() {
       formData.append('file', file)
       formData.append('folder', 'appzeto/delivery/documents')
 
-      const response = await apiClient.post('/upload/media', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const response = await apiClient.post('/upload/media', formData)
 
       if (response?.data?.success && response?.data?.data) {
         const { url, publicId } = response.data.data

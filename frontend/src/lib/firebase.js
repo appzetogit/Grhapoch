@@ -46,6 +46,7 @@ function ensureFirebaseInitialized() {
     // Initialize Auth
     if (!firebaseAuth) {
       firebaseAuth = getAuth(app);
+      firebaseAuth.languageCode = 'en'; // Force English for Google Login popups
     }
 
     // Initialize Google Provider

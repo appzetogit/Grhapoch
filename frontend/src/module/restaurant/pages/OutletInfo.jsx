@@ -2,15 +2,15 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import Lenis from "lenis"
-import {
-  ArrowLeft,
-  Edit,
-  Pencil,
-  Plus,
-  MapPin,
-  Clock,
-  Phone,
-  Star,
+import { 
+  ArrowLeft, 
+  Edit, 
+  Pencil, 
+  Plus, 
+  MapPin, 
+  Clock, 
+  Phone, 
+  Star, 
   ChevronRight,
   X,
   Trash2,
@@ -18,20 +18,23 @@ import {
   Camera,
   Image as ImageIcon,
   Check,
-  RefreshCw
+  RefreshCw,
+  Map,
+  PencilIcon
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { restaurantAPI } from "@/lib/api"
 import { toast } from "sonner"
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
 
 export default function OutletInfo() {
   const navigate = useNavigate()
@@ -1057,7 +1060,23 @@ export default function OutletInfo() {
           </DialogHeader>
           <div className="p-6 pt-2 space-y-4">
             <button
-              onClick={() => {
+              onClick={async () => {
+                if (hasFlutterCameraBridge()) {
+                  try {
+                    const file = await requestImageFileFromFlutter({ 
+                      source: 'camera', 
+                      fileNamePrefix: activeImageTarget 
+                    });
+                    if (file) {
+                      if (activeImageTarget === 'profile') handleProfileImageReplace({ target: { files: [file] } });
+                      else handleCoverImageAdd({ target: { files: [file] } });
+                      setShowImageSourceDialog(false);
+                      return;
+                    }
+                  } catch (err) {
+                    console.warn("Flutter bridge camera failed, falling back to web camera:", err);
+                  }
+                }
                 setShowImageSourceDialog(false);
                 setActiveCamera(activeImageTarget);
               }}
@@ -1072,7 +1091,23 @@ export default function OutletInfo() {
               </div>
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
+                if (hasFlutterCameraBridge()) {
+                  try {
+                    const file = await requestImageFileFromFlutter({ 
+                      source: 'gallery', 
+                      fileNamePrefix: activeImageTarget 
+                    });
+                    if (file) {
+                      if (activeImageTarget === 'profile') handleProfileImageReplace({ target: { files: [file] } });
+                      else handleCoverImageAdd({ target: { files: [file] } });
+                      setShowImageSourceDialog(false);
+                      return;
+                    }
+                  } catch (err) {
+                    console.warn("Flutter bridge gallery failed, falling back to web:", err);
+                  }
+                }
                 setShowImageSourceDialog(false);
                 if (activeImageTarget === 'profile') profileImageInputRef.current?.click();
                 else menuImageInputRef.current?.click();

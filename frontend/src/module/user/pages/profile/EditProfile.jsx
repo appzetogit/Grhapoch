@@ -436,16 +436,6 @@ export default function EditProfile() {
     }
   };
 
-  const handleMobileChange = () => {
-
-
-  };
-
-  const handleEmailChange = () => {
-
-
-  };
-
   return (
     <div className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a] overflow-x-hidden">
       {/* Header */}
@@ -621,21 +611,21 @@ export default function EditProfile() {
               <button
                 onClick={async () => {
                   if (hasFlutterCameraBridge()) {
-                    setIsSourcePopupOpen(false);
                     try {
                       const file = await requestImageFileFromFlutter({ source: 'camera', fileNamePrefix: 'profile' });
                       if (file) {
                         handleImageSelect({ target: { files: [file] } });
+                        setIsSourcePopupOpen(false);
                       }
                     } catch (err) {
-                      console.error("Flutter camera error:", err);
+                      console.warn("Flutter bridge camera failed, falling back to web camera:", err);
                       setActiveCamera('profile');
+                      setIsSourcePopupOpen(false);
                     }
                   } else {
                     setActiveCamera('profile');
                     setIsSourcePopupOpen(false);
                   }
-                  setIsSourcePopupOpen(false);
                 }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-gray-100 dark:border-gray-800 group"
               >
@@ -651,18 +641,20 @@ export default function EditProfile() {
               <button
                 onClick={async () => {
                   if (hasFlutterCameraBridge()) {
-                    setIsSourcePopupOpen(false);
                     try {
                       const file = await requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'profile' });
                       if (file) {
                         handleImageSelect({ target: { files: [file] } });
+                        setIsSourcePopupOpen(false);
                       }
                     } catch (err) {
-                      console.error("Flutter gallery error:", err);
+                      console.warn("Flutter bridge gallery failed, falling back to device picker:", err);
                       fileInputRef.current?.click();
+                      setIsSourcePopupOpen(false);
                     }
                   } else {
                     fileInputRef.current?.click();
+                    setIsSourcePopupOpen(false);
                   }
                 }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-gray-100 dark:border-gray-800 group"

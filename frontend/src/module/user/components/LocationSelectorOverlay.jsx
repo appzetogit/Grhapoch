@@ -1486,7 +1486,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         }
       }
 
-      // 3. Agar marker pehle se hai to update karein, nahi to naya banayein
+      // 3. If marker already exists, update it, otherwise create a new one
       if (userLocationMarkerRef.current) {
         try {
           if (userLocationMarkerRef.current.setLngLat) {
@@ -1729,7 +1729,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         }
       }
 
-      // 3. Arrow Direction (Heading) agar available ho
+      // 3. Arrow Direction (Heading) if available
       // Heading is in degrees (0-360), where 0 is North
       if (heading !== null && heading !== undefined && !isNaN(heading)) {
         el.style.transform = `rotate(${heading}deg)`;

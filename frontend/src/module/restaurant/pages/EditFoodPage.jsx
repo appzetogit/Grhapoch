@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button"
 import BottomNavbar from "../components/BottomNavbar"
 import MenuOverlay from "../components/MenuOverlay"
 import { getFoodById, saveFood } from "../utils/foodManagement"
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
+
 
 export default function EditFoodPage() {
   const navigate = useNavigate()
@@ -206,15 +208,41 @@ export default function EditFoodPage() {
 
   const handleImageUpload = (field, file) => {
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
+      if (file instanceof File) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setFormData(prev => ({
+            ...prev,
+            [field]: reader.result
+          }))
+        }
+        reader.readAsDataURL(file)
+      } else if (typeof file === 'string' && file.startsWith('data:')) {
         setFormData(prev => ({
           ...prev,
-          [field]: reader.result
+          [field]: file
         }))
       }
-      reader.readAsDataURL(file)
     }
+  }
+
+  const handleBridgePick = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'food' 
+        });
+        if (file) {
+          handleImageUpload("image", file);
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge failed for food image, falling back to web:", err);
+      }
+    }
+    // Fallback: Trigger the hidden file input
+    document.getElementById('foodImageInput')?.click();
   }
 
   const handleSubmit = (e) => {
@@ -281,15 +309,20 @@ export default function EditFoodPage() {
                     alt={formData.name}
                     className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
                   />
-                  <label className="absolute bottom-0 right-0 bg-[#ff8100] text-white p-2 rounded-full cursor-pointer hover:bg-[#e67300]">
+                  <button 
+                    type="button"
+                    onClick={handleBridgePick}
+                    className="absolute bottom-0 right-0 bg-[#ff8100] text-white p-2 rounded-full cursor-pointer hover:bg-[#e67300]"
+                  >
                     <Upload className="w-4 h-4" />
                     <input
+                      id="foodImageInput"
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleImageUpload("image", e.target.files[0])}
                       className="hidden"
                     />
-                  </label>
+                  </button>
                 </div>
               </div>
             </CardContent>

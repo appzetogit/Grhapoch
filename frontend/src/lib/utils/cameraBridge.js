@@ -71,33 +71,37 @@ export const requestImageFileFromFlutter = async ({
   };
 
   let result = null;
-  if (source === "gallery") {
-    // Try different possible handler names for gallery
-    const galleryHandlers = ["openGallery", "pickFromGallery", "openMediaPicker"];
-    for (const handlerName of galleryHandlers) {
-      result = await tryHandler(handlerName);
-      if (result) break;
+  let handlerFound = false;
+  
+  const handlersToTry = source === "gallery" 
+    ? ["openGallery", "pickFromGallery", "openMediaPicker"]
+    : ["openCamera", "takePhoto", "captureImage"];
+
+  for (const handlerName of handlersToTry) {
+    try {
+      // Check if handler exists (some versions of inappwebview allow this)
+      // or just try calling it.
+      result = await window.flutter_inappwebview.callHandler(handlerName, payload);
+      handlerFound = true;
+      break;
+    } catch (err) {
+      // If error indicates handler not found, continue to next
+      continue;
     }
-  } else {
-    // Try different possible handler names for camera
-    const cameraHandlers = ["openCamera", "takePhoto", "captureImage"];
-    for (const handlerName of cameraHandlers) {
-      result = await tryHandler(handlerName);
-      if (result) break;
-    }
+  }
+
+  if (!handlerFound) {
+    throw new FlutterCameraBridgeError("handler_missing", `No bridge handler found for ${source}`);
   }
 
   if (!result || result.success !== true) {
+    // User cancelled or Flutter side error
     return null;
-  }
-
-  // If the bridge directly returns a File object (rare in WebViews but possible in some setups)
-  if (result.file instanceof File) {
-    return result.file;
   }
 
   // Expecting base64 from the bridge
   if (!result.base64) {
+    console.warn("Flutter bridge returned success but no base64 data");
     return null;
   }
 

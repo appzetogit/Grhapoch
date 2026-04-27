@@ -12,6 +12,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
+
 
 export default function EditAdvertisementPage() {
   const navigate = useNavigate();
@@ -115,6 +117,24 @@ export default function EditAdvertisementPage() {
     } else if (type === "video") {
       setUploadedVideo(file);
     }
+  };
+
+  const handleBridgePick = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'ad_image' 
+        });
+        if (file) {
+          handleFileUpload({ target: { files: [file] } }, "file");
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge failed for ad image, falling back to web:", err);
+      }
+    }
+    document.getElementById('file-upload')?.click();
   };
 
   const handleInputChange = (field, value) => {
@@ -278,7 +298,10 @@ export default function EditAdvertisementPage() {
                   accept="image/*" />
                 
                 <label
-                  htmlFor="file-upload"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleBridgePick();
+                  }}
                   className="block cursor-pointer">
                   
                   {uploadedFile ?

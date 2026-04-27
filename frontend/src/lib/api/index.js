@@ -1906,9 +1906,6 @@ export const uploadAPI = {
     }
 
     return apiClient.post(API_ENDPOINTS.UPLOAD.MEDIA, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
       timeout: 120000, // 120 seconds timeout for large uploads
     });
   },

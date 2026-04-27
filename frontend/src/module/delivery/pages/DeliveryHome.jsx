@@ -5004,7 +5004,7 @@ export default function DeliveryHome() {
               ...cashLimitStatus
             });
             setShowCashLimitPopup(true);
-            toast.info('COD order available hai, lekin cash limit kam hone ki wajah se accept nahi hoga.');
+            toast.info('A COD order is available, but it cannot be accepted due to insufficient cash limit.');
           }
           return;
         }
@@ -9558,11 +9558,11 @@ export default function DeliveryHome() {
         <div className="py-4 space-y-4">
           <div className="bg-red-50 text-red-800 p-4 rounded-xl border border-red-100">
             <p className="text-sm font-semibold mb-1">
-              Limit Exhausted / लिमिट खत्म हो गई है!
+              Limit Exhausted
             </p>
             <p className="text-xs leading-relaxed">
-              Aapki cash limit khatm ho chuki hai, isliye aap naye COD orders accept nahi kar sakte. <br />
-              Aap apne purane COD orders complete karein ya ₹700 deposit karein system update hone ke liye.
+              Your cash limit has been reached, so you cannot accept new COD orders. <br />
+              Please complete your existing COD orders or deposit ₹700 to update the system.
             </p>
           </div>
 

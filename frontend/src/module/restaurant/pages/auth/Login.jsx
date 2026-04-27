@@ -421,8 +421,7 @@ export default function RestaurantLogin() {
             "Failed to login with Google. Please try again."
 
       if (backendCode === "RESTAURANT_NOT_REGISTERED") {
-        message =
-          "Ye Google email restaurant panel me registered nahi hai. Registered phone/email se login karein (OTP), ya admin/support se contact karein."
+        message = "This Google email is not registered in the restaurant panel. Please login using your registered phone/email (OTP) or contact support."
       }
 
       setApiError(message)

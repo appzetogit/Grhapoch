@@ -268,7 +268,7 @@ export default function DiningManagement() {
                 <div className="mt-4">
                     <p className="text-sm text-gray-600">
                         {isSubscriptionBased
-                            ? "Subscription plan active hai to dining instantly enable ho jayega."
+                            ? "Since your subscription plan is active, dining will be enabled instantly."
                             : "Send a request to admin first. After approval, you can complete activation."}
                     </p>
                     <Button

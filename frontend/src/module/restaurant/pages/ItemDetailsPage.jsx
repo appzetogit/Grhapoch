@@ -21,6 +21,8 @@ import api from "@/lib/api";
 import { restaurantAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
 import OptimizedImage from "@/components/OptimizedImage";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
+
 
 export default function ItemDetailsPage() {
   const navigate = useNavigate();
@@ -363,46 +365,22 @@ export default function ItemDetailsPage() {
   };
 
   const handleOpenCamera = async () => {
-    if (hasFlutterBridge()) {
+    if (hasFlutterCameraBridge()) {
       try {
-        const result = await window.flutter_inappwebview.callHandler('openCamera');
-        if (result && result.success && (result.base64 || result.file)) {
-          let file;
-          if (result.file instanceof File) {
-            file = result.file;
-          } else {
-            // Convert base64 to File object more robustly
-            const base64Data = result.base64.replace(/\s/g, '');
-            const mimeType = result.mimeType || 'image/jpeg';
-            const fileName = result.fileName || `camera_${Date.now()}.jpg`;
-            
-            const byteCharacters = atob(base64Data);
-            const byteArrays = [];
-            
-            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-              const slice = byteCharacters.slice(offset, offset + 512);
-              const byteNumbers = new Array(slice.length);
-              for (let i = 0; i < slice.length; i++) {
-                byteNumbers[i] = slice.charCodeAt(i);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              byteArrays.push(byteArray);
-            }
-            
-            const blob = new Blob(byteArrays, { type: mimeType });
-            file = new File([blob], fileName, { type: mimeType });
-          }
-          
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'item' 
+        });
+        if (file) {
           processFiles([file]);
+          return;
         }
       } catch (err) {
-        console.error("Flutter camera error:", err);
-        // Fallback to standard file picker if bridge fails
-        fileInputRef.current?.click();
+        console.warn("Flutter bridge camera failed, falling back to web:", err);
       }
-    } else {
-      fileInputRef.current?.click();
     }
+    // Fallback to standard file picker
+    fileInputRef.current?.click();
   };
 
   const handleImageAdd = (e) => {

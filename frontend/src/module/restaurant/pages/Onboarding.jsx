@@ -1489,7 +1489,7 @@ export default function RestaurantOnboarding() {
         }
         const menuUploads = [];
         // Upload menu images if they are File objects
-        for (const file of step2.menuImages.filter((f) => f instanceof File)) {
+        for (const file of step2.menuImages.filter((f) => f instanceof File || (f && f.name && f.size))) {
           try {
             const uploaded = await handleUpload(file, "appzeto/restaurant/menu");
             // Verify upload was successful and has valid URL
@@ -1513,7 +1513,7 @@ export default function RestaurantOnboarding() {
 
         // Upload profile image if it's a File object
         let profileUpload = null;
-        if (step2.profileImage instanceof File) {
+        if (step2.profileImage instanceof File || (step2.profileImage && step2.profileImage.name && step2.profileImage.size)) {
           try {
             profileUpload = await handleUpload(step2.profileImage, "appzeto/restaurant/profile");
             // Verify upload was successful and has valid URL
@@ -1573,7 +1573,7 @@ export default function RestaurantOnboarding() {
         }
         // Upload PAN image if it's a File object
         let panImageUpload = null;
-        if (step3.panImage instanceof File) {
+        if (step3.panImage instanceof File || (step3.panImage && step3.panImage.name && step3.panImage.size)) {
           try {
             panImageUpload = await handleUpload(step3.panImage, "appzeto/restaurant/pan");
             // Verify upload was successful and has valid URL
@@ -1600,7 +1600,7 @@ export default function RestaurantOnboarding() {
         // Upload GST image if it's a File object (only if GST registered)
         let gstImageUpload = null;
         if (step3.gstRegistered) {
-          if (step3.gstImage instanceof File) {
+          if (step3.gstImage instanceof File || (step3.gstImage && step3.gstImage.name && step3.gstImage.size)) {
             try {
               gstImageUpload = await handleUpload(step3.gstImage, "appzeto/restaurant/gst");
               // Verify upload was successful and has valid URL
@@ -1627,7 +1627,7 @@ export default function RestaurantOnboarding() {
 
         // Upload FSSAI image if it's a File object
         let fssaiImageUpload = null;
-        if (step3.fssaiImage instanceof File) {
+        if (step3.fssaiImage instanceof File || (step3.fssaiImage && step3.fssaiImage.name && step3.fssaiImage.size)) {
           try {
             fssaiImageUpload = await handleUpload(step3.fssaiImage, "appzeto/restaurant/fssai");
             // Verify upload was successful and has valid URL
@@ -1725,7 +1725,7 @@ export default function RestaurantOnboarding() {
         if (!(isProspect && step5.businessModel === "Subscription Base")) {
           // Perform actual uploads if not a deferred prospect
           for (const file of step2.menuImages) {
-            if (file instanceof File) {
+            if (file && typeof file === 'object' && 'name' in file && 'size' in file) {
               const uploaded = await handleUpload(file, "appzeto/restaurant/menu");
               menuUploads.push(uploaded);
             } else if (file?.url || (typeof file === 'string' && file.startsWith('http'))) {
@@ -1733,19 +1733,19 @@ export default function RestaurantOnboarding() {
             }
           }
 
-          if (step2.profileImage instanceof File) {
+          if (step2.profileImage instanceof File || (step2.profileImage && step2.profileImage.name && step2.profileImage.size)) {
             profileUpload = await handleUpload(step2.profileImage, "appzeto/restaurant/profile");
           }
 
-          if (step3.panImage instanceof File) {
+          if (step3.panImage instanceof File || (step3.panImage && step3.panImage.name && step3.panImage.size)) {
             panUpload = await handleUpload(step3.panImage, "appzeto/restaurant/pan");
           }
 
-          if (step3.gstRegistered && step3.gstImage instanceof File) {
+          if (step3.gstRegistered && (step3.gstImage instanceof File || (step3.gstImage && step3.gstImage.name && step3.gstImage.size))) {
             gstUpload = await handleUpload(step3.gstImage, "appzeto/restaurant/gst");
           }
 
-          if (step3.fssaiImage instanceof File) {
+          if (step3.fssaiImage instanceof File || (step3.fssaiImage && step3.fssaiImage.name && step3.fssaiImage.size)) {
             fssaiUpload = await handleUpload(step3.fssaiImage, "appzeto/restaurant/fssai");
           }
         } else {
@@ -2211,21 +2211,24 @@ export default function RestaurantOnboarding() {
     }
   };
 
-  const handleBridgePickForField = async (targetField, source = "camera") => {
+  const handleBridgePickForField = async (targetField, source = "camera", fallbackInputId = null) => {
     try {
       if (!hasFlutterCameraBridge()) return;
       const pickedFile = await requestImageFileFromFlutter({
         source,
         fileNamePrefix: targetField
       });
-      if (!pickedFile) return;
-      updateTargetFieldWithFile(targetField, pickedFile);
-    } catch (error) {
-      if (error?.message === "GALLERY_HANDLER_MISSING") {
-        toast.error("Gallery upload not supported in this app build. Please update Flutter app.");
-        return;
+      if (pickedFile) {
+        updateTargetFieldWithFile(targetField, pickedFile);
       }
-      toast.error(`Failed to open ${source}. Please try again.`);
+    } catch (error) {
+      console.warn(`Bridge error for ${targetField} (${source}):`, error);
+      if (error?.code === "handler_missing" && fallbackInputId) {
+        // Fallback to standard input if bridge handler not implemented
+        document.getElementById(fallbackInputId)?.click();
+      } else {
+        toast.error(`Failed to open ${source}. Please try again.`);
+      }
     }
   };
   const isFlutterWebView = hasFlutterCameraBridge();
@@ -2258,7 +2261,7 @@ export default function RestaurantOnboarding() {
               <>
                 <button
                   type="button"
-                  onClick={() => handleBridgePickForField("menuImages", "gallery")}
+                  onClick={() => handleBridgePickForField("menuImages", "gallery", "menuImagesInput")}
                   className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
                 >
                   <Upload className="w-4.5 h-4.5" />
@@ -2266,7 +2269,7 @@ export default function RestaurantOnboarding() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleBridgePickForField("menuImages", "camera")}
+                  onClick={() => handleBridgePickForField("menuImages", "camera", "menuImagesInput")}
                   className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
                 >
                   <Camera className="w-4 h-4" />
@@ -2413,7 +2416,7 @@ export default function RestaurantOnboarding() {
             <>
               <button
                 type="button"
-                onClick={() => handleBridgePickForField("profileImage", "gallery")}
+                onClick={() => handleBridgePickForField("profileImage", "gallery", "profileImageInput")}
                 disabled={!!step2.profileImage || removingProfile}
                 className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
               >
@@ -2422,7 +2425,7 @@ export default function RestaurantOnboarding() {
               </button>
               <button
                 type="button"
-                onClick={() => handleBridgePickForField("profileImage", "camera")}
+                onClick={() => handleBridgePickForField("profileImage", "camera", "profileImageInput")}
                 disabled={!!step2.profileImage || removingProfile}
                 className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
               >
@@ -2610,7 +2613,7 @@ export default function RestaurantOnboarding() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => handleBridgePickForField("panImage", "gallery")}
+                  onClick={() => handleBridgePickForField("panImage", "gallery", "panImageInput")}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                 >
                   <Upload className="w-3.5 h-3.5" />
@@ -2618,7 +2621,7 @@ export default function RestaurantOnboarding() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleBridgePickForField("panImage", "camera")}
+                  onClick={() => handleBridgePickForField("panImage", "camera", "panImageInput")}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                 >
                   <Camera className="w-3.5 h-3.5" />
@@ -2742,7 +2745,7 @@ export default function RestaurantOnboarding() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => handleBridgePickForField("gstImage", "gallery")}
+                    onClick={() => handleBridgePickForField("gstImage", "gallery", "gstImageInput")}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                   >
                     <Upload className="w-3.5 h-3.5" />
@@ -2750,7 +2753,7 @@ export default function RestaurantOnboarding() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleBridgePickForField("gstImage", "camera")}
+                    onClick={() => handleBridgePickForField("gstImage", "camera", "gstImageInput")}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
                   >
                     <Camera className="w-3.5 h-3.5" />
@@ -2880,7 +2883,7 @@ export default function RestaurantOnboarding() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => handleBridgePickForField("fssaiImage", "gallery")}
+                onClick={() => handleBridgePickForField("fssaiImage", "gallery", "fssaiImageInput")}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -2888,7 +2891,7 @@ export default function RestaurantOnboarding() {
               </button>
               <button
                 type="button"
-                onClick={() => handleBridgePickForField("fssaiImage", "camera")}
+                onClick={() => handleBridgePickForField("fssaiImage", "camera", "fssaiImageInput")}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
               >
                 <Camera className="w-3.5 h-3.5" />

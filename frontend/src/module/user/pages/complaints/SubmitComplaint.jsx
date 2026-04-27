@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, AlertCircle, FileText } from "lucide-react";
 import { orderAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
+
 
 const COMPLAINT_TYPES = [
 { value: 'food_quality', label: 'Food Quality Issue' },
@@ -330,17 +332,63 @@ export default function SubmitComplaint() {
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Proof Images (optional)
           </label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => setFiles(Array.from(e.target.files || []))}
-            className="w-full text-sm text-gray-700 dark:text-gray-300"
-          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (hasFlutterCameraBridge()) {
+                  try {
+                    const file = await requestImageFileFromFlutter({ 
+                      source: 'gallery', 
+                      fileNamePrefix: 'complaint' 
+                    });
+                    if (file) {
+                      setFiles(prev => [...prev, file]);
+                      return;
+                    }
+                  } catch (err) {
+                    console.warn("Flutter bridge failed for complaint image, falling back to web:", err);
+                  }
+                }
+                document.getElementById('complaintFileInput')?.click();
+              }}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              Add Images
+            </button>
+            <input
+              id="complaintFileInput"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])}
+              className="hidden"
+            />
+          </div>
           {files.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Selected {files.length} file{files.length !== 1 ? "s" : ""}
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected {files.length} file{files.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {files.map((file, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <img 
+                      src={URL.createObjectURL(file)} 
+                      alt="preview" 
+                      className="w-full h-full object-cover"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setFiles(files.filter((_, i) => i !== idx))}
+                      className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl-lg"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

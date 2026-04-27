@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertCircle, Upload, X, QrCode, CreditCard, Smartphone } from "lucide-react";
 import { restaurantAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
+
 
 export default function UpdateBankDetails() {
   const navigate = useNavigate();
@@ -149,6 +151,24 @@ export default function UpdateBankDetails() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleBridgePick = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'payout_qr' 
+        });
+        if (file) {
+          handleQrUpload({ target: { files: [file] } });
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge failed for QR code, falling back to web:", err);
+      }
+    }
+    fileInputRef.current?.click();
   };
 
   const handleSubmit = async (e) => {
@@ -343,7 +363,7 @@ export default function UpdateBankDetails() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleBridgePick}
                     disabled={uploading}
                     className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
                   >

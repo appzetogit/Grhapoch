@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { campaignAPI, restaurantAPI } from "@/lib/api"
 import { optimizeBannerForUpload } from "@/lib/utils/bannerUpload"
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
 
 const toInputDate = (date) => {
   const year = date.getFullYear()
@@ -209,6 +210,24 @@ export default function NewAdvertisementPage() {
     }
   }
 
+  const handleBridgePick = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'ad_banner' 
+        });
+        if (file) {
+          handleBannerChange({ target: { files: [file] } });
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge failed for ad banner, falling back to web:", err);
+      }
+    }
+    document.getElementById('bannerFileInput')?.click();
+  };
+
   const handleSubmit = async () => {
     setErrorMessage("")
 
@@ -308,8 +327,20 @@ export default function NewAdvertisementPage() {
                     <p className="text-xs text-gray-500 mb-2">
                       Required: JPG/PNG | Min 1200x300 | Wide banner recommended (example 1200x300) | Max size: 2MB
                     </p>
-                    <label className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900">
-                      <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+                    <label 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleBridgePick();
+                      }}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900"
+                    >
+                      <input 
+                        id="bannerFileInput"
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleBannerChange} 
+                        className="hidden" 
+                      />
                       {bannerPreview ? (
                         <div className="w-full rounded-md overflow-hidden border border-gray-200 bg-gray-50 aspect-[12/5]">
                           <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover" />

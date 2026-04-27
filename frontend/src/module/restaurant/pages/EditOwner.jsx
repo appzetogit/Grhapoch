@@ -21,6 +21,7 @@ import { restaurantAPI } from "@/lib/api";
 import OptimizedImage from "@/components/OptimizedImage";
 import { clearModuleAuth } from "@/lib/utils/auth";
 import { firebaseAuth } from "@/lib/firebase";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
 
 const STORAGE_KEY = "restaurant_owner_contact";
 
@@ -128,17 +129,43 @@ export default function EditOwner() {
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (file) {
-      setProfileImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const photoData = e.target?.result;
-        setFormData((prev) => ({
+      if (file instanceof File) {
+        setProfileImageFile(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const photoData = e.target?.result;
+          setFormData((prev) => ({
+            ...prev,
+            photo: photoData
+          }));
+        };
+        reader.readAsDataURL(file);
+      } else if (typeof file === 'string' && file.startsWith('data:')) {
+        setFormData(prev => ({
           ...prev,
-          photo: photoData
+          photo: file
         }));
-      };
-      reader.readAsDataURL(file);
+        setProfileImageFile(file);
+      }
     }
+  };
+
+  const handleBridgePick = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'owner' 
+        });
+        if (file) {
+          handlePhotoChange({ target: { files: [file] } });
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge failed for owner photo, falling back to web:", err);
+      }
+    }
+    fileInputRef.current?.click();
   };
 
   const handleSave = async () => {
@@ -148,7 +175,18 @@ export default function EditOwner() {
       // First, upload profile image if changed
       if (profileImageFile) {
         try {
-          const imageResponse = await restaurantAPI.uploadProfileImage(profileImageFile);
+          // If profileImageFile is a string (base64 from bridge), we might need to handle it differently
+          // depending on what uploadProfileImage expects. If it expects a File, we convert.
+          let fileToUpload = profileImageFile;
+          if (typeof profileImageFile === 'string' && profileImageFile.startsWith('data:')) {
+             // Convert base64 to File if needed, or if the API supports base64, send as is.
+             // Most upload APIs expect File/Blob.
+             const res = await fetch(profileImageFile);
+             const blob = await res.blob();
+             fileToUpload = new File([blob], `owner_${Date.now()}.jpg`, { type: "image/jpeg" });
+          }
+
+          const imageResponse = await restaurantAPI.uploadProfileImage(fileToUpload);
           const imageData = imageResponse?.data?.data?.image || imageResponse?.data?.image;
           if (imageData?.url) {
             formData.photo = imageData.url;
@@ -170,9 +208,6 @@ export default function EditOwner() {
 
       // If profile image was uploaded, include it
       if (profileImageFile && formData.photo) {
-        // formData.photo was updated with the object from imageData in the previous step
-        // However, looking at the code above, it only stores imageData.url in formData.photo
-        // Let's make sure it's an object if possible, or just pass the URL
         updatePayload.profileImage = {
           url: formData.photo
         };
@@ -296,7 +331,7 @@ export default function EditOwner() {
             </div>
           </div>
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleBridgePick}
             disabled={loading || saving}
             className="text-blue-600 text-sm font-normal hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             

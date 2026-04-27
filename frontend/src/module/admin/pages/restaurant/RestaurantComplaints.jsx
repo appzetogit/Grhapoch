@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { adminAPI } from "@/lib/api"
 import { toast } from "sonner"
-import { Search, Filter, AlertCircle, CheckCircle, Clock, XCircle, FileText } from "lucide-react"
+import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ExternalLink } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -30,6 +30,9 @@ const COMPLAINT_TYPE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
+const STATUS_VALUES = ['pending', 'in_progress', 'resolved', 'rejected']
+const isMismatchType = (type) => type === 'wrong_item' || type === 'missing_item'
+
 export default function RestaurantComplaints() {
   const [complaints, setComplaints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +56,20 @@ export default function RestaurantComplaints() {
     total: 0,
     pages: 1
   })
+
+  const [manageOpen, setManageOpen] = useState(false)
+  const [manageLoading, setManageLoading] = useState(false)
+  const [manageSaving, setManageSaving] = useState(false)
+  const [manageSavingNotes, setManageSavingNotes] = useState(false)
+  const [manageSavingMismatch, setManageSavingMismatch] = useState(false)
+
+  const [selectedComplaint, setSelectedComplaint] = useState(null)
+  const [statusDraft, setStatusDraft] = useState('pending')
+  const [adminResponseDraft, setAdminResponseDraft] = useState('')
+  const [internalNotesDraft, setInternalNotesDraft] = useState('')
+
+  const [mismatchActionDraft, setMismatchActionDraft] = useState('REFUND') // REFUND | COUPON | REJECT
+  const [mismatchAmountDraft, setMismatchAmountDraft] = useState('') // INR (optional)
 
   useEffect(() => {
     fetchComplaints()
@@ -110,6 +127,146 @@ export default function RestaurantComplaints() {
         return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const openManage = async (complaintId) => {
+    setManageOpen(true)
+    setManageLoading(true)
+    setSelectedComplaint(null)
+    setStatusDraft('pending')
+    setAdminResponseDraft('')
+    setInternalNotesDraft('')
+    setMismatchActionDraft('REFUND')
+    setMismatchAmountDraft('')
+
+    try {
+      const response = await adminAPI.getRestaurantComplaintById(complaintId)
+      const complaint = response?.data?.data?.complaint || null
+
+      if (!complaint) {
+        toast.error('Complaint not found')
+        setManageOpen(false)
+        return
+      }
+
+      setSelectedComplaint(complaint)
+      setStatusDraft(STATUS_VALUES.includes(complaint.status) ? complaint.status : 'pending')
+      setAdminResponseDraft(String(complaint.adminResponse || ''))
+      setInternalNotesDraft(String(complaint.internalNotes || ''))
+
+      if (isMismatchType(complaint.complaintType)) {
+        setMismatchActionDraft('REFUND')
+      } else {
+        setMismatchActionDraft('REFUND')
+      }
+    } catch (error) {
+      console.error('Error fetching complaint details:', error)
+      toast.error('Failed to load complaint details')
+      setManageOpen(false)
+    } finally {
+      setManageLoading(false)
+    }
+  }
+
+  const closeManage = () => {
+    if (manageSaving || manageSavingNotes || manageSavingMismatch) return
+    setManageOpen(false)
+    setSelectedComplaint(null)
+  }
+
+  const saveStatusAndResponse = async () => {
+    if (!selectedComplaint?._id) return
+
+    if (!STATUS_VALUES.includes(statusDraft)) {
+      toast.error('Please select a valid status')
+      return
+    }
+
+    try {
+      setManageSaving(true)
+      await adminAPI.updateRestaurantComplaintStatus(
+        selectedComplaint._id,
+        statusDraft,
+        adminResponseDraft,
+        internalNotesDraft
+      )
+      toast.success('Complaint updated')
+      await fetchComplaints()
+      await openManage(selectedComplaint._id)
+    } catch (error) {
+      console.error('Error updating complaint:', error)
+      toast.error(error?.response?.data?.message || 'Failed to update complaint')
+    } finally {
+      setManageSaving(false)
+    }
+  }
+
+  const saveInternalNotes = async () => {
+    if (!selectedComplaint?._id) return
+
+    try {
+      setManageSavingNotes(true)
+      await adminAPI.updateRestaurantComplaintNotes(selectedComplaint._id, internalNotesDraft)
+      toast.success('Internal notes saved')
+      await fetchComplaints()
+      await openManage(selectedComplaint._id)
+    } catch (error) {
+      console.error('Error saving internal notes:', error)
+      toast.error(error?.response?.data?.message || 'Failed to save internal notes')
+    } finally {
+      setManageSavingNotes(false)
+    }
+  }
+
+  const runMismatchAction = async () => {
+    if (!selectedComplaint?._id) return
+
+    if (!isMismatchType(selectedComplaint.complaintType)) {
+      toast.error('Mismatch actions apply only to wrong/missing item complaints')
+      return
+    }
+
+    const normalized = String(mismatchActionDraft || '').toUpperCase().trim()
+    if (!['REFUND', 'COUPON', 'REJECT'].includes(normalized)) {
+      toast.error('Select a valid action')
+      return
+    }
+
+    const alreadyProcessed = !!selectedComplaint.adminDecision
+    if (alreadyProcessed) {
+      toast.error('This complaint is already processed')
+      return
+    }
+
+    const payload = {
+      action: normalized,
+      adminResponse: adminResponseDraft
+    }
+
+    if (normalized !== 'REJECT') {
+      const raw = String(mismatchAmountDraft || '').trim()
+      if (raw !== '') {
+        const amount = Number(raw)
+        if (!Number.isFinite(amount) || amount <= 0) {
+          toast.error('Amount must be a positive number (INR)')
+          return
+        }
+        payload.refundAmount = amount
+      }
+    }
+
+    try {
+      setManageSavingMismatch(true)
+      await adminAPI.mismatchRestaurantComplaintAction(selectedComplaint._id, payload)
+      toast.success('Action applied')
+      await fetchComplaints()
+      await openManage(selectedComplaint._id)
+    } catch (error) {
+      console.error('Error applying mismatch action:', error)
+      toast.error(error?.response?.data?.message || 'Failed to apply action')
+    } finally {
+      setManageSavingMismatch(false)
     }
   }
 
@@ -179,6 +336,14 @@ export default function RestaurantComplaints() {
                     <div className="flex items-center gap-3 mb-2">
                       {getStatusIcon(complaint.status)}
                       <h3 className="font-semibold text-gray-900">{complaint.subject}</h3>
+                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(complaint.status)}`}>
+                        {String(complaint.status || 'unknown').replace('_', ' ')}
+                      </span>
+                      {isMismatchType(complaint.complaintType) && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800">
+                          mismatch
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                       <div>
@@ -198,6 +363,19 @@ export default function RestaurantComplaints() {
                         <p className="font-medium capitalize">{complaint.complaintType.replace('_', ' ')}</p>
                       </div>
                     </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 ml-4">
+                    <button
+                      onClick={() => openManage(complaint._id)}
+                      className="px-3 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+                    >
+                      Manage
+                    </button>
+                    {complaint.adminDecision && (
+                      <span className="text-xs text-gray-500">
+                        Admin: {String(complaint.adminDecision).toLowerCase()}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <p className="text-sm text-gray-700 mb-3">{complaint.description}</p>
@@ -227,6 +405,242 @@ export default function RestaurantComplaints() {
           </div>
         )}
       </div>
+
+      {/* Manage Modal */}
+      {manageOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeManage}
+          />
+          <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-xl border border-gray-200 max-h-[85vh] overflow-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Manage Complaint</h2>
+                {selectedComplaint?.orderNumber && (
+                  <p className="text-sm text-gray-500">Order #{selectedComplaint.orderNumber}</p>
+                )}
+              </div>
+              <button
+                onClick={closeManage}
+                disabled={manageSaving || manageSavingNotes || manageSavingMismatch}
+                className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {manageLoading ? (
+              <div className="p-6">
+                <p className="text-gray-500">Loading details...</p>
+              </div>
+            ) : !selectedComplaint ? (
+              <div className="p-6">
+                <p className="text-gray-500">No complaint selected</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-xs text-gray-500">Customer</p>
+                    <p className="font-medium text-gray-900">{selectedComplaint.customerName}</p>
+                    <p className="text-sm text-gray-600">{selectedComplaint.customerPhone}</p>
+                    {selectedComplaint.customerEmail && (
+                      <p className="text-sm text-gray-600">{selectedComplaint.customerEmail}</p>
+                    )}
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-xs text-gray-500">Restaurant</p>
+                    <p className="font-medium text-gray-900">{selectedComplaint.restaurantName}</p>
+                    <p className="text-sm text-gray-600 capitalize">{String(selectedComplaint.complaintType || '').replace('_', ' ')}</p>
+                    {isMismatchType(selectedComplaint.complaintType) && selectedComplaint.requestedAction && (
+                      <p className="text-sm text-gray-600">Requested: {String(selectedComplaint.requestedAction).toLowerCase()}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(selectedComplaint.status)}
+                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(selectedComplaint.status)}`}>
+                        {String(selectedComplaint.status || 'unknown').replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Created: {selectedComplaint.createdAt ? new Date(selectedComplaint.createdAt).toLocaleString('en-IN') : '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">Subject</p>
+                    <p className="font-medium text-gray-900">{selectedComplaint.subject}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Description</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedComplaint.description}</p>
+                  </div>
+
+                  {Array.isArray(selectedComplaint.attachments) && selectedComplaint.attachments.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Attachments</p>
+                      <div className="flex flex-col gap-2">
+                        {selectedComplaint.attachments.map((att, idx) => (
+                          <a
+                            key={`${att?.url || idx}`}
+                            href={att?.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            <span>{att?.type || 'file'} {idx + 1}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 space-y-2">
+                    <p className="text-xs font-semibold text-blue-700">Restaurant Response</p>
+                    {selectedComplaint.restaurantDecision && (
+                      <p className="text-sm text-blue-800">
+                        Decision: {String(selectedComplaint.restaurantDecision).toLowerCase()}
+                      </p>
+                    )}
+                    <p className="text-sm text-blue-800 whitespace-pre-wrap">
+                      {selectedComplaint.restaurantResponse ? selectedComplaint.restaurantResponse : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-100 space-y-3">
+                    <p className="text-xs font-semibold text-green-700">Admin Response</p>
+                    <textarea
+                      value={adminResponseDraft}
+                      onChange={(e) => setAdminResponseDraft(e.target.value)}
+                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      placeholder="Write a response to the user/restaurant (optional)"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Status</p>
+                      <select
+                        value={statusDraft}
+                        onChange={(e) => setStatusDraft(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2 flex gap-2 justify-end">
+                      <button
+                        onClick={saveStatusAndResponse}
+                        disabled={manageSaving}
+                        className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        Save Status/Response
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-gray-500">Internal Notes (admin only)</p>
+                      <button
+                        onClick={saveInternalNotes}
+                        disabled={manageSavingNotes}
+                        className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Save Notes
+                      </button>
+                    </div>
+                    <textarea
+                      value={internalNotesDraft}
+                      onChange={(e) => setInternalNotesDraft(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="Private notes for admin team"
+                    />
+                  </div>
+                </div>
+
+                {isMismatchType(selectedComplaint.complaintType) && (
+                  <div className="bg-purple-50 rounded-lg border border-purple-100 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-purple-700">Mismatch Action (Admin Final Decision)</p>
+                        <p className="text-sm text-purple-800">
+                          {selectedComplaint.adminDecision
+                            ? `Already processed: ${String(selectedComplaint.adminDecision).toLowerCase()}`
+                            : 'Choose refund/coupon/reject'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Action</p>
+                        <select
+                          value={mismatchActionDraft}
+                          onChange={(e) => setMismatchActionDraft(e.target.value)}
+                          disabled={!!selectedComplaint.adminDecision}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50"
+                        >
+                          <option value="REFUND">Refund</option>
+                          <option value="COUPON">Coupon</option>
+                          <option value="REJECT">Reject</option>
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Amount (INR, optional)</p>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={mismatchAmountDraft}
+                          onChange={(e) => setMismatchAmountDraft(e.target.value)}
+                          disabled={mismatchActionDraft === 'REJECT' || !!selectedComplaint.adminDecision}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50"
+                          placeholder="Leave empty = full order total"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={runMismatchAction}
+                          disabled={manageSavingMismatch || !!selectedComplaint.adminDecision}
+                          className="px-4 py-2 rounded-lg bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50"
+                        >
+                          Apply Action
+                        </button>
+                      </div>
+                    </div>
+
+                    {selectedComplaint.couponCode && (
+                      <div className="text-sm text-purple-900">
+                        Coupon code: <span className="font-semibold">{selectedComplaint.couponCode}</span>
+                      </div>
+                    )}
+                    {selectedComplaint.refundId && (
+                      <div className="text-sm text-purple-900">
+                        Refund id: <span className="font-semibold">{selectedComplaint.refundId}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {pagination.pages > 1 && (

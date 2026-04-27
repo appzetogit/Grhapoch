@@ -16,7 +16,12 @@ import { resolveNotificationTemplate } from '../services/notificationTemplateSer
 
 import { calculateOrderSettlement } from '../services/orderSettlementService.js';
 import { holdEscrow } from '../services/escrowWalletService.js';
-import { processCancellationRefund } from '../services/cancellationRefundService.js';
+import {
+  resolveOrderPaymentContext,
+  validateUserCancellationPolicy,
+  processRefundByPolicy,
+  applyCancellationAndRefundState
+} from '../services/orderCancellationRefundService.js';
 import etaCalculationService from '../services/etaCalculationService.js';
 import etaWebSocketService from '../services/etaWebSocketService.js';
 import UserWallet from '../models/UserWallet.js';
@@ -24,6 +29,11 @@ import RestaurantCommission from '../models/RestaurantCommission.js';
 import { getFirebaseRealtimeDb } from '../config/firebaseRealtime.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { uploadToCloudinary } from '../utils/cloudinaryService.js';
+import {
+  reserveOneTimeCouponForCheckout,
+  releaseOneTimeCouponReservation,
+  consumeOneTimeCoupon
+} from '../services/oneTimeCouponService.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -501,7 +511,8 @@ export const createOrder = async (req, res) => {
         deliveryAddress: address,
         couponCode: pricing.couponCode || null,
         tip: pricing.tip || 0,
-        donation: pricing.donation || 0
+        donation: pricing.donation || 0,
+        userId: req.user?._id || req.user?.id || null
       });
 
       const clientTotal = Math.round(Number(pricing.total || 0));
@@ -792,6 +803,22 @@ export const createOrder = async (req, res) => {
       try {
         const order = new Order(baseOrderData);
 
+        // Consume one-time mismatch coupon atomically before charging wallet.
+        if (order.pricing?.couponType === 'one_time' && order.pricing?.couponCode) {
+          const consumed = await consumeOneTimeCoupon({
+            code: order.pricing.couponCode,
+            userId,
+            usedOrderId: order._id
+          });
+          if (!consumed) {
+            return res.status(409).json({
+              success: false,
+              code: 'COUPON_INVALID_OR_USED',
+              message: 'Coupon is invalid, expired, reserved, or already used. Please remove the coupon and try again.'
+            });
+          }
+        }
+
         // Find or create wallet
         const wallet = await UserWallet.findOrCreateByUserId(userId);
 
@@ -834,7 +861,8 @@ export const createOrder = async (req, res) => {
           const User = (await import('../models/User.js')).default;
           await User.findByIdAndUpdate(userId, {
             'wallet.balance': wallet.balance,
-            'wallet.currency': wallet.currency
+            'wallet.currency': wallet.currency,
+            walletBalance: wallet.balance
           });
 
           logger.info('✅ Wallet payment deducted for order:', {
@@ -848,6 +876,7 @@ export const createOrder = async (req, res) => {
 
         await order.save();
 
+        let createdWalletPaymentId = null;
         // Create payment record
         try {
           const payment = new Payment({
@@ -869,6 +898,7 @@ export const createOrder = async (req, res) => {
             }]
           });
           await payment.save();
+          createdWalletPaymentId = payment.paymentId;
         } catch (paymentError) {
           logger.error('❌ Error creating wallet payment record:', paymentError);
         }
@@ -876,6 +906,9 @@ export const createOrder = async (req, res) => {
         // Mark order as confirmed and payment as completed
         order.payment.method = 'wallet';
         order.payment.status = 'completed';
+        if (createdWalletPaymentId) {
+          order.paymentId = createdWalletPaymentId;
+        }
         order.status = 'confirmed';
         order.tracking.confirmed = {
           status: true,
@@ -935,9 +968,27 @@ export const createOrder = async (req, res) => {
     // For cash-on-delivery orders, create real order immediately and notify restaurant.
     if (normalizedPaymentMethod === 'cash') {
       const order = new Order(baseOrderData);
+
+      // Consume one-time mismatch coupon before creating COD order.
+      if (order.pricing?.couponType === 'one_time' && order.pricing?.couponCode) {
+        const consumed = await consumeOneTimeCoupon({
+          code: order.pricing.couponCode,
+          userId,
+          usedOrderId: order._id
+        });
+        if (!consumed) {
+          return res.status(409).json({
+            success: false,
+            code: 'COUPON_INVALID_OR_USED',
+            message: 'Coupon is invalid, expired, reserved, or already used. Please remove the coupon and try again.'
+          });
+        }
+      }
+
       await order.save();
 
       // Best-effort payment record; even if it fails we still proceed with order.
+      let createdCodPaymentId = null;
       try {
         const payment = new Payment({
           paymentId: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -958,6 +1009,7 @@ export const createOrder = async (req, res) => {
           }]
         });
         await payment.save();
+        createdCodPaymentId = payment.paymentId;
       } catch (paymentError) {
         logger.error('❌ Error creating COD payment record (continuing without blocking order):', {
           error: paymentError.message,
@@ -968,6 +1020,9 @@ export const createOrder = async (req, res) => {
       // Mark order as confirmed so restaurant can prepare it (ensure payment.method is cash for notification)
       order.payment.method = 'cash';
       order.payment.status = 'pending';
+      if (createdCodPaymentId) {
+        order.paymentId = createdCodPaymentId;
+      }
       order.status = 'confirmed';
       order.tracking.confirmed = {
         status: true,
@@ -1057,6 +1112,35 @@ export const createOrder = async (req, res) => {
         razorpayOrderId: razorpayOrder.id
       }
     });
+
+    // Reserve one-time mismatch coupon for this pending checkout (prevents double-spend before payment success).
+    try {
+      const couponCode = baseOrderData?.pricing?.couponCode || null;
+      const couponType = baseOrderData?.pricing?.couponType || null;
+      if (couponType === 'one_time' && couponCode) {
+        const reserved = await reserveOneTimeCouponForCheckout({
+          code: couponCode,
+          userId,
+          checkoutId: pendingCheckout._id
+        });
+        if (!reserved) {
+          return res.status(409).json({
+            success: false,
+            code: 'COUPON_RESERVED_OR_USED',
+            message: 'Coupon is currently reserved, expired, or already used. Please try again with another coupon.'
+          });
+        }
+      }
+    } catch (reserveError) {
+      logger.warn('One-time coupon reservation failed (blocking checkout):', {
+        error: reserveError.message
+      });
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to apply coupon right now. Please try again.'
+      });
+    }
+
     await pendingCheckout.save();
 
     logger.info(`Pending checkout created: ${pendingCheckout.orderId}`, {
@@ -1154,6 +1238,23 @@ export const verifyOrderPayment = async (req, res) => {
           razorpaySignature
         };
         await pendingCheckout.save();
+
+        // Release one-time coupon reservation if any.
+        try {
+          const couponCode = pendingCheckout?.orderData?.pricing?.couponCode || null;
+          const couponType = pendingCheckout?.orderData?.pricing?.couponType || null;
+          if (couponType === 'one_time' && couponCode) {
+            await releaseOneTimeCouponReservation({
+              code: couponCode,
+              userId,
+              checkoutId: pendingCheckout._id
+            });
+          }
+        } catch (releaseError) {
+          logger.warn('Failed to release one-time coupon reservation after invalid signature', {
+            error: releaseError.message
+          });
+        }
       } else if (order) {
         order.payment.status = 'failed';
         await order.save();
@@ -1176,6 +1277,37 @@ export const verifyOrderPayment = async (req, res) => {
           razorpayOrderId: razorpayOrderId
         }
       });
+
+      // Finalize one-time coupon usage using the reservation of this checkout.
+      if (order.pricing?.couponType === 'one_time' && order.pricing?.couponCode) {
+        const consumed = await consumeOneTimeCoupon({
+          code: order.pricing.couponCode,
+          userId,
+          usedOrderId: order._id,
+          checkoutId: pendingCheckout._id
+        });
+        if (!consumed) {
+          // Payment succeeded but coupon couldn't be consumed; best-effort refund and fail.
+          try {
+            const { createRefund } = await import('../services/razorpayService.js');
+            await createRefund(razorpayPaymentId, Math.round((order.pricing?.total || 0) * 100), {
+              reason: 'ONE_TIME_COUPON_CONSUME_FAILED',
+              orderId: pendingCheckout.orderId
+            });
+          } catch (refundError) {
+            logger.error('Failed to auto-refund after coupon consume failure:', {
+              error: refundError.message
+            });
+          }
+
+          return res.status(409).json({
+            success: false,
+            code: 'COUPON_INVALID_OR_USED',
+            message: 'Coupon could not be applied. Payment will be refunded automatically if possible.'
+          });
+        }
+      }
+
       await order.save();
     }
 
@@ -1237,6 +1369,7 @@ export const verifyOrderPayment = async (req, res) => {
     order.payment.razorpayPaymentId = razorpayPaymentId;
     order.payment.razorpaySignature = razorpaySignature;
     order.payment.transactionId = razorpayPaymentId;
+    order.paymentId = razorpayPaymentId;
     order.status = 'confirmed';
     order.tracking.confirmed = { status: true, timestamp: new Date() };
     await order.save();
@@ -1686,7 +1819,7 @@ export const getOrderDetails = async (req, res) => {
 export const cancelOrder = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { id } = req.params;
+    const id = req.params.id || req.params.orderId;
     const { reason } = req.body;
 
     if (!reason || reason.trim().length === 0) {
@@ -1719,55 +1852,41 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    // Check if order can be cancelled
-    if (order.status === 'cancelled') {
+    if (String(order.refundStatus || '').toUpperCase() === 'PROCESSED') {
       return res.status(400).json({
         success: false,
-        message: 'Order is already cancelled'
+        message: 'Refund already processed for this order'
       });
     }
 
-    if (order.status === 'delivered') {
+    const paymentContext = await resolveOrderPaymentContext(order);
+    const policy = validateUserCancellationPolicy({
+      order,
+      paymentType: paymentContext.paymentType
+    });
+
+    if (!policy.allowed) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot cancel a delivered order'
+        message: policy.message
       });
     }
 
-    // Get payment method from order or payment record
-    const paymentMethod = order.payment?.method;
-    const payment = await Payment.findOne({ orderId: order._id });
-    const paymentMethodFromPayment = payment?.method || payment?.paymentMethod;
+    // For online refunds, fail fast if refund API fails (order remains unchanged).
+    const refundResult = await processRefundByPolicy({
+      order,
+      paymentContext,
+      reason: reason.trim(),
+      cancelledBy: 'user'
+    });
 
-    // Determine the actual payment method
-    const actualPaymentMethod = paymentMethod || paymentMethodFromPayment;
-
-    // Allow cancellation for all payment methods (Razorpay, COD, Wallet)
-    // Only restrict if order is already cancelled or delivered (checked above)
-
-    // Update order status
-    order.status = 'cancelled';
-    order.cancellationReason = reason.trim();
-    order.cancelledBy = 'user';
-    order.cancelledAt = new Date();
-    await order.save();
-
-    // Calculate refund amount only for online payments (Razorpay) and wallet
-    // COD orders don't need refund since payment hasn't been made
-    let refundMessage = '';
-    if (actualPaymentMethod === 'razorpay' || actualPaymentMethod === 'wallet') {
-      try {
-        const { calculateCancellationRefund } = await import('../services/cancellationRefundService.js');
-        await calculateCancellationRefund(order._id, reason);
-        logger.info(`Cancellation refund calculated for order ${order.orderId} - awaiting admin approval`);
-        refundMessage = ' Refund will be processed after admin approval.';
-      } catch (refundError) {
-        logger.error(`Error calculating cancellation refund for order ${order.orderId}:`, refundError);
-        // Don't fail the cancellation if refund calculation fails
-      }
-    } else if (actualPaymentMethod === 'cash') {
-      refundMessage = ' No refund required as payment was not made.';
-    }
+    await applyCancellationAndRefundState({
+      order,
+      reason: reason.trim(),
+      cancelledBy: 'user',
+      paymentContext,
+      refundResult
+    });
 
     // Notifications for cancellation
     try {
@@ -1804,13 +1923,18 @@ export const cancelOrder = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Order cancelled successfully.${refundMessage}`,
+      message: refundResult.refundProcessed
+        ? 'Order cancelled successfully and refund processed'
+        : 'Order cancelled successfully',
       data: {
+        refundProcessed: Boolean(refundResult.refundProcessed),
+        refundId: refundResult.refundId || null,
         order: {
           orderId: order.orderId,
           status: order.status,
-          cancellationReason: order.cancellationReason,
-          cancelledAt: order.cancelledAt
+          cancellationReason: order.cancellationReason || reason.trim(),
+          cancelledAt: order.cancelledAt || new Date(),
+          refundStatus: order.refundStatus || 'NONE'
         }
       }
     });
@@ -1859,7 +1983,8 @@ export const calculateOrder = async (req, res) => {
       couponCode,
       deliveryFleet: deliveryFleet || 'standard',
       tip: Number(tip) || 0,
-      donation: Number(donation) || 0
+      donation: Number(donation) || 0,
+      userId: req.user?._id || req.user?.id || null
     });
 
     res.json({

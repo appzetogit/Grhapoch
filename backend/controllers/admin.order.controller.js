@@ -26,6 +26,7 @@ export const getOrders = asyncHandler(async (req, res) => {
 
     // Build query
     const query = {};
+    const andConditions = [];
 
     // Status filter
     if (status && status !== 'all') {
@@ -39,29 +40,69 @@ export const getOrders = asyncHandler(async (req, res) => {
         'delivered': 'delivered',
         'canceled': 'cancelled',
         'restaurant-cancelled': 'cancelled', // Restaurant cancelled orders
-        'payment-failed': 'pending', // Payment failed orders have pending status
+        'payment-failed': null, // Filtered by payment status
         'refunded': 'cancelled', // Refunded orders might be cancelled
         'dine-in': 'dine_in',
-        'offline-payments': 'pending' // Offline payment orders
+        'offline-payments': null // Filtered by payment method
       };
 
-      const mappedStatus = statusMap[status] || status;
-      query.status = mappedStatus;
+      const hasStatusMapping = Object.prototype.hasOwnProperty.call(statusMap, status);
+      const mappedStatus = hasStatusMapping ? statusMap[status] : status;
+      if (mappedStatus) {
+        query.status = mappedStatus;
+      }
 
       // If restaurant-cancelled, filter by cancellation reason
       if (status === 'restaurant-cancelled') {
-        query.cancellationReason = {
-          $regex: /rejected by restaurant|restaurant rejected|restaurant cancelled/i
-        };
+        andConditions.push({
+          $or: [
+            { cancelledBy: 'restaurant' },
+            { cancelledBy: 'RESTAURANT' },
+            {
+              cancellationReason: {
+                $regex: /rejected by restaurant|restaurant rejected|restaurant cancelled|restaurant is too busy|item not available|outside delivery area|kitchen closing|technical issue|did not respond in time/i
+              }
+            }
+          ]
+        });
+      }
+
+      // Payment failed tab: strictly failed payment orders
+      if (status === 'payment-failed') {
+        query['payment.status'] = 'failed';
+      }
+
+      // Refunded tab: cancelled orders where refund is actually done
+      if (status === 'refunded') {
+        andConditions.push({
+          $or: [
+            { 'payment.status': 'refunded' },
+            { refundStatus: 'PROCESSED' },
+            { refundStatus: 'processed' }
+          ]
+        });
+      }
+
+      // Offline payments tab: COD/Cash orders only
+      if (status === 'offline-payments') {
+        query['payment.method'] = { $in: ['cash', 'cod', 'cash_on_delivery', 'cash on delivery'] };
       }
     }
 
     // Also handle cancelledBy query parameter (if passed separately)
     if (cancelledBy === 'restaurant') {
       query.status = 'cancelled';
-      query.cancellationReason = {
-        $regex: /rejected by restaurant|restaurant rejected|restaurant cancelled/i
-      };
+      andConditions.push({
+        $or: [
+          { cancelledBy: 'restaurant' },
+          { cancelledBy: 'RESTAURANT' },
+          {
+            cancellationReason: {
+              $regex: /rejected by restaurant|restaurant rejected|restaurant cancelled|restaurant is too busy|item not available|outside delivery area|kitchen closing|technical issue|did not respond in time/i
+            }
+          }
+        ]
+      });
     }
 
     // Payment status filter
@@ -128,8 +169,7 @@ export const getOrders = asyncHandler(async (req, res) => {
 
     // Search filter (orderId, customer name, customer phone)
     if (search) {
-      query.$or = [
-        { orderId: { $regex: search, $options: 'i' } }];
+      const searchOrConditions = [{ orderId: { $regex: search, $options: 'i' } }];
 
 
       // If search looks like a phone number, search in customer data
@@ -144,7 +184,7 @@ export const getOrders = asyncHandler(async (req, res) => {
         const users = await User.find(userSearchQuery).select('_id').lean();
         const userIds = users.map((u) => u._id);
         if (userIds.length > 0) {
-          query.$or.push({ userId: { $in: userIds } });
+          searchOrConditions.push({ userId: { $in: userIds } });
         }
       }
 
@@ -155,14 +195,16 @@ export const getOrders = asyncHandler(async (req, res) => {
       }).select('_id').lean();
       const userIdsByName = usersByName.map((u) => u._id);
       if (userIdsByName.length > 0) {
-        if (!query.$or) query.$or = [];
-        query.$or.push({ userId: { $in: userIdsByName } });
+        searchOrConditions.push({ userId: { $in: userIdsByName } });
       }
 
-      // Ensure $or array is not empty
-      if (query.$or && query.$or.length === 0) {
-        delete query.$or;
+      if (searchOrConditions.length > 0) {
+        andConditions.push({ $or: searchOrConditions });
       }
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     // Calculate pagination
@@ -1417,6 +1459,15 @@ export const getRestaurantReport = asyncHandler(async (req, res) => {
  */
 export const getRefundRequests = asyncHandler(async (req, res) => {
   try {
+    return successResponse(res, 200, 'Manual refund flow has been disabled. Refunds are now processed automatically.', {
+      orders: [],
+      pagination: {
+        page: 1,
+        limit: 0,
+        total: 0,
+        pages: 0
+      }
+    });
 
 
 
@@ -1631,6 +1682,7 @@ export const getRefundRequests = asyncHandler(async (req, res) => {
  */
 export const processRefund = asyncHandler(async (req, res) => {
   try {
+    return errorResponse(res, 410, 'Manual refund processing is disabled. Refunds are now auto-processed on cancellation.');
 
 
 

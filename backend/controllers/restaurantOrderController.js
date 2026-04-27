@@ -8,6 +8,11 @@ import { notifyUserOrderUpdate } from '../services/userNotificationService.js';
 import { assignOrderToDeliveryBoy, findNearestDeliveryBoys, findNearestDeliveryBoy } from '../services/deliveryAssignmentService.js';
 import { notifyDeliveryBoyNewOrder, notifyMultipleDeliveryBoys } from '../services/deliveryNotificationService.js';
 import mongoose from 'mongoose';
+import {
+  resolveOrderPaymentContext,
+  processRefundByPolicy,
+  applyCancellationAndRefundState
+} from '../services/orderCancellationRefundService.js';
 
 const toNormalizedString = (value) => String(value || '').trim().toLowerCase();
 
@@ -501,25 +506,16 @@ export const acceptOrder = asyncHandler(async (req, res) => {
  * Reject order
  * PATCH /api/restaurant/orders/:id/reject
  */
-export const rejectOrder = asyncHandler(async (req, res) => {
+const cancelOrderByRestaurant = async (req, res) => {
   try {
     const restaurant = req.restaurant;
-    const { id } = req.params;
+    const id = req.params.id || req.params.orderId;
     const { reason } = req.body;
 
     const restaurantId = restaurant._id?.toString() ||
       restaurant.restaurantId ||
       restaurant.id;
 
-    // Log for debugging
-
-
-
-
-
-
-
-    // Prepare restaurantId variations for query (handle both _id and restaurantId formats)
     const restaurantIdVariations = [restaurantId];
     if (mongoose.Types.ObjectId.isValid(restaurantId) && restaurantId.length === 24) {
       const objectIdString = new mongoose.Types.ObjectId(restaurantId).toString();
@@ -527,109 +523,89 @@ export const rejectOrder = asyncHandler(async (req, res) => {
         restaurantIdVariations.push(objectIdString);
       }
     }
-    // Also add restaurant._id if different
     if (restaurant._id) {
       const restaurantMongoId = restaurant._id.toString();
       if (!restaurantIdVariations.includes(restaurantMongoId)) {
         restaurantIdVariations.push(restaurantMongoId);
       }
     }
-    // Also add restaurant.restaurantId if different
     if (restaurant.restaurantId && !restaurantIdVariations.includes(restaurant.restaurantId)) {
       restaurantIdVariations.push(restaurant.restaurantId);
     }
 
-    // Try to find order by MongoDB _id or orderId (custom order ID)
     let order = null;
-
-    // First try MongoDB _id if it's a valid ObjectId
     if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
       order = await Order.findOne({
         _id: id,
         restaurantId: { $in: restaurantIdVariations }
       });
-
-
-
-
-
     }
 
-    // If not found, try by orderId (custom order ID like "ORD-123456-789")
     if (!order) {
       order = await Order.findOne({
         orderId: id,
         restaurantId: { $in: restaurantIdVariations }
       });
-
-
-
-
-
-
     }
 
     if (!order) {
-      console.error('❌ Order not found for rejection:', {
-        orderIdParam: id,
-        restaurantId: restaurantId,
-        restaurantIdVariations,
-        restaurant_id: restaurant._id?.toString(),
-        restaurant_restaurantId: restaurant.restaurantId
-      });
       return errorResponse(res, 404, 'Order not found');
     }
 
-
-
-
-
-
-
-
-    // Allow rejecting/cancelling orders with status 'pending', 'confirmed', or 'preparing'
-    if (!['pending', 'confirmed', 'preparing'].includes(order.status)) {
-      return errorResponse(res, 400, `Order cannot be cancelled. Current status: ${order.status}`);
+    if (order.status === 'cancelled') {
+      return errorResponse(res, 400, 'Order is already cancelled');
     }
 
-    order.status = 'cancelled';
-    order.cancellationReason = reason || 'Cancelled by restaurant';
-    order.cancelledBy = 'restaurant';
-    order.cancelledAt = new Date();
-    await order.save();
+    if (String(order.refundStatus || '').toUpperCase() === 'PROCESSED') {
+      return errorResponse(res, 400, 'Refund already processed for this order');
+    }
 
-    // Notify user about order being cancelled/rejected
-    notifyUserOrderUpdate(order._id, 'cancelled').catch(err => {
+    const cancellationReason = reason || 'Cancelled by restaurant';
+    const paymentContext = await resolveOrderPaymentContext(order);
+    const refundResult = await processRefundByPolicy({
+      order,
+      paymentContext,
+      reason: cancellationReason,
+      cancelledBy: 'restaurant'
+    });
+
+    await applyCancellationAndRefundState({
+      order,
+      reason: cancellationReason,
+      cancelledBy: 'restaurant',
+      paymentContext,
+      refundResult
+    });
+
+    notifyUserOrderUpdate(order._id, 'cancelled').catch((err) => {
       console.error('Error notifying user about rejection status:', err);
     });
 
-    // Calculate refund amount but don't process automatically
-    // Admin will process refund manually via refund button
-    try {
-      const { calculateCancellationRefund } = await import('../services/cancellationRefundService.js');
-      await calculateCancellationRefund(order._id, reason || 'Rejected by restaurant');
-
-    } catch (refundError) {
-      console.error(`❌ Error calculating cancellation refund for order ${order.orderId}:`, refundError);
-      // Don't fail order cancellation if refund calculation fails
-      // But log it for investigation
-    }
-
-    // Notify about status update
     try {
       await notifyRestaurantOrderUpdate(order._id.toString(), 'cancelled');
     } catch (notifError) {
       console.error('Error sending notification:', notifError);
     }
 
-    return successResponse(res, 200, 'Order rejected successfully', {
-      order
+    return successResponse(res, 200, 'Order cancelled successfully', {
+      refundProcessed: Boolean(refundResult.refundProcessed),
+      refundId: refundResult.refundId || null,
+      order: {
+        orderId: order.orderId,
+        status: order.status,
+        cancellationReason: order.cancellationReason,
+        cancelledAt: order.cancelledAt,
+        refundStatus: order.refundStatus || 'NONE'
+      }
     });
   } catch (error) {
-    console.error('Error rejecting order:', error);
-    return errorResponse(res, 500, 'Failed to reject order');
+    console.error('Error cancelling order by restaurant:', error);
+    return errorResponse(res, 500, error.message || 'Failed to cancel order');
   }
-});
+};
+
+export const rejectOrder = asyncHandler(cancelOrderByRestaurant);
+export const cancelRestaurantOrder = asyncHandler(cancelOrderByRestaurant);
 
 /**
  * Update order status to preparing
@@ -1229,3 +1205,4 @@ export const resendDeliveryNotification = asyncHandler(async (req, res) => {
     return errorResponse(res, 500, `Failed to resend notification: ${error.message}`);
   }
 });
+

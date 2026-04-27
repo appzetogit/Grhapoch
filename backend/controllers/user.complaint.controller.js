@@ -12,7 +12,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 export const submitComplaint = asyncHandler(async (req, res) => {
   try {
     const userId = req.user._id;
-    const { orderId, complaintType, subject, description, attachments } = req.body;
+    const { orderId, complaintType, subject, description, attachments, requestedAction } = req.body;
 
     // Validation
     if (!orderId) {
@@ -32,6 +32,15 @@ export const submitComplaint = asyncHandler(async (req, res) => {
     const validTypes = ['food_quality', 'wrong_item', 'missing_item', 'delivery_issue', 'packaging', 'pricing', 'service', 'other'];
     if (!validTypes.includes(complaintType)) {
       return errorResponse(res, 400, 'Invalid complaint type');
+    }
+
+    // For mismatch complaints, requestedAction is required.
+    const isMismatchComplaint = ['wrong_item', 'missing_item'].includes(complaintType);
+    const normalizedRequestedAction = requestedAction ? String(requestedAction).toUpperCase().trim() : null;
+    if (isMismatchComplaint) {
+      if (!normalizedRequestedAction || !['REFUND', 'COUPON'].includes(normalizedRequestedAction)) {
+        return errorResponse(res, 400, 'requestedAction is required for mismatch complaints (REFUND or COUPON)');
+      }
     }
 
     // Get order details (support both Mongo ObjectId and business orderId)
@@ -56,6 +65,22 @@ export const submitComplaint = asyncHandler(async (req, res) => {
     const existingComplaint = await RestaurantComplaint.findOne({ orderId: order._id, customerId: userId });
     if (existingComplaint) {
       return errorResponse(res, 400, 'You have already submitted a complaint for this order');
+    }
+
+    // Only allow complaints for delivered orders and within 24 hours of delivery.
+    const isDelivered = String(order.status || '').toLowerCase() === 'delivered' || !!order.tracking?.delivered?.status;
+    if (!isDelivered) {
+      return errorResponse(res, 400, 'You can raise a complaint only for delivered orders');
+    }
+
+    const deliveredAt = order.deliveredAt || order.tracking?.delivered?.timestamp || order.updatedAt || order.createdAt || null;
+    if (!deliveredAt) {
+      return errorResponse(res, 400, 'Delivery time not found for this order');
+    }
+    const ageMs = Date.now() - new Date(deliveredAt).getTime();
+    const limitMs = 24 * 60 * 60 * 1000;
+    if (ageMs > limitMs) {
+      return errorResponse(res, 400, 'Complaint window expired. You can raise a complaint within 24 hours of delivery.');
     }
 
     // Get restaurant details
@@ -90,10 +115,20 @@ export const submitComplaint = asyncHandler(async (req, res) => {
       description: description.trim(),
       status: 'pending',
       priority: 'medium',
-      attachments: attachments || []
+      attachments: Array.isArray(attachments) ? attachments : [],
+      requestedAction: isMismatchComplaint ? normalizedRequestedAction : (normalizedRequestedAction || null)
     };
 
     const complaint = await RestaurantComplaint.create(complaintData);
+
+    // Mark order as disputed for mismatch complaints.
+    if (isMismatchComplaint) {
+      try {
+        await Order.updateOne({ _id: order._id }, { $set: { isDisputed: true } });
+      } catch (e) {
+        // Non-blocking
+      }
+    }
 
     return successResponse(res, 201, 'Complaint submitted successfully', {
       complaint: {

@@ -139,7 +139,8 @@ import {
   getAllComplaints,
   getComplaintDetails,
   updateComplaintStatus,
-  updateInternalNotes
+  updateInternalNotes,
+  mismatchAdminAction
 } from '../controllers/restaurantComplaintController.js';
 import {
   getOrderSettlementDetails,
@@ -423,6 +424,7 @@ router.get('/restaurant-complaints', getAllComplaints);
 router.get('/restaurant-complaints/:id', getComplaintDetails);
 router.put('/restaurant-complaints/:id/status', updateComplaintStatus);
 router.put('/restaurant-complaints/:id/notes', updateInternalNotes);
+router.post('/restaurant-complaints/:id/mismatch-action', mismatchAdminAction);
 
 // Food Approval Management
 router.get('/food-approvals', getPendingFoodApprovals);

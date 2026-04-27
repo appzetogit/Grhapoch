@@ -165,6 +165,11 @@ const userSchema = new mongoose.Schema({
       default: 'INR'
     }
   },
+  walletBalance: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   goldMembership: {
     isActive: {
       type: Boolean,

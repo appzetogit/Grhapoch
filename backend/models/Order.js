@@ -151,7 +151,7 @@ const orderSchema = new mongoose.Schema({
     },
     couponType: {
       type: String,
-      enum: ['global', 'restaurant', null],
+      enum: ['global', 'restaurant', 'one_time', null],
       default: null
     },
     // Commission Snapshot - Frozen at time of order creation
@@ -281,6 +281,12 @@ const orderSchema = new mongoose.Schema({
   deliveredAt: {
     type: Date
   },
+  // True when order has an active/processed dispute (e.g. order mismatch complaint)
+  isDisputed: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   billImageUrl: {
     type: String,
     default: null
@@ -293,7 +299,20 @@ const orderSchema = new mongoose.Schema({
   },
   cancelledBy: {
     type: String,
-    enum: ['user', 'restaurant', 'admin'],
+    enum: ['user', 'restaurant', 'admin', 'USER', 'RESTAURANT', 'ADMIN'],
+    default: null
+  },
+  refundStatus: {
+    type: String,
+    enum: ['NONE', 'PENDING', 'PROCESSED', 'FAILED'],
+    default: 'NONE'
+  },
+  refundId: {
+    type: String,
+    default: null
+  },
+  paymentId: {
+    type: String,
     default: null
   },
   // Customer Review and Rating

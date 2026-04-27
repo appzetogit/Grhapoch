@@ -87,6 +87,8 @@ import Wallet from "../pages/Wallet"
 
 // Complaints
 import SubmitComplaint from "../pages/complaints/SubmitComplaint"
+import MyComplaints from "../pages/complaints/MyComplaints"
+import ComplaintDetails from "../pages/complaints/ComplaintDetails"
 
 export default function UserRouter() {
   return (
@@ -407,6 +409,22 @@ export default function UserRouter() {
         />
 
         {/* Complaints - Protected */}
+        <Route
+          path="/complaints"
+          element={
+            <ProtectedRoute requiredRole="user" loginPath="/user/auth/sign-in">
+              <MyComplaints />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/complaints/:id"
+          element={
+            <ProtectedRoute requiredRole="user" loginPath="/user/auth/sign-in">
+              <ComplaintDetails />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/complaints/submit/:orderId"
           element={

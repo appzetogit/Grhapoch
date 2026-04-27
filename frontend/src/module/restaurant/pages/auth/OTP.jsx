@@ -15,23 +15,25 @@ export default function RestaurantOTP() {
   const [resendTimer, setResendTimer] = useState(0);
   const [authData, setAuthData] = useState(null);
   const [contactInfo, setContactInfo] = useState(""); // Can be phone or email
-  const [contactType, setContactType] = useState("phone"); // "phone" or "email"
-  const [focusedIndex, setFocusedIndex] = useState(null);
   const inputRefs = useRef([]);
 
   useEffect(() => {
     // Get auth data from sessionStorage
-    const stored = sessionStorage.getItem("restaurantAuthData");
+    const stored = sessionStorage.getItem("restaurantAuthData") || localStorage.getItem("restaurantAuthData");
     if (stored) {
       const data = JSON.parse(stored);
       setAuthData(data);
+      // Keep sessionStorage in sync if only localStorage had it (webview fallback).
+      try {
+        sessionStorage.setItem("restaurantAuthData", JSON.stringify(data));
+      } catch {
+        // Ignore
+      }
 
       // Handle both phone and email
       if (data.method === "email" && data.email) {
-        setContactType("email");
         setContactInfo(data.email);
       } else if (data.phone) {
-        setContactType("phone");
         // Extract and format phone number for display
         const phoneMatch = data.phone?.match(/(\+\d+)\s*(.+)/);
         if (phoneMatch) {
@@ -43,6 +45,7 @@ export default function RestaurantOTP() {
       }
     } else {
       // No auth data, redirect to login
+      localStorage.removeItem("restaurantAuthData");
       navigate("/restaurant/login");
       return;
     }
@@ -205,6 +208,7 @@ export default function RestaurantOTP() {
         setRestaurantAuthData("restaurant", accessToken, restaurant);
         window.dispatchEvent(new Event("restaurantAuthChanged"));
         sessionStorage.removeItem("restaurantAuthData");
+        localStorage.removeItem("restaurantAuthData");
         localStorage.removeItem("pendingRestaurantRegistration");
 
         setTimeout(async () => {
@@ -270,7 +274,7 @@ export default function RestaurantOTP() {
       const otpExpiresInMs = otpExpiresIn ? otpExpiresIn * 1000 : null;
       const otpGeneratedAt = Date.now();
 
-      const storedAuth = sessionStorage.getItem("restaurantAuthData");
+      const storedAuth = sessionStorage.getItem("restaurantAuthData") || localStorage.getItem("restaurantAuthData");
       if (storedAuth) {
         try {
           const parsed = JSON.parse(storedAuth);
@@ -281,6 +285,7 @@ export default function RestaurantOTP() {
             otpExpiresInMs: otpExpiresInMs || parsed.otpExpiresInMs
           };
           sessionStorage.setItem("restaurantAuthData", JSON.stringify(merged));
+          localStorage.setItem("restaurantAuthData", JSON.stringify(merged));
         } catch {
           // Ignore storage errors
         }

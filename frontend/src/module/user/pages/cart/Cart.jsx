@@ -691,11 +691,19 @@ export default function Cart() {
         if (response?.data?.success && response?.data?.data?.pricing) {
           setPricing(response.data.data.pricing);
 
-          // Update applied coupon if backend returns one
+          // Update applied coupon if backend returns one (supports one-time coupons too)
           if (response.data.data.pricing.appliedCoupon && !appliedCoupon) {
-            const coupon = availableCoupons.find((c) => c.code === response.data.data.pricing.appliedCoupon.code);
+            const applied = response.data.data.pricing.appliedCoupon;
+            const codeFromServer = applied?.code ? String(applied.code).trim() : "";
+            const coupon = availableCoupons.find((c) => c.code === codeFromServer);
             if (coupon) {
               setAppliedCoupon(coupon);
+            } else if (codeFromServer) {
+              setAppliedCoupon({
+                code: codeFromServer,
+                minOrder: 0,
+                description: response.data.data.pricing.couponType === "one_time" ? "One-time coupon" : "Coupon"
+              });
             }
           }
         }
@@ -969,12 +977,69 @@ export default function Cart() {
       (coupon) => String(coupon.code || "").trim().toUpperCase() === code
     );
 
-    if (!matchedCoupon) {
-      toast.error("Coupon not available for this order");
+    // If it matches the restaurant/global coupons list, apply via existing flow
+    if (matchedCoupon) {
+      handleApplyCoupon(matchedCoupon);
       return;
     }
 
-    handleApplyCoupon(matchedCoupon);
+    // Otherwise, try applying as a user-scoped one-time coupon (mismatch complaint coupon).
+    // Backend `/api/order/calculate` supports one-time coupons for authenticated users.
+    (async () => {
+      try {
+        setShowCoupons(false);
+
+        if (cart.length === 0 || !defaultAddress) {
+          toast.error("Please add items and select an address first");
+          return;
+        }
+
+        const items = cart.map((item) => ({
+          itemId: item.id,
+          name: item.name,
+          price: Number(item.price) || 0,
+          quantity: Math.max(1, Number(item.quantity) || 1),
+          image: item.image,
+          description: item.description,
+          isVeg: item.isVeg !== false
+        }));
+
+        const response = await orderAPI.calculateOrder({
+          items,
+          restaurantId: restaurantData?.restaurantId || restaurantData?._id || restaurantId || null,
+          deliveryAddress: defaultAddress,
+          couponCode: code,
+          tip: safeTipAmount,
+          donation: safeDonationAmount
+        });
+
+        const serverPricing = response?.data?.data?.pricing;
+        const appliedCode = serverPricing?.appliedCoupon?.code
+          ? String(serverPricing.appliedCoupon.code).trim().toUpperCase()
+          : null;
+
+        if (!response?.data?.success || !serverPricing || appliedCode !== code) {
+          setAppliedCoupon(null);
+          setCouponCode("");
+          toast.error("Invalid or not applicable coupon");
+          return;
+        }
+
+        setPricing(serverPricing);
+        setAppliedCoupon({
+          code: appliedCode,
+          minOrder: 0,
+          description: serverPricing?.couponType === "one_time" ? "One-time coupon" : "Coupon"
+        });
+        setCouponCode(appliedCode);
+        toast.success("Coupon applied");
+      } catch (error) {
+        console.error("Error applying coupon code:", error);
+        setAppliedCoupon(null);
+        setCouponCode("");
+        toast.error(error?.response?.data?.message || "Failed to apply coupon");
+      }
+    })();
   };
 
 
@@ -1067,7 +1132,7 @@ export default function Cart() {
         // the total in 'pricing' will be wrong.
         // We should really wait for pricing to update, but user clicked "Place Order".
         // Let's rely on the useEffect fix primarily, but ensure the tip FIELD is correct here.
-        couponCode: appliedCoupon?.code || null
+        couponCode: appliedCoupon?.code || couponCode || null
       } : {
         subtotal,
         deliveryFee,
@@ -1077,7 +1142,7 @@ export default function Cart() {
         total,
         tip: safeTipAmount,
         donation: safeDonationAmount,
-        couponCode: appliedCoupon?.code || null
+        couponCode: appliedCoupon?.code || couponCode || null
       };
 
       // Re-calculate total if we are using the 'pricing' object but overriding tip

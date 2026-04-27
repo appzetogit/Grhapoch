@@ -42,6 +42,35 @@ export const authenticate = async (req, res, next) => {
 };
 
 /**
+ * Optional Authentication Middleware
+ * If token is present and valid, attaches user. Otherwise continues without failing.
+ * Useful for public endpoints that can benefit from user context (e.g., pricing with user-scoped coupons).
+ */
+export const authenticateOptional = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyAccessToken(token);
+    const user = await User.findById(decoded.userId).select('-password');
+
+    if (!user || !user.isActive) {
+      return next();
+    }
+
+    req.user = user;
+    req.token = decoded;
+    return next();
+  } catch (error) {
+    // Silently ignore token errors for optional auth
+    return next();
+  }
+};
+
+/**
  * Role-based Authorization Middleware
  * @param {...string} roles - Allowed roles
  */
@@ -59,5 +88,5 @@ export const authorize = (...roles) => {
   };
 };
 
-export default { authenticate, authorize };
+export default { authenticate, authenticateOptional, authorize };
 

@@ -4,6 +4,7 @@ import {
   getRestaurantOrderById,
   acceptOrder,
   rejectOrder,
+  cancelRestaurantOrder,
   markOrderPreparing,
   markOrderReady,
   resendDeliveryNotification
@@ -22,6 +23,7 @@ router.get('/orders', authenticate, getRestaurantOrders);
 router.get('/orders/:id', authenticate, getRestaurantOrderById);
 router.patch('/orders/:id/accept', authenticate, acceptOrder);
 router.patch('/orders/:id/reject', authenticate, rejectOrder);
+router.post('/cancel/:orderId', authenticate, cancelRestaurantOrder);
 router.patch('/orders/:id/preparing', authenticate, markOrderPreparing);
 router.patch('/orders/:id/ready', authenticate, markOrderReady);
 router.post('/orders/:id/resend-delivery-notification', authenticate, resendDeliveryNotification);

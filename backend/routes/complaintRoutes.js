@@ -2,7 +2,8 @@ import express from 'express';
 import {
   getRestaurantComplaints,
   getComplaintDetails,
-  respondToComplaint
+  respondToComplaint,
+  reviewMismatchComplaint
 } from '../controllers/restaurant.complaint.controller.js';
 import { authenticate } from '../middleware/restaurant.auth.js';
 
@@ -15,5 +16,6 @@ router.use(authenticate);
 router.get('/', getRestaurantComplaints);
 router.get('/:id', getComplaintDetails);
 router.put('/:id/respond', respondToComplaint);
+router.post('/:id/mismatch-review', reviewMismatchComplaint);
 
 export default router;

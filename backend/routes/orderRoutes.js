@@ -9,13 +9,13 @@ import {
   createOrderPayment,
   submitOrderReview
 } from '../controllers/orderController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authenticateOptional } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Calculate order pricing (public endpoint - no auth required for cart preview)
 // This must be before the authenticate middleware
-router.post('/calculate', calculateOrder);
+router.post('/calculate', authenticateOptional, calculateOrder);
 
 // All other routes require authentication
 router.use(authenticate);
@@ -36,6 +36,7 @@ router.get('/:id', getOrderDetails);
 
 // Cancel order
 router.patch('/:id/cancel', cancelOrder);
+router.post('/cancel/:orderId', cancelOrder);
 
 // Submit review
 router.post('/:id/review', submitOrderReview);

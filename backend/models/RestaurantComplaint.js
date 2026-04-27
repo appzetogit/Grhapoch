@@ -83,6 +83,43 @@ const restaurantComplaintSchema = new mongoose.Schema({
   adminRespondedAt: {
     type: Date
   },
+  // Order mismatch resolution metadata (optional, only for mismatch-type complaints)
+  requestedAction: {
+    type: String,
+    enum: ['REFUND', 'COUPON', null],
+    default: null,
+    index: true
+  },
+  restaurantDecision: {
+    type: String,
+    enum: ['ACCEPT', 'REJECT', null],
+    default: null,
+    index: true
+  },
+  adminDecision: {
+    type: String,
+    enum: ['REFUND', 'COUPON', 'REJECT', null],
+    default: null,
+    index: true
+  },
+  refundAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  refundId: {
+    type: String,
+    default: null
+  },
+  couponId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'OneTimeCoupon',
+    default: null
+  },
+  couponCode: {
+    type: String,
+    default: null
+  },
   resolvedAt: {
     type: Date
   },
@@ -114,5 +151,6 @@ restaurantComplaintSchema.index({ restaurantId: 1, status: 1 });
 restaurantComplaintSchema.index({ customerId: 1, createdAt: -1 });
 restaurantComplaintSchema.index({ orderId: 1 });
 restaurantComplaintSchema.index({ createdAt: -1 });
+restaurantComplaintSchema.index({ complaintType: 1, requestedAction: 1, status: 1 });
 
 export default mongoose.model('RestaurantComplaint', restaurantComplaintSchema);

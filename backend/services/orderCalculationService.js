@@ -1,6 +1,7 @@
 import Restaurant from '../models/Restaurant.js';
 import Offer from '../models/Offer.js';
 import Coupon from '../models/Coupon.js';
+import OneTimeCoupon from '../models/OneTimeCoupon.js';
 import FeeSettings from '../models/FeeSettings.js';
 import ServiceSettings from '../models/ServiceSettings.js';
 import mongoose from 'mongoose';
@@ -252,7 +253,8 @@ export const calculateOrderPricing = async ({
   deliveryAddress = null,
   couponCode = null,
   tip = 0,
-  donation = 0
+  donation = 0,
+  userId = null
 }) => {
   try {
     // Get fee settings
@@ -301,13 +303,40 @@ export const calculateOrderPricing = async ({
       try {
         const now = new Date();
 
+        // 0. One-time user scoped coupon (used for mismatch resolutions)
+        // Only apply if we know the userId (authenticated calculate endpoint or during order creation).
+        if (userId) {
+          const normalizedCode = String(couponCode).toUpperCase().trim();
+          const oneTime = await OneTimeCoupon.findOne({
+            code: normalizedCode,
+            userId: userId,
+            isActive: true,
+            expiryDate: { $gte: now },
+            $expr: { $lt: ['$usedCount', '$usageLimit'] }
+          }).lean();
+
+          // If coupon is reserved and reservation hasn't expired, treat as unavailable.
+          // Reservation is used only for Razorpay pending checkouts.
+          const reservationActive = oneTime?.reservationExpiresAt && new Date(oneTime.reservationExpiresAt) > now;
+          if (oneTime && !reservationActive) {
+            discount = Math.min(Number(oneTime.value) || 0, subtotal);
+            appliedCoupon = {
+              code: oneTime.code,
+              discount: discount,
+              type: 'one_time'
+            };
+          }
+        }
+
         // 1. Check Global Coupon first (New System)
-        const globalCoupon = await Coupon.findOne({
-          couponCode: couponCode.toUpperCase(),
-          status: 'active',
-          startDate: { $lte: now },
-          endDate: { $gte: now }
-        }).lean();
+        const globalCoupon = !appliedCoupon
+          ? await Coupon.findOne({
+            couponCode: couponCode.toUpperCase(),
+            status: 'active',
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+          }).lean()
+          : null;
 
         if (globalCoupon) {
           // Validate Restaurant Scope

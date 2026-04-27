@@ -91,9 +91,6 @@ export default function RestaurantGlobalOrderSoundListener() {
               setHasNewOrders(true);
               audioRef.current?.play().catch(e => console.log("Audio play blocked", e));
             }
-          } else {
-            setHasNewOrders(false);
-            audioRef.current?.pause();
           }
           isFirstLoadRef.current = false;
         }

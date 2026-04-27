@@ -99,6 +99,13 @@ export const authenticate = async (req, res, next) => {
       reqPath === '/inventory' ||
       reqPath.startsWith('/inventory/');
 
+    // Complaints routes - restaurants should be able to respond even if not yet active
+    const isComplaintsRoute =
+      requestPath.includes('/complaints') ||
+      reqPath === '/complaints' ||
+      reqPath.startsWith('/complaints/') ||
+      baseUrl.includes('/complaints');
+
     // Check for dining routes
     const isDiningTableRoute = requestPath.includes('dining-tables') || baseUrl.includes('dining-tables');
     const isDiningSettingsRoute = requestPath.includes('dining-settings') || baseUrl.includes('dining-settings');
@@ -135,6 +142,7 @@ export const authenticate = async (req, res, next) => {
       isAccountRoute ||
       isMenuRoute ||
       isInventoryRoute ||
+      isComplaintsRoute ||
       isSubscriptionRoute ||
       isDiningTableRoute ||
       isDiningSettingsRoute ||

@@ -287,3 +287,43 @@ export const adminLogout = asyncHandler(async (req, res) => {
   return successResponse(res, 200, 'Logout successful');
 });
 
+/**
+ * Refresh Access Token (Admin)
+ * POST /api/admin/auth/refresh-token
+ */
+export const refreshToken = asyncHandler(async (req, res) => {
+  const refreshTokenCookie = req.cookies?.refreshToken;
+
+  if (!refreshTokenCookie) {
+    return errorResponse(res, 401, 'Refresh token not found');
+  }
+
+  try {
+    const decoded = jwtService.verifyRefreshToken(refreshTokenCookie);
+
+    if (decoded.role !== 'admin') {
+      return errorResponse(res, 401, 'Invalid token for admin');
+    }
+
+    const admin = await Admin.findById(decoded.userId).select('-password');
+    if (!admin) {
+      return errorResponse(res, 401, 'Admin not found');
+    }
+
+    if (!admin.isActive) {
+      return errorResponse(res, 401, 'Admin account is inactive');
+    }
+
+    const accessToken = jwtService.generateAccessToken({
+      userId: admin._id.toString(),
+      role: 'admin',
+      email: admin.email,
+      adminRole: admin.role
+    });
+
+    return successResponse(res, 200, 'Token refreshed successfully', { accessToken });
+  } catch (error) {
+    return errorResponse(res, 401, error.message || 'Invalid refresh token');
+  }
+});
+

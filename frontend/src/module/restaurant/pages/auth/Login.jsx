@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { restaurantAPI, authAPI } from "@/lib/api"
+import { restaurantAPI } from "@/lib/api"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 import { firebaseAuth, googleProvider, ensureFirebaseInitialized } from "@/lib/firebase"
@@ -19,6 +19,10 @@ import { FlutterGoogleSignInError, isFlutterInAppWebView, signInWithFlutterGoogl
 import { checkOnboardingStatus } from "../../utils/onboardingUtils"
 
 const countryCodeDetails = { code: "+91", country: "IN", flag: "🇮🇳" };
+
+// Workaround: some ESLint setups don't count JSX member expressions (e.g. <motion.div>) as usage.
+// Use a capitalized component ref so `motion` isn't flagged by no-unused-vars.
+const MotionDiv = motion.div
 
 export default function RestaurantLogin() {
   const navigate = useNavigate()
@@ -190,6 +194,8 @@ export default function RestaurantLogin() {
         otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+      // Fallback: some webviews clear sessionStorage unexpectedly; keep a copy in localStorage.
+      localStorage.setItem("restaurantAuthData", JSON.stringify(authData))
 
       // If a pending prospect record exists, enrich it with OTP expiry
       const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
@@ -294,6 +300,8 @@ export default function RestaurantLogin() {
         otpExpiresInMs: otpExpiresInMs || undefined
       }
       sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+      // Fallback: some webviews clear sessionStorage unexpectedly; keep a copy in localStorage.
+      localStorage.setItem("restaurantAuthData", JSON.stringify(authData))
 
       // If a pending prospect record exists, enrich it with OTP expiry
       const pendingRaw = localStorage.getItem("pendingRestaurantRegistration")
@@ -521,6 +529,12 @@ export default function RestaurantLogin() {
                     value={formData.phone}
                     onChange={handlePhoneChange}
                     onBlur={handlePhoneBlur}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return
+                      e.preventDefault()
+                      if (!isValidPhone || isSending) return
+                      handleSendOTP()
+                    }}
                     className={`w-full px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 text-base border rounded-lg min-w-0 bg-white ${errors.phone && formData.phone.length > 0
                       ? "border-red-500 focus:ring-red-500 focus:border-red-500"
                       : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
@@ -540,6 +554,7 @@ export default function RestaurantLogin() {
 
               {/* Send OTP Button */}
               <Button
+                type="button"
                 onClick={handleSendOTP}
                 disabled={!isValidPhone || isSending}
                 className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${isValidPhone && !isSending
@@ -563,6 +578,12 @@ export default function RestaurantLogin() {
                   value={formData.email}
                   onChange={handleEmailChange}
                   onBlur={handleEmailBlur}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return
+                    e.preventDefault()
+                    if (!isValidEmail || isSending) return
+                    handleSendEmailOTP()
+                  }}
                   className={`w-full px-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 text-base border rounded-lg bg-white ${errors.email && formData.email.length > 0
                     ? "border-red-500 focus:ring-red-500 focus:border-red-500"
                     : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
@@ -581,6 +602,7 @@ export default function RestaurantLogin() {
 
               {/* Send OTP Button */}
               <Button
+                type="button"
                 onClick={handleSendEmailOTP}
                 disabled={!isValidEmail || isSending}
                 className={`w-full h-12 rounded-lg font-bold text-base transition-colors ${isValidEmail && !isSending
@@ -604,6 +626,7 @@ export default function RestaurantLogin() {
           <div className="space-y-3">
             {/* Login with Google Button */}
             <Button
+              type="button"
               onClick={handleGoogleLogin}
               variant="outline"
               className="w-14 h-14 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-50 mx-auto flex items-center justify-center p-0"
@@ -652,7 +675,7 @@ export default function RestaurantLogin() {
         {showPrivacyModal && (
           <>
             {/* Backdrop */}
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -660,7 +683,7 @@ export default function RestaurantLogin() {
               className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
             />
             {/* Modal Content */}
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -689,7 +712,7 @@ export default function RestaurantLogin() {
                   />
                 )}
               </div>
-            </motion.div>
+            </MotionDiv>
           </>
         )}
       </AnimatePresence>
@@ -699,7 +722,7 @@ export default function RestaurantLogin() {
         {showTermsModal && (
           <>
             {/* Backdrop */}
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -707,7 +730,7 @@ export default function RestaurantLogin() {
               className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
             />
             {/* Modal Content */}
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -736,7 +759,7 @@ export default function RestaurantLogin() {
                   />
                 )}
               </div>
-            </motion.div>
+            </MotionDiv>
           </>
         )}
       </AnimatePresence>

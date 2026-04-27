@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, AlertCircle, FileText } from "lucide-react";
-import { orderAPI } from "@/lib/api";
+import { orderAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
 
 const COMPLAINT_TYPES = [
@@ -22,12 +22,15 @@ export default function SubmitComplaint() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     complaintType: '',
     subject: '',
-    description: ''
+    description: '',
+    requestedAction: 'REFUND'
   });
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
     if (!orderId) {
@@ -95,6 +98,12 @@ export default function SubmitComplaint() {
       return;
     }
 
+    const isMismatch = ["wrong_item", "missing_item"].includes(formData.complaintType);
+    if (isMismatch && !formData.requestedAction) {
+      toast.error("Please select refund or coupon request");
+      return;
+    }
+
     try {
       setSubmitting(true);
       // Use order._id (MongoDB ObjectId) for the complaint submission
@@ -110,18 +119,54 @@ export default function SubmitComplaint() {
       String(orderMongoId);
 
 
+      // Upload attachments (optional)
+      let attachments = [];
+      if (files.length > 0) {
+        try {
+          setUploading(true);
+          const uploaded = [];
+          for (const file of files) {
+            // eslint-disable-next-line no-await-in-loop
+            const up = await uploadAPI.uploadMedia(file, { folder: "appzeto/complaints" });
+            const url = up?.data?.data?.url;
+            const publicId = up?.data?.data?.publicId;
+            if (url) {
+              uploaded.push({
+                url,
+                publicId: publicId || null,
+                type: "image",
+              });
+            }
+          }
+          attachments = uploaded;
+        } catch (uploadErr) {
+          console.error("Upload error:", uploadErr);
+          toast.error(uploadErr?.response?.data?.message || "Failed to upload images");
+          setSubmitting(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+
       const response = await orderAPI.submitComplaint({
         orderId: orderIdString,
         complaintType: formData.complaintType,
         subject: formData.subject,
-        description: formData.description
+        description: formData.description,
+        requestedAction: isMismatch ? formData.requestedAction : null,
+        attachments
       });
 
       if (response?.data?.success) {
         toast.success("Complaint submitted successfully");
-        // Navigate back to order details using the orderId from URL or order._id
-        const orderIdForNav = order?._id || orderId;
-        navigate(`/user/orders/${orderIdForNav}/details`);
+        // Navigate to complaint details (or complaint list if id not returned).
+        const complaintId = response?.data?.data?.complaint?.id;
+        if (complaintId) {
+          navigate(`/user/complaints/${encodeURIComponent(complaintId)}`);
+        } else {
+          navigate(`/user/complaints`);
+        }
       } else {
         toast.error(response?.data?.message || "Failed to submit complaint");
       }
@@ -144,6 +189,14 @@ export default function SubmitComplaint() {
   if (!order) {
     return null;
   }
+
+  const orderDelivered =
+    String(order.status || "").toLowerCase() === "delivered" ||
+    !!order.tracking?.delivered?.status;
+
+  const deliveredAt = order.deliveredAt || order.tracking?.delivered?.timestamp || order.updatedAt || order.createdAt || null;
+  const within24h = deliveredAt ? (Date.now() - new Date(deliveredAt).getTime()) <= 24 * 60 * 60 * 1000 : false;
+  const canRaiseComplaint = orderDelivered && within24h;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24">
@@ -187,6 +240,18 @@ export default function SubmitComplaint() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="mx-4 mt-4 space-y-4">
+        {!canRaiseComplaint && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-800 dark:text-red-200">
+              <p className="font-semibold mb-1">Complaint not available</p>
+              <p className="text-red-700 dark:text-red-300">
+                Complaints can be raised only for delivered orders and within 24 hours of delivery.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Complaint Type */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -206,6 +271,24 @@ export default function SubmitComplaint() {
             )}
           </select>
         </div>
+
+        {/* Requested Action (Mismatch Only) */}
+        {["wrong_item", "missing_item"].includes(formData.complaintType) && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Request <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.requestedAction}
+              onChange={(e) => setFormData({ ...formData, requestedAction: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#E23744] focus:border-transparent"
+              required
+            >
+              <option value="REFUND">Refund</option>
+              <option value="COUPON">Coupon</option>
+            </select>
+          </div>
+        )}
 
         {/* Subject */}
         <div>
@@ -242,6 +325,25 @@ export default function SubmitComplaint() {
           </p>
         </div>
 
+        {/* Attachments */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Proof Images (optional)
+          </label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
+            className="w-full text-sm text-gray-700 dark:text-gray-300"
+          />
+          {files.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Selected {files.length} file{files.length !== 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
+
         {/* Info Box */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
           <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-300 flex-shrink-0 mt-0.5" />
@@ -257,13 +359,13 @@ export default function SubmitComplaint() {
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 p-4 z-20">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || uploading || !canRaiseComplaint}
             className="w-full bg-[#E23744] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             
-            {submitting ?
+            {submitting || uploading ?
             <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Submitting...
+                {uploading ? "Uploading..." : "Submitting..."}
               </> :
 
             "Submit Complaint"

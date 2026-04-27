@@ -157,7 +157,6 @@ export default function App() {
 
   return (
     <>
-      <RestaurantGlobalOrderSoundListener />
       <Routes>
       {/* User routes (public + protected) */}
       <Route path="/user/*" element={<UserRouter />} />

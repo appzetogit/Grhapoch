@@ -9,7 +9,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 export const getRestaurantComplaints = asyncHandler(async (req, res) => {
   try {
     const restaurantId = req.restaurant._id;
-    const { page = 1, limit = 20, status, complaintType, fromDate, toDate } = req.query;
+    const { page = 1, limit = 20, status, complaintType, fromDate, toDate, search } = req.query;
 
     const query = { restaurantId };
 
@@ -35,6 +35,20 @@ export const getRestaurantComplaints = asyncHandler(async (req, res) => {
         const endDate = new Date(toDate);
         endDate.setHours(23, 59, 59, 999);
         query.createdAt.$lte = endDate;
+      }
+    }
+
+    // Search filter (order number, customer details, subject/description)
+    if (search) {
+      const q = String(search).trim();
+      if (q) {
+        query.$or = [
+          { orderNumber: { $regex: q, $options: 'i' } },
+          { customerName: { $regex: q, $options: 'i' } },
+          { customerPhone: { $regex: q, $options: 'i' } },
+          { subject: { $regex: q, $options: 'i' } },
+          { description: { $regex: q, $options: 'i' } }
+        ];
       }
     }
 
@@ -169,5 +183,65 @@ export const respondToComplaint = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error responding to complaint:', error);
     return errorResponse(res, 500, 'Failed to submit response');
+  }
+});
+
+/**
+ * Restaurant mismatch review (accept/reject)
+ * POST /api/restaurant/complaints/:id/mismatch-review
+ */
+export const reviewMismatchComplaint = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const restaurantId = req.restaurant._id;
+    const { decision, response } = req.body;
+
+    const normalizedDecision = decision ? String(decision).toUpperCase().trim() : null;
+    if (!normalizedDecision || !['ACCEPT', 'REJECT'].includes(normalizedDecision)) {
+      return errorResponse(res, 400, 'decision is required (ACCEPT or REJECT)');
+    }
+    if (!response || !String(response).trim()) {
+      return errorResponse(res, 400, 'response is required');
+    }
+
+    const complaint = await RestaurantComplaint.findById(id);
+    if (!complaint) {
+      return errorResponse(res, 404, 'Complaint not found');
+    }
+
+    const complaintRestaurantId = complaint.restaurantId?.toString ? complaint.restaurantId.toString() : complaint.restaurantId;
+    if (complaintRestaurantId !== restaurantId.toString()) {
+      return errorResponse(res, 403, 'You can only review complaints for your restaurant');
+    }
+
+    const isMismatchComplaint = ['wrong_item', 'missing_item'].includes(complaint.complaintType);
+    if (!isMismatchComplaint) {
+      return errorResponse(res, 400, 'This review action is only available for mismatch complaints');
+    }
+
+    complaint.restaurantDecision = normalizedDecision;
+    complaint.restaurantResponse = String(response).trim();
+    complaint.restaurantRespondedAt = new Date();
+
+    if (normalizedDecision === 'REJECT') {
+      complaint.status = 'rejected';
+    } else if (complaint.status === 'pending') {
+      complaint.status = 'in_progress';
+    }
+
+    await complaint.save();
+
+    return successResponse(res, 200, 'Mismatch complaint reviewed successfully', {
+      complaint: {
+        id: complaint._id,
+        restaurantDecision: complaint.restaurantDecision,
+        restaurantResponse: complaint.restaurantResponse,
+        status: complaint.status,
+        restaurantRespondedAt: complaint.restaurantRespondedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error reviewing mismatch complaint:', error);
+    return errorResponse(res, 500, 'Failed to review complaint');
   }
 });

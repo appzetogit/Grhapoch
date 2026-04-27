@@ -5,6 +5,7 @@ import { Bell, HelpCircle, Menu, Search, SlidersHorizontal, Calendar, Reply, Che
 import { DateRangeCalendar } from "@/components/ui/date-range-calendar";
 import BottomNavOrders from "../components/BottomNavOrders";
 import { restaurantAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 const REVIEWS_STORAGE_KEY = "restaurant_reviews_data";
 
@@ -137,6 +138,27 @@ export default function Feedback() {
   const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
   const [isComplaintsLoading, setIsComplaintsLoading] = useState(false);
   const [complaints, setComplaints] = useState([]);
+  const [mismatchReply, setMismatchReply] = useState({}); // { [complaintId]: string }
+  const [mismatchSubmittingId, setMismatchSubmittingId] = useState(null);
+  const [respondSubmittingId, setRespondSubmittingId] = useState(null);
+
+  const getComplaintStatusLabel = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (s === "pending") return "Pending";
+    if (s === "in_progress") return "In Progress";
+    if (s === "resolved") return "Resolved";
+    if (s === "rejected") return "Rejected";
+    return "Unknown";
+  };
+
+  const getComplaintStatusClass = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (s === "pending") return "bg-yellow-50 text-yellow-700 border-yellow-200";
+    if (s === "in_progress") return "bg-blue-50 text-blue-700 border-blue-200";
+    if (s === "resolved") return "bg-green-50 text-green-700 border-green-200";
+    if (s === "rejected") return "bg-red-50 text-red-700 border-red-200";
+    return "bg-gray-50 text-gray-700 border-gray-200";
+  };
 
   // Restaurant data state
   const [restaurantData, setRestaurantData] = useState(null);
@@ -239,6 +261,87 @@ export default function Feedback() {
 
     fetchComplaints();
   }, [activeTab, selectedDateRange, customDateRange, complaintsFilterValues, complaintsSearchQuery]);
+
+  const handleMismatchReview = async (complaint, decision) => {
+    try {
+      const id = complaint?._id;
+      if (!id) return;
+
+      const reply = (mismatchReply[id] || "").trim();
+      if (!reply) {
+        toast.error("Please enter a response");
+        return;
+      }
+
+      setMismatchSubmittingId(id);
+      const resp = await restaurantAPI.reviewMismatchComplaint(id, {
+        decision,
+        response: reply
+      });
+
+      if (resp?.data?.success) {
+        toast.success("Complaint reviewed");
+        setComplaints((prev) =>
+          prev.map((c) =>
+            c._id === id
+              ? {
+                ...c,
+                restaurantDecision: decision,
+                restaurantResponse: reply,
+                status: decision === "REJECT" ? "rejected" : (c.status === "pending" ? "in_progress" : c.status)
+              }
+              : c
+          )
+        );
+      } else {
+        toast.error(resp?.data?.message || "Failed to review complaint");
+      }
+    } catch (error) {
+      console.error("Mismatch review error:", error);
+      toast.error(error?.response?.data?.message || "Failed to review complaint");
+    } finally {
+      setMismatchSubmittingId(null);
+    }
+  };
+
+  const handleRespondToComplaint = async (complaint) => {
+    try {
+      const id = complaint?._id;
+      if (!id) return;
+
+      const reply = (mismatchReply[id] || "").trim();
+      if (!reply) {
+        toast.error("Please enter a response");
+        return;
+      }
+
+      setRespondSubmittingId(id);
+      const resp = await restaurantAPI.respondToComplaint(id, reply);
+      if (resp?.data?.success) {
+        toast.success("Response sent");
+        const updated = resp?.data?.data?.complaint || {};
+        setComplaints((prev) =>
+          prev.map((c) =>
+            c._id === id
+              ? {
+                ...c,
+                restaurantResponse: updated.restaurantResponse ?? reply,
+                restaurantRespondedAt: updated.restaurantRespondedAt ?? c.restaurantRespondedAt,
+                status: updated.status ?? (c.status === "pending" ? "in_progress" : c.status)
+              }
+              : c
+          )
+        );
+      } else {
+        toast.error(resp?.data?.message || "Failed to send response");
+      }
+    } catch (error) {
+      console.error("Respond to complaint error:", error);
+      toast.error(error?.response?.data?.message || "Failed to send response");
+    } finally {
+      setRespondSubmittingId(null);
+    }
+  };
 
   // Fetch reviews from orders
   useEffect(() => {
@@ -756,12 +859,107 @@ export default function Feedback() {
                             <p className="font-semibold text-gray-900">{complaint.customerName}</p>
                             <p className="text-xs text-gray-500">Order #{complaint.orderNumber}</p>
                           </div>
+                          <span className={`text-[11px] px-2 py-1 rounded-full border ${getComplaintStatusClass(complaint.status)}`}>
+                            {getComplaintStatusLabel(complaint.status)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-gray-50 text-gray-700 border border-gray-200 capitalize">
+                            {String(complaint.complaintType || "issue").replaceAll("_", " ")}
+                          </span>
+                          {complaint.requestedAction &&
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                              Requested: {String(complaint.requestedAction || "").toUpperCase()}
+                            </span>
+                          }
                         </div>
                         <p className="text-sm font-medium text-gray-800 mb-1">{complaint.subject}</p>
                         <p className="text-sm text-gray-600 mb-3">{complaint.description}</p>
+
+                        {/* Action area */}
+                        {(() => {
+                          const isMismatch = ["wrong_item", "missing_item"].includes(String(complaint.complaintType || ""));
+                          const isTerminal = ["resolved", "rejected"].includes(String(complaint.status || ""));
+                          const hasRestaurantResponse = !!String(complaint.restaurantResponse || "").trim();
+                          const hasDecision = !!String(complaint.restaurantDecision || "").trim();
+                          const id = complaint?._id;
+
+                          if (isTerminal) return null;
+
+                          // Mismatch complaint: allow accept/reject review (only if restaurant hasn't decided yet)
+                          if (isMismatch && !hasDecision) {
+                            return (
+                              <div className="mt-3 space-y-2">
+                                <textarea
+                                  value={mismatchReply[id] ?? ""}
+                                  onChange={(e) =>
+                                    setMismatchReply((prev) => ({ ...prev, [id]: e.target.value }))
+                                  }
+                                  rows={3}
+                                  placeholder="Write your response for this mismatch complaint..."
+                                  className="w-full rounded-md border border-gray-200 p-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={mismatchSubmittingId === id}
+                                    onClick={() => handleMismatchReview(complaint, "ACCEPT")}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-green-600 text-white px-3 py-2 text-sm font-semibold hover:bg-green-700 disabled:opacity-60"
+                                  >
+                                    {mismatchSubmittingId === id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                    Accept
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={mismatchSubmittingId === id}
+                                    onClick={() => handleMismatchReview(complaint, "REJECT")}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-red-600 text-white px-3 py-2 text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+                                  >
+                                    {mismatchSubmittingId === id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Non-mismatch complaints: allow a simple response if not already responded
+                          if (!isMismatch && !hasRestaurantResponse) {
+                            return (
+                              <div className="mt-3 space-y-2">
+                                <textarea
+                                  value={mismatchReply[id] ?? ""}
+                                  onChange={(e) =>
+                                    setMismatchReply((prev) => ({ ...prev, [id]: e.target.value }))
+                                  }
+                                  rows={3}
+                                  placeholder="Write your response to the customer..."
+                                  className="w-full rounded-md border border-gray-200 p-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={respondSubmittingId === id}
+                                  onClick={() => handleRespondToComplaint(complaint)}
+                                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 text-white px-3 py-2 text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
+                                >
+                                  {respondSubmittingId === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                  Send response
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })()}
+
                         {complaint.restaurantResponse &&
                   <div className="bg-gray-50 rounded p-3 mt-3">
                             <p className="text-xs font-semibold text-gray-700 mb-1">Your Response:</p>
+                            {complaint.restaurantDecision &&
+                          <p className="text-xs text-gray-600 mb-1">
+                                Decision: {String(complaint.restaurantDecision).toLowerCase()}
+                              </p>
+                            }
                             <p className="text-sm text-gray-700">{complaint.restaurantResponse}</p>
                           </div>
                   }

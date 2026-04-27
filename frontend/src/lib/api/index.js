@@ -678,6 +678,10 @@ export const restaurantAPI = {
   respondToComplaint: (id, response) => {
     return apiClient.put(API_ENDPOINTS.RESTAURANT.COMPLAINT_RESPOND.replace(':id', id), { response });
   },
+  reviewMismatchComplaint: (id, payload) => {
+    // payload: { decision: 'ACCEPT'|'REJECT', response: string }
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.COMPLAINT_MISMATCH_REVIEW.replace(':id', id), payload);
+  },
 
   // Subscription operations
   createSubscriptionOrder: (planId) => {
@@ -1198,6 +1202,10 @@ export const adminAPI = {
     return apiClient.put(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINT_NOTES.replace(':id', id), {
       internalNotes
     });
+  },
+  mismatchRestaurantComplaintAction: (id, payload) => {
+    // payload: { action: 'REFUND'|'COUPON'|'REJECT', refundAmount?, adminResponse? }
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_COMPLAINT_MISMATCH_ACTION.replace(':id', id), payload);
   },
 
   // Restaurant Menu Management (Admin)

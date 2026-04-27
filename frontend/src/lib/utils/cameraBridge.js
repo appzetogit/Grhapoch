@@ -90,8 +90,9 @@ export const requestImageFileFromFlutter = async ({
     let result;
     try {
       result = await callFlutterHandler(handlerName, payload, handlerTimeoutMs);
-    } catch {
+    } catch (error) {
       // Handler threw / timed out → not implemented, try next one
+      console.warn(`[cameraBridge] Handler "${handlerName}" failed/timed out:`, error?.message || error);
       continue;
     }
 
@@ -104,23 +105,37 @@ export const requestImageFileFromFlutter = async ({
       continue;
     }
 
-    // Explicit cancellation from Flutter
-    if (result.cancelled === true || result.success === false) {
-      return null;
+    // CASE 1: Raw base64 string response
+    if (typeof result === "string" && (result.length > 100 || result.startsWith("data:image"))) {
+      console.log(`[cameraBridge] Handler "${handlerName}" returned raw base64 string`);
+      return base64ToFile(result, "image/jpeg", `${fileNamePrefix}-${Date.now()}.jpg`);
     }
 
-    // Success — extract the image
-    if (result.success === true) {
-      if (!result.base64) {
-        console.warn(`[cameraBridge] Handler "${handlerName}" returned success but no base64 data`);
+    // CASE 2: Standard object response { success, base64, ... }
+    if (typeof result === "object") {
+      // Explicit cancellation from Flutter
+      if (result.cancelled === true || result.success === false) {
+        console.log(`[cameraBridge] Handler "${handlerName}" reported cancellation/failure`);
         return null;
       }
-      const mimeType = result.mimeType || "image/jpeg";
-      const fileName = result.fileName || `${fileNamePrefix}-${Date.now()}.jpg`;
-      return base64ToFile(result.base64, mimeType, fileName);
+
+      // Success — extract the image (check multiple common field names)
+      const base64Data = result.base64 || result.data || result.image || result.fileData;
+      
+      if (result.success === true || base64Data) {
+        if (!base64Data) {
+          console.warn(`[cameraBridge] Handler "${handlerName}" returned success=true but no base64 data found in`, Object.keys(result));
+          continue; // Try next handler if this one gave empty success
+        }
+        
+        const mimeType = result.mimeType || result.contentType || "image/jpeg";
+        const fileName = result.fileName || result.name || `${fileNamePrefix}-${Date.now()}.jpg`;
+        return base64ToFile(base64Data, mimeType, fileName);
+      }
     }
 
     // Unknown response shape — treat as not-implemented and try next
+    console.warn(`[cameraBridge] Handler "${handlerName}" returned unknown response shape:`, typeof result);
     continue;
   }
 

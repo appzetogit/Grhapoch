@@ -67,9 +67,13 @@ export default function RestaurantGoogleCallback() {
         // incomplete onboarding -> onboarding step, otherwise -> to-hub
         setTimeout(async () => {
           const incompleteStep = await checkOnboardingStatus()
-          if (incompleteStep) {
+          console.log("[GoogleCallback] Onboarding check result:", incompleteStep)
+          
+          if (incompleteStep !== null && incompleteStep !== undefined) {
+            console.log(`[GoogleCallback] Redirecting to onboarding step ${incompleteStep}`)
             navigate(`/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
           } else {
+            console.log("[GoogleCallback] Onboarding complete, redirecting to hub")
             navigate("/restaurant/to-hub", { replace: true })
           }
         }, 1200)

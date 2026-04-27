@@ -219,10 +219,15 @@ export default function RestaurantLogin() {
       setAuthData("restaurant", accessToken, restaurant)
       window.dispatchEvent(new Event("restaurantAuthChanged"))
 
+      // Check if onboarding is needed
       const incompleteStep = await checkOnboardingStatus()
-      if (incompleteStep) {
+      console.log("[Login] Onboarding check result:", incompleteStep)
+      
+      if (incompleteStep !== null && incompleteStep !== undefined) {
+        console.log(`[Login] Redirecting to onboarding step ${incompleteStep}`)
         navigate(`/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
       } else {
+        console.log("[Login] Onboarding complete, redirecting to hub")
         navigate("/restaurant/to-hub", { replace: true })
       }
     } catch (error) {

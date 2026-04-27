@@ -11,6 +11,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
   const uploaded = uploadedDocs[docType]  // only truthy after cloudinary upload
   const isUploading = uploading[docType]
   const galleryInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -58,14 +59,16 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                   if (hasFlutterCameraBridge()) {
                     try {
                       const file = await requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType });
-                      if (file) handleFileSelect(docType, file);
+                      if (file) {
+                        handleFileSelect(docType, file);
+                        return;
+                      }
                     } catch (e) {
-                      console.warn("Bridge camera failed, falling back to web camera:", e);
-                      setActiveCamera(docType);
+                      console.warn("Bridge camera failed, falling back to native capture:", e);
                     }
-                  } else {
-                    setActiveCamera(docType);
                   }
+                  // Fallback to native camera capture
+                  cameraInputRef.current?.click();
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
@@ -83,14 +86,16 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                   if (hasFlutterCameraBridge()) {
                     try {
                       const file = await requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType });
-                      if (file) handleFileSelect(docType, file);
+                      if (file) {
+                        handleFileSelect(docType, file);
+                        return;
+                      }
                     } catch (e) {
                       console.warn("Bridge gallery failed, falling back to device picker:", e);
-                      galleryInputRef.current?.click();
                     }
-                  } else {
-                    galleryInputRef.current?.click();
                   }
+                  // Fallback to device picker
+                  galleryInputRef.current?.click();
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
@@ -109,6 +114,21 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
             ref={galleryInputRef}
             className="hidden"
             accept="image/*"
+            onChange={(e) => {
+              const selectedFile = e.target.files[0]
+              if (selectedFile) handleFileSelect(docType, selectedFile)
+              e.target.value = ''
+            }}
+            disabled={isUploading}
+          />
+
+          {/* Hidden Input for Native Camera Capture */}
+          <input
+            type="file"
+            ref={cameraInputRef}
+            className="hidden"
+            accept="image/*"
+            capture="environment"
             onChange={(e) => {
               const selectedFile = e.target.files[0]
               if (selectedFile) handleFileSelect(docType, selectedFile)

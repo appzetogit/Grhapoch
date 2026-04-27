@@ -1081,6 +1081,7 @@ export default function OutletInfo() {
           <div className="p-6 pt-2 space-y-4">
             <button
               onClick={async () => {
+                setShowImageSourceDialog(false);
                 if (hasFlutterCameraBridge()) {
                   try {
                     const file = await requestImageFileFromFlutter({ 
@@ -1090,14 +1091,13 @@ export default function OutletInfo() {
                     if (file) {
                       if (activeImageTarget === 'profile') handleProfileImageReplace({ target: { files: [file] } });
                       else handleCoverImageAdd({ target: { files: [file] } });
-                      setShowImageSourceDialog(false);
                       return;
                     }
                   } catch (err) {
                     console.warn("Flutter bridge camera failed, falling back to web camera:", err);
                   }
                 }
-                setShowImageSourceDialog(false);
+                // Fallback to web camera modal
                 setActiveCamera(activeImageTarget);
               }}
               className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all border border-gray-100 group"
@@ -1112,6 +1112,7 @@ export default function OutletInfo() {
             </button>
             <button
               onClick={async () => {
+                setShowImageSourceDialog(false);
                 if (hasFlutterCameraBridge()) {
                   try {
                     const file = await requestImageFileFromFlutter({ 
@@ -1121,21 +1122,20 @@ export default function OutletInfo() {
                     if (file) {
                       if (activeImageTarget === 'profile') handleProfileImageReplace({ target: { files: [file] } });
                       else handleCoverImageAdd({ target: { files: [file] } });
-                      setShowImageSourceDialog(false);
                       return;
                     }
                   } catch (err) {
                     console.warn("Flutter bridge gallery failed, falling back to web:", err);
                   }
                 }
-                setShowImageSourceDialog(false);
+                // Fallback to native file input
                 if (activeImageTarget === 'profile') profileImageInputRef.current?.click();
                 else menuImageInputRef.current?.click();
               }}
               className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all border border-gray-100 group"
             >
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-600 transition-colors">
-                <ImageIcon className="h-6 w-6 text-green-600 group-hover:text-white transition-colors" />
+                <Image className="h-6 w-6 text-green-600 group-hover:text-white transition-colors" />
               </div>
               <div className="text-left">
                 <div className="text-base font-semibold text-gray-900">Files & Gallery</div>

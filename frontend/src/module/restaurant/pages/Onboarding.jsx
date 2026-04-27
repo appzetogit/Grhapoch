@@ -2277,33 +2277,18 @@ export default function RestaurantOnboarding() {
                 </span>
               </div>
             </div>
-            {isFlutterWebView ?
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleBridgePickForField("menuImages", "gallery", "menuImagesInput")}
-                  className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
-                >
-                  <Upload className="w-4.5 h-4.5" />
-                  <span>Choose files</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBridgePickForField("menuImages", "camera", "menuImagesInput")}
-                  className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium w-full"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>Use camera</span>
-                </button>
-              </> :
-              <label
-                htmlFor="menuImagesInput"
-                className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
-
-                <Upload className="w-4.5 h-4.5" />
-                <span>Choose files</span>
-              </label>
-            }
+            <label
+              htmlFor="menuImagesInput"
+              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
+              <Upload className="w-4.5 h-4.5" />
+              <span>Choose files</span>
+            </label>
+            <label
+              htmlFor="menuImagesCameraInput"
+              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
+              <Camera className="w-4 h-4" />
+              <span>Use camera</span>
+            </label>
             <input
               id="menuImagesInput"
               type="file"
@@ -2313,12 +2298,26 @@ export default function RestaurantOnboarding() {
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (!files.length) return;
-
                 setStep2((prev) => ({
                   ...prev,
-                  menuImages: [...(prev.menuImages || []), ...files] // Append new files to existing ones
+                  menuImages: [...(prev.menuImages || []), ...files]
                 }));
-                // Reset input to allow selecting same file again
+                e.target.value = '';
+              }} />
+            <input
+              id="menuImagesCameraInput"
+              type="file"
+              multiple
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                setStep2((prev) => ({
+                  ...prev,
+                  menuImages: [...(prev.menuImages || []), ...files]
+                }));
                 e.target.value = '';
               }} />
 
@@ -2432,41 +2431,29 @@ export default function RestaurantOnboarding() {
               </div>
             </div>
           </div>
-          {isFlutterWebView ?
-            <>
-              <button
-                type="button"
-                onClick={() => handleBridgePickForField("profileImage", "gallery", "profileImageInput")}
-                disabled={!!step2.profileImage || removingProfile}
-                className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <Upload className="w-4.5 h-4.5" />
-                <span>Upload</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleBridgePickForField("profileImage", "camera", "profileImageInput")}
-                disabled={!!step2.profileImage || removingProfile}
-                className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"} ${(step2.profileImage || removingProfile) ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <Camera className="w-4 h-4" />
-                <span>Use camera</span>
-              </button>
-            </> :
-            <label
-              htmlFor="profileImageInput"
-              onClick={() => handleFileClick('profileImage', 'profileImageInput')}
-              style={{
-                opacity: (step2.profileImage || removingProfile) ? 0.5 : 1,
-                pointerEvents: (step2.profileImage || removingProfile) ? 'none' : 'auto',
-                cursor: (step2.profileImage || removingProfile) ? 'not-allowed' : 'pointer'
-              }}
-              className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"}`}>
-
-              <Upload className="w-4.5 h-4.5" />
-              <span>Upload</span>
-            </label>
-          }
+          <label
+            htmlFor="profileImageInput"
+            onClick={() => handleFileClick('profileImage', 'profileImageInput')}
+            style={{
+              opacity: (step2.profileImage || removingProfile) ? 0.5 : 1,
+              pointerEvents: (step2.profileImage || removingProfile) ? 'none' : 'auto',
+              cursor: (step2.profileImage || removingProfile) ? 'not-allowed' : 'pointer'
+            }}
+            className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"}`}>
+            <Upload className="w-4.5 h-4.5" />
+            <span>Upload</span>
+          </label>
+          <label
+            htmlFor="profileImageCameraInput"
+            style={{
+              opacity: (step2.profileImage || removingProfile) ? 0.5 : 1,
+              pointerEvents: (step2.profileImage || removingProfile) ? 'none' : 'auto',
+              cursor: (step2.profileImage || removingProfile) ? 'not-allowed' : 'pointer'
+            }}
+            className={`inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border text-xs font-medium w-full ${formErrors.profileImage ? "border-red-500" : "border-black"}`}>
+            <Camera className="w-4 h-4" />
+            <span>Camera</span>
+          </label>
           <input
             id="profileImageInput"
             type="file"
@@ -2480,7 +2467,25 @@ export default function RestaurantOnboarding() {
                   ...prev,
                   profileImage: file
                 }));
-                validateField('profileImage', file); // Validate with the actual file object
+                validateField('profileImage', file);
+              }
+              e.target.value = '';
+            }} />
+          <input
+            id="profileImageCameraInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              filePickedRef.current = true;
+              const file = e.target.files?.[0] || null;
+              if (file) {
+                setStep2((prev) => ({
+                  ...prev,
+                  profileImage: file
+                }));
+                validateField('profileImage', file);
               }
               e.target.value = '';
             }} />
@@ -2629,38 +2634,47 @@ export default function RestaurantOnboarding() {
         <div>
           <Label className="text-xs text-gray-700">PAN image<span className="text-red-500">*</span></Label>
           <div className="mt-1 space-y-2">
-            {isFlutterWebView ?
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleBridgePickForField("panImage", "gallery", "panImageInput")}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBridgePickForField("panImage", "camera", "panImageInput")}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  Use camera
-                </button>
-              </div> :
-              <Input
-                id="panImageInput"
-                type="file"
-                accept="image/*"
-                onClick={() => handleFileClick('panImage', 'panImageInput')}
-                onChange={(e) => {
-                  filePickedRef.current = true;
-                  const file = e.target.files?.[0] || null;
-                  setStep3(prev => ({ ...prev, panImage: file }));
-                  validateField('panImage', file);
-                }}
-                className={`bg-white text-sm text-black placeholder-black ${formErrors.panImage ? "border-red-500" : "border-gray-200"} ${step3.panImage ? "text-transparent" : ""}`} />
-            }
+            <div className="flex flex-wrap gap-2">
+              <label
+                htmlFor="panImageInput"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Upload
+              </label>
+              <label
+                htmlFor="panImageCameraInput"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Use camera
+              </label>
+            </div>
+            <input
+              id="panImageInput"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                filePickedRef.current = true;
+                const file = e.target.files?.[0] || null;
+                setStep3(prev => ({ ...prev, panImage: file }));
+                validateField('panImage', file);
+                e.target.value = '';
+              }} />
+            <input
+              id="panImageCameraInput"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                filePickedRef.current = true;
+                const file = e.target.files?.[0] || null;
+                setStep3(prev => ({ ...prev, panImage: file }));
+                validateField('panImage', file);
+                e.target.value = '';
+              }} />
             {formErrors.panImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.panImage}</p>}
             {step3.panImage && (
               <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">
@@ -2761,38 +2775,47 @@ export default function RestaurantOnboarding() {
 
             <div className="space-y-1">
               <Label className="text-xs text-gray-600">GST certificate image<span className="text-red-500">*</span></Label>
-              {isFlutterWebView ?
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleBridgePickForField("gstImage", "gallery", "gstImageInput")}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Upload
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBridgePickForField("gstImage", "camera", "gstImageInput")}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    Use camera
-                  </button>
-                </div> :
-                <Input
-                  id="gstImageInput"
-                  type="file"
-                  accept="image/*"
-                  onClick={() => handleFileClick('gstImage', 'gstImageInput')}
-                  onChange={(e) => {
-                    filePickedRef.current = true;
-                    const file = e.target.files?.[0] || null;
-                    setStep3(prev => ({ ...prev, gstImage: file }));
-                    validateField('gstImage', file);
-                  }}
-                  className={`bg-white text-sm ${formErrors.gstImage ? "border-red-500" : "border-gray-200"} ${step3.gstImage ? "text-transparent" : ""}`} />
-              }
+              <div className="flex flex-wrap gap-2">
+                <label
+                  htmlFor="gstImageInput"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload
+                </label>
+                <label
+                  htmlFor="gstImageCameraInput"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Use camera
+                </label>
+              </div>
+              <input
+                id="gstImageInput"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  filePickedRef.current = true;
+                  const file = e.target.files?.[0] || null;
+                  setStep3(prev => ({ ...prev, gstImage: file }));
+                  validateField('gstImage', file);
+                  e.target.value = '';
+                }} />
+              <input
+                id="gstImageCameraInput"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  filePickedRef.current = true;
+                  const file = e.target.files?.[0] || null;
+                  setStep3(prev => ({ ...prev, gstImage: file }));
+                  validateField('gstImage', file);
+                  e.target.value = '';
+                }} />
               {formErrors.gstImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.gstImage}</p>}
               {step3.gstImage && (
                 <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">
@@ -2899,38 +2922,47 @@ export default function RestaurantOnboarding() {
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-gray-600 mb-1.5 block">FSSAI certificate image<span className="text-red-500">*</span></Label>
-          {isFlutterWebView ?
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => handleBridgePickForField("fssaiImage", "gallery", "fssaiImageInput")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => handleBridgePickForField("fssaiImage", "camera", "fssaiImageInput")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                Use camera
-              </button>
-            </div> :
-            <Input
-              id="fssaiImageInput"
-              type="file"
-              accept="image/*"
-              onClick={() => handleFileClick('fssaiImage', 'fssaiImageInput')}
-              onChange={(e) => {
-                filePickedRef.current = true;
-                const file = e.target.files?.[0] || null;
-                setStep3(prev => ({ ...prev, fssaiImage: file }));
-                validateField('fssaiImage', file);
-              }}
-              className={`bg-white text-sm ${formErrors.fssaiImage ? "border-red-500" : "border-gray-200"} ${step3.fssaiImage ? "text-transparent" : ""}`} />
-          }
+          <div className="flex flex-wrap gap-2">
+            <label
+              htmlFor="fssaiImageInput"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Upload
+            </label>
+            <label
+              htmlFor="fssaiImageCameraInput"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Use camera
+            </label>
+          </div>
+          <input
+            id="fssaiImageInput"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              filePickedRef.current = true;
+              const file = e.target.files?.[0] || null;
+              setStep3(prev => ({ ...prev, fssaiImage: file }));
+              validateField('fssaiImage', file);
+              e.target.value = '';
+            }} />
+          <input
+            id="fssaiImageCameraInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              filePickedRef.current = true;
+              const file = e.target.files?.[0] || null;
+              setStep3(prev => ({ ...prev, fssaiImage: file }));
+              validateField('fssaiImage', file);
+              e.target.value = '';
+            }} />
           {formErrors.fssaiImage && <p className="text-red-500 text-[10px] mt-1">{formErrors.fssaiImage}</p>}
           {step3.fssaiImage && (
             <div className="flex items-center justify-between gap-2 text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-sm border border-green-100">

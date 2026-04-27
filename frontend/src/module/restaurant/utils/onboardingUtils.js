@@ -119,12 +119,15 @@ export const checkOnboardingStatus = async () => {
     const onboardingCompleted = res?.data?.data?.onboardingCompleted
     const subscriptionStatus = res?.data?.data?.subscription?.status
 
+    console.log("[onboardingUtils] Server response:", { onboardingCompleted, subscriptionStatus, hasData: !!data })
+
     if (onboardingCompleted || subscriptionStatus === "active") {
       return null
     }
 
     if (data) {
       const stepToShow = determineStepToShow(data)
+      console.log("[onboardingUtils] Determined step to show:", stepToShow)
       return stepToShow
     }
     // No onboarding data, start from step 1

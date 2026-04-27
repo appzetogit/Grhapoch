@@ -50,30 +50,43 @@ export default function ComplaintDetails() {
   const [complaint, setComplaint] = useState(null)
 
   useEffect(() => {
-    const fetchDetails = async () => {
+    const fetchDetails = async (isRefresh = false) => {
       if (!id) return
       try {
-        setLoading(true)
+        if (!isRefresh) setLoading(true)
         const resp = await orderAPI.getComplaintDetails(id)
         const c = resp?.data?.data?.complaint || null
         if (!c) {
-          toast.error("Complaint not found")
-          navigate("/user/complaints", { replace: true })
+          if (!isRefresh) {
+            toast.error("Complaint not found")
+            navigate("/user/complaints", { replace: true })
+          }
           return
         }
         setComplaint(c)
       } catch (error) {
         console.error("Error fetching complaint details:", error)
-        toast.error(error?.response?.data?.message || "Failed to fetch complaint details")
-        navigate("/user/complaints", { replace: true })
+        if (!isRefresh) {
+          toast.error(error?.response?.data?.message || "Failed to fetch complaint details")
+          navigate("/user/complaints", { replace: true })
+        }
       } finally {
-        setLoading(false)
+        if (!isRefresh) setLoading(false)
       }
     }
 
     fetchDetails()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+
+    // Auto-refresh complaint details every 10 seconds
+    const interval = setInterval(() => {
+      // Only poll if complaint is not finalized (resolved/rejected)
+      if (complaint && !["resolved", "rejected"].includes(complaint.status)) {
+        fetchDetails(true);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [id, navigate, complaint?.status])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24">
@@ -132,7 +145,7 @@ export default function ComplaintDetails() {
             </div>
           </div>
 
-          {(complaint.couponCode || complaint.refundId || complaint.refundAmount) && (
+          {(!!complaint.couponCode || !!complaint.refundId || (Number(complaint.refundAmount) > 0)) && (
             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/30 p-4">
               <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Resolution</p>
               {complaint.couponCode && (

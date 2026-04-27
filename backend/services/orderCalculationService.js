@@ -307,25 +307,38 @@ export const calculateOrderPricing = async ({
         // Only apply if we know the userId (authenticated calculate endpoint or during order creation).
         if (userId) {
           const normalizedCode = String(couponCode).toUpperCase().trim();
+          console.log(`[OrderPricing] 🔍 Checking one-time coupon: "${normalizedCode}" for user: ${userId}`);
+
+          // Fetch coupon by code first to debug owner/status issues
           const oneTime = await OneTimeCoupon.findOne({
             code: normalizedCode,
-            userId: userId,
             isActive: true,
-            expiryDate: { $gte: now },
-            $expr: { $lt: ['$usedCount', '$usageLimit'] }
+            expiryDate: { $gte: now }
           }).lean();
 
-          // If coupon is reserved and reservation hasn't expired, treat as unavailable.
-          // Reservation is used only for Razorpay pending checkouts.
-          const reservationActive = oneTime?.reservationExpiresAt && new Date(oneTime.reservationExpiresAt) > now;
-          if (oneTime && !reservationActive) {
-            discount = Math.min(Number(oneTime.value) || 0, subtotal);
-            appliedCoupon = {
-              code: oneTime.code,
-              discount: discount,
-              type: 'one_time'
-            };
+          if (oneTime) {
+            const isOwner = oneTime.userId.toString() === userId.toString();
+            const hasUsageLeft = (oneTime.usedCount || 0) < (oneTime.usageLimit || 1);
+            const reservationActive = oneTime.reservationExpiresAt && new Date(oneTime.reservationExpiresAt) > now;
+
+            console.log(`[OrderPricing] Found coupon: ${oneTime.code} | OwnerMatch: ${isOwner} | UsageLeft: ${hasUsageLeft} | Reserved: ${reservationActive}`);
+
+            if (isOwner && hasUsageLeft && !reservationActive) {
+              discount = Math.min(Number(oneTime.value) || 0, subtotal);
+              appliedCoupon = {
+                code: oneTime.code,
+                discount: discount,
+                type: 'one_time'
+              };
+              console.log(`[OrderPricing] ✅ Applied one-time coupon. Discount: ₹${discount}`);
+            } else {
+              console.log(`[OrderPricing] ❌ Coupon not applicable: ${!isOwner ? 'Wrong User' : (!hasUsageLeft ? 'Used Up' : 'Reserved')}`);
+            }
+          } else {
+            console.log(`[OrderPricing] ❌ One-time coupon "${normalizedCode}" not found or expired/inactive.`);
           }
+        } else {
+          console.log(`[OrderPricing] ℹ️ No userId provided, skipping one-time coupon check.`);
         }
 
         // 1. Check Global Coupon first (New System)

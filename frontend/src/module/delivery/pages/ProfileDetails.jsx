@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Edit2, Camera, Eye, X, AlertCircle, UploadCloud, RefreshCw, Check, Loader2 } from "lucide-react"
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
 import BottomPopup from "../components/BottomPopup"
 import { toast } from "sonner"
 import { deliveryAPI, uploadAPI } from "@/lib/api"
@@ -1028,6 +1029,19 @@ export default function ProfileDetails() {
                 className="hidden"
               />
               <label
+                onClick={async (e) => {
+                  if (hasFlutterCameraBridge()) {
+                    e.preventDefault();
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'qr-code' });
+                      if (file) {
+                        handleQrUpload(file);
+                      }
+                    } catch (err) {
+                      console.error("Flutter QR gallery error:", err);
+                    }
+                  }
+                }}
                 htmlFor="qr-upload"
                 className="flex flex-col items-center justify-center w-full py-6 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-green-500 hover:bg-green-50/30 transition-all group"
               >
@@ -1302,9 +1316,22 @@ export default function ProfileDetails() {
           ) : (
             <>
               <button
-                onClick={() => {
-                  setShowPhotoPopup(false);
-                  setIsCameraOpen(true);
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    setShowPhotoPopup(false);
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: 'camera', fileNamePrefix: 'rider-profile' });
+                      if (file) {
+                        handlePhotoUpload(file);
+                      }
+                    } catch (err) {
+                      console.error("Flutter camera error:", err);
+                      setIsCameraOpen(true);
+                    }
+                  } else {
+                    setShowPhotoPopup(false);
+                    setIsCameraOpen(true);
+                  }
                 }}
                 className="w-full py-4 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 active:scale-[0.98] transition-all"
               >
@@ -1312,7 +1339,22 @@ export default function ProfileDetails() {
                 Camera
               </button>
               <button
-                onClick={() => document.getElementById("profile-photo-input").click()}
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    setShowPhotoPopup(false);
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'rider-profile' });
+                      if (file) {
+                        handlePhotoUpload(file);
+                      }
+                    } catch (err) {
+                      console.error("Flutter gallery error:", err);
+                      document.getElementById("profile-photo-input").click();
+                    }
+                  } else {
+                    document.getElementById("profile-photo-input").click();
+                  }
+                }}
                 className="w-full py-4 bg-gray-50 text-gray-900 border border-gray-200 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 active:scale-[0.98] transition-all"
               >
                 <UploadCloud className="w-5 h-5 text-gray-600" />

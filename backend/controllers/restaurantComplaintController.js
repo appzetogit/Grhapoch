@@ -331,6 +331,12 @@ export const mismatchAdminAction = asyncHandler(async (req, res) => {
       complaint.couponCode = coupon.code;
       complaint.resolvedAt = new Date();
       complaint.resolvedBy = adminId;
+      
+      // Ensure adminResponse is set
+      if (!complaint.adminResponse) {
+        complaint.adminResponse = `A one-time coupon of ₹${amount} has been issued as a resolution for your complaint. Code: ${coupon.code}`;
+        complaint.adminRespondedAt = new Date();
+      }
 
       await complaint.save();
 
@@ -418,6 +424,11 @@ export const mismatchAdminAction = asyncHandler(async (req, res) => {
     complaint.refundId = refundId;
     complaint.resolvedAt = new Date();
     complaint.resolvedBy = adminId;
+
+    if (!complaint.adminResponse) {
+      complaint.adminResponse = `A refund of ₹${amount} has been processed for your complaint. Refund ID: ${refundId || 'Pending'}`;
+      complaint.adminRespondedAt = new Date();
+    }
 
     await complaint.save();
 

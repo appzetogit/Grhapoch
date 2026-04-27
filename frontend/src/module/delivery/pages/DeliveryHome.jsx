@@ -50,6 +50,7 @@ import { deliveryAPI, restaurantAPI, uploadAPI } from "@/lib/api";
 import { useDeliveryNotifications } from "../hooks/useDeliveryNotifications";
 import { getGoogleMapsApiKey } from "@/lib/utils/googleMapsApiKey";
 import { Loader } from "@googlemaps/js-api-loader";
+import { requestImageFileFromFlutter } from "@/lib/utils/cameraBridge";
 import {
   decodePolyline,
   extractPolylineFromDirections,
@@ -3432,77 +3433,18 @@ export default function DeliveryHome() {
    */
   const handleCameraCapture = async () => {
     try {
-      // Check if Flutter InAppWebView handler is available
-      if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+      // Use centralized Flutter bridge for camera capture
+      const file = await requestImageFileFromFlutter({
+        source: 'camera',
+        fileNamePrefix: 'delivery-bill'
+      });
 
-        // Call Flutter handler to open camera
-        const result = await window.flutter_inappwebview.callHandler('openCamera', {
-          source: 'camera', // 'camera' for camera, 'gallery' for file picker
-          accept: 'image/*',
-          multiple: false,
-          quality: 0.8 // Image quality (0.0 to 1.0)
-        });
-
-
-        if (result && result.success) {
-          // Handle the result - could be base64, file path, or file object
-          let file = null;
-
-          if (result.file) {
-            // If Flutter returns a File object (preferred method)
-            file = result.file;
-          } else if (result.base64) {
-            // If Flutter returns base64, convert to File
-            let base64Data = result.base64;
-
-            // Remove data URL prefix if present
-            if (base64Data.includes(',')) {
-              base64Data = base64Data.split(',')[1];
-            }
-
-            try {
-              const byteCharacters = atob(base64Data);
-              const byteNumbers = new Array(byteCharacters.length);
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              const mimeType = result.mimeType || 'image/jpeg';
-              const blob = new Blob([byteArray], { type: mimeType });
-              file = new File([blob], result.fileName || `bill-image-${Date.now()}.jpg`, { type: mimeType });
-            } catch (base64Error) {
-              console.error('❌ Error converting base64 to File:', base64Error);
-              toast.error('Failed to process image. Please try again.');
-              return;
-            }
-          } else if (result.filePath) {
-            // If Flutter returns file path, we need to fetch it
-            // This would require additional Flutter handler to read file
-            console.warn('⚠️ File path returned, but file reading not implemented');
-            toast.error('File path handling not implemented. Please use base64 or File object.');
-            return;
-          }
-
-          if (file) {
-            // Process the file the same way as handleBillImageSelect
-            await processBillImageFile(file);
-          } else {
-            console.error('❌ No file data in Flutter response:', result);
-            toast.error('Failed to get image from camera');
-          }
-        } else {
-        }
-      } else {
-        // Fallback to standard file input for web browsers
-        if (cameraInputRef.current) {
-          cameraInputRef.current.click();
-        }
+      if (file) {
+        await processBillImageFile(file);
       }
     } catch (error) {
       console.error('❌ Error opening camera:', error);
-      toast.error('Failed to open camera. Please try again.');
-
-      // Fallback to standard file input
+      // Fallback to standard file input for web browsers
       if (cameraInputRef.current) {
         cameraInputRef.current.click();
       }
@@ -9864,14 +9806,11 @@ export default function DeliveryHome() {
                     <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
-                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
                         const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
+                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
                         let value = 0;
 
-
-                        if (Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
-                          value = Number(deliveryFee);
-                        } else if (earnings) {
+                        if (earnings) {
                           if (typeof earnings === 'object') {
                             // Handle earnings object
                             if (earnings.totalEarning != null) {
@@ -9885,31 +9824,41 @@ export default function DeliveryHome() {
                           }
                         }
 
+                        // Fallback to deliveryFee if no value from earnings
+                        if (value === 0 && Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
+                          value = Number(deliveryFee);
+                        }
+
                         return value > 0 ? value.toFixed(2) : '0.00';
                       })()}
                     </p>
                     {/* Earnings Breakdown */}
                     {(() => {
-                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
-                      const hasDeliveryFee = Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0;
                       const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                      if (!hasDeliveryFee && typeof earnings === 'object' && earnings.breakdown) {
+                      const hasEarningsObj = typeof earnings === 'object';
+                      const tip = hasEarningsObj ? Number(earnings.tip) || 0 : 0;
+                      
+                      if (hasEarningsObj && (earnings.breakdown || tip > 0)) {
                         return (
                           <div className="bg-green-50 rounded-lg p-3 mb-2">
                             <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
-                            <p className="text-green-700 text-xs">
-                              Base: ₹{earnings.basePayout?.toFixed(0) || '0'}
-                              {earnings.distanceCommission > 0 &&
-                                <> + Distance ({(earnings.distance - earnings.minDistance)?.toFixed(1)} km × ₹{earnings.commissionPerKm?.toFixed(0)}/km) = ₹{earnings.distanceCommission?.toFixed(0)}</>
-                              }
-                            </p>
-                            {earnings.distance <= earnings.minDistance && earnings.distanceCommission === 0 &&
-                              <p className="text-green-600 text-xs mt-1">
-                                Note: Distance {earnings.distance?.toFixed(1)} km ≤ {earnings.minDistance} km, per km commission not applicable
+                            {earnings.breakdown && (
+                              <p className="text-green-700 text-xs">
+                                {earnings.breakdown.replace('Base payout:', 'Base:').replace('Distance', 'Dist')}
+                              </p>
+                            )}
+                            {tip > 0 && (
+                              <p className="text-green-700 text-xs font-bold mt-1 flex items-center gap-1">
+                                <span className="text-sm">❤️</span> Includes ₹{tip.toFixed(2)} Customer Tip
+                              </p>
+                            )}
+                            {hasEarningsObj && earnings.distance <= earnings.minDistance && earnings.distanceCommission === 0 && !earnings.breakdown?.includes('≤') &&
+                              <p className="text-green-600 text-[10px] mt-1 italic">
+                                Note: Base payout applies for distance ≤ {earnings.minDistance} km
                               </p>
                             }
-                          </div>);
-
+                          </div>
+                        );
                       }
                       return null;
                     })()}

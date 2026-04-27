@@ -2,6 +2,7 @@ import Coupon from '../models/Coupon.js';
 import Order from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
 import Offer from '../models/Offer.js';
+import OneTimeCoupon from '../models/OneTimeCoupon.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
@@ -120,6 +121,7 @@ export const deleteCoupon = asyncHandler(async (req, res) => {
  */
 export const getAvailableCoupons = asyncHandler(async (req, res) => {
   const { restaurantId } = req.params;
+  const userId = req.user?._id;
   const now = new Date();
 
   // Find the restaurant first to get its database _id (in case restaurantId is a custom string)
@@ -136,7 +138,7 @@ export const getAvailableCoupons = asyncHandler(async (req, res) => {
     }
   }
 
-  // Find valid coupons: Active status, within date range
+  // Find valid global/restaurant coupons: Active status, within date range
   const query = {
     status: 'active',
     startDate: { $lte: now },
@@ -159,9 +161,33 @@ export const getAvailableCoupons = asyncHandler(async (req, res) => {
     ]
   }).lean();
 
-  // Combine legacy offers into the same format
+  // Combine results
   const combinedCoupons = [...coupons.map(c => c.toObject())];
-  const seenCodes = new Set(combinedCoupons.map(c => c.couponCode));
+
+  // Fetch OneTimeCoupons for this specific user (e.g. from mismatch complaints)
+  if (userId) {
+    const oneTimeCoupons = await OneTimeCoupon.find({
+      userId: userId,
+      isActive: true,
+      expiryDate: { $gte: now },
+      $expr: { $lt: ['$usedCount', '$usageLimit'] }
+    }).lean();
+
+    oneTimeCoupons.forEach(otc => {
+      combinedCoupons.push({
+        couponCode: otc.code,
+        discountPercentage: 0, // It's usually a flat amount
+        flatDiscount: otc.value,
+        minOrderValue: 0,
+        maxDiscountLimit: otc.value,
+        description: otc.source === 'mismatch' ? 'Mismatch complaint resolution' : 'Special one-time offer',
+        isOneTime: true,
+        expiryDate: otc.expiryDate
+      });
+    });
+  }
+
+  const seenCodes = new Set(combinedCoupons.map(c => c.couponCode || c.code));
 
   legacyOffers.forEach(offer => {
     // If it's an item-level offer, it has an 'items' array

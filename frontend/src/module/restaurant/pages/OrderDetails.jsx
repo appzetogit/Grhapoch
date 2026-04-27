@@ -127,10 +127,12 @@ export default function OrderDetails() {
 
   // Fetch order data from API
   useEffect(() => {
-    const fetchOrder = async () => {
+    const fetchOrder = async (isRefresh = false) => {
       try {
-        setLoading(true)
-        setError(null)
+        if (!isRefresh) {
+          setLoading(true)
+          setError(null)
+        }
         
         const response = await restaurantAPI.getOrderById(orderId)
         
@@ -180,27 +182,39 @@ export default function OrderDetails() {
           
           setOrderData(transformedOrder)
         } else {
-          throw new Error('Order not found')
+          if (!isRefresh) throw new Error('Order not found')
         }
       } catch (err) {
         console.error('Error fetching order:', err)
-        setError(err.response?.data?.message || err.message || 'Failed to fetch order')
-        
-        // Try fallback to mock data for testing
-        const mockData = getMockOrderData(orderId)
-        if (mockData) {
-          setOrderData(mockData)
-          setError(null)
+        if (!isRefresh) {
+          setError(err.response?.data?.message || err.message || 'Failed to fetch order')
+          
+          // Try fallback to mock data for testing
+          const mockData = getMockOrderData(orderId)
+          if (mockData) {
+            setOrderData(mockData)
+            setError(null)
+          }
         }
       } finally {
-        setLoading(false)
+        if (!isRefresh) setLoading(false)
       }
     }
 
     if (orderId) {
       fetchOrder()
+      
+      // Auto-refresh order details every 10 seconds
+      const interval = setInterval(() => {
+        // Only poll if order is not finalized
+        if (orderData && !["DELIVERED", "REJECTED", "CANCELLED"].includes(orderData.status)) {
+          fetchOrder(true);
+        }
+      }, 10000);
+      
+      return () => clearInterval(interval);
     }
-  }, [orderId])
+  }, [orderId, orderData?.status])
 
   // Lenis smooth scrolling
   useEffect(() => {

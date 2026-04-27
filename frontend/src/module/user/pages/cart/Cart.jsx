@@ -636,7 +636,13 @@ export default function Cart() {
             discountPercentage: coupon.discountPercentage,
             minOrder: coupon.minOrderValue || 0,
             minOrderValue: coupon.minOrderValue || 0,
-            description: coupon.isLegacy ? `Special offer on ${coupon.targetItemName}` : `${coupon.discountPercentage}% OFF on orders above ₹${coupon.minOrderValue}`,
+            flatDiscount: coupon.flatDiscount || 0,
+            isOneTime: coupon.isOneTime || false,
+            description: coupon.isOneTime
+              ? (coupon.description || 'One-time coupon')
+              : coupon.isLegacy
+                ? `Special offer on ${coupon.targetItemName}`
+                : `${coupon.discountPercentage}% OFF on orders above ₹${coupon.minOrderValue}`,
             maxDiscountLimit: coupon.maxDiscountLimit,
             isLegacy: coupon.isLegacy,
             itemId: coupon.itemId,
@@ -838,6 +844,8 @@ export default function Cart() {
             const itemSubtotal = (itemInCart.price || 0) * itemQuantity;
             potentialDiscount = Math.min(potentialDiscount, itemSubtotal);
           }
+        } else if (coupon.isOneTime) {
+          potentialDiscount = coupon.flatDiscount || 0;
         } else if (!coupon.isLegacy) {
           // For Global Admin Coupons, calculation is based on total subtotal
           potentialDiscount = Math.min(
@@ -1957,44 +1965,52 @@ export default function Cart() {
                     </div>
                     <button onClick={handleRemoveCoupon} className="text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium">Remove</button>
                   </div> :
-                  loadingCoupons ?
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
-                      <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Loading coupons...</p>
-                    </div> :
-                    enrichedCoupons.length > 0 ?
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 md:gap-3">
-                            <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
-                            <div>
-                              <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">
-                                Save ₹{enrichedCoupons[0].discount} with '{enrichedCoupons[0].code}'
-                              </p>
-                              {enrichedCoupons.length > 1 &&
-                                <button onClick={() => setShowCoupons(!showCoupons)} className="text-xs md:text-sm text-blue-600 dark:text-blue-400 font-medium">
-                                  View all coupons →
-                                </button>
-                              }
+                  <div>
+                    {loadingCoupons ? (
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400 animate-pulse" />
+                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Checking for offers...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {enrichedCoupons.length > 0 ? (
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2 md:gap-3">
+                              <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
+                              <div>
+                                <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">
+                                  Save ₹{enrichedCoupons[0].discount} with '{enrichedCoupons[0].code}'
+                                </p>
+                                {enrichedCoupons.length > 1 && (
+                                  <button onClick={() => setShowCoupons(!showCoupons)} className="text-xs md:text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                    View all coupons →
+                                  </button>
+                                )}
+                              </div>
                             </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 md:h-8 text-xs md:text-sm border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              onClick={() => handleApplyCoupon(enrichedCoupons[0])}
+                              disabled={subtotal < enrichedCoupons[0].minOrder}>
+                              {subtotal < enrichedCoupons[0].minOrder ? `Min ₹${enrichedCoupons[0].minOrder}` : 'APPLY'}
+                            </Button>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 md:h-8 text-xs md:text-sm border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            onClick={() => handleApplyCoupon(enrichedCoupons[0])}
-                            disabled={subtotal < enrichedCoupons[0].minOrder}>
+                        ) : (
+                          <div className="flex items-center gap-2 md:gap-3 mb-4">
+                            <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
+                            <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">No coupons available for this restaurant</p>
+                          </div>
+                        )}
 
-                            {subtotal < enrichedCoupons[0].minOrder ? `Min ₹${enrichedCoupons[0].minOrder}` : 'APPLY'}
-                          </Button>
-                        </div>
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                            placeholder="Enter coupon code"
-                            className="flex-1 h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111] text-sm text-gray-900 dark:text-gray-100"
+                            placeholder="Enter coupon code manually"
+                            className="flex-1 h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111] text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-red-500"
                           />
                           <Button
                             size="sm"
@@ -2005,12 +2021,9 @@ export default function Cart() {
                             APPLY
                           </Button>
                         </div>
-                      </div> :
-
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <Percent className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
-                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">No coupons available</p>
-                      </div>
+                      </>
+                    )}
+                  </div>
                 }
 
                 {/* Coupons List */}

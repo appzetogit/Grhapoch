@@ -23,6 +23,7 @@ import { determineStepToShow } from "../utils/onboardingUtils";
 import { saveFilesToIDB, getFileFromIDB, clearIDB } from "../utils/onboardingStorage";
 import { DEFAULT_RESTAURANT_CUISINES } from "../constants/cuisines";
 import { toast } from "sonner";
+import { hasFlutterCameraBridge, requestImageFileFromFlutter, base64ToFile } from "@/lib/utils/cameraBridge";
 
 const cuisinesOptions = DEFAULT_RESTAURANT_CUISINES;
 
@@ -220,34 +221,6 @@ const FilePreview = ({ file, className, alt = "Preview" }) => {
   return <img src={previewUrl} alt={alt} className={className} />;
 };
 
-const hasFlutterCameraBridge = () => {
-  if (typeof window === "undefined") return false;
-  return !!(window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function");
-};
-
-const base64ToFile = (base64Input, mimeType = "image/jpeg", fileName = `capture-${Date.now()}.jpg`) => {
-  let normalized = base64Input || "";
-  if (normalized.includes(",")) {
-    normalized = normalized.split(",")[1];
-  }
-
-  const base64Data = normalized.replace(/\s/g, '');
-  const byteCharacters = atob(base64Data);
-  const byteArrays = [];
-
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-
-  const blob = new Blob(byteArrays, { type: mimeType });
-  return new File([blob], fileName, { type: mimeType });
-};
 
 function TimeSelector({ label, value, onChange, disabled = false, onBlur }) {
   const timeValue = value ? stringToTime(value) : null;
@@ -2204,51 +2177,6 @@ export default function RestaurantOnboarding() {
     }, 280);
   };
 
-  const requestImageFileFromFlutter = async ({
-    source = "camera",
-    fileNamePrefix = "capture"
-  } = {}) => {
-    if (!hasFlutterCameraBridge()) return null;
-
-    const payload = {
-      source,
-      accept: "image/*",
-      multiple: false,
-      quality: 0.8
-    };
-
-    const tryHandler = async (handlerName) => {
-      try {
-        return await window.flutter_inappwebview.callHandler(handlerName, payload);
-      } catch (err) {
-        return null;
-      }
-    };
-
-    let result = null;
-    if (source === "gallery") {
-      const galleryHandlers = ["openGallery", "pickFromGallery", "openMediaPicker"];
-      for (const handlerName of galleryHandlers) {
-        result = await tryHandler(handlerName);
-        if (result) break;
-      }
-
-      // Important: Do NOT fallback to openCamera for gallery requests.
-      if (!result) {
-        throw new Error("GALLERY_HANDLER_MISSING");
-      }
-    } else {
-      result = await tryHandler("openCamera");
-    }
-
-    if (!result || result.success !== true) return null;
-    if (result.file instanceof File) return result.file;
-    if (!result.base64) return null;
-
-    const mimeType = result.mimeType || "image/jpeg";
-    const fileName = result.fileName || `${fileNamePrefix}-${Date.now()}.jpg`;
-    return base64ToFile(result.base64, mimeType, fileName);
-  };
 
   const updateTargetFieldWithFile = (targetField, selectedFile) => {
     if (!selectedFile) return;

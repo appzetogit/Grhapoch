@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, X, Check, Camera, Image, RefreshCw } from "lucide-re
 import { deliveryAPI } from "@/lib/api"
 import apiClient from "@/lib/api/axios"
 import { toast } from "sonner"
+import { hasFlutterCameraBridge, requestImageFileFromFlutter } from "@/lib/utils/cameraBridge"
 
 const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploading, handleRemove, setActiveCamera, handleFileSelect, localPreviews }) => {
   const displayUrl = localPreviews[docType] || uploadedDocs[docType]?.url
@@ -53,7 +54,18 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
             <div className="flex items-center justify-center gap-6 w-full">
               <button
                 type="button"
-                onClick={() => setActiveCamera(docType)}
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType });
+                      if (file) handleFileSelect(docType, file);
+                    } catch (e) {
+                      setActiveCamera(docType);
+                    }
+                  } else {
+                    setActiveCamera(docType);
+                  }
+                }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
                 <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
@@ -66,7 +78,18 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
 
               <button
                 type="button"
-                onClick={() => galleryInputRef.current?.click()}
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType });
+                      if (file) handleFileSelect(docType, file);
+                    } catch (e) {
+                      galleryInputRef.current?.click();
+                    }
+                  } else {
+                    galleryInputRef.current?.click();
+                  }
+                }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
                 <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">

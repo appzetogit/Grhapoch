@@ -43,9 +43,9 @@ export default function UserOrderDetails() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
-    const fetchOrderDetails = async () => {
+    const fetchOrderDetails = async (isRefresh = false) => {
       try {
-        setLoading(true);
+        if (!isRefresh) setLoading(true);
         const response = await orderAPI.getOrderDetails(orderId);
 
         let orderData = null;
@@ -54,8 +54,10 @@ export default function UserOrderDetails() {
         } else if (response?.data?.order) {
           orderData = response.data.order;
         } else {
-          toast.error("Order not found");
-          navigate("/user/orders");
+          if (!isRefresh) {
+            toast.error("Order not found");
+            navigate("/user/orders");
+          }
           return;
         }
 
@@ -73,22 +75,33 @@ export default function UserOrderDetails() {
             }
           } catch (restaurantError) {
             console.warn("Failed to fetch restaurant details:", restaurantError);
-            // Don't show error toast, just log it - order details can still be shown
           }
         }
       } catch (error) {
         console.error("Error fetching order details:", error);
-        toast.error(
-          error?.response?.data?.message || "Failed to load order details"
-        );
-        navigate("/user/orders");
+        if (!isRefresh) {
+          toast.error(
+            error?.response?.data?.message || "Failed to load order details"
+          );
+          navigate("/user/orders");
+        }
       } finally {
-        setLoading(false);
+        if (!isRefresh) setLoading(false);
       }
     };
 
     fetchOrderDetails();
-  }, [orderId, navigate]);
+
+    // Auto-refresh order details every 10 seconds
+    const interval = setInterval(() => {
+      // Only poll if order is active
+      if (order && ["pending", "confirmed", "preparing", "out_for_delivery"].includes(order.status)) {
+        fetchOrderDetails(true);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [orderId, navigate, order?.status]);
 
   const handleCopyOrderId = async () => {
     if (!order) return;

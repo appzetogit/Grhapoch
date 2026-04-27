@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProfile } from "../../context/ProfileContext";
 import { userAPI } from "@/lib/api";
 import { toast } from "sonner";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -618,8 +619,22 @@ export default function EditProfile() {
             </DialogHeader>
             <div className="p-6 pt-2 space-y-4">
               <button
-                onClick={() => {
-                  setActiveCamera('profile');
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    setIsSourcePopupOpen(false);
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: 'camera', fileNamePrefix: 'profile' });
+                      if (file) {
+                        handleImageSelect({ target: { files: [file] } });
+                      }
+                    } catch (err) {
+                      console.error("Flutter camera error:", err);
+                      setActiveCamera('profile');
+                    }
+                  } else {
+                    setActiveCamera('profile');
+                    setIsSourcePopupOpen(false);
+                  }
                   setIsSourcePopupOpen(false);
                 }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-gray-100 dark:border-gray-800 group"
@@ -634,7 +649,22 @@ export default function EditProfile() {
               </button>
 
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={async () => {
+                  if (hasFlutterCameraBridge()) {
+                    setIsSourcePopupOpen(false);
+                    try {
+                      const file = await requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'profile' });
+                      if (file) {
+                        handleImageSelect({ target: { files: [file] } });
+                      }
+                    } catch (err) {
+                      console.error("Flutter gallery error:", err);
+                      fileInputRef.current?.click();
+                    }
+                  } else {
+                    fileInputRef.current?.click();
+                  }
+                }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-gray-100 dark:border-gray-800 group"
               >
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center group-hover:bg-green-600 transition-colors">

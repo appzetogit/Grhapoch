@@ -495,7 +495,7 @@ export default function SignIn() {
         } catch (flutterError) {
           const flutterCode = flutterError?.code || "";
           if (flutterCode === "missing_token") {
-            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.");
+            throw new Error("Google sign-in failed. Please try again or use your phone number.");
           }
         }
       }
@@ -533,7 +533,7 @@ export default function SignIn() {
       } else if (errorCode === "auth/network-request-failed") {
         message = "Network error. Please check your connection and try again.";
       } else if (error instanceof FlutterGoogleSignInError && errorCode === "missing_token") {
-        message = "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga.";
+        message = "Google sign-in failed. Please try again or use your phone number.";
       } else if (errorMessage) {
         message = errorMessage;
       } else if (error?.response?.data?.message) {

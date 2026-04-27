@@ -358,7 +358,7 @@ export default function RestaurantLogin() {
             message: flutterError?.message || "unknown"
           })
           if (flutterCode === "missing_token") {
-            throw new Error("Google account select hua, lekin Flutter app ne id/access token web ko return nahi kiya. Flutter bridge native response fix required.")
+            throw new Error("Google sign-in failed. Please try again.")
           }
         }
       }
@@ -414,7 +414,7 @@ export default function RestaurantLogin() {
       const backendCode = error?.response?.data?.errors?.code || ""
       let message =
         (error instanceof FlutterGoogleSignInError && error?.code === "missing_token")
-          ? "Google account select hua, par Flutter app se token return nahi hua. Flutter team ko nativeGoogleSignIn response me idToken/accessToken bhejna hoga."
+          ? "Google sign-in failed. Please try again."
           : error?.response?.data?.message ||
             error?.response?.data?.error ||
             error?.message ||
@@ -464,7 +464,6 @@ export default function RestaurantLogin() {
     setErrors({ ...errors, phone: error })
   }
 
-
   const isValidPhone = formData.phone.replace(/\D/g, "").length === 10 && !errors.phone
   const isValidEmail = !errors.email && formData.email.trim().length > 0
 
@@ -481,7 +480,6 @@ export default function RestaurantLogin() {
               textStroke: "0.5px black"
             }}
           >
-
             Grha Poch
           </h1>
         </div>
@@ -766,4 +764,3 @@ export default function RestaurantLogin() {
     </div>
   )
 }
-

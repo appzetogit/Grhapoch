@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
-const termsAndConditionSchema = new mongoose.Schema(
+const codeOfConductSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      default: 'Terms and Conditions',
+      default: 'Code of Conduct',
       trim: true
     },
     content: {
@@ -24,7 +24,7 @@ const termsAndConditionSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ['user', 'restaurant', 'delivery'],
-      default: 'user',
+      default: 'restaurant',
       index: true
     }
   },
@@ -34,7 +34,7 @@ const termsAndConditionSchema = new mongoose.Schema(
 );
 
 // Indexes
-termsAndConditionSchema.index({ isActive: 1 });
+codeOfConductSchema.index({ isActive: 1 });
+codeOfConductSchema.index({ role: 1 });
 
-export default mongoose.model('TermsAndCondition', termsAndConditionSchema);
-
+export default mongoose.model('CodeOfConduct', codeOfConductSchema);

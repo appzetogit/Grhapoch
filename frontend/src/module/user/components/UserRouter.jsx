@@ -62,6 +62,7 @@ import Coupons from "../pages/profile/Coupons"
 import About from "../pages/profile/About"
 import Terms from "../pages/profile/Terms"
 import Privacy from "../pages/profile/Privacy"
+import CodeOfConduct from "../pages/profile/CodeOfConduct"
 import Refund from "../pages/profile/Refund"
 import Shipping from "../pages/profile/Shipping"
 import Cancellation from "../pages/profile/Cancellation"
@@ -323,6 +324,14 @@ export default function UserRouter() {
           }
         />
         <Route
+          path="/profile/code-of-conduct"
+          element={
+            <ProtectedRoute requiredRole="user" loginPath="/user/auth/sign-in">
+              <CodeOfConduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/profile/refund"
           element={
             <ProtectedRoute requiredRole="user" loginPath="/user/auth/sign-in">
@@ -437,4 +446,3 @@ export default function UserRouter() {
     </Routes>
   )
 }
-

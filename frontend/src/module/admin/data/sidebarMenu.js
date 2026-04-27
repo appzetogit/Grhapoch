@@ -352,6 +352,7 @@ export const sidebarMenuData = [
         subItems: [
           { label: "Terms and Conditions", path: "/admin/pages-social-media/terms" }, // Index 0
           { label: "Privacy Policy", path: "/admin/pages-social-media/privacy" }, // Index 1
+          { label: "Code Of Conduct", path: "/admin/pages-social-media/code-of-conduct" },
           { label: "About Us", path: "/admin/pages-social-media/about" },        // Index 2 (The suspect index)
           { label: "Refund Policy", path: "/admin/pages-social-media/refund" },
           { label: "Shipping Policy", path: "/admin/pages-social-media/shipping" },

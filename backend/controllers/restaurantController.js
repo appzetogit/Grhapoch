@@ -10,6 +10,14 @@ import mongoose from 'mongoose';
 import { checkSubscriptionExpiry } from './subscriptionController.js';
 import BusinessSettings from '../models/BusinessSettings.js';
 import { cleanupRestaurantAdvertisements } from '../services/restaurantAdvertisementCleanupService.js';
+import RestaurantWallet from '../models/RestaurantWallet.js';
+import OutletTimings from '../models/OutletTimings.js';
+import RestaurantCategory from '../models/RestaurantCategory.js';
+import Offer from '../models/Offer.js';
+import RestaurantCommission from '../models/RestaurantCommission.js';
+import Inventory from '../models/Inventory.js';
+import StaffManagement from '../models/StaffManagement.js';
+import DiningTable from '../models/DiningTable.js';
 
 const parseNumber = (value) => {
   const num = Number(value);
@@ -1129,75 +1137,8 @@ export const updateDeliveryStatus = asyncHandler(async (req, res) => {
  * Delete restaurant account
  * DELETE /api/restaurant/profile
  */
-export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
-  try {
-    const restaurantId = req.restaurant._id;
-    /*
-    console.info('[Restaurant Delete] Request received', {
-      restaurantId: restaurantId?.toString?.() || restaurantId,
-      path: req.originalUrl,
-      method: req.method
-    });
-    */
-    const restaurant = await Restaurant.findById(restaurantId);
 
-    if (!restaurant) {
-      // console.warn('[Restaurant Delete] Restaurant not found');
-      return errorResponse(res, 404, 'Restaurant not found');
-    }
 
-    // Delete Cloudinary images if they exist
-    try {
-      // Delete profile image
-      if (restaurant.profileImage?.publicId) {
-        try {
-          await deleteFromCloudinary(restaurant.profileImage.publicId);
-        } catch (error) {
-          console.error('Error deleting profile image from Cloudinary:', error);
-        }
-      }
-
-      // Delete menu images
-      if (restaurant.menuImages && Array.isArray(restaurant.menuImages)) {
-        for (const menuImage of restaurant.menuImages) {
-          if (menuImage?.publicId) {
-            try {
-              await deleteFromCloudinary(menuImage.publicId);
-            } catch (error) {
-              console.error('Error deleting menu image from Cloudinary:', error);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting images from Cloudinary:', error);
-    }
-
-    // Delete restaurant advertisements (and related Cloudinary media)
-    try {
-      const adCleanupResult = await cleanupRestaurantAdvertisements(restaurantId);
-      console.info('[Restaurant Delete] Associated advertisements cleaned', {
-        restaurantId: restaurantId?.toString?.() || restaurantId,
-        ...adCleanupResult
-      });
-    } catch (adCleanupError) {
-      console.error('Error deleting restaurant advertisements:', adCleanupError);
-      // Continue with account deletion even if advertisement cleanup fails
-    }
-
-    // Delete the restaurant from database
-    await Restaurant.findByIdAndDelete(restaurantId);
-    console.info('[Restaurant Delete] Restaurant deleted successfully', {
-      restaurantId: restaurantId?.toString?.() || restaurantId,
-      restaurantName: restaurant?.name || ''
-    });
-
-    return successResponse(res, 200, 'Restaurant account deleted successfully');
-  } catch (error) {
-    console.error('Error deleting restaurant account:', error);
-    return errorResponse(res, 500, 'Failed to delete restaurant account');
-  }
-});
 
 /**
  * Get restaurants with dishes under â‚¹250
@@ -1450,3 +1391,55 @@ export const updateDiningSettings = asyncHandler(async (req, res) => {
   });
 });
 
+
+/**
+ * Delete restaurant account and all associated data
+ * DELETE /api/restaurant/profile/account
+ */
+export const deleteRestaurantAccount = asyncHandler(async (req, res) => {
+  const restaurantId = req.restaurant._id;
+  
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    // 1. Delete associated data in other collections
+    await Menu.deleteMany({ restaurant: restaurantId }, { session });
+    await RestaurantWallet.findOneAndDelete({ restaurantId }, { session });
+    await OutletTimings.findOneAndDelete({ restaurantId }, { session });
+    await RestaurantCategory.deleteMany({ restaurantId }, { session });
+    await Offer.deleteMany({ restaurantId }, { session });
+    await RestaurantCommission.deleteMany({ restaurantId }, { session });
+    await Inventory.deleteMany({ restaurantId }, { session });
+    await StaffManagement.deleteMany({ restaurantId }, { session });
+    await DiningTable.deleteMany({ restaurantId }, { session });
+    
+    // 2. Cleanup Advertisements
+    try {
+      await cleanupRestaurantAdvertisements(restaurantId);
+    } catch (cleanupError) {
+      console.warn(`Cleanup advertisements failed for restaurant ${restaurantId}:`, cleanupError.message);
+    }
+
+    // 3. Delete the Restaurant document itself
+    const deletedRestaurant = await Restaurant.findByIdAndDelete(restaurantId, { session });
+    
+    if (!deletedRestaurant) {
+      await session.abortTransaction();
+      session.endSession();
+      return errorResponse(res, 404, 'Restaurant not found');
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log(`Restaurant account deleted: ${restaurantId}`);
+
+    return successResponse(res, 200, 'Restaurant account and all associated data deleted successfully');
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error deleting restaurant account:', error);
+    return errorResponse(res, 500, 'Failed to delete restaurant account');
+  }
+});

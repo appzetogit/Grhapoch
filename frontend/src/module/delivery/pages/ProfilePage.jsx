@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { deliveryAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { clearModuleAuth } from "@/lib/utils/auth";
+import DeleteAccountModal from "@/components/shared/DeleteAccountModal";
 const alertSound = "/assets/audio/alert.mp3";
 const originalSound = "/assets/audio/original.mp3";
 
@@ -44,6 +45,9 @@ export default function ProfilePage() {
     return localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
   });
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
   const previewAudioRef = useRef(null);
 
   useEffect(() => {
@@ -137,6 +141,19 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
+
+    // Fetch wallet balance
+    const fetchWallet = async () => {
+      try {
+        const response = await deliveryAPI.getWallet();
+        if (response?.data?.success && response?.data?.data?.wallet) {
+          setWalletBalance(response.data.data.wallet.balance || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching wallet:", error);
+      }
+    };
+    fetchWallet();
   }, []);
 
   // Listen for refresh events from bottom navigation
@@ -205,6 +222,44 @@ export default function ProfilePage() {
       // Redirect to sign-in
       navigate("/delivery/sign-in", { replace: true });
     }, 100);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+
+    try {
+      await deliveryAPI.deleteAccount();
+      
+      // Clear module auth
+      clearModuleAuth("delivery");
+      
+      // Clear all delivery-related data
+      localStorage.removeItem("delivery_gig_storage");
+      localStorage.removeItem("delivery_module_storage");
+      localStorage.removeItem("app:isOnline");
+      sessionStorage.removeItem("deliveryAuthData");
+      
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("delivery_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      
+      window.dispatchEvent(new Event('deliveryAuthChanged'));
+      window.dispatchEvent(new Event('onlineStatusChanged'));
+      
+      toast.success("Account deleted successfully");
+      navigate("/delivery/sign-in", { replace: true });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   // Helper to play preview sound correctly
@@ -369,6 +424,48 @@ export default function ProfilePage() {
             </Card>
           </div>
 
+          {/* Legal Section */}
+          <div>
+            <h3 className="text-base font-medium mb-3 px-1">Legal</h3>
+            <div className="bg-white rounded-lg shadow-sm divide-y divide-gray-100 overflow-hidden">
+              <Card
+                onClick={() => navigate("/delivery/profile/terms")}
+                className="py-0 border-0 shadow-none rounded-none cursor-pointer hover:bg-gray-200 transition-colors">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium">Terms and Conditions</span>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </CardContent>
+              </Card>
+
+              <Card
+                onClick={() => navigate("/delivery/profile/privacy")}
+                className="py-0 border-0 shadow-none rounded-none cursor-pointer hover:bg-gray-200 transition-colors">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium">Privacy Policy</span>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </CardContent>
+              </Card>
+
+              <Card
+                onClick={() => navigate("/delivery/profile/code-of-conduct")}
+                className="py-0 border-0 shadow-none rounded-none cursor-pointer hover:bg-gray-200 transition-colors">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium">Code of Conduct</span>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           {/* Logout Section */}
           <div className="pt-4">
             <Card
@@ -381,6 +478,21 @@ export default function ProfilePage() {
                   <span className="text-sm font-medium text-red-600">Log out</span>
                 </div>
                 <ArrowRight className="w-5 h-5 text-gray-400" />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Delete Account Section */}
+          <div className="pt-2">
+            <Card
+              onClick={() => setDeleteAccountOpen(true)}
+              className="bg-red-50 py-0 border border-red-100 shadow-none rounded-lg cursor-pointer hover:bg-red-100 transition-colors">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <LogOut className="w-5 h-5 text-red-600 rotate-180" />
+                  <span className="text-sm font-medium text-red-600">Delete Account</span>
+                </div>
+                <ArrowRight className="w-5 h-5 text-red-300" />
               </CardContent>
             </Card>
           </div>
@@ -492,6 +604,16 @@ export default function ProfilePage() {
         </div>
       )}
 
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+        loading={isDeletingAccount}
+        module="delivery"
+        walletBalance={walletBalance}
+      />
     </div>);
 
 }

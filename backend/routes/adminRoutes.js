@@ -171,6 +171,10 @@ import {
   updatePrivacy
 } from '../controllers/privacyPolicyController.js';
 import {
+  getCodeOfConduct,
+  updateCodeOfConduct
+} from '../controllers/codeOfConductController.js';
+import {
   getRefund,
   updateRefund
 } from '../controllers/refundPolicyController.js';
@@ -458,11 +462,18 @@ router.put('/about', updateAbout);
 
 // Terms and Condition Management
 router.get('/terms', getTerms);
-router.put('/terms', updateTerms);
+router.get('/terms/:role', getTerms);
+router.put('/terms/:role', updateTerms);
 
 // Privacy Policy Management
 router.get('/privacy', getPrivacy);
-router.put('/privacy', updatePrivacy);
+router.get('/privacy/:role', getPrivacy);
+router.put('/privacy/:role', updatePrivacy);
+
+// Code of Conduct Management
+router.get('/code-of-conduct', getCodeOfConduct);
+router.get('/code-of-conduct/:role', getCodeOfConduct);
+router.put('/code-of-conduct/:role', updateCodeOfConduct);
 
 // Refund Policy Management
 router.get('/refund', getRefund);

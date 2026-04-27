@@ -18,17 +18,42 @@ import {
   CreditCard,
   FileText,
   MessageSquare,
+  FileCheck,
   ChevronRight } from
 "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import BottomNavbar from "../components/BottomNavbar";
 import MenuOverlay from "../components/MenuOverlay";
+import DeleteAccountModal from "@/components/shared/DeleteAccountModal";
+import { restaurantAPI } from "@/lib/api";
+import { clearModuleAuth } from "@/lib/utils/auth";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  // Fetch wallet balance for delete modal
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        const response = await restaurantAPI.getWallet();
+        const data = response?.data?.data?.wallet || response?.data?.wallet;
+        if (data) {
+          setWalletBalance(data.balance || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching wallet:", error);
+      }
+    };
+    fetchWallet();
+  }, []);
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -75,6 +100,7 @@ export default function SettingsPage() {
     { id: "conversation", label: "Conversation", icon: MessageSquare, route: "/restaurant/conversation" },
     { id: "terms", label: "Terms & Conditions", icon: FileText, route: "/restaurant/terms" },
     { id: "privacy-policy", label: "Privacy Policy", icon: Shield, route: "/restaurant/privacy" },
+    { id: "code-of-conduct", label: "Code of Conduct", icon: FileCheck, route: "/restaurant/code-of-conduct" },
     { id: "about", label: "About", icon: Info, route: "/restaurant/about" }]
 
   },
@@ -85,9 +111,33 @@ export default function SettingsPage() {
     { id: "logout", label: "Logout", icon: LogOut, isDestructive: true, action: () => {
 
 
+      } },
+    { id: "delete-account", label: "Delete Account", icon: Trash2, isDestructive: true, action: () => {
+        setDeleteAccountOpen(true);
       } }]
 
   }];
+
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await restaurantAPI.deleteAccount();
+      clearModuleAuth('restaurant');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('restaurant_authenticated');
+      localStorage.removeItem('restaurant_user');
+      window.dispatchEvent(new Event('restaurantAuthChanged'));
+      navigate('/restaurant/login', { replace: true });
+      toast.success("Account deleted successfully");
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
 
   return (
@@ -204,6 +254,16 @@ export default function SettingsPage() {
       
       {/* Menu Overlay */}
       <MenuOverlay showMenu={showMenu} setShowMenu={setShowMenu} />
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+        loading={isDeletingAccount}
+        module="restaurant"
+        walletBalance={walletBalance}
+      />
     </div>);
 
 }

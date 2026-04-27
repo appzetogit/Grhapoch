@@ -3,8 +3,12 @@ import { toast } from "sonner"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 import { Textarea } from "@/components/ui/textarea"
+import { useParams, useNavigate } from "react-router-dom"
+import { motion } from "framer-motion"
 
 export default function TermsAndCondition() {
+  const { role } = useParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [termsData, setTermsData] = useState({
@@ -12,9 +16,20 @@ export default function TermsAndCondition() {
     content: ''
   })
 
+  // Available roles for Terms
+  const roles = [
+    { id: 'user', label: 'User' },
+    { id: 'restaurant', label: 'Restaurant' },
+    { id: 'delivery', label: 'Delivery' }
+  ]
+
   useEffect(() => {
+    if (!role) {
+      navigate('/admin/pages-social-media/user/terms', { replace: true })
+      return
+    }
     fetchTermsData()
-  }, [])
+  }, [role])
 
   // Convert HTML to plain text
   const htmlToText = (html) => {
@@ -51,9 +66,9 @@ export default function TermsAndCondition() {
   const fetchTermsData = async () => {
     try {
       setLoading(true)
-      const response = await api.get(API_ENDPOINTS.ADMIN.TERMS)
+      const url = API_ENDPOINTS.ADMIN.TERMS.replace(':role', role)
+      const response = await api.get(url)
       if (response.data.success) {
-        // Convert HTML to plain text for textarea
         const content = response.data.data.content || ''
         const textContent = htmlToText(content)
         setTermsData({
@@ -63,7 +78,12 @@ export default function TermsAndCondition() {
       }
     } catch (error) {
       console.error('Error fetching terms data:', error)
-      toast.error('Failed to load terms and conditions')
+      toast.error(`Failed to load terms and conditions for ${role}`)
+      // Reset data if fetch fails
+      setTermsData({
+        title: 'Terms and Conditions',
+        content: ''
+      })
     } finally {
       setLoading(false)
     }
@@ -79,13 +99,14 @@ export default function TermsAndCondition() {
         return `<p>${line}</p>`
       }).join('')
       
-      const response = await api.put(API_ENDPOINTS.ADMIN.TERMS, {
+      const url = API_ENDPOINTS.ADMIN.TERMS.replace(':role', role)
+      const response = await api.put(url, {
         title: termsData.title,
-        content: htmlContent
+        content: htmlContent,
+        role: role
       })
       if (response.data.success) {
-        toast.success('Terms and conditions updated successfully')
-        // Convert HTML to plain text for display in textarea
+        toast.success(`Terms and conditions for ${role} updated successfully`)
         const content = response.data.data.content || ''
         const textContent = htmlToText(content)
         setTermsData({
@@ -105,7 +126,7 @@ export default function TermsAndCondition() {
     return (
       <div className="p-4 lg:p-6 bg-slate-50 min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ff8100] mx-auto"></div>
           <p className="mt-4 text-slate-600">Loading...</p>
         </div>
       </div>
@@ -121,13 +142,34 @@ export default function TermsAndCondition() {
           <p className="text-sm text-slate-600 mt-1">Manage your Terms and Conditions content</p>
         </div>
 
+        {/* Role Tabs */}
+        <div className="flex items-center gap-2 mb-6 bg-gray-100/50 p-1 rounded-xl w-fit">
+          {roles.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => navigate(`/admin/pages-social-media/${r.id}/terms`)}
+              className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                role === r.id 
+                  ? "bg-[#ff8100] text-white shadow-md" 
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
         {/* Text Area */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-hidden"
+        >
           <Textarea
             value={termsData.content}
             onChange={(e) => setTermsData(prev => ({ ...prev, content: e.target.value }))}
-            placeholder="Enter terms and conditions content..."
-            className="min-h-[600px] w-full text-sm text-slate-700 leading-relaxed resize-y"
+            placeholder={`Enter terms and conditions content for ${role}...`}
+            className="min-h-[600px] w-full text-sm text-slate-700 leading-relaxed resize-y focus-visible:ring-1 focus-visible:ring-[#ff8100] border-0"
             dir="ltr"
             style={{
               direction: 'ltr',
@@ -137,7 +179,7 @@ export default function TermsAndCondition() {
               maxWidth: '100%'
             }}
           />
-        </div>
+        </motion.div>
 
         {/* Submit Button */}
         <div className="flex justify-end mt-6">
@@ -145,7 +187,7 @@ export default function TermsAndCondition() {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 bg-[#ff8100] text-white rounded-xl hover:bg-[#e67300] transition-all font-bold shadow-lg shadow-orange-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>

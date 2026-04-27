@@ -6,29 +6,27 @@ import { Textarea } from "@/components/ui/textarea"
 import { useParams, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 
-export default function PrivacyPolicy() {
+export default function CodeOfConduct() {
   const { role } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [privacyData, setPrivacyData] = useState({
-    title: 'Privacy Policy',
+  const [conductData, setConductData] = useState({
+    title: 'Code of Conduct',
     content: ''
   })
 
-  // Available roles for Privacy Policy
+  // Code of Conduct is currently only for Restaurant
   const roles = [
-    { id: 'user', label: 'User' },
-    { id: 'restaurant', label: 'Restaurant' },
-    { id: 'delivery', label: 'Delivery' }
+    { id: 'restaurant', label: 'Restaurant' }
   ]
 
   useEffect(() => {
-    if (!role) {
-      navigate('/admin/pages-social-media/user/privacy', { replace: true })
+    if (!role || role !== 'restaurant') {
+      navigate('/admin/pages-social-media/restaurant/code-of-conduct', { replace: true })
       return
     }
-    fetchPrivacyData()
+    fetchConductData()
   }, [role])
 
   // Convert HTML to plain text
@@ -63,25 +61,25 @@ export default function PrivacyPolicy() {
     return text.trim()
   }
 
-  const fetchPrivacyData = async () => {
+  const fetchConductData = async () => {
     try {
       setLoading(true)
-      const url = API_ENDPOINTS.ADMIN.PRIVACY.replace(':role', role)
+      const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT.replace(':role', role)
       const response = await api.get(url)
       if (response.data.success) {
         const content = response.data.data.content || ''
         const textContent = htmlToText(content)
-        setPrivacyData({
+        setConductData({
           ...response.data.data,
           content: textContent
         })
       }
     } catch (error) {
-      console.error('Error fetching privacy data:', error)
-      toast.error(`Failed to load privacy policy for ${role}`)
+      console.error('Error fetching conduct data:', error)
+      toast.error(`Failed to load code of conduct for ${role}`)
       // Reset data if fetch fails
-      setPrivacyData({
-        title: 'Privacy Policy',
+      setConductData({
+        title: 'Code of Conduct',
         content: ''
       })
     } finally {
@@ -94,29 +92,29 @@ export default function PrivacyPolicy() {
     try {
       setSaving(true)
       // Convert plain text to HTML for storage
-      const htmlContent = privacyData.content.split('\n').map(line => {
+      const htmlContent = conductData.content.split('\n').map(line => {
         if (line.trim() === '') return '<p><br></p>'
         return `<p>${line}</p>`
       }).join('')
       
-      const url = API_ENDPOINTS.ADMIN.PRIVACY.replace(':role', role)
+      const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT.replace(':role', role)
       const response = await api.put(url, {
-        title: privacyData.title,
+        title: conductData.title,
         content: htmlContent,
         role: role
       })
       if (response.data.success) {
-        toast.success(`Privacy policy for ${role} updated successfully`)
+        toast.success(`Code of conduct for ${role} updated successfully`)
         const content = response.data.data.content || ''
         const textContent = htmlToText(content)
-        setPrivacyData({
+        setConductData({
           ...response.data.data,
           content: textContent
         })
       }
     } catch (error) {
-      console.error('Error saving privacy:', error)
-      toast.error(error.response?.data?.message || 'Failed to save privacy policy')
+      console.error('Error saving conduct:', error)
+      toast.error(error.response?.data?.message || 'Failed to save code of conduct')
     } finally {
       setSaving(false)
     }
@@ -138,8 +136,8 @@ export default function PrivacyPolicy() {
       <div className="max-w-6xl mx-auto">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Privacy Policy</h1>
-          <p className="text-sm text-slate-600 mt-1">Manage your Privacy Policy content</p>
+          <h1 className="text-2xl font-bold text-slate-900">Code Of Conduct</h1>
+          <p className="text-sm text-slate-600 mt-1">Manage your Code Of Conduct content</p>
         </div>
 
         {/* Role Tabs */}
@@ -147,7 +145,7 @@ export default function PrivacyPolicy() {
           {roles.map((r) => (
             <button
               key={r.id}
-              onClick={() => navigate(`/admin/pages-social-media/${r.id}/privacy`)}
+              onClick={() => navigate(`/admin/pages-social-media/${r.id}/code-of-conduct`)}
               className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
                 role === r.id 
                   ? "bg-[#ff8100] text-white shadow-md" 
@@ -166,9 +164,9 @@ export default function PrivacyPolicy() {
           className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-hidden"
         >
           <Textarea
-            value={privacyData.content}
-            onChange={(e) => setPrivacyData(prev => ({ ...prev, content: e.target.value }))}
-            placeholder={`Enter privacy policy content for ${role}...`}
+            value={conductData.content}
+            onChange={(e) => setConductData(prev => ({ ...prev, content: e.target.value }))}
+            placeholder={`Enter code of conduct content for ${role}...`}
             className="min-h-[600px] w-full text-sm text-slate-700 leading-relaxed resize-y focus-visible:ring-1 focus-visible:ring-[#ff8100] border-0"
             dir="ltr"
             style={{

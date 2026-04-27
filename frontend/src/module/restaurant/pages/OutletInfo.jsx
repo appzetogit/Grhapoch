@@ -36,6 +36,8 @@ import { restaurantAPI } from "@/lib/api"
 import { toast } from "sonner"
 import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
 
+import { clearModuleAuth } from "@/lib/utils/auth"
+
 export default function OutletInfo() {
   const navigate = useNavigate()
 
@@ -61,6 +63,8 @@ export default function OutletInfo() {
   const menuImageInputRef = useRef(null)
   const profileCameraInputRef = useRef(null)
   const menuCameraInputRef = useRef(null)
+  
+  const [walletBalance, setWalletBalance] = useState(0)
 
   // Camera State
   const [activeCamera, setActiveCamera] = useState(null);
@@ -294,6 +298,20 @@ export default function OutletInfo() {
     }
 
     fetchRestaurantData()
+
+    // Fetch wallet balance
+    const fetchWallet = async () => {
+      try {
+        const response = await restaurantAPI.getWallet()
+        const data = response?.data?.data?.wallet || response?.data?.wallet
+        if (data) {
+          setWalletBalance(data.balance || 0)
+        }
+      } catch (error) {
+        console.error("Error fetching wallet:", error)
+      }
+    }
+    fetchWallet()
 
     // Listen for updates from edit pages
     const handleCuisinesUpdate = () => {
@@ -692,6 +710,8 @@ export default function OutletInfo() {
       alert(`Failed to update restaurant name: ${error.response?.data?.message || error.message || "Please try again."}`)
     }
   }
+
+
 
 
   // Prevent body scroll when dialog is open
@@ -1209,6 +1229,8 @@ export default function OutletInfo() {
           </div>
         </div>
       )}
+
+
     </div>
   )
 }

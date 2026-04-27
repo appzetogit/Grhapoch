@@ -11,6 +11,7 @@ import {
   reverifyRestaurant,
   firebaseGoogleLogin
 } from '../controllers/restaurantAuthController.js';
+import { deleteRestaurantAccount } from '../controllers/restaurantController.js';
 import { authenticate } from '../middleware/restaurant.auth.js';
 import { validate } from '../middleware/validate.js';
 import Joi from 'joi';
@@ -89,6 +90,7 @@ router.post('/refresh-token', refreshToken);
 router.post('/logout', logout);
 router.get('/me', authenticate, getCurrentRestaurant);
 router.post('/reverify', authenticate, reverifyRestaurant);
+router.delete('/profile/account', authenticate, deleteRestaurantAccount);
 router.post('/fcm-token', authenticate, async (req, res) => {
   const { token, platform } = extractTokenPayload(req);
   if (!token) {

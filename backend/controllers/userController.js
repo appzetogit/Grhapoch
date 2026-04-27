@@ -8,6 +8,8 @@ import axios from 'axios';
 import winston from 'winston';
 import { updateUserLocationRealtime } from '../services/firebaseRealtimeService.js';
 import { normalizePhoneNumber } from '../utils/phoneUtils.js';
+import UserWallet from '../models/UserWallet.js';
+import UserAdvertisement from '../models/UserAdvertisement.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -777,4 +779,42 @@ export const getUserFavorites = asyncHandler(async (req, res) => {
   return successResponse(res, 200, 'Favorites retrieved successfully', {
     collections: user.collections
   });
+});
+
+/**
+ * Delete user profile
+ * DELETE /api/user/profile
+ */
+export const deleteUserProfile = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    // Delete User Wallet
+    await UserWallet.findOneAndDelete({ userId }, { session });
+    
+    // Delete User Advertisements
+    await UserAdvertisement.deleteMany({ userId }, { session });
+    
+    // Delete User
+    const deletedUser = await User.findByIdAndDelete(userId, { session });
+    
+    if (!deletedUser) {
+      await session.abortTransaction();
+      session.endSession();
+      return errorResponse(res, 404, 'User not found');
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    logger.info(`User account deleted: ${userId}`);
+
+    return successResponse(res, 200, 'User account deleted successfully');
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    logger.error(`Error deleting user account: ${error.message}`);
+    return errorResponse(res, 500, 'Failed to delete user account');
+  }
 });

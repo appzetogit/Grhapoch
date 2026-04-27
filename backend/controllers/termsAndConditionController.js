@@ -4,11 +4,12 @@ import asyncHandler from '../middleware/asyncHandler.js';
 
 /**
  * Get Terms and Condition (Public)
- * GET /api/terms/public
+ * GET /api/terms/public/:role
  */
 export const getTermsPublic = asyncHandler(async (req, res) => {
   try {
-    const terms = await TermsAndCondition.findOne({ isActive: true })
+    const { role } = req.params;
+    const terms = await TermsAndCondition.findOne({ role: role || 'user', isActive: true })
       .select('-updatedBy -createdAt -updatedAt -__v')
       .lean();
 
@@ -16,7 +17,8 @@ export const getTermsPublic = asyncHandler(async (req, res) => {
       // Return default data if no terms exists
       return successResponse(res, 200, 'Terms and conditions retrieved successfully', {
         title: 'Terms and Conditions',
-        content: '<p>No terms and conditions available at the moment.</p>'
+        content: '<p>No terms and conditions available at the moment.</p>',
+        role: role || 'user'
       });
     }
 
@@ -29,17 +31,19 @@ export const getTermsPublic = asyncHandler(async (req, res) => {
 
 /**
  * Get Terms and Condition (Admin)
- * GET /api/admin/terms
+ * GET /api/admin/terms/:role
  */
 export const getTerms = asyncHandler(async (req, res) => {
   try {
-    let terms = await TermsAndCondition.findOne({ isActive: true }).lean();
+    const { role } = req.params;
+    let terms = await TermsAndCondition.findOne({ role: role || 'user', isActive: true }).lean();
 
     if (!terms) {
       // Create default terms if it doesn't exist
       terms = await TermsAndCondition.create({
         title: 'Terms and Conditions',
-        content: '<p>This is a test Terms & Conditions</p><p><strong>Terms of Use</strong></p><p>This Terms of Use ("Terms") applies to your access to and use of the website and the mobile application (collectively, the "Platform"). Please read these Terms carefully.</p>',
+        content: `<p>Terms & Conditions for ${role || 'user'}</p>`,
+        role: role || 'user',
         updatedBy: req.admin._id
       });
     }
@@ -53,10 +57,11 @@ export const getTerms = asyncHandler(async (req, res) => {
 
 /**
  * Update Terms and Condition
- * PUT /api/admin/terms
+ * PUT /api/admin/terms/:role
  */
 export const updateTerms = asyncHandler(async (req, res) => {
   try {
+    const { role } = req.params;
     const { title, content } = req.body;
 
     // Validate required fields
@@ -65,12 +70,13 @@ export const updateTerms = asyncHandler(async (req, res) => {
     }
 
     // Find existing terms or create new one
-    let terms = await TermsAndCondition.findOne({ isActive: true });
+    let terms = await TermsAndCondition.findOne({ role: role || 'user', isActive: true });
 
     if (!terms) {
       terms = new TermsAndCondition({
         title: title || 'Terms and Conditions',
         content,
+        role: role || 'user',
         updatedBy: req.admin._id
       });
     } else {
@@ -87,4 +93,3 @@ export const updateTerms = asyncHandler(async (req, res) => {
     return errorResponse(res, 500, 'Failed to update terms and conditions');
   }
 });
-

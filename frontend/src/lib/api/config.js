@@ -122,7 +122,8 @@ export const API_ENDPOINTS = {
     COMPLAINTS: '/user/complaints',
     COMPLAINT_BY_ID: '/user/complaints/:id',
     DONATION_CREATE: '/user/donation/create',
-    DONATION_VERIFY: '/user/donation/verify'
+    DONATION_VERIFY: '/user/donation/verify',
+    DELETE_ACCOUNT: '/user/profile'
   },
   // Location endpoints
   LOCATION: {
@@ -145,7 +146,8 @@ export const API_ENDPOINTS = {
       LOGOUT: '/restaurant/auth/logout',
       ME: '/restaurant/auth/me',
       REVERIFY: '/restaurant/auth/reverify',
-      RESET_PASSWORD: '/restaurant/auth/reset-password'
+      RESET_PASSWORD: '/restaurant/auth/reset-password',
+      DELETE_ACCOUNT: '/restaurant/auth/profile/account'
     },
     PROFILE: '/restaurant/profile',
     PAYOUT_DETAILS: '/restaurant/payout-details',
@@ -243,6 +245,7 @@ export const API_ENDPOINTS = {
     WALLET_DEPOSIT_BANK_SUBMIT: '/delivery/wallet/deposit/bank',
     ORDER_STATS: '/delivery/orders/stats',
     PROFILE: '/delivery/profile',
+    DELETE_ACCOUNT: '/delivery/profile/account',
     ORDERS: '/delivery/orders',
     ORDERS_AVAILABLE: '/delivery/orders/available',
     ORDER_BY_ID: '/delivery/orders/:orderId',
@@ -318,10 +321,12 @@ export const API_ENDPOINTS = {
     EARNING_ADDON_HISTORY_STATISTICS: '/admin/earning-addon-history/statistics',
     ABOUT: '/admin/about',
     ABOUT_PUBLIC: '/about/public',
-    TERMS: '/admin/terms',
-    TERMS_PUBLIC: '/terms/public',
-    PRIVACY: '/admin/privacy',
-    PRIVACY_PUBLIC: '/privacy/public',
+    TERMS: '/admin/terms/:role',
+    TERMS_PUBLIC: '/terms/public/:role',
+    PRIVACY: '/admin/privacy/:role',
+    PRIVACY_PUBLIC: '/privacy/public/:role',
+    CODE_OF_CONDUCT: '/admin/code-of-conduct/:role',
+    CODE_OF_CONDUCT_PUBLIC: '/code-of-conduct/public/:role',
     REFUND: '/admin/refund',
     REFUND_PUBLIC: '/refund/public',
     SHIPPING: '/admin/shipping',

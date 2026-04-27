@@ -2213,7 +2213,21 @@ export default function RestaurantOnboarding() {
 
   const handleBridgePickForField = async (targetField, source = "camera", fallbackInputId = null) => {
     try {
-      if (!hasFlutterCameraBridge()) return;
+      if (!hasFlutterCameraBridge()) {
+        // Not in Flutter - directly use native input
+        if (fallbackInputId) {
+          const el = document.getElementById(fallbackInputId);
+          if (el) {
+            if (source === "camera") {
+              el.setAttribute("capture", "environment");
+            } else {
+              el.removeAttribute("capture");
+            }
+            el.click();
+          }
+        }
+        return;
+      }
       const pickedFile = await requestImageFileFromFlutter({
         source,
         fileNamePrefix: targetField
@@ -2222,12 +2236,18 @@ export default function RestaurantOnboarding() {
         updateTargetFieldWithFile(targetField, pickedFile);
       }
     } catch (error) {
-      console.warn(`Bridge error for ${targetField} (${source}):`, error);
-      if (error?.code === "handler_missing" && fallbackInputId) {
-        // Fallback to standard input if bridge handler not implemented
-        document.getElementById(fallbackInputId)?.click();
-      } else {
-        toast.error(`Failed to open ${source}. Please try again.`);
+      // On ANY bridge error (handler missing, timeout, failed), always fall back to native input
+      console.warn(`Bridge error for ${targetField} (${source}), falling back to native input:`, error?.message || error);
+      if (fallbackInputId) {
+        const el = document.getElementById(fallbackInputId);
+        if (el) {
+          if (source === "camera") {
+            el.setAttribute("capture", "environment");
+          } else {
+            el.removeAttribute("capture");
+          }
+          el.click();
+        }
       }
     }
   };
@@ -2278,7 +2298,7 @@ export default function RestaurantOnboarding() {
               </> :
               <label
                 htmlFor="menuImagesInput"
-                className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black  border-black text-xs font-medium cursor-pointer     w-full items-center">
+                className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
 
                 <Upload className="w-4.5 h-4.5" />
                 <span>Choose files</span>

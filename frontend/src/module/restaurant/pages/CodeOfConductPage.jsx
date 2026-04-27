@@ -8,14 +8,14 @@ import MenuOverlay from "../components/MenuOverlay"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
-export default function TermsAndConditionsPage() {
+export default function CodeOfConductPage() {
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
   const [loading, setLoading] = useState(true)
   const [content, setContent] = useState("")
 
   useEffect(() => {
-    fetchTerms()
+    fetchConduct()
     
     const lenis = new Lenis({
       duration: 1.2,
@@ -35,16 +35,16 @@ export default function TermsAndConditionsPage() {
     }
   }, [])
 
-  const fetchTerms = async () => {
+  const fetchConduct = async () => {
     try {
       setLoading(true)
-      const url = API_ENDPOINTS.ADMIN.TERMS_PUBLIC.replace(':role', 'restaurant')
+      const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT_PUBLIC.replace(':role', 'restaurant')
       const response = await api.get(url)
       if (response.data.success) {
         setContent(response.data.data.content || "")
       }
     } catch (error) {
-      console.error("Error fetching terms:", error)
+      console.error("Error fetching code of conduct:", error)
     } finally {
       setLoading(false)
     }
@@ -60,7 +60,7 @@ export default function TermsAndConditionsPage() {
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <h1 className="text-lg font-bold text-gray-900 flex-1">Terms & Conditions</h1>
+        <h1 className="text-lg font-bold text-gray-900 flex-1">Code of Conduct</h1>
       </div>
 
       {/* Content */}
@@ -74,14 +74,14 @@ export default function TermsAndConditionsPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-8 h-8 text-[#ff8100] animate-spin" />
-              <p className="text-gray-500 text-sm font-medium">Loading terms...</p>
+              <p className="text-gray-500 text-sm font-medium">Loading content...</p>
             </div>
           ) : (
             <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Terms and Conditions</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Code of Conduct</h2>
               <div 
                 className="legal-content"
-                dangerouslySetInnerHTML={{ __html: content || "<p>No terms and conditions available at the moment.</p>" }} 
+                dangerouslySetInnerHTML={{ __html: content || "<p>No code of conduct available at the moment.</p>" }} 
               />
             </div>
           )}

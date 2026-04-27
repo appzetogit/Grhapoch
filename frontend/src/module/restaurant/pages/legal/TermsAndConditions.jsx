@@ -20,7 +20,7 @@ export default function TermsAndConditions() {
   const fetchTerms = async () => {
     try {
       setLoading(true)
-      const url = API_ENDPOINTS.ADMIN.TERMS_PUBLIC.replace(':role', 'delivery')
+      const url = API_ENDPOINTS.ADMIN.TERMS_PUBLIC.replace(':role', 'restaurant')
       const response = await api.get(url)
       if (response.data.success) {
         setData(response.data.data)
@@ -101,4 +101,3 @@ export default function TermsAndConditions() {
     </div>
   )
 }
-

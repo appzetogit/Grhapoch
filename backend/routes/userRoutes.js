@@ -12,6 +12,7 @@ import {
   toggleRestaurantFavorite,
   toggleDishFavorite,
   getUserFavorites,
+  deleteUserProfile,
 } from '../controllers/userController.js';
 import { authenticate } from '../middleware/auth.js';
 import { uploadMiddleware } from '../utils/cloudinaryService.js';
@@ -27,6 +28,7 @@ router.use(authenticate);
 // Profile routes
 router.get('/profile', getUserProfile);
 router.put('/profile', updateUserProfile);
+router.delete('/profile', deleteUserProfile);
 
 // Profile image upload
 router.post(

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Loader2, FileText } from "lucide-react"
+import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
-export default function TermsAndConditions() {
+export default function CodeOfConduct() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState({
@@ -14,19 +14,19 @@ export default function TermsAndConditions() {
   })
 
   useEffect(() => {
-    fetchTerms()
+    fetchConduct()
   }, [])
 
-  const fetchTerms = async () => {
+  const fetchConduct = async () => {
     try {
       setLoading(true)
-      const url = API_ENDPOINTS.ADMIN.TERMS_PUBLIC.replace(':role', 'delivery')
+      const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT_PUBLIC.replace(':role', 'delivery')
       const response = await api.get(url)
       if (response.data.success) {
         setData(response.data.data)
       }
     } catch (error) {
-      console.error("Error fetching terms:", error)
+      console.error("Error fetching code of conduct:", error)
     } finally {
       setLoading(false)
     }
@@ -42,7 +42,7 @@ export default function TermsAndConditions() {
         >
           <ArrowLeft className="w-6 h-6 text-gray-900" />
         </button>
-        <h1 className="text-xl font-bold text-gray-900">Terms and Conditions</h1>
+        <h1 className="text-xl font-bold text-gray-900">Code of Conduct</h1>
       </div>
 
       {/* Main Content */}
@@ -57,20 +57,20 @@ export default function TermsAndConditions() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="w-8 h-8 text-[#ff8100] animate-spin" />
-                <p className="text-gray-500 text-sm font-medium">Loading terms...</p>
+                <p className="text-gray-500 text-sm font-medium">Loading code of conduct...</p>
               </div>
             ) : (
               <>
                 <div className="flex items-center gap-3 mb-8">
-                  <div className="bg-green-50 p-3 rounded-2xl">
-                    <FileText className="h-8 w-8 text-green-600" />
+                  <div className="bg-blue-50 p-3 rounded-2xl">
+                    <ShieldCheck className="h-8 w-8 text-blue-600" />
                   </div>
                 </div>
 
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                   <div 
                     className="legal-content"
-                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No terms and conditions available at the moment.</p>" }} 
+                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No code of conduct available at the moment.</p>" }} 
                   />
                 </div>
 
@@ -101,4 +101,3 @@ export default function TermsAndConditions() {
     </div>
   )
 }
-

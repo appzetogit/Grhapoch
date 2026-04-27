@@ -41,7 +41,8 @@ import {
   DialogTitle
 } from
   "@/components/ui/dialog";
-import { authAPI, publicAPI } from "@/lib/api";
+import { authAPI, userAPI, publicAPI } from "@/lib/api";
+import DeleteAccountModal from "@/components/shared/DeleteAccountModal";
 import { firebaseAuth } from "@/lib/firebase";
 import { clearModuleAuth } from "@/lib/utils/auth";
 
@@ -56,6 +57,8 @@ export default function Profile() {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Settings states
   const [appearance, setAppearance] = useState(() => {
@@ -249,6 +252,26 @@ export default function Profile() {
   };
 
   // handleDonation removed
+
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await userAPI.deleteAccount();
+      clearModuleAuth('user');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user_authenticated');
+      localStorage.removeItem('user_user');
+      localStorage.removeItem('user');
+      window.dispatchEvent(new Event('userAuthChanged'));
+      navigate('/user/auth/sign-in', { replace: true });
+    } catch (err) {
+      console.error('Error deleting account:', err);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   return (
     <AnimatedPage className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a]">
@@ -802,31 +825,50 @@ export default function Profile() {
               </motion.div>
             </Link>
 
+            {/* Delete Account */}
             <motion.div
               whileHover={{ x: 4, scale: 1.01 }}
               transition={{ duration: 0.2, type: "spring", stiffness: 300 }}>
+              <Card
+                className="bg-white dark:bg-[#1a1a1a] py-0 rounded-xl shadow-sm border border-red-100 dark:border-red-900/40 cursor-pointer"
+                onClick={() => setDeleteAccountOpen(true)}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      className="bg-red-50 dark:bg-red-900/30 rounded-full p-2"
+                      whileHover={{ rotate: 15, scale: 1.1 }}
+                      transition={{ duration: 0.3 }}>
+                      <Power className="h-5 w-5 text-red-500" />
+                    </motion.div>
+                    <span className="text-base font-medium text-red-500">Delete Account</span>
+                  </div>
+                  <motion.div whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
+                    <ChevronRight className="h-5 w-5 text-red-300" />
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
+            {/* Log Out */}
+            <motion.div
+              whileHover={{ x: 4, scale: 1.01 }}
+              transition={{ duration: 0.2, type: "spring", stiffness: 300 }}>
               <Card
                 className="bg-white dark:bg-[#1a1a1a] py-0 rounded-xl shadow-sm border-0 dark:border-gray-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => !isLoggingOut && setLogoutConfirmOpen(true)}>
-
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <motion.div
                       className="bg-gray-100 dark:bg-gray-800 rounded-full p-2"
                       whileHover={{ rotate: 15, scale: 1.1 }}
                       transition={{ duration: 0.3 }}>
-
                       <Power className={`h-5 w-5 text-gray-700 dark:text-gray-300 ${isLoggingOut ? 'animate-pulse' : ''}`} />
                     </motion.div>
                     <span className="text-base font-medium text-gray-900 dark:text-white">
                       {isLoggingOut ? 'Logging out...' : 'Log out'}
                     </span>
                   </div>
-                  <motion.div
-                    whileHover={{ x: 4 }}
-                    transition={{ duration: 0.2 }}>
-
+                  <motion.div whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
                     <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                   </motion.div>
                 </CardContent>
@@ -993,6 +1035,16 @@ export default function Profile() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+        loading={isDeletingAccount}
+        module="user"
+        walletBalance={userProfile?.wallet?.balance || 0}
+      />
 
     </AnimatedPage>);
 

@@ -19,6 +19,7 @@ import Settings from "../pages/Settings"
 import Conversation from "../pages/Conversation"
 import TermsAndConditions from "../pages/TermsAndConditions"
 import PrivacyPolicy from "../pages/PrivacyPolicy"
+import CodeOfConduct from "../pages/CodeOfConduct"
 import Payout from "../pages/Payout"
 import DeductionStatement from "../pages/DeductionStatement"
 import TipsStatement from "../pages/TipsStatement"
@@ -59,10 +60,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Notifications />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/notifications"
+            </ProtectedRoute>
+          }
+          path="/notifications"
       />
       <Route
         element={
@@ -127,284 +127,264 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>
               <ProfilePage />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile"
+            </ProtectedRoute>
+          }
+          path="/profile"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <ProfileDetails />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/details"
+            </ProtectedRoute>
+          }
+          path="/profile/details"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <AcceptedOrderDetails />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/order/:orderId"
+            </ProtectedRoute>
+          }
+          path="/order/:orderId"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <MyAccount />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/account"
+            </ProtectedRoute>
+          }
+          path="/account"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <Earnings />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/earnings"
+            </ProtectedRoute>
+          }
+          path="/earnings"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <TripHistory />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/trip-history"
+            </ProtectedRoute>
+          }
+          path="/trip-history"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <TimeOnOrders />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/time-on-orders"
+            </ProtectedRoute>
+          }
+          path="/time-on-orders"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <TransactionHistory />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/transactions"
+            </ProtectedRoute>
+          }
+          path="/transactions"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <Payout />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/payout"
+            </ProtectedRoute>
+          }
+          path="/payout"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <DeductionStatement />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/deduction-statement"
+            </ProtectedRoute>
+          }
+          path="/deduction-statement"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <CustomerTipsBalancePage />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/customer-tips-balance"
+            </ProtectedRoute>
+          }
+          path="/customer-tips-balance"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketBalancePage />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/pocket-balance"
+            </ProtectedRoute>
+          }
+          path="/pocket-balance"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <TipsStatement />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/tips-statement"
+            </ProtectedRoute>
+          }
+          path="/tips-statement"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketStatement />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/pocket-statement"
+            </ProtectedRoute>
+          }
+          path="/pocket-statement"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <FuelPayment />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/fuel-payment"
+            </ProtectedRoute>
+          }
+          path="/fuel-payment"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <LimitSettlement />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/limit-settlement"
+            </ProtectedRoute>
+          }
+          path="/limit-settlement"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketDetails />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/pocket-details"
+            </ProtectedRoute>
+          }
+          path="/pocket-details"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <EditProfile />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/edit"
+            </ProtectedRoute>
+          }
+          path="/profile/edit"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <Settings />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/settings"
+            </ProtectedRoute>
+          }
+          path="/profile/settings"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <Conversation />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/conversation"
+            </ProtectedRoute>
+          }
+          path="/profile/conversation"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <TermsAndConditions />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/terms"
+            </ProtectedRoute>
+          }
+          path="/profile/terms"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <PrivacyPolicy />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/profile/privacy"
+            </ProtectedRoute>
+          }
+          path="/profile/privacy"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <DeliveryLayout>
+              <CodeOfConduct />
+            </ProtectedRoute>
+          }
+          path="/profile/code-of-conduct"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>
               <UpdatesPage />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/updates"
+            </ProtectedRoute>
+          }
+          path="/updates"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <SupportTickets />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/help/tickets"
+            </ProtectedRoute>
+          }
+          path="/help/tickets"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <CreateSupportTicket />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/help/create-ticket"
+            </ProtectedRoute>
+          }
+          path="/help/create-ticket"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <ViewSupportTicket />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/help/tickets/:id"
+            </ProtectedRoute>
+          }
+          path="/help/tickets/:id"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <ShowIdCard />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/help/id-card"
+            </ProtectedRoute>
+          }
+          path="/help/id-card"
       />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout>
               <ChangeLanguage />
-            </DeliveryLayout>
-          </ProtectedRoute>
-        }
-        path="/help/language"
+            </ProtectedRoute>
+          }
+          path="/help/language"
       />
       {/* Catch-all route to redirect invalid URLs back to home */}
       <Route path="*" element={<Navigate to="/delivery" replace />} />
     </Routes>
   )
 }
-

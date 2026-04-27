@@ -242,6 +242,11 @@ export const userAPI = {
   toggleDishFavorite: (data) => {
     return apiClient.post('/user/favorites/dish', data);
   },
+
+  // Delete user account
+  deleteAccount: () => {
+    return apiClient.delete(API_ENDPOINTS.USER.DELETE_ACCOUNT);
+  },
 };
 
 // Export public settings API helper functions
@@ -356,7 +361,7 @@ export const restaurantAPI = {
 
   // Delete restaurant account
   deleteAccount: () => {
-    return apiClient.delete(API_ENDPOINTS.RESTAURANT.PROFILE);
+    return apiClient.delete(API_ENDPOINTS.RESTAURANT.AUTH.DELETE_ACCOUNT);
   },
 
   // Update delivery status (isAcceptingOrders)
@@ -858,6 +863,11 @@ export const deliveryAPI = {
   // Update delivery profile
   updateProfile: (data) => {
     return apiClient.put(API_ENDPOINTS.DELIVERY.PROFILE, data);
+  },
+
+  // Delete delivery partner account
+  deleteAccount: () => {
+    return apiClient.delete(API_ENDPOINTS.DELIVERY.DELETE_ACCOUNT);
   },
 
   // Get orders

@@ -1,6 +1,8 @@
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import Delivery from '../models/Delivery.js';
+import DeliveryWallet from '../models/DeliveryWallet.js';
+import mongoose from 'mongoose';
 import { validate } from '../middleware/validate.js';
 import Joi from 'joi';
 import winston from 'winston';
@@ -208,3 +210,37 @@ export const reverify = asyncHandler(async (req, res) => {
   }
 });
 
+
+/**
+ * Delete Delivery Partner Account
+ * DELETE /api/delivery/profile/account
+ */
+export const deleteDeliveryAccount = asyncHandler(async (req, res) => {
+  const deliveryId = req.delivery._id;
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    // Delete DeliveryWallet
+    await DeliveryWallet.findOneAndDelete({ deliveryId }, { session });
+
+    // Delete Delivery Partner
+    const deleted = await Delivery.findByIdAndDelete(deliveryId, { session });
+
+    if (!deleted) {
+      await session.abortTransaction();
+      session.endSession();
+      return errorResponse(res, 404, 'Delivery partner not found');
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    logger.info(`Delivery partner account deleted: ${deliveryId}`);
+    return successResponse(res, 200, 'Delivery partner account deleted successfully');
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    logger.error(`Error deleting delivery partner account: ${error.message}`);
+    return errorResponse(res, 500, 'Failed to delete delivery partner account');
+  }
+});

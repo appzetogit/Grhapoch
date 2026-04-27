@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import Lenis from "lenis";
+import DeleteAccountModal from "@/components/shared/DeleteAccountModal";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import {
   ArrowLeft,
   Search,
@@ -350,6 +353,47 @@ export default function ExploreMore() {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [existingSchedule, setExistingSchedule] = useState(null);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  // Fetch wallet balance for delete modal
+  useEffect(() => {
+    if (profileOpen) {
+      const fetchWallet = async () => {
+        try {
+          const response = await restaurantAPI.getWallet();
+          const data = response?.data?.data?.wallet || response?.data?.wallet;
+          if (data) {
+            setWalletBalance(data.balance || 0);
+          }
+        } catch (error) {
+          console.error("Error fetching wallet:", error);
+        }
+      };
+      fetchWallet();
+    }
+  }, [profileOpen]);
+
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await restaurantAPI.deleteAccount();
+      clearModuleAuth('restaurant');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('restaurant_authenticated');
+      localStorage.removeItem('restaurant_user');
+      window.dispatchEvent(new Event('restaurantAuthChanged'));
+      navigate('/restaurant/login', { replace: true });
+      toast.success("Account deleted successfully");
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   const STORAGE_KEY = "restaurant_schedule_off";
 
@@ -1166,17 +1210,51 @@ export default function ExploreMore() {
                 
                   {isLoggingOut ? "Logging out..." : "Logout from all devices"}
                 </button>
+                {/* Delete Account Button */}
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setDeleteAccountOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 text-red-600 font-semibold py-3 px-4 hover:bg-red-50 transition-colors mt-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Account
+                </button>
               </div>
 
               {/* Footer Links */}
               <div className="px-6 py-4 border-t border-gray-200">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <span
+                    className="hover:text-gray-700 transition-colors border-b border-dotted border-gray-400 cursor-pointer"
+                    onClick={() => navigate("/restaurant/terms")}
+                  >
+                    Terms of Service
+                  </span>
+                  <span className="text-gray-400">|</span>
+                  <span
+                    className="hover:text-gray-700 transition-colors border-b border-dotted border-gray-400 cursor-pointer"
+                    onClick={() => navigate("/restaurant/privacy")}
+                  >
+                    Privacy Policy
+                  </span>
+                  <span className="text-gray-400">|</span>
+                  <span
+                    className="hover:text-gray-700 transition-colors border-b border-dotted border-gray-400 cursor-pointer"
+                    onClick={() => navigate("/restaurant/code-of-conduct")}
+                  >
+                    Code of Conduct
+                  </span>
+                </div>
+              </div>
                 <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
                   <a
                   href="#"
                   className="hover:text-gray-700 transition-colors border-b border-dotted border-gray-400"
                   onClick={(e) => {
                     e.preventDefault();
-                    // Navigate to terms of service
+
 
                   }}>
                   
@@ -1579,6 +1657,15 @@ export default function ExploreMore() {
           </>
         }
       </AnimatePresence>
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+        loading={isDeletingAccount}
+        module="restaurant"
+        walletBalance={walletBalance}
+      />
     </motion.div>);
 
 }

@@ -1,37 +1,38 @@
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useState, useEffect } from "react"
-import { ArrowLeft, Lock, Loader2 } from "lucide-react"
+import { ArrowLeft, ShieldCheck, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
 import AnimatedPage from "../../components/AnimatedPage"
+import { Button } from "@/components/ui/button"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
-export default function Privacy() {
+export default function CodeOfConduct() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [privacyData, setPrivacyData] = useState({
-    title: 'Privacy Policy',
+  const [conductData, setConductData] = useState({
+    title: 'Code of Conduct',
     content: '<p>Loading...</p>',
     updatedAt: new Date().toISOString()
   })
 
   useEffect(() => {
-    fetchPrivacyData()
+    fetchConductData()
   }, [])
 
-  const fetchPrivacyData = async () => {
+  const fetchConductData = async () => {
     try {
       setLoading(true)
-      const url = API_ENDPOINTS.ADMIN.PRIVACY_PUBLIC.replace(':role', 'user')
+      const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT_PUBLIC.replace(':role', 'user')
       const response = await api.get(url)
       if (response.data.success) {
-        setPrivacyData(response.data.data)
+        setConductData(response.data.data)
       }
     } catch (error) {
-      console.error('Error fetching privacy data:', error)
-      setPrivacyData({
-        title: 'Privacy Policy',
-        content: '<p>Unable to load privacy policy at the moment. Please try again later.</p>',
+      console.error('Error fetching code of conduct data:', error)
+      setConductData({
+        title: 'Code of Conduct',
+        content: '<p>Unable to load code of conduct at the moment. Please try again later.</p>',
         updatedAt: new Date().toISOString()
       })
     } finally {
@@ -62,7 +63,7 @@ export default function Privacy() {
         >
           <ArrowLeft className="w-6 h-6 text-gray-900 dark:text-white" />
         </button>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Code of Conduct</h1>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -76,7 +77,7 @@ export default function Privacy() {
             {/* Icon and Title - Title removed to avoid duplication as per user request */}
             <div className="flex items-center gap-3 mb-8">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl">
-                <Lock className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <ShieldCheck className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
 
@@ -91,13 +92,13 @@ export default function Privacy() {
                 prose-a:text-blue-600 dark:prose-a:text-blue-400
                 prose-a:no-underline hover:prose-a:underline
                 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: privacyData.content }}
+              dangerouslySetInnerHTML={{ __html: conductData.content }}
             />
 
             {/* Footer Note */}
             <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                Last updated: {new Date(privacyData.updatedAt || privacyData.updated_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                Last updated: {new Date(conductData.updatedAt || conductData.updated_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
@@ -106,3 +107,4 @@ export default function Privacy() {
     </AnimatedPage>
   )
 }
+

@@ -95,6 +95,7 @@ import Gallery from "../pages/settings/Gallery";
 import LoginSetup from "../pages/settings/LoginSetup";
 import TermsAndCondition from "../pages/settings/TermsAndCondition";
 import PrivacyPolicy from "../pages/settings/PrivacyPolicy";
+import CodeOfConduct from "../pages/settings/CodeOfConduct";
 import AboutUs from "../pages/settings/AboutUs";
 import RefundPolicy from "../pages/settings/RefundPolicy";
 import ShippingPolicy from "../pages/settings/ShippingPolicy";
@@ -282,8 +283,12 @@ export default function AdminRouter() {
         {/* Business Settings - FCM */}
         <Route path="business-settings/fcm-index" element={<FirebaseNotification />} />
         {/* Pages & Social Media */}
-        <Route path="pages-social-media/terms" element={<TermsAndCondition />} />
-        <Route path="pages-social-media/privacy" element={<PrivacyPolicy />} />
+        <Route path="pages-social-media/:role/terms" element={<TermsAndCondition />} />
+        <Route path="pages-social-media/:role/privacy" element={<PrivacyPolicy />} />
+        <Route path="pages-social-media/:role/code-of-conduct" element={<CodeOfConduct />} />
+        <Route path="pages-social-media/terms" element={<Navigate to="/admin/pages-social-media/user/terms" replace />} />
+        <Route path="pages-social-media/privacy" element={<Navigate to="/admin/pages-social-media/user/privacy" replace />} />
+        <Route path="pages-social-media/code-of-conduct" element={<Navigate to="/admin/pages-social-media/restaurant/code-of-conduct" replace />} />
         <Route path="pages-social-media/about" element={<AboutUs />} />
         <Route path="pages-social-media/refund" element={<RefundPolicy />} />
         <Route path="pages-social-media/shipping" element={<ShippingPolicy />} />

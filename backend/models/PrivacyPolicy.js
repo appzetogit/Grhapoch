@@ -20,6 +20,12 @@ const privacyPolicySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
       default: null
+    },
+    role: {
+      type: String,
+      enum: ['user', 'restaurant', 'delivery'],
+      default: 'user',
+      index: true
     }
   },
   {

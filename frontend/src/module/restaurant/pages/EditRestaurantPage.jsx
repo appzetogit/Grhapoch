@@ -142,31 +142,38 @@ export default function EditRestaurantPage() {
     }
   }
 
-  const handleBridgePickForField = async (field, inputId, source = 'gallery') => {
-    if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source, 
-          fileNamePrefix: field 
-        });
+  const handleBridgePickForField = (field, inputId, source = 'gallery') => {
+    const triggerFallback = () => {
+      const input = document.getElementById(inputId);
+      if (input) {
+        if (source === 'camera') {
+          input.setAttribute('capture', 'environment');
+        } else {
+          input.removeAttribute('capture');
+        }
+        input.click();
+      }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
+    }
+
+    // In Flutter - use bridge
+    requestImageFileFromFlutter({ 
+      source, 
+      fileNamePrefix: field 
+    })
+      .then(file => {
         if (file) {
           handleImageUpload(field, file);
-          return;
         }
-      } catch (err) {
+      })
+      .catch(err => {
         console.warn(`Flutter bridge failed for ${field} (${source}), falling back to web:`, err);
-      }
-    }
-    // Fallback: Trigger the hidden file input
-    const input = document.getElementById(inputId);
-    if (input) {
-      if (source === 'camera') {
-        input.setAttribute('capture', 'environment');
-      } else {
-        input.removeAttribute('capture');
-      }
-      input.click();
-    }
+        triggerFallback();
+      });
   }
 
   const handleSubmit = (e) => {

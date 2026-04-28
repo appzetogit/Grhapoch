@@ -1028,21 +1028,27 @@ export default function ProfileDetails() {
                 onChange={(e) => handleQrUpload(e.target.files?.[0])}
                 className="hidden"
               />
-              <label
-                onClick={async (e) => {
-                  if (hasFlutterCameraBridge()) {
-                    e.preventDefault();
-                    try {
-                      const file = await requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'qr-code' });
-                      if (file) {
-                        handleQrUpload(file);
-                      }
-                    } catch (err) {
-                      console.error("Flutter QR gallery error:", err);
-                    }
+              <div
+                onClick={() => {
+                  const triggerFallback = () => {
+                    const el = document.getElementById('qr-upload');
+                    if (el) el.click();
+                  };
+
+                  if (!hasFlutterCameraBridge()) {
+                    triggerFallback();
+                    return;
                   }
+
+                  requestImageFileFromFlutter({ source: 'gallery', fileNamePrefix: 'qr-code' })
+                    .then(file => {
+                      if (file) handleQrUpload(file);
+                    })
+                    .catch(err => {
+                      console.error("Flutter QR gallery error:", err);
+                      triggerFallback();
+                    });
                 }}
-                htmlFor="qr-upload"
                 className="flex flex-col items-center justify-center w-full py-6 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-green-500 hover:bg-green-50/30 transition-all group"
               >
                 <div className="flex flex-col items-center justify-center">
@@ -1054,7 +1060,7 @@ export default function ProfileDetails() {
                   </p>
                   <p className="text-[11px] text-gray-400 mt-0.5">PNG, JPG up to 3MB</p>
                 </div>
-              </label>
+              </div>
             </div>
 
             {qrUploading && (

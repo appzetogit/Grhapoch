@@ -365,48 +365,56 @@ export default function ItemDetailsPage() {
     if (errors.images) setErrors({ ...errors, images: null });
   };
 
-  const handleOpenCamera = async () => {
-    if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source: 'camera', 
-          fileNamePrefix: 'item' 
-        });
-        if (file) {
-          processFiles([file]);
-          return;
-        }
-      } catch (err) {
-        console.warn("Flutter bridge camera failed, falling back to web:", err);
+  const handleOpenCamera = () => {
+    const triggerFallback = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.setAttribute("capture", "environment");
+        fileInputRef.current.click();
       }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
     }
-    // Fallback to standard file picker with camera capture hint
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute("capture", "environment");
-      fileInputRef.current.click();
-    }
+
+    requestImageFileFromFlutter({ 
+      source: 'camera', 
+      fileNamePrefix: 'item' 
+    })
+      .then(file => {
+        if (file) processFiles([file]);
+      })
+      .catch(err => {
+        console.warn("Flutter bridge camera failed, falling back to web:", err);
+        triggerFallback();
+      });
   };
 
-  const handleOpenGallery = async () => {
-    if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
-          fileNamePrefix: 'item' 
-        });
-        if (file) {
-          processFiles([file]);
-          return;
-        }
-      } catch (err) {
-        console.warn("Flutter bridge gallery failed, falling back to web:", err);
+  const handleOpenGallery = () => {
+    const triggerFallback = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.removeAttribute("capture");
+        fileInputRef.current.click();
       }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
     }
-    // Fallback to standard file picker
-    if (fileInputRef.current) {
-      fileInputRef.current.removeAttribute("capture");
-      fileInputRef.current.click();
-    }
+
+    requestImageFileFromFlutter({ 
+      source: 'gallery', 
+      fileNamePrefix: 'item' 
+    })
+      .then(file => {
+        if (file) processFiles([file]);
+      })
+      .catch(err => {
+        console.warn("Flutter bridge gallery failed, falling back to web:", err);
+        triggerFallback();
+      });
   };
 
   const handleImageAdd = (e) => {

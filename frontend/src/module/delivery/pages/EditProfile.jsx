@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Camera,
-  Save } from
+  Save,
+  Upload } from
 "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { hasFlutterCameraBridge, requestImageFileFromFlutter } from "@/lib/utils/cameraBridge";
 
 export default function EditProfile() {
   const navigate = useNavigate();
@@ -46,6 +48,44 @@ export default function EditProfile() {
     }
   };
 
+  const handleBridgePick = (source = 'gallery') => {
+    const triggerFallback = () => {
+      const input = document.getElementById('profile-image-input');
+      if (input) {
+        if (source === 'camera') input.setAttribute('capture', 'environment');
+        else input.removeAttribute('capture');
+        input.click();
+      }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
+    }
+
+    requestImageFileFromFlutter({ source, fileNamePrefix: 'delivery_profile' })
+      .then(file => {
+        if (file) handlePhotoChange({ target: { files: [file] } });
+      })
+      .catch(err => {
+        console.warn(`Bridge ${source} failed, falling back:`, err);
+        triggerFallback();
+      });
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Here you would typically upload to server, for now just update preview
+        // This file usually expects an image URL or state update
+      };
+      reader.readAsDataURL(file);
+      toast.success("Profile photo selected");
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     // Handle form submission
@@ -79,18 +119,30 @@ export default function EditProfile() {
                     alt="Profile"
                     className="w-20 h-20 md:w-32 md:h-32 rounded-full border-2 md:border-4 border-white object-cover shadow-md" />
                   
-                  <label className="absolute bottom-0 right-0 bg-[#ff8100] text-white p-1.5 md:p-2 rounded-full cursor-pointer hover:bg-[#e67300] transition-colors">
-                    <Camera className="w-3 h-3 md:w-4 md:h-4" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-
-
-                      }} />
-                    
-                  </label>
+                  <div className="absolute bottom-0 right-0 flex gap-1">
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePick('gallery')}
+                      className="bg-[#ff8100] text-white p-1.5 md:p-2 rounded-full cursor-pointer hover:bg-[#e67300] transition-colors shadow-sm"
+                      title="Gallery"
+                    >
+                      <Upload className="w-3 h-3 md:w-4 md:h-4" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePick('camera')}
+                      className="bg-black text-white p-1.5 md:p-2 rounded-full cursor-pointer hover:bg-gray-800 transition-colors shadow-sm"
+                      title="Camera"
+                    >
+                      <Camera className="w-3 h-3 md:w-4 md:h-4" />
+                    </button>
+                  </div>
+                  <input
+                    id="profile-image-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange} />
                 </div>
                 <p className="text-gray-600 text-xs md:text-sm text-center">Tap to change profile picture</p>
               </div>

@@ -2211,36 +2211,11 @@ export default function RestaurantOnboarding() {
     }
   };
 
-  const handleBridgePickForField = async (targetField, source = "camera", fallbackInputId = null) => {
+  const handleBridgePickForField = (targetField, source = "camera", fallbackInputId = null) => {
     // Clear error instantly on click
     setFormErrors(prev => ({ ...prev, [targetField]: null }));
 
-    try {
-      if (!hasFlutterCameraBridge()) {
-        // Not in Flutter - directly use native input
-        if (fallbackInputId) {
-          const el = document.getElementById(fallbackInputId);
-          if (el) {
-            if (source === "camera") {
-              el.setAttribute("capture", "environment");
-            } else {
-              el.removeAttribute("capture");
-            }
-            el.click();
-          }
-        }
-        return;
-      }
-      const pickedFile = await requestImageFileFromFlutter({
-        source,
-        fileNamePrefix: targetField
-      });
-      if (pickedFile) {
-        updateTargetFieldWithFile(targetField, pickedFile);
-      }
-    } catch (error) {
-      // On ANY bridge error (handler missing, timeout, failed), always fall back to native input
-      console.warn(`Bridge error for ${targetField} (${source}), falling back to native input:`, error?.message || error);
+    const triggerFallback = () => {
       if (fallbackInputId) {
         const el = document.getElementById(fallbackInputId);
         if (el) {
@@ -2252,7 +2227,28 @@ export default function RestaurantOnboarding() {
           el.click();
         }
       }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      // Not in Flutter - directly use native input
+      triggerFallback();
+      return;
     }
+
+    // In Flutter - call bridge
+    requestImageFileFromFlutter({
+      source,
+      fileNamePrefix: targetField
+    })
+      .then(pickedFile => {
+        if (pickedFile) {
+          updateTargetFieldWithFile(targetField, pickedFile);
+        }
+      })
+      .catch(error => {
+        console.warn(`Bridge error for ${targetField} (${source}), falling back to native input:`, error?.message || error);
+        triggerFallback();
+      });
   };
   const isFlutterWebView = hasFlutterCameraBridge();
   const renderStep2 = () =>
@@ -2280,20 +2276,20 @@ export default function RestaurantOnboarding() {
                 </span>
               </div>
             </div>
-            <label
-              htmlFor="menuImagesInput"
-              onClick={(e) => { e.preventDefault(); handleBridgePickForField('menuImages', 'gallery', 'menuImagesInput'); }}
-              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
-              <Upload className="w-4.5 h-4.5" />
+            <button
+              type="button"
+              onClick={() => handleBridgePickForField('menuImages', 'gallery', 'menuImagesInput')}
+              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full hover:bg-gray-50 transition-colors">
+              <Upload className="w-4 h-4" />
               <span>Choose files</span>
-            </label>
-            <label
-              htmlFor="menuImagesCameraInput"
-              onClick={(e) => { e.preventDefault(); handleBridgePickForField('menuImages', 'camera', 'menuImagesCameraInput'); }}
-              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBridgePickForField('menuImages', 'camera', 'menuImagesCameraInput')}
+              className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full hover:bg-gray-50 transition-colors">
               <Camera className="w-4 h-4" />
               <span>Use camera</span>
-            </label>
+            </button>
             <input
               id="menuImagesInput"
               type="file"
@@ -2641,22 +2637,22 @@ export default function RestaurantOnboarding() {
           <Label className="text-xs text-gray-700">PAN image<span className="text-red-500">*</span></Label>
           <div className="mt-1 space-y-2">
             <div className="flex flex-wrap gap-2">
-              <label
-                htmlFor="panImageInput"
-                onClick={(e) => { e.preventDefault(); handleBridgePickForField('panImage', 'gallery', 'panImageInput'); }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+              <button
+                type="button"
+                onClick={() => handleBridgePickForField('panImage', 'gallery', 'panImageInput')}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
                 Upload
-              </label>
-              <label
-                htmlFor="panImageCameraInput"
-                onClick={(e) => { e.preventDefault(); handleBridgePickForField('panImage', 'camera', 'panImageCameraInput'); }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBridgePickForField('panImage', 'camera', 'panImageCameraInput')}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
                 Use camera
-              </label>
+              </button>
             </div>
             <input
               id="panImageInput"
@@ -2784,22 +2780,22 @@ export default function RestaurantOnboarding() {
             <div className="space-y-1">
               <Label className="text-xs text-gray-600">GST certificate image<span className="text-red-500">*</span></Label>
               <div className="flex flex-wrap gap-2">
-                <label
-                  htmlFor="gstImageInput"
-                  onClick={(e) => { e.preventDefault(); handleBridgePickForField('gstImage', 'gallery', 'gstImageInput'); }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+                <button
+                  type="button"
+                  onClick={() => handleBridgePickForField('gstImage', 'gallery', 'gstImageInput')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   Upload
-                </label>
-                <label
-                  htmlFor="gstImageCameraInput"
-                  onClick={(e) => { e.preventDefault(); handleBridgePickForField('gstImage', 'camera', 'gstImageCameraInput'); }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBridgePickForField('gstImage', 'camera', 'gstImageCameraInput')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <Camera className="w-3.5 h-3.5" />
                   Use camera
-                </label>
+                </button>
               </div>
               <input
                 id="gstImageInput"
@@ -2933,22 +2929,22 @@ export default function RestaurantOnboarding() {
         <div className="space-y-1">
           <Label className="text-xs text-gray-600 mb-1.5 block">FSSAI certificate image<span className="text-red-500">*</span></Label>
           <div className="flex flex-wrap gap-2">
-            <label
-              htmlFor="fssaiImageInput"
-              onClick={(e) => { e.preventDefault(); handleBridgePickForField('fssaiImage', 'gallery', 'fssaiImageInput'); }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+            <button
+              type="button"
+              onClick={() => handleBridgePickForField('fssaiImage', 'gallery', 'fssaiImageInput')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
             >
               <Upload className="w-3.5 h-3.5" />
               Upload
-            </label>
-            <label
-              htmlFor="fssaiImageCameraInput"
-              onClick={(e) => { e.preventDefault(); handleBridgePickForField('fssaiImage', 'camera', 'fssaiImageCameraInput'); }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBridgePickForField('fssaiImage', 'camera', 'fssaiImageCameraInput')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
             >
               <Camera className="w-3.5 h-3.5" />
               Use camera
-            </label>
+            </button>
           </div>
           <input
             id="fssaiImageInput"

@@ -55,20 +55,24 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
             <div className="flex items-center justify-center gap-6 w-full">
               <button
                 type="button"
-                onClick={async () => {
-                  if (hasFlutterCameraBridge()) {
-                    try {
-                      const file = await requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType });
-                      if (file) {
-                        handleFileSelect(docType, file);
-                        return;
-                      }
-                    } catch (e) {
-                      console.warn("Bridge camera failed, falling back to native capture:", e);
-                    }
+                onClick={() => {
+                  const triggerFallback = () => {
+                    cameraInputRef.current?.click();
+                  };
+
+                  if (!hasFlutterCameraBridge()) {
+                    triggerFallback();
+                    return;
                   }
-                  // Fallback to native camera capture
-                  cameraInputRef.current?.click();
+
+                  requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType })
+                    .then(file => {
+                      if (file) handleFileSelect(docType, file);
+                    })
+                    .catch(e => {
+                      console.warn("Bridge camera failed, falling back to native capture:", e);
+                      triggerFallback();
+                    });
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
@@ -82,20 +86,24 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
 
               <button
                 type="button"
-                onClick={async () => {
-                  if (hasFlutterCameraBridge()) {
-                    try {
-                      const file = await requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType });
-                      if (file) {
-                        handleFileSelect(docType, file);
-                        return;
-                      }
-                    } catch (e) {
-                      console.warn("Bridge gallery failed, falling back to device picker:", e);
-                    }
+                onClick={() => {
+                  const triggerFallback = () => {
+                    galleryInputRef.current?.click();
+                  };
+
+                  if (!hasFlutterCameraBridge()) {
+                    triggerFallback();
+                    return;
                   }
-                  // Fallback to device picker
-                  galleryInputRef.current?.click();
+
+                  requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType })
+                    .then(file => {
+                      if (file) handleFileSelect(docType, file);
+                    })
+                    .catch(e => {
+                      console.warn("Bridge gallery failed, falling back to device picker:", e);
+                      triggerFallback();
+                    });
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >

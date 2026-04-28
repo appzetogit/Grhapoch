@@ -153,31 +153,38 @@ export default function UpdateBankDetails() {
     }
   };
 
-  const handleBridgePick = async (source = 'gallery') => {
-    if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source, 
-          fileNamePrefix: 'payout_qr' 
-        });
+  const handleBridgePick = (source = 'gallery') => {
+    const triggerFallback = () => {
+      const input = fileInputRef.current;
+      if (input) {
+        if (source === 'camera') {
+          input.setAttribute('capture', 'environment');
+        } else {
+          input.removeAttribute('capture');
+        }
+        input.click();
+      }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
+    }
+
+    // In Flutter - use bridge
+    requestImageFileFromFlutter({ 
+      source, 
+      fileNamePrefix: 'payout_qr' 
+    })
+      .then(file => {
         if (file) {
           handleQrUpload({ target: { files: [file] } });
-          return;
         }
-      } catch (err) {
+      })
+      .catch(err => {
         console.warn(`Flutter bridge failed for QR code (${source}), falling back to web:`, err);
-      }
-    }
-    // Fallback: Trigger the hidden file input
-    const input = fileInputRef.current;
-    if (input) {
-      if (source === 'camera') {
-        input.setAttribute('capture', 'environment');
-      } else {
-        input.removeAttribute('capture');
-      }
-      input.click();
-    }
+        triggerFallback();
+      });
   };
 
   const handleSubmit = async (e) => {

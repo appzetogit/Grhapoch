@@ -152,31 +152,38 @@ export default function EditOwner() {
     }
   };
 
-  const handleBridgePick = async (source = 'gallery') => {
-    if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source, 
-          fileNamePrefix: 'owner' 
-        });
+  const handleBridgePick = (source = 'gallery') => {
+    const triggerFallback = () => {
+      const input = fileInputRef.current;
+      if (input) {
+        if (source === 'camera') {
+          input.setAttribute('capture', 'environment');
+        } else {
+          input.removeAttribute('capture');
+        }
+        input.click();
+      }
+    };
+
+    if (!hasFlutterCameraBridge()) {
+      triggerFallback();
+      return;
+    }
+
+    // In Flutter - use bridge
+    requestImageFileFromFlutter({ 
+      source, 
+      fileNamePrefix: 'owner' 
+    })
+      .then(file => {
         if (file) {
           handlePhotoChange({ target: { files: [file] } });
-          return;
         }
-      } catch (err) {
+      })
+      .catch(err => {
         console.warn(`Flutter bridge failed for owner photo (${source}), falling back to web:`, err);
-      }
-    }
-    // Fallback: Trigger the hidden file input
-    const input = fileInputRef.current;
-    if (input) {
-      if (source === 'camera') {
-        input.setAttribute('capture', 'environment');
-      } else {
-        input.removeAttribute('capture');
-      }
-      input.click();
-    }
+        triggerFallback();
+      });
   };
 
   const handleSave = async () => {

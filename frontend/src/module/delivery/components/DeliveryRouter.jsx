@@ -60,8 +60,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Notifications />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/notifications"
       />
       <Route
@@ -127,8 +128,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>
               <ProfilePage />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/profile"
       />
       <Route
@@ -136,8 +138,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <ProfileDetails />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/profile/details"
       />
       <Route
@@ -145,8 +148,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <AcceptedOrderDetails />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/order/:orderId"
       />
       <Route
@@ -154,8 +158,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <MyAccount />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/account"
       />
       <Route
@@ -163,8 +168,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Earnings />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/earnings"
       />
       <Route
@@ -172,8 +178,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <TripHistory />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/trip-history"
       />
       <Route
@@ -181,8 +188,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <TimeOnOrders />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/time-on-orders"
       />
       <Route
@@ -190,8 +198,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <TransactionHistory />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/transactions"
       />
       <Route
@@ -199,8 +208,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Payout />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/payout"
       />
       <Route
@@ -208,8 +218,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <DeductionStatement />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/deduction-statement"
       />
       <Route
@@ -217,8 +228,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <CustomerTipsBalancePage />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/customer-tips-balance"
       />
       <Route
@@ -226,8 +238,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketBalancePage />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/pocket-balance"
       />
       <Route
@@ -235,8 +248,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <TipsStatement />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/tips-statement"
       />
       <Route
@@ -244,8 +258,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketStatement />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/pocket-statement"
       />
       <Route
@@ -253,8 +268,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <FuelPayment />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/fuel-payment"
       />
       <Route
@@ -262,8 +278,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <LimitSettlement />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/limit-settlement"
       />
       <Route
@@ -271,8 +288,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <PocketDetails />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/pocket-details"
       />
       <Route
@@ -280,8 +298,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <EditProfile />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/profile/edit"
       />
       <Route
@@ -289,8 +308,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Settings />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/profile/settings"
       />
       <Route
@@ -298,44 +318,21 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <Conversation />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/profile/conversation"
       />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DeliveryLayout>
-              <TermsAndConditions />
-            </ProtectedRoute>
-          }
-          path="/profile/terms"
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DeliveryLayout>
-              <PrivacyPolicy />
-            </ProtectedRoute>
-          }
-          path="/profile/privacy"
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DeliveryLayout>
-              <CodeOfConduct />
-            </ProtectedRoute>
-          }
-          path="/profile/code-of-conduct"
-      />
+      <Route path="/profile/terms" element={<TermsAndConditions />} />
+      <Route path="/profile/privacy" element={<PrivacyPolicy />} />
       <Route
         element={
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>
               <UpdatesPage />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/updates"
       />
       <Route
@@ -343,8 +340,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <SupportTickets />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/help/tickets"
       />
       <Route
@@ -352,8 +350,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <CreateSupportTicket />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/help/create-ticket"
       />
       <Route
@@ -361,8 +360,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <ViewSupportTicket />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/help/tickets/:id"
       />
       <Route
@@ -370,8 +370,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <ShowIdCard />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/help/id-card"
       />
       <Route
@@ -379,8 +380,9 @@ export default function DeliveryRouter() {
           <ProtectedRoute>
             <DeliveryLayout>
               <ChangeLanguage />
-            </ProtectedRoute>
-          }
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
           path="/help/language"
       />
       {/* Catch-all route to redirect invalid URLs back to home */}

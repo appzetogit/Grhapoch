@@ -11,7 +11,25 @@ export default function Privacy() {
   const [loading, setLoading] = useState(true)
   const [privacyData, setPrivacyData] = useState({
     title: 'Privacy Policy',
-    content: '<p>Loading...</p>',
+    content: `
+      <h2>1. Information We Collect</h2>
+      <p>We collect information you provide directly to us, such as your name, email address, phone number, and delivery address when you create an account or place an order.</p>
+      
+      <h2>2. How We Use Your Information</h2>
+      <p>We use your information to process and deliver your orders, communicate with you about your account and promotions, and improve our services.</p>
+      
+      <h2>3. Information Sharing</h2>
+      <p>We share your delivery details with our restaurant partners and delivery personnel to ensure your food reaches you. We do not sell your personal data to third parties.</p>
+      
+      <h2>4. Data Security</h2>
+      <p>We implement industry-standard security measures to protect your personal information from unauthorized access, disclosure, or alteration.</p>
+      
+      <h2>5. Your Rights</h2>
+      <p>You have the right to access, update, or delete your personal information through your account settings or by contacting our support team.</p>
+      
+      <h2>6. Cookies</h2>
+      <p>We use cookies and similar technologies to enhance your browsing experience and provide personalized services.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 
@@ -29,11 +47,7 @@ export default function Privacy() {
       }
     } catch (error) {
       console.error('Error fetching privacy data:', error)
-      setPrivacyData({
-        title: 'Privacy Policy',
-        content: '<p>Unable to load privacy policy at the moment. Please try again later.</p>',
-        updatedAt: new Date().toISOString()
-      })
+      // Fallback already set in initial state
     } finally {
       setLoading(false)
     }

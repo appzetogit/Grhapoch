@@ -9,7 +9,26 @@ export default function TermsAndConditions() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState({
-    content: "",
+    title: 'Terms and Conditions',
+    content: `
+      <h2>1. Delivery Partner Relationship</h2>
+      <p>As a delivery partner, you are an independent contractor and not an employee of GrhaPoch. You have the flexibility to choose when and where you want to provide delivery services.</p>
+      
+      <h2>2. Service Standards</h2>
+      <p>You agree to provide professional delivery services, ensuring that items are handled with care and delivered promptly to the customer. Maintaining a high level of professionalism is key to the success of our platform.</p>
+      
+      <h2>3. Safety and Compliance</h2>
+      <p>You must follow all local traffic laws and safety regulations while performing deliveries. Using appropriate safety gear (e.g., helmets) is mandatory.</p>
+      
+      <h2>4. Payments and Earnings</h2>
+      <p>Earnings are calculated based on completed deliveries, distance, and prevailing incentives. Payments are processed regularly to your registered bank account or GrhaPoch wallet.</p>
+      
+      <h2>5. Equipment and Maintenance</h2>
+      <p>You are responsible for maintaining your vehicle and smartphone in good working condition to ensure uninterrupted service.</p>
+      
+      <h2>6. Termination</h2>
+      <p>GrhaPoch reserves the right to terminate the relationship if there are repeated violations of service standards or fraudulent activities.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 
@@ -22,18 +41,19 @@ export default function TermsAndConditions() {
       setLoading(true)
       const url = API_ENDPOINTS.ADMIN.TERMS_PUBLIC.replace(':role', 'delivery')
       const response = await api.get(url)
-      if (response.data.success) {
+      if (response.data.success && response.data.data.content) {
         setData(response.data.data)
       }
     } catch (error) {
       console.error("Error fetching terms:", error)
+      // Fallback content is already set
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f6e9dc] overflow-x-hidden">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-4">
         <button
@@ -70,7 +90,7 @@ export default function TermsAndConditions() {
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                   <div 
                     className="legal-content"
-                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No terms and conditions available at the moment.</p>" }} 
+                    dangerouslySetInnerHTML={{ __html: data.content }} 
                   />
                 </div>
 
@@ -101,4 +121,3 @@ export default function TermsAndConditions() {
     </div>
   )
 }
-

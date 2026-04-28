@@ -525,12 +525,10 @@ export default function SignIn() {
 
           <div className="text-center text-xs md:text-sm text-gray-500 dark:text-gray-400 pt-4 md:pt-6">
             <p className="mb-1 md:mb-2">By continuing, you agree to our</p>
-            <div className="flex justify-center gap-2 flex-wrap text-black dark:text-white">
-              <Link to="/user/terms" className="underline hover:text-gray-700 dark:hover:text-gray-300">Terms of Service</Link>
+            <div className="flex justify-center gap-2 flex-wrap text-black dark:text-white font-medium">
+              <Link to="/user/profile/terms" className="underline hover:text-gray-700 dark:hover:text-gray-300">Terms of Service</Link>
               <span className="text-gray-500">•</span>
-              <Link to="/user/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</Link>
-              <span className="text-gray-500">•</span>
-              <Link to="/user/code-of-conduct" className="underline hover:text-gray-700 dark:hover:text-gray-300">Code of Conduct</Link>
+              <Link to="/user/profile/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</Link>
             </div>
           </div>
         </div>

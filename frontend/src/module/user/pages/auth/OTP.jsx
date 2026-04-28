@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { ArrowLeft, Loader2, Mail, User } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Input } from "@/components/ui/input"
@@ -448,7 +448,7 @@ export default function OTP() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col justify-center px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20">
+      <div className="flex-1 flex flex-col justify-center px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20">
         <div className="max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto w-full space-y-8 md:space-y-10 lg:space-y-12">
           {/* Message */}
           {!showNameInput && (
@@ -605,6 +605,18 @@ export default function OTP() {
               <Loader2 className="h-6 w-6 text-[#E23744] animate-spin" />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Footer Legal Links */}
+      <div className="px-6 pb-12 pt-4">
+        <div className="w-full max-w-md mx-auto text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+          <p className="mb-1 md:mb-2 font-medium">By continuing, you agree to our</p>
+          <div className="flex justify-center gap-2 flex-wrap text-black dark:text-white font-medium">
+            <Link to="/user/profile/terms" className="underline hover:text-gray-700 dark:hover:text-gray-300">Terms of Service</Link>
+            <span className="text-gray-500">•</span>
+            <Link to="/user/profile/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</Link>
+          </div>
         </div>
       </div>
 

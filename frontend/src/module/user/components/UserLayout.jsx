@@ -198,11 +198,15 @@ export default function UserLayout() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [location.pathname, location.search, location.hash])
 
-  // Note: Authentication checks and redirects are handled by ProtectedRoute components
-  // UserLayout should not interfere with authentication redirects
+  // Logic for showing navigation
+  const isLegalPage = location.pathname.includes("/terms") ||
+    location.pathname.includes("/privacy") ||
+    location.pathname.includes("/code-of-conduct") ||
+    location.pathname.includes("/refund") ||
+    location.pathname.includes("/shipping") ||
+    location.pathname.includes("/cancellation")
 
-  // Show bottom navigation only on home page, dining page, under-250 page, and profile page
-  const showBottomNav = location.pathname === "/" ||
+  const showNav = (location.pathname === "/" ||
     location.pathname === "/user" ||
     location.pathname === "/dining" ||
     location.pathname === "/user/dining" ||
@@ -210,7 +214,9 @@ export default function UserLayout() {
     location.pathname === "/user/under-250" ||
     location.pathname === "/profile" ||
     location.pathname === "/user/profile" ||
-    location.pathname.startsWith("/user/profile")
+    location.pathname.startsWith("/user/profile")) && !isLegalPage
+
+  const showBottomNav = showNav
 
   useEffect(() => {
     const normalizedPath = location.pathname !== "/" ? location.pathname.replace(/\/+$/, "") : "/"
@@ -266,7 +272,7 @@ export default function UserLayout() {
                   {/* <Navbar /> */}
                   {showBottomNav && <DesktopNavbar />}
                   {/* Spacer for fixed desktop navbar */}
-                  {showBottomNav && <div className="hidden md:block h-16" />}
+                  {showNav && <div className="hidden md:block h-16" />}
                   <LocationPrompt />
                   <UserGlobalDiningBookingListener />
                   <Outlet />
@@ -320,4 +326,3 @@ export default function UserLayout() {
     </div>
   )
 }
-

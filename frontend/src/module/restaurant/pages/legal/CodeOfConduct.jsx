@@ -68,9 +68,9 @@ export default function CodeOfConduct() {
                 </div>
 
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                  <div 
+                  <div
                     className="legal-content"
-                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No code of conduct available at the moment.</p>" }} 
+                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No code of conduct available at the moment.</p>" }}
                   />
                 </div>
 
@@ -84,7 +84,7 @@ export default function CodeOfConduct() {
           </div>
         </motion.div>
       </div>
-      
+
       <style jsx>{`
         .legal-content :global(p) {
           margin-bottom: 1rem;

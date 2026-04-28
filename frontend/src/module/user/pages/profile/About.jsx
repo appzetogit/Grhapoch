@@ -197,7 +197,7 @@ export default function About() {
               </h3>
               <div className="space-y-3">
                 <Link
-                  to="/profile/terms"
+                  to="/user/profile/terms"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                 >
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
@@ -215,7 +215,7 @@ export default function About() {
                 </Link>
 
                 <Link
-                  to="/profile/privacy"
+                  to="/user/profile/privacy"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                 >
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
@@ -232,26 +232,10 @@ export default function About() {
                   <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
                 </Link>
 
-                <Link
-                  to="/profile/code-of-conduct"
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
-                >
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
-                    <ShieldCheck className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-base font-medium text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                      Code of Conduct
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-500">
-                      Our community guidelines
-                    </div>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-                </Link>
+
 
                 <Link
-                  to="/profile/refund"
+                  to="/user/profile/refund"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                 >
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
@@ -269,7 +253,7 @@ export default function About() {
                 </Link>
 
                 <Link
-                  to="/profile/shipping"
+                  to="/user/profile/shipping"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                 >
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
@@ -287,7 +271,7 @@ export default function About() {
                 </Link>
 
                 <Link
-                  to="/profile/cancellation"
+                  to="/user/profile/cancellation"
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                 >
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">

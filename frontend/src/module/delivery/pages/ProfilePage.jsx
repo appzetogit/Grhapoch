@@ -451,18 +451,6 @@ export default function ProfilePage() {
                   <ArrowRight className="w-5 h-5 text-gray-400" />
                 </CardContent>
               </Card>
-
-              <Card
-                onClick={() => navigate("/delivery/profile/code-of-conduct")}
-                className="py-0 border-0 shadow-none rounded-none cursor-pointer hover:bg-gray-200 transition-colors">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="w-5 h-5 text-gray-600" />
-                    <span className="text-sm font-medium">Code of Conduct</span>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400" />
-                </CardContent>
-              </Card>
             </div>
           </div>
 

@@ -9,7 +9,22 @@ export default function PrivacyPolicy() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState({
-    content: "",
+    content: `
+      <h2>1. Information We Collect</h2>
+      <p>We collect information you provide during registration, including your name, contact details, vehicle information, and background check documents. We also collect real-time location data while you are on duty to facilitate efficient delivery assignments.</p>
+      
+      <h2>2. How We Use Your Information</h2>
+      <p>Your information is used to manage your account, process payments, ensure platform safety, and optimize delivery routes. Location data is shared with customers so they can track their orders.</p>
+      
+      <h2>3. Data Protection</h2>
+      <p>We implement robust security measures to protect your personal information from unauthorized access or disclosure. Your data is stored on secure servers.</p>
+      
+      <h2>4. Third-Party Sharing</h2>
+      <p>We may share your information with service providers who help us with payment processing, background checks, and map services. We do not sell your personal data to third parties.</p>
+      
+      <h2>5. Your Rights</h2>
+      <p>You have the right to access, update, or request the deletion of your personal data through your account settings or by contacting our support team.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 
@@ -22,18 +37,19 @@ export default function PrivacyPolicy() {
       setLoading(true)
       const url = API_ENDPOINTS.ADMIN.PRIVACY_PUBLIC.replace(':role', 'delivery')
       const response = await api.get(url)
-      if (response.data.success) {
+      if (response.data.success && response.data.data.content) {
         setData(response.data.data)
       }
     } catch (error) {
       console.error("Error fetching privacy policy:", error)
+      // Fallback is set
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f6e9dc] overflow-x-hidden">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-4">
         <button
@@ -70,7 +86,7 @@ export default function PrivacyPolicy() {
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                   <div 
                     className="legal-content"
-                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No privacy policy available at the moment.</p>" }} 
+                    dangerouslySetInnerHTML={{ __html: data.content }} 
                   />
                 </div>
 

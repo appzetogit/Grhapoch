@@ -9,7 +9,25 @@ export default function CodeOfConduct() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState({
-    content: "",
+    content: `
+      <h2>1. Professionalism</h2>
+      <p>Maintain a high standard of professionalism in all interactions with customers, restaurant staff, and GrhaPoch support. Polite and respectful communication is expected at all times.</p>
+      
+      <h2>2. Handling of Orders</h2>
+      <p>Ensure that all orders are handled with care, kept in appropriate thermal bags, and delivered in the condition they were received from the restaurant.</p>
+      
+      <h2>3. Safety Guidelines</h2>
+      <p>Adhere to all traffic rules and safety regulations. Do not use your phone while driving and ensure your vehicle is roadworthy.</p>
+      
+      <h2>4. Platform Integrity</h2>
+      <p>Do not engage in fraudulent activities such as marking orders delivered without actually delivering them, or manipulating location data.</p>
+      
+      <h2>5. Customer Privacy</h2>
+      <p>Respect customer privacy. Only use customer contact information for the purpose of the current delivery and do not store or share it.</p>
+      
+      <h2>6. Zero Tolerance</h2>
+      <p>GrhaPoch has zero tolerance for harassment, discrimination, or abusive behavior. Violations will result in immediate termination of the partnership.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 
@@ -22,11 +40,12 @@ export default function CodeOfConduct() {
       setLoading(true)
       const url = API_ENDPOINTS.ADMIN.CODE_OF_CONDUCT_PUBLIC.replace(':role', 'delivery')
       const response = await api.get(url)
-      if (response.data.success) {
+      if (response.data.success && response.data.data.content) {
         setData(response.data.data)
       }
     } catch (error) {
       console.error("Error fetching code of conduct:", error)
+      // Fallback is set
     } finally {
       setLoading(false)
     }
@@ -70,7 +89,7 @@ export default function CodeOfConduct() {
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                   <div 
                     className="legal-content"
-                    dangerouslySetInnerHTML={{ __html: data.content || "<p>No code of conduct available at the moment.</p>" }} 
+                    dangerouslySetInnerHTML={{ __html: data.content }} 
                   />
                 </div>
 

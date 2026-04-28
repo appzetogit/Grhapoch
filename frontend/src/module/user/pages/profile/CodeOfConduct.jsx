@@ -1,9 +1,8 @@
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useState, useEffect } from "react"
 import { ArrowLeft, ShieldCheck, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
 import AnimatedPage from "../../components/AnimatedPage"
-import { Button } from "@/components/ui/button"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
@@ -12,7 +11,25 @@ export default function CodeOfConduct() {
   const [loading, setLoading] = useState(true)
   const [conductData, setConductData] = useState({
     title: 'Code of Conduct',
-    content: '<p>Loading...</p>',
+    content: `
+      <h2>1. Respect for Others</h2>
+      <p>Treat all members of the GrhaPoch community—including delivery partners, restaurant staff, and customer support—with kindness and respect. Harassment, discrimination, or abusive language will not be tolerated.</p>
+      
+      <h2>2. Fair Usage</h2>
+      <p>Users must use the platform fairly. Creating multiple accounts to exploit promotions, providing false information, or attempting to manipulate the system is prohibited.</p>
+      
+      <h2>3. Safety First</h2>
+      <p>Do not engage in any activity that compromises the safety of others. This includes providing unsafe delivery instructions or engaging in fraudulent transactions.</p>
+      
+      <h2>4. Feedback and Reviews</h2>
+      <p>Provide honest and constructive feedback. Reviews should be based on actual experiences and must not contain offensive content or personal information.</p>
+      
+      <h2>5. Compliance with Laws</h2>
+      <p>Users must comply with all local laws and regulations while using GrhaPoch services.</p>
+      
+      <h2>6. Account Integrity</h2>
+      <p>You are responsible for all activity on your account. Keep your login credentials secure and do not share them with others.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 
@@ -30,11 +47,7 @@ export default function CodeOfConduct() {
       }
     } catch (error) {
       console.error('Error fetching code of conduct data:', error)
-      setConductData({
-        title: 'Code of Conduct',
-        content: '<p>Unable to load code of conduct at the moment. Please try again later.</p>',
-        updatedAt: new Date().toISOString()
-      })
+      // Fallback content is already set
     } finally {
       setLoading(false)
     }
@@ -74,7 +87,6 @@ export default function CodeOfConduct() {
           className="bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden"
         >
           <div className="p-6 md:p-8 lg:p-10">
-            {/* Icon and Title - Title removed to avoid duplication as per user request */}
             <div className="flex items-center gap-3 mb-8">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl">
                 <ShieldCheck className="h-8 w-8 text-blue-600 dark:text-blue-400" />
@@ -95,7 +107,6 @@ export default function CodeOfConduct() {
               dangerouslySetInnerHTML={{ __html: conductData.content }}
             />
 
-            {/* Footer Note */}
             <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">
               <p className="text-sm text-gray-400 dark:text-gray-500">
                 Last updated: {new Date(conductData.updatedAt || conductData.updated_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -107,4 +118,3 @@ export default function CodeOfConduct() {
     </AnimatedPage>
   )
 }
-

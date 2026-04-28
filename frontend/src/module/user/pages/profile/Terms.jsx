@@ -12,7 +12,25 @@ export default function Terms() {
   const [loading, setLoading] = useState(true)
   const [termsData, setTermsData] = useState({
     title: 'Terms and Conditions',
-    content: '<p>Loading...</p>',
+    content: `
+      <h2>1. Introduction</h2>
+      <p>Welcome to GrhaPoch. By using our website and services, you agree to comply with and be bound by the following terms and conditions.</p>
+      
+      <h2>2. Service Usage</h2>
+      <p>Our platform provides food delivery services from various restaurants. We act as an intermediary between customers and restaurants.</p>
+      
+      <h2>3. Account Responsibility</h2>
+      <p>You are responsible for maintaining the confidentiality of your account and password. You agree to accept responsibility for all activities that occur under your account.</p>
+      
+      <h2>4. Pricing and Payment</h2>
+      <p>Prices for food items are set by restaurants. Delivery fees and other charges are clearly displayed before checkout. Payments are processed securely.</p>
+      
+      <h2>5. Order Cancellation</h2>
+      <p>Orders can be cancelled according to our Cancellation Policy. Refund eligibility depends on the stage of order preparation and delivery.</p>
+      
+      <h2>6. Limitation of Liability</h2>
+      <p>GrhaPoch is not liable for the quality of food prepared by restaurants or for delays caused by external factors.</p>
+    `,
     updatedAt: new Date().toISOString()
   })
 

@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   User,
   Edit,
+  Upload,
+  Camera,
   Trash2 } from
 "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -150,11 +152,11 @@ export default function EditOwner() {
     }
   };
 
-  const handleBridgePick = async () => {
+  const handleBridgePick = async (source = 'gallery') => {
     if (hasFlutterCameraBridge()) {
       try {
         const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
+          source, 
           fileNamePrefix: 'owner' 
         });
         if (file) {
@@ -162,10 +164,19 @@ export default function EditOwner() {
           return;
         }
       } catch (err) {
-        console.warn("Flutter bridge failed for owner photo, falling back to web:", err);
+        console.warn(`Flutter bridge failed for owner photo (${source}), falling back to web:`, err);
       }
     }
-    fileInputRef.current?.click();
+    // Fallback: Trigger the hidden file input
+    const input = fileInputRef.current;
+    if (input) {
+      if (source === 'camera') {
+        input.setAttribute('capture', 'environment');
+      } else {
+        input.removeAttribute('capture');
+      }
+      input.click();
+    }
   };
 
   const handleSave = async () => {
@@ -330,13 +341,24 @@ export default function EditOwner() {
               }
             </div>
           </div>
-          <button
-            onClick={handleBridgePick}
-            disabled={loading || saving}
-            className="text-blue-600 text-sm font-normal hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            
-            Edit photo
-          </button>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => handleBridgePick('gallery')}
+              disabled={loading || saving}
+              className="text-blue-600 text-sm font-medium hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+              <Upload className="w-4 h-4" />
+              Gallery
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBridgePick('camera')}
+              disabled={loading || saving}
+              className="text-gray-600 text-sm font-medium hover:text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+              <Camera className="w-4 h-4" />
+              Camera
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"

@@ -10,6 +10,7 @@ import {
   Plus,
   X,
   Camera,
+  Upload,
   ThumbsUp,
   ChevronLeft,
   ChevronRight,
@@ -368,7 +369,7 @@ export default function ItemDetailsPage() {
     if (hasFlutterCameraBridge()) {
       try {
         const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
+          source: 'camera', 
           fileNamePrefix: 'item' 
         });
         if (file) {
@@ -379,8 +380,33 @@ export default function ItemDetailsPage() {
         console.warn("Flutter bridge camera failed, falling back to web:", err);
       }
     }
+    // Fallback to standard file picker with camera capture hint
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute("capture", "environment");
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleOpenGallery = async () => {
+    if (hasFlutterCameraBridge()) {
+      try {
+        const file = await requestImageFileFromFlutter({ 
+          source: 'gallery', 
+          fileNamePrefix: 'item' 
+        });
+        if (file) {
+          processFiles([file]);
+          return;
+        }
+      } catch (err) {
+        console.warn("Flutter bridge gallery failed, falling back to web:", err);
+      }
+    }
     // Fallback to standard file picker
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.removeAttribute("capture");
+      fileInputRef.current.click();
+    }
   };
 
   const handleImageAdd = (e) => {
@@ -998,15 +1024,24 @@ export default function ItemDetailsPage() {
             }
             </div> :
 
-          <div
-            className="relative w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center cursor-pointer"
-            onClick={handleOpenCamera}>
+          <div className="relative w-full h-80 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                  <Camera className="w-10 h-10 text-gray-400" />
+                <div className="flex gap-4 justify-center mb-4">
+                  <div 
+                    onClick={handleOpenCamera}
+                    className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-white transition-colors"
+                  >
+                    <Camera className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <div 
+                    onClick={handleOpenGallery}
+                    className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-white transition-colors"
+                  >
+                    <Upload className="w-10 h-10 text-gray-400" />
+                  </div>
                 </div>
                 <p className="text-sm font-medium text-gray-600">No images added yet</p>
-                <p className="text-xs text-gray-500 mt-1">Tap the button below to add multiple images</p>
+                <p className="text-xs text-gray-500 mt-1">Tap to capture or select from gallery</p>
               </div>
             </div>
           }

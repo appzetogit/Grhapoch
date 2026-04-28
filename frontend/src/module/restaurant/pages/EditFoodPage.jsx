@@ -12,6 +12,7 @@ import {
   X,
   Plus,
   Upload,
+  Camera,
   Image as ImageIcon
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -226,11 +227,11 @@ export default function EditFoodPage() {
     }
   }
 
-  const handleBridgePick = async () => {
+  const handleBridgePick = async (source = 'gallery') => {
     if (hasFlutterCameraBridge()) {
       try {
         const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
+          source, 
           fileNamePrefix: 'food' 
         });
         if (file) {
@@ -238,11 +239,23 @@ export default function EditFoodPage() {
           return;
         }
       } catch (err) {
-        console.warn("Flutter bridge failed for food image, falling back to web:", err);
+        console.warn(`Flutter bridge failed for food image (${source}), falling back to web:`, err);
       }
     }
     // Fallback: Trigger the hidden file input
-    document.getElementById('foodImageInput')?.click();
+    if (source === 'camera') {
+      const input = document.getElementById('foodImageInput');
+      if (input) {
+        input.setAttribute('capture', 'environment');
+        input.click();
+      }
+    } else {
+      const input = document.getElementById('foodImageInput');
+      if (input) {
+        input.removeAttribute('capture');
+        input.click();
+      }
+    }
   }
 
   const handleSubmit = (e) => {
@@ -309,12 +322,23 @@ export default function EditFoodPage() {
                     alt={formData.name}
                     className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
                   />
-                  <button 
-                    type="button"
-                    onClick={handleBridgePick}
-                    className="absolute bottom-0 right-0 bg-[#ff8100] text-white p-2 rounded-full cursor-pointer hover:bg-[#e67300]"
-                  >
-                    <Upload className="w-4 h-4" />
+                  <div className="absolute bottom-0 right-0 flex gap-1">
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePick('gallery')}
+                      className="bg-[#ff8100] text-white p-2 rounded-full cursor-pointer hover:bg-[#e67300] shadow-md"
+                      title="Gallery"
+                    >
+                      <Upload className="w-4 h-4" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleBridgePick('camera')}
+                      className="bg-black text-white p-2 rounded-full cursor-pointer hover:bg-gray-800 shadow-md"
+                      title="Camera"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
                     <input
                       id="foodImageInput"
                       type="file"
@@ -322,7 +346,7 @@ export default function EditFoodPage() {
                       onChange={(e) => handleImageUpload("image", e.target.files[0])}
                       className="hidden"
                     />
-                  </button>
+                  </div>
                 </div>
               </div>
             </CardContent>

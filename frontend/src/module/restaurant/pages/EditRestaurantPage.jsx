@@ -10,6 +10,7 @@ import {
   Wallet,
   Menu,
   Upload,
+  Camera,
   Image as ImageIcon
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -141,11 +142,11 @@ export default function EditRestaurantPage() {
     }
   }
 
-  const handleBridgePickForField = async (field, inputId) => {
+  const handleBridgePickForField = async (field, inputId, source = 'gallery') => {
     if (hasFlutterCameraBridge()) {
       try {
         const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
+          source, 
           fileNamePrefix: field 
         });
         if (file) {
@@ -153,11 +154,19 @@ export default function EditRestaurantPage() {
           return;
         }
       } catch (err) {
-        console.warn(`Flutter bridge failed for ${field}, falling back to web:`, err);
+        console.warn(`Flutter bridge failed for ${field} (${source}), falling back to web:`, err);
       }
     }
     // Fallback: Trigger the hidden file input
-    document.getElementById(inputId)?.click();
+    const input = document.getElementById(inputId);
+    if (input) {
+      if (source === 'camera') {
+        input.setAttribute('capture', 'environment');
+      } else {
+        input.removeAttribute('capture');
+      }
+      input.click();
+    }
   }
 
   const handleSubmit = (e) => {
@@ -308,20 +317,31 @@ export default function EditRestaurantPage() {
                     <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center mb-3">
                       <ImageIcon className="w-8 h-8 text-gray-400" />
                     </div>
-                    <button 
-                      type="button"
-                      onClick={() => handleBridgePickForField("logo", "logoInput")}
-                      className="text-sm text-gray-600 underline"
-                    >
-                      <input
-                        id="logoInput"
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={(e) => handleImageUpload("logo", e.target.files[0])}
-                        className="hidden"
-                      />
-                      Upload Logo
-                    </button>
+                    <div className="flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("logo", "logoInput", "gallery")}
+                        className="text-sm text-[#ff8100] font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Gallery
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("logo", "logoInput", "camera")}
+                        className="text-sm text-gray-600 font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        Camera
+                      </button>
+                    </div>
+                    <input
+                      id="logoInput"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => handleImageUpload("logo", e.target.files[0])}
+                      className="hidden"
+                    />
                   </>
                 )}
               </div>
@@ -356,20 +376,31 @@ export default function EditRestaurantPage() {
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                    <button 
-                      type="button"
-                      onClick={() => handleBridgePickForField("cover", "coverInput")}
-                      className="text-sm text-gray-600 underline"
-                    >
-                      <input
-                        id="coverInput"
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={(e) => handleImageUpload("cover", e.target.files[0])}
-                        className="hidden"
-                      />
-                      Upload Cover
-                    </button>
+                    <div className="flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("cover", "coverInput", "gallery")}
+                        className="text-sm text-[#ff8100] font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Gallery
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("cover", "coverInput", "camera")}
+                        className="text-sm text-gray-600 font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        Camera
+                      </button>
+                    </div>
+                    <input
+                      id="coverInput"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => handleImageUpload("cover", e.target.files[0])}
+                      className="hidden"
+                    />
                   </>
                 )}
               </div>
@@ -434,20 +465,31 @@ export default function EditRestaurantPage() {
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                    <button 
-                      type="button"
-                      onClick={() => handleBridgePickForField("metaImage", "metaImageInput")}
-                      className="text-sm text-gray-600 underline"
-                    >
-                      <input
-                        id="metaImageInput"
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={(e) => handleImageUpload("metaImage", e.target.files[0])}
-                        className="hidden"
-                      />
-                      Upload Meta Image
-                    </button>
+                    <div className="flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("metaImage", "metaImageInput", "gallery")}
+                        className="text-sm text-[#ff8100] font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Gallery
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleBridgePickForField("metaImage", "metaImageInput", "camera")}
+                        className="text-sm text-gray-600 font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        Camera
+                      </button>
+                    </div>
+                    <input
+                      id="metaImageInput"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => handleImageUpload("metaImage", e.target.files[0])}
+                      className="hidden"
+                    />
                   </>
                 )}
               </div>

@@ -19,7 +19,8 @@ import {
   IndianRupee,
   Sparkles,
   LogOut,
-  X
+  X,
+  Shield
 } from
   "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";

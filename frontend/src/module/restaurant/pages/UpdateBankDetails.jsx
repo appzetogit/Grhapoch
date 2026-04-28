@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Upload, X, QrCode, CreditCard, Smartphone } from "lucide-react";
+import { ArrowLeft, AlertCircle, Upload, X, QrCode, CreditCard, Smartphone, Camera } from "lucide-react";
 import { restaurantAPI, uploadAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
@@ -153,11 +153,11 @@ export default function UpdateBankDetails() {
     }
   };
 
-  const handleBridgePick = async () => {
+  const handleBridgePick = async (source = 'gallery') => {
     if (hasFlutterCameraBridge()) {
       try {
         const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
+          source, 
           fileNamePrefix: 'payout_qr' 
         });
         if (file) {
@@ -165,10 +165,19 @@ export default function UpdateBankDetails() {
           return;
         }
       } catch (err) {
-        console.warn("Flutter bridge failed for QR code, falling back to web:", err);
+        console.warn(`Flutter bridge failed for QR code (${source}), falling back to web:`, err);
       }
     }
-    fileInputRef.current?.click();
+    // Fallback: Trigger the hidden file input
+    const input = fileInputRef.current;
+    if (input) {
+      if (source === 'camera') {
+        input.setAttribute('capture', 'environment');
+      } else {
+        input.removeAttribute('capture');
+      }
+      input.click();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -361,15 +370,31 @@ export default function UpdateBankDetails() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleBridgePick}
-                    disabled={uploading}
-                    className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
-                  >
-                    {uploading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div> : <Upload className="w-6 h-6 text-gray-400" />}
-                    <span className="text-xs text-gray-500">Click to upload UPI QR</span>
-                  </button>
+                  <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-3 bg-gray-50/50">
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+                    ) : (
+                      <div className="flex gap-4">
+                        <button
+                          type="button"
+                          onClick={() => handleBridgePick('gallery')}
+                          className="flex flex-col items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Upload className="w-6 h-6 text-blue-600" />
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">Gallery</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBridgePick('camera')}
+                          className="flex flex-col items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Camera className="w-6 h-6 text-purple-600" />
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">Camera</span>
+                        </button>
+                      </div>
+                    )}
+                    {!uploading && <span className="text-[10px] text-gray-400 font-medium">Upload UPI QR Code</span>}
+                  </div>
                 )}
                 <input
                   type="file"

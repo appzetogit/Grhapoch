@@ -2212,6 +2212,9 @@ export default function RestaurantOnboarding() {
   };
 
   const handleBridgePickForField = async (targetField, source = "camera", fallbackInputId = null) => {
+    // Clear error instantly on click
+    setFormErrors(prev => ({ ...prev, [targetField]: null }));
+
     try {
       if (!hasFlutterCameraBridge()) {
         // Not in Flutter - directly use native input
@@ -2279,12 +2282,14 @@ export default function RestaurantOnboarding() {
             </div>
             <label
               htmlFor="menuImagesInput"
+              onClick={(e) => { e.preventDefault(); handleBridgePickForField('menuImages', 'gallery', 'menuImagesInput'); }}
               className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
               <Upload className="w-4.5 h-4.5" />
               <span>Choose files</span>
             </label>
             <label
               htmlFor="menuImagesCameraInput"
+              onClick={(e) => { e.preventDefault(); handleBridgePickForField('menuImages', 'camera', 'menuImagesCameraInput'); }}
               className="inline-flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-black border border-black text-xs font-medium cursor-pointer w-full">
               <Camera className="w-4 h-4" />
               <span>Use camera</span>
@@ -2433,7 +2438,7 @@ export default function RestaurantOnboarding() {
           </div>
           <label
             htmlFor="profileImageInput"
-            onClick={() => handleFileClick('profileImage', 'profileImageInput')}
+            onClick={(e) => { e.preventDefault(); handleBridgePickForField('profileImage', 'gallery', 'profileImageInput'); }}
             style={{
               opacity: (step2.profileImage || removingProfile) ? 0.5 : 1,
               pointerEvents: (step2.profileImage || removingProfile) ? 'none' : 'auto',
@@ -2445,6 +2450,7 @@ export default function RestaurantOnboarding() {
           </label>
           <label
             htmlFor="profileImageCameraInput"
+            onClick={(e) => { e.preventDefault(); handleBridgePickForField('profileImage', 'camera', 'profileImageCameraInput'); }}
             style={{
               opacity: (step2.profileImage || removingProfile) ? 0.5 : 1,
               pointerEvents: (step2.profileImage || removingProfile) ? 'none' : 'auto',
@@ -2637,6 +2643,7 @@ export default function RestaurantOnboarding() {
             <div className="flex flex-wrap gap-2">
               <label
                 htmlFor="panImageInput"
+                onClick={(e) => { e.preventDefault(); handleBridgePickForField('panImage', 'gallery', 'panImageInput'); }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -2644,6 +2651,7 @@ export default function RestaurantOnboarding() {
               </label>
               <label
                 htmlFor="panImageCameraInput"
+                onClick={(e) => { e.preventDefault(); handleBridgePickForField('panImage', 'camera', 'panImageCameraInput'); }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
               >
                 <Camera className="w-3.5 h-3.5" />
@@ -2778,6 +2786,7 @@ export default function RestaurantOnboarding() {
               <div className="flex flex-wrap gap-2">
                 <label
                   htmlFor="gstImageInput"
+                  onClick={(e) => { e.preventDefault(); handleBridgePickForField('gstImage', 'gallery', 'gstImageInput'); }}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
                 >
                   <Upload className="w-3.5 h-3.5" />
@@ -2785,6 +2794,7 @@ export default function RestaurantOnboarding() {
                 </label>
                 <label
                   htmlFor="gstImageCameraInput"
+                  onClick={(e) => { e.preventDefault(); handleBridgePickForField('gstImage', 'camera', 'gstImageCameraInput'); }}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
                 >
                   <Camera className="w-3.5 h-3.5" />
@@ -2925,6 +2935,7 @@ export default function RestaurantOnboarding() {
           <div className="flex flex-wrap gap-2">
             <label
               htmlFor="fssaiImageInput"
+              onClick={(e) => { e.preventDefault(); handleBridgePickForField('fssaiImage', 'gallery', 'fssaiImageInput'); }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
             >
               <Upload className="w-3.5 h-3.5" />
@@ -2932,6 +2943,7 @@ export default function RestaurantOnboarding() {
             </label>
             <label
               htmlFor="fssaiImageCameraInput"
+              onClick={(e) => { e.preventDefault(); handleBridgePickForField('fssaiImage', 'camera', 'fssaiImageCameraInput'); }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-sm border border-gray-300 text-gray-700 bg-white cursor-pointer hover:bg-gray-50"
             >
               <Camera className="w-3.5 h-3.5" />

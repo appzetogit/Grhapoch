@@ -57,7 +57,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                 type="button"
                 onClick={() => {
                   const triggerFallback = () => {
-                    cameraInputRef.current?.click();
+                    setActiveCamera(docType);
                   };
 
                   if (!hasFlutterCameraBridge()) {
@@ -70,7 +70,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                       if (file) handleFileSelect(docType, file);
                     })
                     .catch(e => {
-                      console.warn("Bridge camera failed, falling back to native capture:", e);
+                      console.warn("Bridge camera failed, falling back to custom camera:", e);
                       triggerFallback();
                     });
                 }}

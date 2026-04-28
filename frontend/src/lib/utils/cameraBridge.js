@@ -146,12 +146,6 @@ export const requestImageFileFromFlutter = async ({
     }
 
     console.warn(`[cameraBridge] Handler "${handlerName}" returned unrecognized response shape:`, typeof result);
-    continue;
-  }
-
-    // Unknown response shape — treat as not-implemented and try next
-    console.warn(`[cameraBridge] Handler "${handlerName}" returned unknown response shape:`, typeof result);
-    continue;
   }
 
   // None of the handlers worked

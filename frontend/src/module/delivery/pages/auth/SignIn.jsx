@@ -105,7 +105,7 @@ export default function DeliverySignIn() {
 
       <div className="flex flex-col items-center pt-8 pb-8 px-6">
         <div>
-          <h1 className="text-3xl italic md:text-4xl tracking-wide font-extrabold text-black" style={{ WebkitTextStroke: "0.5px black", textStroke: "0.5px black" }}>Grha Poch</h1>
+          <h1 className="text-3xl italic md:text-4xl tracking-wide font-extrabold text-black" style={{ WebkitTextStroke: "0.5px black", textStroke: "0.5px black" }}>GrhaPoch</h1>
         </div>
         <div className="">
           <span className="text-gray-600 font-light text-sm tracking-wide block text-center">— delivery partner —</span>

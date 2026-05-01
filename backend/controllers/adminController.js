@@ -348,7 +348,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
     // Delivery boy requests pending (awaiting approval)
     const pendingDeliveryBoyRequests = await Delivery.countDocuments({
-      status: 'pending'
+      status: 'pending',
+      isProfileComplete: true
     });
 
     // Total foods (Menu items) - Count all individual menu items from active menus

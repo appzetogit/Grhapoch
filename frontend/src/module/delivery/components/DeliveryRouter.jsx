@@ -46,7 +46,7 @@ export default function DeliveryRouter() {
     <Routes>
       {/* Protected routes - require authentication */}
       <Route
-        path="/"
+        index
         element={
           <ProtectedRoute>
             <DeliveryLayout showGig={true}>
@@ -63,7 +63,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/notifications"
+        path="notifications"
       />
       <Route
         element={
@@ -73,7 +73,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-        path="/orders"
+        path="orders"
       />
       <Route
         element={
@@ -83,7 +83,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-        path="/requests"
+        path="requests"
       />
       <Route
         element={
@@ -93,7 +93,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-        path="/gig"
+        path="gig"
       />
       <Route
         element={
@@ -101,7 +101,7 @@ export default function DeliveryRouter() {
             <SelectDropLocation />
           </ProtectedRoute>
         }
-        path="/select-drop-location"
+        path="select-drop-location"
       />
       <Route
         element={
@@ -111,7 +111,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-        path="/offers"
+        path="offers"
       />
       <Route
         element={
@@ -121,7 +121,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-        path="/pickup-directions"
+        path="pickup-directions"
       />
       <Route
         element={
@@ -131,7 +131,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/profile"
+        path="profile"
       />
       <Route
         element={
@@ -141,7 +141,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/profile/details"
+        path="profile/details"
       />
       <Route
         element={
@@ -151,7 +151,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/order/:orderId"
+        path="order/:orderId"
       />
       <Route
         element={
@@ -161,7 +161,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/account"
+        path="account"
       />
       <Route
         element={
@@ -171,7 +171,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/earnings"
+        path="earnings"
       />
       <Route
         element={
@@ -181,7 +181,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/trip-history"
+        path="trip-history"
       />
       <Route
         element={
@@ -191,7 +191,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/time-on-orders"
+        path="time-on-orders"
       />
       <Route
         element={
@@ -201,7 +201,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/transactions"
+        path="transactions"
       />
       <Route
         element={
@@ -211,7 +211,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/payout"
+        path="payout"
       />
       <Route
         element={
@@ -221,7 +221,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/deduction-statement"
+        path="deduction-statement"
       />
       <Route
         element={
@@ -231,7 +231,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/customer-tips-balance"
+        path="customer-tips-balance"
       />
       <Route
         element={
@@ -241,7 +241,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/pocket-balance"
+        path="pocket-balance"
       />
       <Route
         element={
@@ -251,7 +251,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/tips-statement"
+        path="tips-statement"
       />
       <Route
         element={
@@ -261,7 +261,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/pocket-statement"
+        path="pocket-statement"
       />
       <Route
         element={
@@ -271,7 +271,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/fuel-payment"
+        path="fuel-payment"
       />
       <Route
         element={
@@ -281,7 +281,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/limit-settlement"
+        path="limit-settlement"
       />
       <Route
         element={
@@ -291,7 +291,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/pocket-details"
+        path="pocket-details"
       />
       <Route
         element={
@@ -301,7 +301,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/profile/edit"
+        path="profile/edit"
       />
       <Route
         element={
@@ -311,7 +311,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/profile/settings"
+        path="profile/settings"
       />
       <Route
         element={
@@ -321,10 +321,10 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/profile/conversation"
+        path="profile/conversation"
       />
-      <Route path="/profile/terms" element={<TermsAndConditions />} />
-      <Route path="/profile/privacy" element={<PrivacyPolicy />} />
+      <Route path="profile/terms" element={<TermsAndConditions />} />
+      <Route path="profile/privacy" element={<PrivacyPolicy />} />
       <Route
         element={
           <ProtectedRoute>
@@ -333,7 +333,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/updates"
+        path="updates"
       />
       <Route
         element={
@@ -343,7 +343,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/help/tickets"
+        path="help/tickets"
       />
       <Route
         element={
@@ -353,7 +353,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/help/create-ticket"
+        path="help/create-ticket"
       />
       <Route
         element={
@@ -363,7 +363,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/help/tickets/:id"
+        path="help/tickets/:id"
       />
       <Route
         element={
@@ -373,7 +373,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/help/id-card"
+        path="help/id-card"
       />
       <Route
         element={
@@ -383,7 +383,7 @@ export default function DeliveryRouter() {
             </DeliveryLayout>
           </ProtectedRoute>
         }
-          path="/help/language"
+        path="help/language"
       />
       {/* Catch-all route to redirect invalid URLs back to home */}
       <Route path="*" element={<Navigate to="/delivery" replace />} />

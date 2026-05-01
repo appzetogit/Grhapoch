@@ -37,6 +37,9 @@ export const getJoinRequests = asyncHandler(async (req, res) => {
     // Status filter
     if (status === 'pending') {
       query.status = 'pending';
+      // Only show delivery partners who actually completed onboarding/signup steps.
+      // This prevents partially-created records (created during OTP flow) from appearing as join requests.
+      query.isProfileComplete = true;
     } else if (status === 'denied') {
       query.status = 'blocked'; // Assuming 'blocked' is used for denied/rejected
     }

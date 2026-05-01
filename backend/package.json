@@ -10,7 +10,8 @@
     "kill-port": "npx kill-port 5000 || (for /f \"tokens=5\" %a in ('netstat -ano ^| findstr LISTENING ^| findstr :5000') do taskkill /F /PID %a)",
     "fresh": "npm run kill-port && npm run dev",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "cleanup:fcm-arrays": "node ./scripts/removeLegacyFcmArrays.js"
+    "cleanup:fcm-arrays": "node ./scripts/removeLegacyFcmArrays.js",
+    "purge:orders": "node ./scripts/clearOrdersOnly.js"
   },
   "keywords": [
     "food-delivery",

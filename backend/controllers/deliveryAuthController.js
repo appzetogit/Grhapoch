@@ -168,6 +168,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         }
       }
 
+      const isApproved = ['approved', 'active', 'suspended', 'blocked'].includes(delivery.status);
+
       // Only force onboarding for pending users who haven't completed their profile
       const needsSignup = !isApproved && !delivery.isProfileComplete;
 

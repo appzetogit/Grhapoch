@@ -168,20 +168,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         }
       }
 
-      // Check if signup needs to be completed (missing required fields)
-      // A user only needs onboarding if they are in 'pending' status and haven't finished the documents step
-      const isApproved = ['approved', 'active', 'suspended', 'blocked'].includes(delivery.status);
-      
-      const hasAllFields = delivery.location?.city &&
-        delivery.vehicle?.number &&
-        delivery.documents?.pan?.number &&
-        delivery.documents?.aadhar?.number &&
-        delivery.documents?.aadhar?.document &&
-        delivery.documents?.pan?.document &&
-        delivery.documents?.drivingLicense?.document;
-
       // Only force onboarding for pending users who haven't completed their profile
-      const needsSignup = !isApproved && (!delivery.isProfileComplete || !hasAllFields);
+      const needsSignup = !isApproved && !delivery.isProfileComplete;
 
       if (needsSignup) {
         // Generate tokens for signup flow
@@ -213,6 +201,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
             email: delivery.email,
             deliveryId: delivery.deliveryId,
             status: delivery.status,
+            isProfileComplete: delivery.isProfileComplete,
             rejectionReason: delivery.rejectionReason || null // Include rejection reason for blocked accounts
           },
           needsSignup: true // Signal that signup needs to be completed
@@ -262,6 +251,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         profileImage: delivery.profileImage,
         isActive: delivery.isActive,
         status: delivery.status,
+        isProfileComplete: delivery.isProfileComplete,
         rejectionReason: delivery.rejectionReason || null, // Include rejection reason for blocked accounts
         metrics: delivery.metrics,
         earnings: delivery.earnings
@@ -385,6 +375,7 @@ export const getCurrentDelivery = asyncHandler(async (req, res) => {
       profileImage: req.delivery.profileImage,
       isActive: req.delivery.isActive,
       status: req.delivery.status,
+      isProfileComplete: req.delivery.isProfileComplete,
       location: req.delivery.location,
       vehicle: req.delivery.vehicle,
       documents: req.delivery.documents,

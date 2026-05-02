@@ -514,6 +514,24 @@ export default function SignupStep2() {
       if (response?.data?.success) {
         toast.success("Signup completed successfully!")
         localStorage.removeItem("delivery_uploaded_docs")
+        
+        // Update user data to reflect completeness
+        if (response?.data?.data?.profile) {
+          localStorage.setItem("delivery_user", JSON.stringify(response.data.data.profile))
+        } else {
+          // Fallback if profile not explicitly returned
+          try {
+            const savedUser = localStorage.getItem("delivery_user")
+            if (savedUser) {
+              const parsed = JSON.parse(savedUser)
+              parsed.isProfileComplete = true
+              localStorage.setItem("delivery_user", JSON.stringify(parsed))
+            }
+          } catch (e) {
+            console.error("Error updating local storage fallback:", e)
+          }
+        }
+
         // Redirect to delivery home page
         setTimeout(() => {
           navigate("/delivery", { replace: true })

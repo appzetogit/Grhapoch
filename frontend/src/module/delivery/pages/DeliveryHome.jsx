@@ -9844,7 +9844,9 @@ export default function DeliveryHome() {
                             <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
                             {earnings.breakdown && (
                               <p className="text-green-700 text-xs">
-                                {earnings.breakdown.replace('Base payout:', 'Base:').replace('Distance', 'Dist')}
+                                {typeof earnings.breakdown === 'string'
+                                  ? earnings.breakdown.replace('Base payout:', 'Base:').replace('Distance', 'Dist')
+                                  : JSON.stringify(earnings.breakdown)}
                               </p>
                             )}
                             {tip > 0 && (

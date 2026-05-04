@@ -153,9 +153,21 @@ export const createOrder = async (req, res) => {
       : '';
     logger.info('Order create paymentMethod:', { raw: paymentMethod, normalized: normalizedPaymentMethod, bodyKeys: Object.keys(req.body || {}).filter(k => k.toLowerCase().includes('payment')) });
 
-    // Block order creation until user provides a phone number (profile or in this order request).
-    const existingUserPhone = (req.user?.phone && String(req.user.phone).trim()) || '';
+    // Block order creation until user provides a valid 10-digit phone number (profile or in this order request).
+    const existingUserPhone = (req.user?.phone && String(req.user.phone).trim().replace(/\D/g, '').slice(-10)) || '';
     const phoneFromOrder = extractOrderPhone(req.body);
+
+    const validPhone = (existingUserPhone.length === 10 ? existingUserPhone : null) || 
+                       (phoneFromOrder && phoneFromOrder.length >= 10 ? phoneFromOrder.slice(-10) : null);
+
+    if (!validPhone) {
+      return res.status(400).json({
+        success: false,
+        code: 'PHONE_REQUIRED',
+        message: 'A valid 10-digit mobile number is required to place an order.'
+      });
+    }
+
     if (!existingUserPhone) {
       if (!phoneFromOrder) {
         return res.status(400).json({

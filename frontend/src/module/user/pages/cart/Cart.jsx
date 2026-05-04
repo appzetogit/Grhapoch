@@ -244,23 +244,21 @@ export default function Cart() {
       return;
     }
 
-    // Phone is optional. Validate only when user enters something.
-    if (cleanedPhone.length > 0 && cleanedPhone.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number or leave it blank");
+    if (cleanedPhone.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
 
     try {
       setIsSavingContact(true);
-      const payload = { name: trimmedName };
-      if (cleanedPhone.length === 10) payload.phone = cleanedPhone;
+      const payload = { name: trimmedName, phone: cleanedPhone };
       await userAPI.updateProfile(payload);
 
       setContactName(trimmedName);
       setContactPhone(cleanedPhone);
       updateUserProfile({
         name: trimmedName,
-        ...(cleanedPhone.length === 10 ? { phone: cleanedPhone } : {})
+        phone: cleanedPhone
       });
       setShowContactSheet(false);
       toast.success("Contact details updated");

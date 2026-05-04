@@ -787,49 +787,35 @@ function alignEstimatedEarningsToOrderFee(estimatedEarnings, deliveryFeeFromOrde
 }
 
 /**
- * Calculate estimated earnings for delivery boy based on admin commission rules
- * Uses DeliveryBoyCommission model to calculate: Base Payout + (Distance × Per Km) if distance > minDistance
+ * Calculate estimated earnings for delivery boy based on admin service area rules
+ * Uses ServiceSettings model to calculate: Base Payout + (Distance × Per Km) if distance > baseDistance
  */
 async function calculateEstimatedEarnings(deliveryDistance, tipAmount = 0) {
   try {
-    const DeliveryBoyCommission = (await import('../models/DeliveryBoyCommission.js')).default;
+    const ServiceSettings = (await import('../models/ServiceSettings.js')).default;
+    const settings = await ServiceSettings.getSettings();
+
+    const baseDistance = Number(settings.baseDistance) || 3.5;
+    const basePayout = Number(settings.baseFee) || 30;
+    const commissionPerKm = Number(settings.perKmCharge) || 5;
     const safeTip = Number(tipAmount) || 0;
 
-    // Always use calculateCommission method which handles all cases including distance = 0
-    // It will return base payout even if distance is 0
-    const deliveryDistanceForCalc = deliveryDistance || 0;
-    const commissionResult = await DeliveryBoyCommission.calculateCommission(deliveryDistanceForCalc);
+    const distance = Number(deliveryDistance) || 0;
+    let distanceCommission = 0;
 
-    // If distance is 0 or not provided, still return base payout
-    if (!deliveryDistance || deliveryDistance <= 0) {
-      const basePayout = commissionResult.breakdown.basePayout;
-      return {
-        basePayout: basePayout,
-        distance: 0,
-        commissionPerKm: commissionResult.breakdown.commissionPerKm,
-        distanceCommission: 0,
-        tip: safeTip,
-        totalEarning: Math.round((basePayout + safeTip) * 100) / 100, // Base payout + tip when distance is 0
-        breakdown: `Base payout: \u20B9${basePayout}`,
-        minDistance: commissionResult.rule.minDistance,
-        maxDistance: commissionResult.rule.maxDistance
-      };
+    if (distance > baseDistance) {
+      const extraDistance = distance - baseDistance;
+      distanceCommission = extraDistance * commissionPerKm;
     }
 
-    // Use the already calculated commissionResult for distance > 0
-
-    const basePayout = commissionResult.breakdown.basePayout;
-    const distance = deliveryDistance;
-    const commissionPerKm = commissionResult.breakdown.commissionPerKm;
-    const distanceCommission = commissionResult.breakdown.distanceCommission;
-    const totalEarning = commissionResult.commission;
+    const totalEarning = basePayout + distanceCommission;
 
     // Create breakdown text
     let breakdown = `Base payout: ₹${basePayout}`;
-    if (distance > commissionResult.rule.minDistance) {
+    if (distance > baseDistance) {
       breakdown += ` + Distance (${distance.toFixed(1)} km × ₹${commissionPerKm}/km) = ₹${distanceCommission.toFixed(0)}`;
     } else {
-      breakdown += ` (Distance ${distance.toFixed(1)} km ≤ ${commissionResult.rule.minDistance} km, per km not applicable)`;
+      breakdown += ` (Distance ${distance.toFixed(1)} km ≤ ${baseDistance} km, per km not applicable)`;
     }
     breakdown += ` = ₹${totalEarning.toFixed(0)}`;
 
@@ -841,19 +827,18 @@ async function calculateEstimatedEarnings(deliveryDistance, tipAmount = 0) {
       tip: safeTip,
       totalEarning: Math.round((totalEarning + safeTip) * 100) / 100,
       breakdown: breakdown,
-      minDistance: commissionResult.rule.minDistance,
-      maxDistance: commissionResult.rule.maxDistance
+      minDistance: baseDistance
     };
   } catch (error) {
-    console.error('Error calculating estimated earnings:', error);
+    console.error('Error calculating estimated earnings from service area settings:', error);
     // Fallback to default calculation
     return {
-      basePayout: 22,
+      basePayout: 30,
       distance: deliveryDistance || 0,
       commissionPerKm: 5,
-      distanceCommission: deliveryDistance && deliveryDistance > 4 ? (deliveryDistance - 4) * 5 : 0,
-      tip: safeTip,
-      totalEarning: 22 + (deliveryDistance && deliveryDistance > 4 ? (deliveryDistance - 4) * 5 : 0) + safeTip,
+      distanceCommission: deliveryDistance && deliveryDistance > 3.5 ? (deliveryDistance - 3.5) * 5 : 0,
+      tip: Number(tipAmount) || 0,
+      totalEarning: 30 + (deliveryDistance && deliveryDistance > 3.5 ? (deliveryDistance - 3.5) * 5 : 0) + (Number(tipAmount) || 0),
       breakdown: 'Default calculation'
     };
   }

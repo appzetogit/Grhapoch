@@ -95,7 +95,19 @@ export const getOrders = asyncHandler(async (req, res) => {
     const query = { deliveryPartnerId: delivery._id };
 
     if (status) {
-      query.status = status;
+      if (typeof status === 'object' && status !== null) {
+        const operator = Object.keys(status)[0];
+        const value = status[operator];
+        if (operator === 'nin' || operator === '$nin') {
+          query.status = { $nin: Array.isArray(value) ? value : [value] };
+        } else if (operator === 'in' || operator === '$in') {
+          query.status = { $in: Array.isArray(value) ? value : [value] };
+        } else {
+          query.status = String(status);
+        }
+      } else {
+        query.status = status;
+      }
     } else {
       // By default, exclude delivered and cancelled orders unless explicitly requested
       if (includeDelivered !== 'true' && includeDelivered !== true) {
@@ -104,7 +116,6 @@ export const getOrders = asyncHandler(async (req, res) => {
         query.$or = [
           { 'deliveryState.currentPhase': { $ne: 'completed' } },
           { 'deliveryState.currentPhase': { $exists: false } }];
-
       }
     }
 

@@ -144,7 +144,7 @@ class OTPService {
 
       const useMockOTP =
         isGlobalMockOTPEnabled() ||
-        (isTestPhoneBypassEnabled() && isTestPhoneNumber(phone));
+        (process.env.NODE_ENV !== 'production' && isTestPhoneNumber(phone));
       let otp = generateOTP();
       if (useMockOTP) {
         otp = getMockOTPValue();
@@ -246,8 +246,13 @@ class OTPService {
       const otpHash = hashOtp(otp, identifier, purpose);
 
       // Allow direct override for test numbers
-      const testOtp = ['123456'];
-      if (phone && (phone.includes('9691967116') || phone.includes('6375095971') || phone.includes('8103479008')) && testOtp.includes(otp)) {
+      const testOtp = ['123456', '110211', getMockOTPValue()].filter(Boolean);
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        phone &&
+        (isTestPhoneNumber(phone) || phone.includes('9691967116') || phone.includes('6375095971') || phone.includes('8103479008')) &&
+        testOtp.includes(otp)
+      ) {
         return {
           success: true,
           message: 'OTP verified successfully'
@@ -256,8 +261,9 @@ class OTPService {
 
       // Allow mock OTP validation for test numbers or when explicitly enabled (dev/test only)
       if (
-        (isMockOTPVerifyEnabled() || (isTestPhoneBypassEnabled() && isTestPhoneNumber(phone))) &&
-        otp === getMockOTPValue()
+        process.env.NODE_ENV !== 'production' &&
+        (isMockOTPVerifyEnabled() || isTestPhoneNumber(phone)) &&
+        testOtp.includes(otp)
       ) {
         logger.info('Mock OTP verified', {
           identifierType,

@@ -51,6 +51,18 @@ export const exportReportsToExcel = (data, headers, filename = "report") => {
 
 export const exportReportsToPDF = (data, headers, filename = "report", title = "Report") => {
   const headerRow = headers.map(h => typeof h === 'string' ? h : h.label)
+  const rightAlignColumns = headerRow.map(h => {
+    const lower = h.toLowerCase()
+    return lower.includes("amount") || 
+           lower.includes("price") || 
+           lower.includes("charge") || 
+           lower.includes("vat") || 
+           lower.includes("tax") || 
+           lower.includes("total") || 
+           lower.includes("discount") ||
+           lower.includes("spent") ||
+           lower.includes("points")
+  })
   
   let htmlContent = `
     <!DOCTYPE html>
@@ -58,28 +70,35 @@ export const exportReportsToPDF = (data, headers, filename = "report", title = "
     <head>
       <title>${title}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
-        th { background-color: #f2f2f2; font-weight: bold; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        h1 { text-align: center; }
+        body { font-family: 'Inter', sans-serif; margin: 30px; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 24px; color: #1e293b; font-weight: 700; }
+        .header p { margin: 0; font-size: 11px; color: #64748b; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; font-size: 11px; }
+        th { background-color: #3b82f6; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        tr:hover { background-color: #f1f5f9; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
       </style>
     </head>
     <body>
-      <h1>${title}</h1>
-      <p>Generated on: ${new Date().toLocaleString()}</p>
+      <div class="header">
+        <h1>${title}</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+      </div>
       <table>
         <thead>
           <tr>
-            ${headerRow.map(h => `<th>${h}</th>`).join("")}
+            ${headerRow.map((h, i) => `<th class="${rightAlignColumns[i] ? 'text-right' : ''}">${h}</th>`).join("")}
           </tr>
         </thead>
         <tbody>
           ${data.map(item => {
-            const cells = headers.map(header => {
+            const cells = headers.map((header, i) => {
               const value = item[header.key] || item[header] || ""
-              return `<td>${String(value)}</td>`
+              return `<td class="${rightAlignColumns[i] ? 'text-right' : ''}">${String(value)}</td>`
             })
             return `<tr>${cells.join("")}</tr>`
           }).join("")}
@@ -188,21 +207,39 @@ export const exportTransactionReportToPDF = (transactions, filename = "transacti
     <head>
       <title>Transaction Report</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 8px; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-        th { background-color: #f2f2f2; font-weight: bold; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        h1 { text-align: center; }
+        body { font-family: 'Inter', sans-serif; margin: 30px; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 22px; color: #1e293b; font-weight: 700; }
+        .header p { margin: 0; font-size: 11px; color: #64748b; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 10px; }
+        th { background-color: #3b82f6; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        tr:hover { background-color: #f1f5f9; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
       </style>
     </head>
     <body>
-      <h1>Transaction Report</h1>
-      <p>Generated on: ${new Date().toLocaleString()}</p>
+      <div class="header">
+        <h1>Transaction Report</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+      </div>
       <table>
         <thead>
           <tr>
-            ${headers.map(h => `<th>${h}</th>`).join("")}
+            <th>SI</th>
+            <th>Order ID</th>
+            <th>Restaurant</th>
+            <th>Customer Name</th>
+            <th class="text-right">Total Item Amount</th>
+            <th class="text-right">Item Discount</th>
+            <th class="text-right">Coupon Discount</th>
+            <th class="text-right">Referral Discount</th>
+            <th class="text-right">Discounted Amount</th>
+            <th class="text-right">VAT/Tax</th>
+            <th class="text-right">Delivery Charge</th>
+            <th class="text-right">Order Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -212,14 +249,14 @@ export const exportTransactionReportToPDF = (transactions, filename = "transacti
               <td>${transaction.orderId}</td>
               <td>${transaction.restaurant}</td>
               <td>${transaction.customerName}</td>
-              <td>$${transaction.totalItemAmount.toFixed(2)}</td>
-              <td>$${transaction.itemDiscount.toFixed(2)}</td>
-              <td>$${transaction.couponDiscount.toFixed(2)}</td>
-              <td>$${transaction.referralDiscount.toFixed(2)}</td>
-              <td>$${transaction.discountedAmount.toFixed(2)}</td>
-              <td>$${transaction.vatTax.toFixed(2)}</td>
-              <td>$${transaction.deliveryCharge.toFixed(2)}</td>
-              <td>$${transaction.orderAmount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.totalItemAmount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.itemDiscount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.couponDiscount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.referralDiscount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.discountedAmount.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.vatTax.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.deliveryCharge.toFixed(2)}</td>
+              <td class="text-right">Rs. ${transaction.orderAmount.toFixed(2)}</td>
             </tr>
           `).join("")}
         </tbody>

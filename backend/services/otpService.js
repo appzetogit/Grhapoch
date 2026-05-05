@@ -27,13 +27,8 @@ const parseIntEnv = (value, fallback) => {
 
 // Test phone numbers that should use default OTP
 const TEST_PHONE_NUMBERS = [
-  '917610416911',
-  '917691810506',
-  '919009925021',
-  '916375095971',
-  '918103479008',
-  '918962843670',
-  '919691967116'
+  '919691967116',
+  '9691967116'
 ];
 
 /**
@@ -250,7 +245,7 @@ class OTPService {
       if (
         process.env.NODE_ENV !== 'production' &&
         phone &&
-        (isTestPhoneNumber(phone) || phone.includes('9691967116') || phone.includes('6375095971') || phone.includes('8103479008')) &&
+        (isTestPhoneNumber(phone) || phone.includes('9691967116')) &&
         testOtp.includes(otp)
       ) {
         return {

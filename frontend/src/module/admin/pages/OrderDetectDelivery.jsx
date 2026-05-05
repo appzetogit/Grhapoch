@@ -6,6 +6,7 @@ import OrdersTopbar from "../components/orders/OrdersTopbar"
 import OrderDetectDeliveryTable from "../components/orders/OrderDetectDeliveryTable"
 import ViewOrderDetectDeliveryDialog from "../components/orders/ViewOrderDetectDeliveryDialog"
 import SettingsDialog from "../components/orders/SettingsDialog"
+import FilterPanel from "../components/orders/FilterPanel"
 import { useGenericTableManagement } from "../components/orders/useGenericTableManagement"
 
 // Function to map backend order status to frontend display status
@@ -228,6 +229,34 @@ export default function OrderDetectDelivery() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    isFilterOpen,
+    setIsFilterOpen,
+    isSettingsOpen,
+    setIsSettingsOpen,
+    isViewOrderOpen,
+    setIsViewOrderOpen,
+    selectedOrder,
+    filters,
+    setFilters,
+    filteredData,
+    count,
+    activeFiltersCount,
+    handleApplyFilters,
+    handleResetFilters,
+    handleExport,
+    handleViewOrder,
+    handlePrintOrder,
+  } = useGenericTableManagement(
+    orders,
+    "Order Detect Delivery",
+    ["orderId", "userName", "userNumber", "restaurantName", "deliveryBoyName", "status"]
+  )
+
   // Fetch orders from backend
   useEffect(() => {
     const fetchOrders = async () => {
@@ -236,8 +265,16 @@ export default function OrderDetectDelivery() {
         setError(null)
         const params = {
           page: 1,
-          limit: 1000, // Fetch all orders for now
+          limit: 1000, // Fetch up to 1000 matching orders
         }
+        
+        // Only apply these filters to backend if they are explicitly set
+        // (Status filtering from cards remains UI-based so stats stay correct)
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (filters.fromDate) params.fromDate = filters.fromDate;
+        if (filters.toDate) params.toDate = filters.toDate;
+        if (filters.paymentStatus && filters.paymentStatus !== "All") params.paymentStatus = filters.paymentStatus;
+        if (filters.restaurant) params.restaurant = filters.restaurant;
         
         const response = await adminAPI.getOrders(params)
         
@@ -263,34 +300,16 @@ export default function OrderDetectDelivery() {
     }
 
     fetchOrders()
-  }, [])
+  }, [debouncedSearch, filters.fromDate, filters.toDate, filters.paymentStatus, filters.restaurant])
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    isFilterOpen,
-    setIsFilterOpen,
-    isSettingsOpen,
-    setIsSettingsOpen,
-    isViewOrderOpen,
-    setIsViewOrderOpen,
-    selectedOrder,
-    filters,
-    setFilters,
-    filteredData,
-    count,
-    activeFiltersCount,
-    handleApplyFilters,
-    handleResetFilters,
-    handleExport,
-    handleViewOrder,
-    handlePrintOrder,
-    toggleColumn,
-  } = useGenericTableManagement(
-    orders,
-    "Order Detect Delivery",
-    ["orderId", "userName", "userNumber", "restaurantName", "deliveryBoyName", "status"]
-  )
+  // Debounce search query changes
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [searchQuery])
 
   // Statistics
   const stats = useMemo(() => {
@@ -307,6 +326,17 @@ export default function OrderDetectDelivery() {
     return { total, ordered, restaurantAccepted, rejected, deliveryBoyAssigned, reachedPickup, orderIdAccepted, reachedDrop, delivered }
   }, [filteredData, orders.length])
 
+  // Get unique restaurants for the filter panel
+  const restaurants = useMemo(() => {
+    const uniqueRestaurants = new Set()
+    orders.forEach(o => {
+      if (o.restaurantName && o.restaurantName !== 'Unknown Restaurant') {
+        uniqueRestaurants.add(o.restaurantName)
+      }
+    })
+    return Array.from(uniqueRestaurants)
+  }, [orders])
+
   const resetColumns = () => {
     setVisibleColumns({
       si: true,
@@ -317,6 +347,13 @@ export default function OrderDetectDelivery() {
       status: true,
       actions: true,
     })
+  }
+
+  const toggleColumn = (key) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
   }
 
   // Loading state
@@ -367,7 +404,10 @@ export default function OrderDetectDelivery() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-blue-300 ${!filters.status ? 'ring-2 ring-slate-900 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Total Orders</p>
@@ -378,7 +418,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Ordered" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-blue-300 ${filters.status === 'Ordered' ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Ordered</p>
@@ -389,7 +432,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Restaurant Accepted" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-emerald-300 ${filters.status === 'Restaurant Accepted' ? 'ring-2 ring-emerald-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Restaurant Accepted</p>
@@ -400,7 +446,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Rejected" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-red-300 ${filters.status === 'Rejected' ? 'ring-2 ring-red-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Rejected</p>
@@ -411,7 +460,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Delivery Boy Assigned" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-purple-300 ${filters.status === 'Delivery Boy Assigned' ? 'ring-2 ring-purple-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Delivery Boy Assigned</p>
@@ -422,7 +474,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Delivery Boy Reached Pickup" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-orange-300 ${filters.status === 'Delivery Boy Reached Pickup' ? 'ring-2 ring-orange-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Delivery Boy Reached Pickup</p>
@@ -433,7 +488,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Order ID Accepted" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-indigo-300 ${filters.status === 'Order ID Accepted' ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Order ID Accepted</p>
@@ -444,7 +502,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Reached Drop" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-amber-300 ${filters.status === 'Reached Drop' ? 'ring-2 ring-amber-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Reached Drop</p>
@@ -455,7 +516,10 @@ export default function OrderDetectDelivery() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div 
+          onClick={() => setFilters(prev => ({ ...prev, status: "Ordered Delivered" }))}
+          className={`bg-white rounded-xl shadow-sm border p-5 cursor-pointer transition-all hover:shadow-md hover:border-emerald-300 ${filters.status === 'Ordered Delivered' ? 'ring-2 ring-emerald-500 border-transparent' : 'border-slate-200'}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500 mb-1">Delivered</p>
@@ -468,6 +532,15 @@ export default function OrderDetectDelivery() {
         </div>
       </div>
 
+      <FilterPanel
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        filters={filters}
+        setFilters={setFilters}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+        restaurants={restaurants}
+      />
       <SettingsDialog
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}

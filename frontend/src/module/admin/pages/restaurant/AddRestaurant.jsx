@@ -932,7 +932,23 @@ export default function AddRestaurant() {
           </button>
           <button
             type="button"
-            onClick={() => setStep3({ ...step3, gstRegistered: false })}
+            onClick={() => {
+              setStep3({
+                ...step3,
+                gstRegistered: false,
+                gstNumber: null,
+                gstLegalName: null,
+                gstAddress: null,
+                gstImage: null
+              });
+              setFormErrors(prev => ({
+                ...prev,
+                gstNumber: null,
+                gstLegalName: null,
+                gstAddress: null,
+                gstImage: null
+              }));
+            }}
             className={`px-3 py-1.5 text-xs rounded-full ${!step3.gstRegistered ? "bg-black text-white" : "bg-gray-100 text-gray-800"}`}
           >
             No

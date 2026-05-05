@@ -42,6 +42,16 @@ if (process.env.DEBUG_SOCKET_LOGS !== 'true') {
   };
 }
 
+// Handle unhandled promise rejections and uncaught exceptions globally to prevent server crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('⚠️ Uncaught Exception thrown:', error);
+});
+
+
 // Import configurations
 import { connectDB } from './config/database.js';
 import { connectRedis } from './config/redis.js';

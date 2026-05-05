@@ -370,6 +370,7 @@ export const getOrders = asyncHandler(async (req, res) => {
         deliveryCharge: deliveryCharge,
         platformFee: platformFee,
         tipAmount: tipAmount,
+        donationAmount: order.pricing?.donation || 0,
         totalAmount: orderAmount,
         // Original fields
         paymentStatus: paymentStatusDisplay,

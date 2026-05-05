@@ -163,6 +163,10 @@ export default function OrderDetails() {
               itemSubtotal: order.pricing?.subtotal || 0,
               discount: order.pricing?.discount || 0,
               taxes: order.pricing?.tax || 0,
+              deliveryFee: order.pricing?.deliveryFee || 0,
+              platformFee: order.pricing?.platformFee || 0,
+              tip: order.pricing?.tip || 0,
+              donation: order.pricing?.donation || 0,
               total: order.pricing?.total || 0,
               paymentStatus: order.payment?.status === 'completed' ? 'PAID' : 'PENDING'
             },
@@ -728,11 +732,37 @@ export default function OrderDetails() {
                 <span className="text-sm">-₹{orderData.billing.discount}</span>
               </div>
             )}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-600">Taxes</span>
-              <span className="text-sm text-gray-900">₹{orderData.billing.taxes}</span>
-            </div>
-            <div className="my-3"></div>
+            {orderData.billing.taxes > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Taxes</span>
+                <span className="text-sm text-gray-900">₹{orderData.billing.taxes}</span>
+              </div>
+            )}
+            {orderData.billing.deliveryFee > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Delivery partner fee</span>
+                <span className="text-sm text-gray-900">₹{orderData.billing.deliveryFee}</span>
+              </div>
+            )}
+            {orderData.billing.platformFee > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Platform fee</span>
+                <span className="text-sm text-gray-900">₹{orderData.billing.platformFee}</span>
+              </div>
+            )}
+            {orderData.billing.tip > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Delivery Tip</span>
+                <span className="text-sm text-gray-900">₹{orderData.billing.tip}</span>
+              </div>
+            )}
+            {orderData.billing.donation > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Donation</span>
+                <span className="text-sm text-gray-900">₹{orderData.billing.donation}</span>
+              </div>
+            )}
+            <div className="my-3 border-t border-gray-100"></div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-900">Total bill</span>

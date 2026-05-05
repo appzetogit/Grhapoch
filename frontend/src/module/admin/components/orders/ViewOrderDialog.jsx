@@ -418,6 +418,12 @@ export default function ViewOrderDialog({ isOpen, onOpenChange, order }) {
                   <span className="font-medium text-orange-600">₹{(order.tipAmount || order.pricing?.tip).toFixed(2)}</span>
                 </div> :
               null}
+              {(order.donationAmount !== undefined && order.donationAmount > 0) || (order.donation !== undefined && order.donation > 0) || (order.pricing?.donation !== undefined && order.pricing?.donation > 0) ?
+              <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Donation</span>
+                  <span className="font-medium text-slate-900">₹{(order.donationAmount || order.donation || order.pricing?.donation).toFixed(2)}</span>
+                </div> :
+              null}
               <div className="pt-2 border-t border-slate-200">
                 <div className="flex justify-between items-center">
                   <span className="text-base font-semibold text-slate-700">Total Amount</span>

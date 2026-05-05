@@ -1305,17 +1305,43 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
     // Find order by _id or orderId field
     let order = null;
 
-    // Check if orderId is a valid MongoDB ObjectId
+    // Method 1: Try as MongoDB ObjectId
     if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
       order = await Order.findOne({
-        _id: orderId,
-        deliveryPartnerId: deliveryId
+        $and: [
+          { _id: orderId },
+          { deliveryPartnerId: deliveryId }
+        ]
       });
-    } else {
-      // If not a valid ObjectId, search by orderId field
+    }
+
+    // Method 2: Try by orderId field
+    if (!order) {
       order = await Order.findOne({
-        orderId: orderId,
-        deliveryPartnerId: deliveryId
+        $and: [
+          { orderId: orderId },
+          { deliveryPartnerId: deliveryId }
+        ]
+      });
+    }
+
+    // Method 3: Try with string comparison for deliveryPartnerId
+    if (!order) {
+      order = await Order.findOne({
+        $and: [
+          {
+            $or: [
+              { _id: orderId },
+              { orderId: orderId }
+            ]
+          },
+          {
+            $or: [
+              { deliveryPartnerId: deliveryId.toString() },
+              { deliveryPartnerId: mongoose.Types.ObjectId.isValid(deliveryId) ? new mongoose.Types.ObjectId(deliveryId) : deliveryId }
+            ]
+          }
+        ]
       });
     }
 
@@ -2669,6 +2695,7 @@ export const completeDelivery = asyncHandler(async (req, res) => {
     let restaurantWalletTransaction = null;
     let adminCommissionRecord = null;
     try {
+      const orderMongoId = order._id;
       // Use canonical food amount (subtotal - discount) for restaurant commission.
       // This keeps payout aligned with order-time settlement math.
       const orderTotal = Math.max(
@@ -2728,6 +2755,7 @@ export const completeDelivery = asyncHandler(async (req, res) => {
         // Update restaurant wallet
         if (restaurant._id) {
           const restaurantWallet = await RestaurantWallet.findOrCreateByRestaurantId(restaurant._id);
+          const orderIdForTransaction = order._id?.toString() || order._id;
 
           // Check if transaction already exists for this order
           const existingRestaurantTransaction = restaurantWallet.transactions?.find(

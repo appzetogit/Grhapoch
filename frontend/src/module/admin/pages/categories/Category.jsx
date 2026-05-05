@@ -314,11 +314,11 @@ export default function Category() {
           lineWidth: 0.5
         },
         columnStyles: {
-          0: { cellWidth: 20 }, // SL
-          1: { cellWidth: 70 }, // Category Name
-          2: { cellWidth: 50 }, // Type
-          3: { cellWidth: 40 }, // Status
-          4: { cellWidth: 50 } // ID
+          0: { cellWidth: 15 }, // SL
+          1: { cellWidth: 55 }, // Category Name
+          2: { cellWidth: 42 }, // Type
+          3: { cellWidth: 30 }, // Status
+          4: { cellWidth: 40 }  // ID
         }
       });
 
@@ -675,12 +675,12 @@ export default function Category() {
           <div className="fixed inset-0 z-[100]">
                 {/* Backdrop */}
                 <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setIsFilterOpen(false)} />
             
                 
                 {/* Modal Content */}
-                <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-[slideUp_0.3s_ease-out]">
+                <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-[slideUp_0.3s_ease-out]">
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-4 border-b">
                     <h2 className="text-lg font-bold text-gray-900">Filters and sorting</h2>
@@ -990,7 +990,7 @@ export default function Category() {
           <div className="fixed inset-0 z-[200]">
                 {/* Backdrop */}
                 <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
               onClick={handleCloseModal} />
             
                 
@@ -999,7 +999,7 @@ export default function Category() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
               
                   {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b">

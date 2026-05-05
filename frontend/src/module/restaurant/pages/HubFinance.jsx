@@ -1089,7 +1089,7 @@ export default function HubFinance() {
                   <input
                     type="number"
                     min="1"
-                    max={financeData?.currentCycle?.estimatedPayout || 0}
+                    max={financeData?.currentCycle?.availablePayout || 0}
                     step="1"
                     value={withdrawalAmount}
                     onChange={(e) => setWithdrawalAmount(e.target.value)}
@@ -1099,13 +1099,13 @@ export default function HubFinance() {
 
                   <button
                     type="button"
-                    onClick={() => setWithdrawalAmount(String(financeData?.currentCycle?.estimatedPayout || 0))}
+                    onClick={() => setWithdrawalAmount(String(financeData?.currentCycle?.availablePayout || 0))}
                     className="w-full py-2.5 text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Use full amount (₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN')})
+                    Use full amount (₹{(financeData?.currentCycle?.availablePayout || 0).toLocaleString('en-IN')})
                   </button>
 
-                  {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0) && (
+                  {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.availablePayout || 0) && (
                     <p className="text-sm text-red-600 mt-1 mb-3">Amount cannot exceed available balance</p>
                   )}
                 </div>

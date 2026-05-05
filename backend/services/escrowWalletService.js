@@ -63,13 +63,24 @@ export const releaseEscrow = async (orderId) => {
     if (settlement.escrowStatus !== 'held') {
       const Order = (await import('../models/Order.js')).default;
       const order = await Order.findById(orderId);
-      const isCOD = order?.payment?.method === 'cash' || order?.payment?.method === 'cod';
+      let isCOD = order?.payment?.method === 'cash' || order?.payment?.method === 'cod';
+
+      if (!isCOD) {
+        try {
+          const Payment = (await import('../models/Payment.js')).default;
+          const paymentRecord = await Payment.findOne({ orderId: orderId }).lean();
+          const pMethod = paymentRecord?.method || paymentRecord?.paymentMethod || '';
+          if (pMethod.toString().toLowerCase() === 'cash' || pMethod.toString().toLowerCase() === 'cod') {
+            isCOD = true;
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
 
       if (!isCOD) {
         throw new Error(`Escrow not in held status. Current status: ${settlement.escrowStatus}`);
       }
-
-
     }
 
     // Update escrow status

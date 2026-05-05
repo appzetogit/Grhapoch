@@ -85,6 +85,11 @@ export const useDeliveryNotifications = () => {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
+      if (window._deliveryAlertAudio) {
+        window._deliveryAlertAudio.pause();
+        window._deliveryAlertAudio.currentTime = 0;
+        window._deliveryAlertAudio = null;
+      }
     } catch (error) {
       console.warn('Error stopping notification sound:', error);
     }

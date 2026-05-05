@@ -5,6 +5,7 @@ import BottomNavigation from "./BottomNavigation"
 import { getUnreadDeliveryNotificationCount } from "../utils/deliveryNotifications"
 import { Button } from "@/components/ui/button"
 import { clearModuleAuth, isModuleAuthenticated } from "@/lib/utils/auth"
+import { LogOut } from "lucide-react"
 
 export default function DeliveryLayout({ 
   children, 
@@ -18,8 +19,9 @@ export default function DeliveryLayout({
   const [requestBadgeCount, setRequestBadgeCount] = useState(() => 
     getUnreadDeliveryNotificationCount()
   )
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [showExitDialog, setShowExitDialog] = useState(false)
   const homeGuardPushedRef = useRef(false)
+  const allowNextBackRef = useRef(false)
 
   // Update badge count when location changes
   useEffect(() => {
@@ -66,7 +68,11 @@ export default function DeliveryLayout({
     }
 
     const onPopState = () => {
-      setShowLogoutDialog(true)
+      if (allowNextBackRef.current) {
+        allowNextBackRef.current = false
+        return
+      }
+      setShowExitDialog(true)
       window.history.pushState({ deliveryHomeGuard: true }, "", window.location.href)
     }
 
@@ -76,10 +82,55 @@ export default function DeliveryLayout({
     }
   }, [normalizedPath])
 
-  const handleDeliveryLogoutFromBackGuard = () => {
-    clearModuleAuth("delivery")
-    setShowLogoutDialog(false)
-    navigate("/delivery/sign-in", { replace: true })
+  const tryExitNativeApp = async () => {
+    if (typeof window === "undefined") return false
+
+    try {
+      const capacitorExit = window?.Capacitor?.Plugins?.App?.exitApp
+      if (typeof capacitorExit === "function") {
+        await capacitorExit()
+        return true
+      }
+    } catch (_) {}
+
+    try {
+      const cordovaExit = window?.navigator?.app?.exitApp
+      if (typeof cordovaExit === "function") {
+        cordovaExit()
+        return true
+      }
+    } catch (_) {}
+
+    const androidBridge = window?.Android || window?.AndroidInterface
+    if (androidBridge) {
+      const exitMethods = ["exitApp", "closeApp", "finish"]
+      for (const methodName of exitMethods) {
+        const method = androidBridge?.[methodName]
+        if (typeof method !== "function") continue
+        try {
+          method()
+          return true
+        } catch (_) {}
+      }
+    }
+
+    try {
+      const flutterHandler = window?.flutter_inappwebview?.callHandler
+      if (typeof flutterHandler === "function") {
+        await flutterHandler("exitApp")
+        return true
+      }
+    } catch (_) {}
+
+    return false
+  }
+
+  const handleDeliveryExitFromBackGuard = async () => {
+    setShowExitDialog(false)
+    const exitedNativeApp = await tryExitNativeApp()
+    if (exitedNativeApp) return
+    allowNextBackRef.current = true
+    window.history.back()
   }
 
   return (
@@ -96,38 +147,44 @@ export default function DeliveryLayout({
       )}
 
       <AnimatePresence>
-        {showLogoutDialog && (
+        {showExitDialog && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[9998] bg-black/50"
-              onClick={() => setShowLogoutDialog(false)}
+              className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowExitDialog(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 10 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 10 }}
-              className="fixed left-1/2 top-1/2 z-[9999] w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 border border-gray-200 shadow-xl"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="fixed left-1/2 top-1/2 z-[9999] max-w-[320px] w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-[28px] bg-[#1c1c1c] p-6 border-none shadow-2xl flex flex-col items-center justify-center text-center select-none"
             >
-              <h3 className="text-center text-lg font-semibold text-gray-900">
-                Are you sure you want to log out?
+              <div className="w-16 h-16 bg-[#2d2d2d] rounded-full flex items-center justify-center mb-4">
+                <LogOut className="text-[#a8a8a8] w-7 h-7" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2 tracking-wide">
+                Exit App?
               </h3>
-              <div className="mt-5 flex flex-col gap-3">
+              <p className="text-sm text-gray-400 mb-6 font-medium">
+                Are you sure you want to exit?
+              </p>
+              <div className="flex items-center gap-3 w-full">
                 <Button
                   type="button"
-                  className="w-full h-11 bg-red-500 hover:bg-red-600 text-white"
-                  onClick={handleDeliveryLogoutFromBackGuard}
+                  className="flex-1 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded-2xl h-12 text-sm font-semibold border-none"
+                  onClick={() => setShowExitDialog(false)}
                 >
-                  Logout
+                  Cancel
                 </Button>
                 <Button
                   type="button"
-                  className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  onClick={() => setShowLogoutDialog(false)}
+                  className="flex-1 bg-[#e0e0e0] hover:bg-[#f0f0f0] text-black rounded-2xl h-12 text-sm font-bold border-none"
+                  onClick={handleDeliveryExitFromBackGuard}
                 >
-                  Stay Logged In
+                  Exit
                 </Button>
               </div>
             </motion.div>

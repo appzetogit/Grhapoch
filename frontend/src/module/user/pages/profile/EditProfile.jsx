@@ -385,6 +385,18 @@ export default function EditProfile() {
         await uploadPromiseRef.current;
       }
 
+      if (formData.dateOfBirth && formData.dateOfBirth.isAfter(dayjs())) {
+        toast.error('Date of birth cannot be in the future');
+        setIsSaving(false);
+        return;
+      }
+
+      if (formData.anniversary && formData.anniversary.isAfter(dayjs())) {
+        toast.error('Anniversary cannot be in the future');
+        setIsSaving(false);
+        return;
+      }
+
       // Prepare data for API
       const updateData = {
         name: formData.name,
@@ -802,6 +814,7 @@ export default function EditProfile() {
               </Label>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
+                  disableFuture
                   value={formData.dateOfBirth}
                   onChange={(newValue) => handleChange('dateOfBirth', newValue)}
                   slotProps={{
@@ -900,6 +913,7 @@ export default function EditProfile() {
               </Label>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
+                  disableFuture
                   value={formData.anniversary}
                   onChange={(newValue) => handleChange('anniversary', newValue)}
                   slotProps={{

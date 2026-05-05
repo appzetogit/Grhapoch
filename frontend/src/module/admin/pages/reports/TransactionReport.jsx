@@ -169,11 +169,17 @@ export default function TransactionReport() {
 
   const displaySummary = metricSummary ? {
     completedTransaction: metricSummary.primaryValue,
-    refundedTransaction: 0,
-    adminEarning: summary.adminEarning || 0,
+    refundedTransaction: summary.refundedTransaction || 0,
+    adminEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.adminEarning || 0), 0),
     restaurantEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.restaurantEarning || 0), 0),
     deliverymanEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.deliverymanEarning || 0), 0)
-  } : summary
+  } : {
+    completedTransaction: summary.completedTransaction || 0,
+    refundedTransaction: summary.refundedTransaction || 0,
+    adminEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.adminEarning || 0), 0),
+    restaurantEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.restaurantEarning || 0), 0),
+    deliverymanEarning: filteredTransactions.reduce((sum, tx) => sum + (tx.deliverymanEarning || 0), 0)
+  }
 
   const handleExport = (format) => {
     if (filteredTransactions.length === 0) {

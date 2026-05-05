@@ -100,6 +100,7 @@ export default function FilterPanel({ isOpen, onClose, filters, setFilters, onAp
               </label>
               <input
                 type="date"
+                max={new Date().toISOString().split('T')[0]}
                 value={filters.fromDate || ""}
                 onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -111,6 +112,7 @@ export default function FilterPanel({ isOpen, onClose, filters, setFilters, onAp
               </label>
               <input
                 type="date"
+                max={new Date().toISOString().split('T')[0]}
                 value={filters.toDate || ""}
                 onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"

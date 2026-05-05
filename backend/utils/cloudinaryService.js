@@ -61,13 +61,21 @@ export function uploadToCloudinary(buffer, options = {}) {
         }
       });
 
+      let isSettled = false;
+      const safeReject = (err) => {
+        if (!isSettled) {
+          isSettled = true;
+          reject(err);
+        }
+      };
 
+      const safeResolve = (res) => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve(res);
+        }
+      };
 
-
-
-
-
-      // Use upload_stream method which is more efficient for buffers
       // Create a readable stream from buffer
       const stream = Readable.from(buffer);
 
@@ -82,24 +90,20 @@ export function uploadToCloudinary(buffer, options = {}) {
               name: error.name,
               stack: error.stack
             });
-            return reject(error);
+            return safeReject(error);
           }
           if (!result) {
-            return reject(new Error('Upload failed: No result returned from Cloudinary'));
+            return safeReject(new Error('Upload failed: No result returned from Cloudinary'));
           }
 
-
-
-
-
-          resolve(result);
+          safeResolve(result);
         }
       );
 
       // Handle stream errors
       uploadStream.on('error', (streamError) => {
         console.error('❌ Cloudinary upload stream error event:', streamError);
-        reject(streamError);
+        safeReject(streamError);
       });
 
       // Pipe buffer stream to upload stream

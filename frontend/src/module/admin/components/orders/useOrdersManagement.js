@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { exportToCSV, exportToExcel, exportToPDF, exportToJSON } from "./ordersExportUtils"
 
 export function useOrdersManagement(orders, statusKey, title) {
@@ -30,6 +30,20 @@ export function useOrdersManagement(orders, statusKey, title) {
     orderStatus: true,
     actions: true,
   })
+
+  // Reset filters and search when switching order status tabs
+  useEffect(() => {
+    setSearchQuery("")
+    setFilters({
+      paymentStatus: "",
+      deliveryType: "",
+      minAmount: "",
+      maxAmount: "",
+      fromDate: "",
+      toDate: "",
+      restaurant: "",
+    })
+  }, [statusKey])
 
   // Get unique restaurants from orders
   const restaurants = useMemo(() => {
@@ -228,13 +242,13 @@ export function useOrdersManagement(orders, statusKey, title) {
         startY += 8
       }
 
-      // Order Items Table
+       // Order Items Table
       if (order.items && Array.isArray(order.items) && order.items.length > 0) {
         const tableData = order.items.map((item) => [
           item.quantity || 1,
           item.name || 'Unknown Item',
-          `₹${(item.price || 0).toFixed(2)}`,
-          `₹${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
+          `Rs. ${(item.price || 0).toFixed(2)}`,
+          `Rs. ${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
         ])
 
         autoTable(doc, {
@@ -262,9 +276,16 @@ export function useOrdersManagement(orders, statusKey, title) {
           },
           columnStyles: {
             0: { cellWidth: 20, halign: 'center' },
-            1: { cellWidth: 80 },
+            1: { cellWidth: 80, halign: 'left' },
             2: { cellWidth: 35, halign: 'right' },
             3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }
+          },
+          didParseCell: function (data) {
+            if (data.column.index === 0) {
+              data.cell.styles.halign = 'center';
+            } else if (data.column.index === 2 || data.column.index === 3) {
+              data.cell.styles.halign = 'right';
+            }
           },
           margin: { left: 14, right: 14 }
         })
@@ -278,7 +299,7 @@ export function useOrdersManagement(orders, statusKey, title) {
         doc.setTextColor(30, 30, 30)
         doc.setFont(undefined, 'bold')
         const totalAmount = typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : order.totalAmount
-        doc.text(`Total Amount: ₹${totalAmount}`, 14, startY)
+        doc.text(`Total Amount: Rs. ${totalAmount}`, 14, startY)
         startY += 8
       }
 

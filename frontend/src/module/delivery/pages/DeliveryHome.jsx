@@ -50,7 +50,7 @@ import { deliveryAPI, restaurantAPI, uploadAPI } from "@/lib/api";
 import { useDeliveryNotifications } from "../hooks/useDeliveryNotifications";
 import { getGoogleMapsApiKey } from "@/lib/utils/googleMapsApiKey";
 import { Loader } from "@googlemaps/js-api-loader";
-import { requestImageFileFromFlutter } from "@/lib/utils/cameraBridge";
+import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
 import {
   decodePolyline,
   extractPolylineFromDirections,
@@ -1360,6 +1360,7 @@ export default function DeliveryHome() {
 
       // Use selected sound file from assets
       const audio = new Audio(soundFile);
+      window._deliveryAlertAudio = audio;
 
       // Add load event listener to verify file loads
       audio.addEventListener('loadeddata', () => {
@@ -4040,6 +4041,7 @@ export default function DeliveryHome() {
 
       window.dispatchEvent(new Event('deliveryWalletStateUpdated'));
       clearPendingCompletionOrderId(orderIdForApi);
+      stopNotificationSound();
       if (earnings > 0) {
         toast.success(`Rs ${earnings.toFixed(2)} added to your wallet!`);
       }
@@ -9803,35 +9805,41 @@ export default function DeliveryHome() {
                   {/* Estimated Earnings */}
 
                   <div className="mb-5">
-                    <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
-                    <p className="text-4xl font-bold text-gray-900 mb-2">
-                      ₹{(() => {
-                        const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                        const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
-                        let value = 0;
+                    {(() => {
+                      const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
+                      const deliveryFee = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? 0;
+                      let value = 0;
+                      let tip = 0;
+                      let baseValue = 0;
 
-                        if (earnings) {
-                          if (typeof earnings === 'object') {
-                            // Handle earnings object
-                            if (earnings.totalEarning != null) {
-                              value = Number(earnings.totalEarning) || 0;
-                            } else if (earnings.basePayout != null) {
-                              // If only basePayout is available, use it
-                              value = Number(earnings.basePayout) || 0;
-                            }
-                          } else if (typeof earnings === 'number') {
-                            value = earnings > 0 ? earnings : 0;
+                      if (earnings) {
+                        if (typeof earnings === 'object') {
+                          value = Number(earnings.totalEarning) || 0;
+                          tip = Number(earnings.tip) || 0;
+                          if (value === 0 && earnings.basePayout != null) {
+                            value = Number(earnings.basePayout) + Number(earnings.distanceCommission || 0) + tip;
                           }
+                          baseValue = value - tip;
+                        } else if (typeof earnings === 'number') {
+                          value = earnings;
+                          baseValue = value;
                         }
+                      }
 
-                        // Fallback to deliveryFee if no value from earnings
-                        if (value === 0 && Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
-                          value = Number(deliveryFee);
-                        }
+                      if (value === 0 && Number.isFinite(Number(deliveryFee)) && Number(deliveryFee) > 0) {
+                        value = Number(deliveryFee);
+                        baseValue = value;
+                      }
 
-                        return value > 0 ? value.toFixed(2) : '0.00';
-                      })()}
-                    </p>
+                      return (
+                        <div>
+                          <p className="text-gray-500 text-sm mb-1">Total Estimated Earnings</p>
+                          <div className="flex items-center flex-wrap gap-2 mb-2">
+                            <span className="text-4xl font-bold text-gray-900">₹{value > 0 ? value.toFixed(2) : '0.00'}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {/* Earnings Breakdown */}
                     {(() => {
                       const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
@@ -9840,22 +9848,22 @@ export default function DeliveryHome() {
                       
                       if (hasEarningsObj && (earnings.breakdown || tip > 0)) {
                         return (
-                          <div className="bg-green-50 rounded-lg p-3 mb-2">
-                            <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
+                          <div className="bg-gray-50 rounded-xl p-3 mb-2 border border-gray-100">
+                            <p className="text-gray-700 text-xs font-semibold mb-1">Earning Breakdown:</p>
                             {earnings.breakdown && (
-                              <p className="text-green-700 text-xs">
-                                {typeof earnings.breakdown === 'string'
-                                  ? earnings.breakdown.replace('Base payout:', 'Base:').replace('Distance', 'Dist')
+                              <p className="text-gray-600 text-xs">
+                                • {typeof earnings.breakdown === 'string'
+                                  ? earnings.breakdown.replace('Base payout:', 'Base pay:').replace('Distance', 'Dist')
                                   : JSON.stringify(earnings.breakdown)}
                               </p>
                             )}
                             {tip > 0 && (
-                              <p className="text-green-700 text-xs font-bold mt-1 flex items-center gap-1">
-                                <span className="text-sm">❤️</span> Includes ₹{tip.toFixed(2)} Customer Tip
+                              <p className="text-gray-600 text-xs mt-1">
+                                • Customer Tip: ₹{tip.toFixed(2)}
                               </p>
                             )}
                             {hasEarningsObj && earnings.distance <= earnings.minDistance && earnings.distanceCommission === 0 && !earnings.breakdown?.includes('≤') &&
-                              <p className="text-green-600 text-[10px] mt-1 italic">
+                              <p className="text-gray-400 text-[10px] mt-1 italic">
                                 Note: Base payout applies for distance ≤ {earnings.minDistance} km
                               </p>
                             }
@@ -10481,7 +10489,7 @@ export default function DeliveryHome() {
                 ref={cameraInputRef}
                 type="file"
                 accept="image/*"
-                capture={cameraFacingMode}
+                capture={hasFlutterCameraBridge() ? cameraFacingMode : undefined}
                 onChange={handleBillImageSelect}
                 className="sr-only" />
 

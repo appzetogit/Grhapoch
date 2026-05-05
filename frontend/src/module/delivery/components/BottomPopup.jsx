@@ -285,6 +285,11 @@ export default function BottomPopup({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onClick={(e) => {
+              if (isCollapsed) {
+                setIsCollapsed(false);
+                e.stopPropagation();
+                return;
+              }
               // Don't stop propagation if clicking on handle
               if (handleRef.current && handleRef.current.contains(e.target)) {
                 return;
@@ -371,7 +376,10 @@ export default function BottomPopup({
                 {children}
               </div> :
 
-              <div className="px-4 py-4 pb-6">
+              <div
+                className="px-4 py-4 pb-6 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => setIsCollapsed(false)}
+              >
                 {collapsedContent}
               </div>
             }

@@ -745,20 +745,38 @@ export default function Orders() {
                   <div className="space-y-1.5">
                     {order.subtotal > 0 &&
                       <div className="flex justify-between text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                        <span className="text-gray-600 dark:text-gray-400">Item total</span>
                         <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.subtotal.toFixed(2)}</span>
-                      </div>
-                    }
-                    {order.deliveryFee > 0 &&
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">Delivery Fee</span>
-                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.deliveryFee.toFixed(2)}</span>
                       </div>
                     }
                     {order.tax > 0 &&
                       <div className="flex justify-between text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">Tax</span>
+                        <span className="text-gray-600 dark:text-gray-400">GST (govt. taxes)</span>
                         <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.tax.toFixed(2)}</span>
+                      </div>
+                    }
+                    {order.deliveryFee > 0 &&
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Delivery partner fee</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.deliveryFee.toFixed(2)}</span>
+                      </div>
+                    }
+                    {order.pricing?.platformFee > 0 &&
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Platform fee</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.pricing.platformFee.toFixed(2)}</span>
+                      </div>
+                    }
+                    {order.pricing?.tip > 0 &&
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Delivery Tip</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.pricing.tip.toFixed(2)}</span>
+                      </div>
+                    }
+                    {order.pricing?.donation > 0 &&
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Donation</span>
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">₹{order.pricing.donation.toFixed(2)}</span>
                       </div>
                     }
                     {order.pricing?.discount > 0 &&

@@ -29,6 +29,41 @@ export function useGenericTableManagement(data, title, searchFields = []) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value && value !== "") {
         result = result.filter(item => {
+          // Special handling for known filter keys from FilterPanel
+          if (key === 'fromDate') {
+            const itemDate = item.orderDate || item.date || item.createdAt;
+            if (!itemDate) return true;
+            const from = new Date(value);
+            const current = new Date(itemDate);
+            return current >= from;
+          }
+          if (key === 'toDate') {
+            const itemDate = item.orderDate || item.date || item.createdAt;
+            if (!itemDate) return true;
+            const to = new Date(value);
+            to.setHours(23, 59, 59, 999);
+            const current = new Date(itemDate);
+            return current <= to;
+          }
+          if (key === 'minAmount') {
+            const amount = item.totalAmount || item.amount || 0;
+            return amount >= parseFloat(value);
+          }
+          if (key === 'maxAmount') {
+            const amount = item.totalAmount || item.amount || 0;
+            return amount <= parseFloat(value);
+          }
+          if (key === 'restaurant') {
+            const restName = item.restaurantName || item.restaurant || "";
+            return restName === value;
+          }
+          if (key === 'paymentStatus') {
+             const payStatus = item.paymentStatus || item.payment?.status || "";
+             if (value.toLowerCase() === "all") return true;
+             return payStatus.toLowerCase() === value.toLowerCase();
+          }
+
+          // Default generic exact/case-insensitive match
           const itemValue = item[key]
           if (typeof value === 'string') {
             return itemValue === value || itemValue?.toString().toLowerCase() === value.toLowerCase()
@@ -143,8 +178,8 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         const tableData = order.items.map((item) => [
           item.quantity || 1,
           item.name || 'Unknown Item',
-          `₹${(item.price || 0).toFixed(2)}`,
-          `₹${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
+          `Rs. ${(item.price || 0).toFixed(2)}`,
+          `Rs. ${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
         ])
         
         autoTable(doc, {
@@ -172,9 +207,16 @@ export function useGenericTableManagement(data, title, searchFields = []) {
           },
           columnStyles: {
             0: { cellWidth: 20, halign: 'center' },
-            1: { cellWidth: 80 },
+            1: { cellWidth: 80, halign: 'left' },
             2: { cellWidth: 35, halign: 'right' },
             3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }
+          },
+          didParseCell: function (data) {
+            if (data.column.index === 0) {
+              data.cell.styles.halign = 'center';
+            } else if (data.column.index === 2 || data.column.index === 3) {
+              data.cell.styles.halign = 'right';
+            }
           },
           margin: { left: 14, right: 14 }
         })
@@ -188,7 +230,7 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         doc.setTextColor(30, 30, 30)
         doc.setFont(undefined, 'bold')
         const totalAmount = typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : order.totalAmount
-        doc.text(`Total Amount: ₹${totalAmount}`, 14, startY)
+        doc.text(`Total Amount: Rs. ${totalAmount}`, 14, startY)
         startY += 8
       }
       

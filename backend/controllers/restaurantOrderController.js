@@ -443,7 +443,7 @@ export const acceptOrder = asyncHandler(async (req, res) => {
                 }
               }
             } else {
-              console.warn(`⚠️ No delivery partners available for order ${order.orderId}`);
+              console.warn(`⚠️ Immediate auto-assign failed for order ${order.orderId}. No available online/approved delivery partners found in primary search. Checking for online riders for fallback broadcast.`);
               // Fallback: broadcast to nearest riders so they can swipe/accept (old behaviour)
               try {
                 const isCod = order.payment?.method === 'cash' || order.payment?.method === 'cod';

@@ -6,76 +6,59 @@ const alertSound = "/assets/audio/alert.mp3";
 const originalSound = "/assets/audio/original.mp3";
 
 export const useDeliveryNotifications = () => {
-  // CRITICAL: All hooks must be called unconditionally and in the same order every render
-  // Order: useRef -> useState -> useEffect -> useCallback
-
-  // Step 1: All refs first (unconditional)
+  // Step 1: All refs first
   const socketRef = useRef(null);
   const audioRef = useRef(null);
   const pendingSoundRef = useRef(false);
   const suppressedSoundOrderIdsRef = useRef(new Set());
+  const userInteractedRef = useRef(false);
 
-  // Step 2: All state hooks (unconditional)
+  // Step 2: All state hooks
   const [newOrder, setNewOrder] = useState(null);
   const [orderReady, setOrderReady] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [deliveryPartnerId, setDeliveryPartnerId] = useState(null);
   const [rejectedOrderIds, setRejectedOrderIds] = useState(new Set());
+  
+  // NEW: track isOnline locally to control socket connection
+  const [isOnline, setIsOnline] = useState(() => {
+    try {
+      const raw = localStorage.getItem('app:isOnline');
+      return raw ? JSON.parse(raw) === true : false;
+    } catch {
+      return false;
+    }
+  });
 
-  // Step 3: All callbacks before effects (unconditional)
-  // Track user interaction for autoplay policy
-  const userInteractedRef = useRef(false);
-
+  // Step 3: Callbacks
   const playNotificationSound = useCallback(() => {
     try {
-      // Get current selected sound preference from localStorage
       const selectedSound = localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
       const soundFile = selectedSound === 'original' ? originalSound : alertSound;
 
-      // Update audio source if preference changed or initialize if not exists
       if (audioRef.current) {
-        const currentSrc = audioRef.current.src;
-        const newSrc = soundFile;
-        // Check if source needs to be updated
-        if (!currentSrc.includes(newSrc.split('/').pop())) {
+        if (!audioRef.current.src.includes(soundFile.split('/').pop())) {
           audioRef.current.pause();
-          audioRef.current.src = newSrc;
+          audioRef.current.src = soundFile;
           audioRef.current.load();
-
         }
       } else {
-        // Initialize audio if not exists
         audioRef.current = new Audio(soundFile);
         audioRef.current.volume = 0.7;
       }
 
       if (audioRef.current) {
-        // If browser already has user activation, unlock sound even if our local flag missed it.
         if (!userInteractedRef.current && navigator?.userActivation?.hasBeenActive) {
           userInteractedRef.current = true;
         }
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch((error) => {
-          const isAutoplayBlocked =
-            error?.name?.includes('NotAllowedError') ||
-            error?.message?.includes('user didn\'t interact');
-
-          if (isAutoplayBlocked) {
+          if (error?.name?.includes('NotAllowedError')) {
             pendingSoundRef.current = true;
-            return;
-          }
-
-          if (!isAutoplayBlocked) {
-            console.warn('Error playing notification sound:', error);
           }
         });
       }
-    } catch (error) {
-      // Don't log autoplay policy errors
-      if (!error.message?.includes('user didn\'t interact') && !error.name?.includes('NotAllowedError')) {
-        console.warn('Error playing sound:', error);
-      }
-    }
+    } catch (error) {}
   }, []);
 
   const stopNotificationSound = useCallback(() => {
@@ -85,318 +68,119 @@ export const useDeliveryNotifications = () => {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-      if (window._deliveryAlertAudio) {
-        window._deliveryAlertAudio.pause();
-        window._deliveryAlertAudio.currentTime = 0;
-        window._deliveryAlertAudio = null;
-      }
-    } catch (error) {
-      console.warn('Error stopping notification sound:', error);
-    }
+    } catch (error) {}
   }, []);
 
-  const pushNewOrder = useCallback((orderData) => {
-    setNewOrder(orderData || null);
-  }, []);
-
-  const suppressOrderSound = useCallback((orderId) => {
-    if (!orderId) return;
-    suppressedSoundOrderIdsRef.current.add(String(orderId));
-  }, []);
-
-  const unsuppressOrderSound = useCallback((orderId) => {
-    if (!orderId) return;
-    suppressedSoundOrderIdsRef.current.delete(String(orderId));
-  }, []);
-
-  // Step 4: All effects (unconditional hook calls, conditional logic inside)
-  // Track user interaction for autoplay policy
+  // Sync isOnline with localStorage
   useEffect(() => {
-    const handleUserInteraction = () => {
-      userInteractedRef.current = true;
-      if (pendingSoundRef.current && audioRef.current) {
-        pendingSoundRef.current = false;
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {
-          // ignore
-        });
-      }
-      // Remove listeners after first interaction
-      document.removeEventListener('click', handleUserInteraction);
-      document.removeEventListener('touchstart', handleUserInteraction);
-      document.removeEventListener('keydown', handleUserInteraction);
+    const handleSync = () => {
+      try {
+        const raw = localStorage.getItem('app:isOnline');
+        const next = raw ? JSON.parse(raw) === true : false;
+        setIsOnline(next);
+        
+        // CRITICAL: If going offline, clear any pending notifications immediately
+        if (!next) {
+          setNewOrder(null);
+          setOrderReady(null);
+          stopNotificationSound();
+        }
+      } catch {}
     };
 
-    // Listen for user interaction
-    document.addEventListener('click', handleUserInteraction, { once: true });
-    document.addEventListener('touchstart', handleUserInteraction, { once: true });
-    document.addEventListener('keydown', handleUserInteraction, { once: true });
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('onlineStatusChanged', handleSync);
+    
+    // Polling as fallback
+    const interval = setInterval(handleSync, 2000);
 
     return () => {
-      document.removeEventListener('click', handleUserInteraction);
-      document.removeEventListener('touchstart', handleUserInteraction);
-      document.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('onlineStatusChanged', handleSync);
+      clearInterval(interval);
     };
-  }, []);
-
-  // Initialize audio on mount - use selected preference from localStorage
-  useEffect(() => {
-    // Get selected alert sound preference from localStorage
-    const selectedSound = localStorage.getItem('delivery_alert_sound') || 'zomato_tone';
-    const soundFile = selectedSound === 'original' ? originalSound : alertSound;
-
-    if (!audioRef.current) {
-      audioRef.current = new Audio(soundFile);
-      audioRef.current.volume = 0.7;
-
-    } else {
-      // Update audio source if preference changed
-      const currentSrc = audioRef.current.src;
-      const newSrc = soundFile;
-      if (!currentSrc.includes(newSrc.split('/').pop())) {
-        audioRef.current.pause();
-        audioRef.current.src = newSrc;
-        audioRef.current.load();
-
-      }
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []); // Note: This runs once on mount. To update dynamically, we'd need to listen to storage events
+  }, [stopNotificationSound]);
 
   // Fetch delivery partner ID
   useEffect(() => {
-    const fetchDeliveryPartnerId = async () => {
+    const fetchId = async () => {
       try {
         const response = await deliveryAPI.getCurrentDelivery();
         if (response.data?.success && response.data.data) {
-          const deliveryPartner = response.data.data.user || response.data.data.deliveryPartner;
-          if (deliveryPartner) {
-            const id = deliveryPartner.id?.toString() ||
-            deliveryPartner._id?.toString() ||
-            deliveryPartner.deliveryId;
-            if (id) {
-              setDeliveryPartnerId(id);
-
-            } else {
-              console.warn('⚠️ Could not extract delivery partner ID from response');
-            }
-          } else {
-            console.warn('⚠️ No delivery partner data in API response');
-          }
-        } else {
-          console.warn('⚠️ Could not fetch delivery partner ID from API');
+          const partner = response.data.data.user || response.data.data.deliveryPartner;
+          const id = partner?.id || partner?._id || partner?.deliveryId;
+          if (id) setDeliveryPartnerId(id);
         }
-      } catch (error) {
-        console.error('Error fetching delivery partner:', error);
-      }
+      } catch (error) {}
     };
-    fetchDeliveryPartnerId();
+    fetchId();
   }, []);
 
-  // Socket connection effect
+  // Socket connection effect - NOW DEPENDS ON isOnline
   useEffect(() => {
-    if (!deliveryPartnerId) {
-
-      return;
-    }
-
-    // Normalize backend URL - use simpler, more robust approach
-    let backendUrl = API_BASE_URL;
-
-    // Step 1: Extract protocol and hostname using URL parsing if possible
-    try {
-      const urlObj = new URL(backendUrl);
-      // Remove /api from pathname
-      let pathname = urlObj.pathname.replace(/^\/api\/?$/, '');
-      // Reconstruct clean URL
-      backendUrl = `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? `:${urlObj.port}` : ''}${pathname}`;
-    } catch (e) {
-      // If URL parsing fails, use regex-based normalization
-      // Remove /api suffix first
-      backendUrl = backendUrl.replace(/\/api\/?$/, '');
-      backendUrl = backendUrl.replace(/\/+$/, ''); // Remove trailing slashes
-
-      // Normalize protocol - ensure exactly two slashes after protocol
-      // Fix patterns: https:/, https:///, https://https://
-      if (backendUrl.startsWith('https:') || backendUrl.startsWith('http:')) {
-        // Extract protocol
-        const protocolMatch = backendUrl.match(/^(https?):/i);
-        if (protocolMatch) {
-          const protocol = protocolMatch[1].toLowerCase();
-          // Remove everything up to and including the first valid domain part
-          const afterProtocol = backendUrl.substring(protocol.length + 1);
-          // Remove leading slashes
-          const cleanPath = afterProtocol.replace(/^\/+/, '');
-          // Reconstruct with exactly two slashes
-          backendUrl = `${protocol}://${cleanPath}`;
-        }
+    if (!deliveryPartnerId || !isOnline) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setIsConnected(false);
       }
-    }
-
-    // Final cleanup: ensure exactly two slashes after protocol
-    backendUrl = backendUrl.replace(/^(https?):\/+/gi, '$1://');
-    backendUrl = backendUrl.replace(/\/+$/, ''); // Remove trailing slashes
-
-    const socketUrl = `${backendUrl}/delivery`;
-
-    // Warn if trying to connect to localhost in production
-    if (import.meta.env.MODE === 'production' && backendUrl.includes('localhost')) {
-      console.error('❌ CRITICAL: Trying to connect Socket.IO to localhost in production!');
-      console.error('💡 This means VITE_API_BASE_URL was not set during build time');
-      console.error('💡 Current socketUrl:', socketUrl);
-      console.error('💡 Current API_BASE_URL:', API_BASE_URL);
-      console.error('💡 Fix: Rebuild frontend with: VITE_API_BASE_URL=https://your-backend-domain.com/api npm run build');
-      console.error('💡 Note: Vite environment variables are embedded at BUILD TIME, not runtime');
-      console.error('💡 You must rebuild and redeploy the frontend with correct VITE_API_BASE_URL');
-
-      // Don't try to connect to localhost in production - it will fail
-      setIsConnected(false);
       return;
     }
 
-    // Validate backend URL format
-    if (!backendUrl || !backendUrl.startsWith('http')) {
-      console.error('❌ CRITICAL: Invalid backend URL format:', backendUrl);
-      console.error('💡 API_BASE_URL:', API_BASE_URL);
-      console.error('💡 Expected format: https://your-domain.com or http://localhost:5000');
-      return; // Don't try to connect with invalid URL
-    }
-
-    // Validate socket URL format
-    try {
-      new URL(socketUrl); // This will throw if URL is invalid
-    } catch (urlError) {
-      console.error('❌ CRITICAL: Invalid Socket.IO URL:', socketUrl);
-      console.error('💡 URL validation error:', urlError.message);
-      console.error('💡 Backend URL:', backendUrl);
-      console.error('💡 API_BASE_URL:', API_BASE_URL);
-      return; // Don't try to connect with invalid URL
-    }
+    let backendUrl = API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    backendUrl = backendUrl.replace(/^(https?):\/+/gi, '$1://');
+    const socketUrl = `${backendUrl}/delivery`;
 
     socketRef.current = io(socketUrl, {
       path: '/socket.io/',
-      transports: ['polling'], // Start with polling only
-      upgrade: false, // Disable WebSocket upgrade to prevent WebSocket connection errors
+      transports: ['polling'],
+      upgrade: false,
       reconnection: true,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
-      reconnectionAttempts: 5,
-      timeout: 10000,
-      forceNew: false,
-      autoConnect: true,
       auth: {
         token: localStorage.getItem('delivery_accessToken') || localStorage.getItem('accessToken')
       }
     });
 
     socketRef.current.on('connect', () => {
-
       setIsConnected(true);
-
-      if (deliveryPartnerId) {
-
-        socketRef.current.emit('join-delivery', deliveryPartnerId);
-      }
+      socketRef.current.emit('join-delivery', deliveryPartnerId);
     });
 
-    socketRef.current.on('delivery-room-joined', (data) => {
-
-    });
-
-    socketRef.current.on('connect_error', (error) => {
-      // Only log if it's not a network/polling/websocket error (backend might be down or WebSocket not available)
-      // Socket.IO will automatically retry connection and fall back to polling
-      const isTransportError = error.type === 'TransportError' ||
-      error.message === 'xhr poll error' ||
-      error.message?.includes('WebSocket') ||
-      error.message?.includes('websocket') ||
-      error.description === 0; // WebSocket upgrade failures
-
-      if (!isTransportError) {
-        console.error('❌ Delivery Socket connection error:', error);
-      } else {
-
-      }
-      setIsConnected(false);
-    });
-
-    socketRef.current.on('disconnect', (reason) => {
-
-      setIsConnected(false);
-
-      if (reason === 'io server disconnect') {
-        socketRef.current.connect();
-      }
-    });
-
-    socketRef.current.on('reconnect_attempt', (attemptNumber) => {
-
-    });
-
-    socketRef.current.on('reconnect', (attemptNumber) => {
-
-      setIsConnected(true);
-
-      if (deliveryPartnerId) {
-        socketRef.current.emit('join-delivery', deliveryPartnerId);
-      }
-    });
+    socketRef.current.on('disconnect', () => setIsConnected(false));
+    socketRef.current.on('connect_error', () => setIsConnected(false));
 
     socketRef.current.on('new_order', (orderData) => {
+      // Final check: don't process if offline (even if socket was connected)
+      if (!isOnline) return;
+      
       const orderId = orderData?.orderMongoId || orderData?.orderId || orderData?._id;
-      if (orderId && rejectedOrderIds.has(String(orderId))) {
-        return;
-      }
+      if (orderId && rejectedOrderIds.has(String(orderId))) return;
+      
       setNewOrder(orderData);
-      if (orderId && suppressedSoundOrderIdsRef.current.has(String(orderId))) {
-        return;
+      if (!(orderId && suppressedSoundOrderIdsRef.current.has(String(orderId)))) {
+        playNotificationSound();
       }
-      playNotificationSound();
     });
 
-    // Listen for priority-based order notifications (new_order_available)
     socketRef.current.on('new_order_available', (orderData) => {
+      if (!isOnline) return;
       const orderId = orderData?.orderMongoId || orderData?.orderId || orderData?._id;
-      if (orderId && rejectedOrderIds.has(String(orderId))) {
-        return;
-      }
-      // Treat it the same as new_order for now - delivery boy can accept it
+      if (orderId && rejectedOrderIds.has(String(orderId))) return;
       setNewOrder(orderData);
-      if (orderId && suppressedSoundOrderIdsRef.current.has(String(orderId))) {
-        return;
+      if (!(orderId && suppressedSoundOrderIdsRef.current.has(String(orderId)))) {
+        playNotificationSound();
       }
-      playNotificationSound();
     });
 
     socketRef.current.on('play_notification_sound', (data) => {
+      if (!isOnline) return;
       const soundType = data?.type;
-      const orderId = data?.orderId ? String(data.orderId) : null;
-
-      // Prevent duplicate playback: new_order/new_order_available already play sound
-      // in their dedicated socket handlers above.
-      if (soundType === 'new_order' || soundType === 'new_order_available') {
-        return;
-      }
-
-      if (orderId && rejectedOrderIds.has(orderId)) {
-        return;
-      }
-
-      if (orderId && suppressedSoundOrderIdsRef.current.has(orderId)) {
-        return;
-      }
-
+      if (soundType === 'new_order' || soundType === 'new_order_available') return;
       playNotificationSound();
     });
 
     socketRef.current.on('order_ready', (orderData) => {
-
+      if (!isOnline) return;
       setOrderReady(orderData);
       playNotificationSound();
     });
@@ -407,14 +191,11 @@ export const useDeliveryNotifications = () => {
         socketRef.current = null;
       }
     };
-  }, [deliveryPartnerId, playNotificationSound, rejectedOrderIds]);
+  }, [deliveryPartnerId, isOnline, playNotificationSound, rejectedOrderIds]);
 
-  // Helper functions
   const clearNewOrder = useCallback((orderId = null) => {
     stopNotificationSound();
-    if (orderId) {
-      setRejectedOrderIds(prev => new Set([...prev, String(orderId)]));
-    }
+    if (orderId) setRejectedOrderIds(prev => new Set([...prev, String(orderId)]));
     setNewOrder(null);
   }, [stopNotificationSound]);
 
@@ -429,11 +210,11 @@ export const useDeliveryNotifications = () => {
     orderReady,
     clearOrderReady,
     isConnected,
-    pushNewOrder,
+    isOnline, // expose isOnline status
     playNotificationSound,
     stopNotificationSound,
     rejectedOrderIds,
-    suppressOrderSound,
-    unsuppressOrderSound
+    suppressOrderSound: (id) => id && suppressedSoundOrderIdsRef.current.add(String(id)),
+    unsuppressOrderSound: (id) => id && suppressedSoundOrderIdsRef.current.delete(String(id))
   };
 };

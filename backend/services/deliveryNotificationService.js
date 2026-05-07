@@ -266,47 +266,10 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
 
     });
 
-    // Also emit to all sockets in the delivery namespace (fallback if no specific room found)
+    // Also emit to all sockets in the delivery namespace (REMOVED: this was a security/logic bug that notified everyone)
     if (socketsInRoom.length === 0) {
       console.warn(`⚠️ No sockets connected in any delivery room for partner ${normalizedDeliveryPartnerId}`);
-      console.warn(`⚠️ Delivery partner details:`, {
-        id: normalizedDeliveryPartnerId,
-        name: deliveryPartner.name,
-        isOnline: deliveryPartner.availability?.isOnline,
-        isActive: deliveryPartner.isActive,
-        status: deliveryPartner.status
-      });
-      console.warn(`⚠️ This means the delivery partner is not currently connected to the app`);
-      console.warn(`⚠️ Possible reasons:`);
-      console.warn(`  1. Delivery partner app is closed or not running`);
-      console.warn(`  2. Delivery partner is not logged in`);
-      console.warn(`  3. Socket connection failed`);
-      console.warn(`  4. Delivery partner needs to refresh their app`);
-      console.warn(`  5. Delivery partner ID mismatch (check if ID used to join room matches ${normalizedDeliveryPartnerId})`);
-
-      if (allSockets.length > 0) {
-
-
-
-        // List all rooms in delivery namespace
-        const allRooms = deliveryNamespace.adapter.rooms;
-
-      } else {
-        console.warn(`⚠️ No delivery partners are currently connected to the app!`);
-      }
-
-      // Still broadcast to all delivery sockets as fallback
-      console.warn(`⚠️ Broadcasting to all delivery sockets as fallback (in case they connect later)`);
-      deliveryNamespace.emit('new_order', orderNotification);
-      deliveryNamespace.emit('play_notification_sound', {
-        type: 'new_order',
-        orderId: order.orderId,
-        message: `New order assigned: ${order.orderId}`
-      });
-      notificationSent = true;
-    } else {
-
-
+      console.warn(`⚠️ Notification will only be delivered via FCM/Push if configured.`);
     }
 
     if (notificationSent) {
@@ -692,12 +655,8 @@ export async function notifyDeliveryBoyOrderReady(order, deliveryPartnerId) {
       // Send to specific delivery partner room
       deliveryNamespace.to(foundRoom).emit('order_ready', orderReadyNotification);
       notificationSent = true;
-
     } else {
-      // Fallback: broadcast to all delivery sockets
-      console.warn(`⚠️ Delivery partner ${normalizedDeliveryPartnerId} not found in any room, broadcasting to all`);
-      deliveryNamespace.emit('order_ready', orderReadyNotification);
-      notificationSent = true;
+      console.warn(`⚠️ Delivery partner ${normalizedDeliveryPartnerId} not found in any room. Skipping global broadcast.`);
     }
 
     // FCM Notification

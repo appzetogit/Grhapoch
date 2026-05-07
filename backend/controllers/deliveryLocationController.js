@@ -109,6 +109,7 @@ export const updateLocation = asyncHandler(async (req, res) => {
     // Update online status if provided
     if (typeof isOnline === 'boolean') {
       updateData['availability.isOnline'] = isOnline;
+      console.log(`[updateLocation] Setting delivery partner ${delivery._id} online status to: ${isOnline}`);
     }
 
     // If no updates, return error

@@ -940,7 +940,7 @@ export default function DeliveryHome() {
     const trackingOrderId = metadata.orderId || getCurrentTrackingOrderId();
     if (trackingOrderId) payloadMetadata.orderId = String(trackingOrderId);
 
-    return deliveryAPI.updateLocation(latitude, longitude, true, payloadMetadata).
+    return deliveryAPI.updateLocation(latitude, longitude, isOnlineRef.current, payloadMetadata).
       then(() => {
         lastBackendLocationPushRef.current = {
           timestamp: now,

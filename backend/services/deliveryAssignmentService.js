@@ -1,204 +1,62 @@
 import Delivery from '../models/Delivery.js';
 import Order from '../models/Order.js';
-import Restaurant from '../models/Restaurant.js';
-import DeliveryWallet from '../models/DeliveryWallet.js';
-import BusinessSettings from '../models/BusinessSettings.js';
 import mongoose from 'mongoose';
-
-const COD_METHODS = ['cash', 'cod', 'cash on delivery'];
-
-async function filterCodEligiblePartners(partners = [], codAmount = 0) {
-  if (!Array.isArray(partners) || partners.length === 0) return [];
-
-  let cashLimit = 750;
-  try {
-    const settings = await BusinessSettings.getSettings();
-    const configured = Number(settings?.deliveryCashLimit);
-    if (Number.isFinite(configured) && configured >= 0) {
-      cashLimit = configured;
-    }
-  } catch (e) {
-    cashLimit = 750;
-  }
-
-  const partnerIds = partners
-    .map((p) => p?._id)
-    .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
-    .map((id) => new mongoose.Types.ObjectId(id));
-
-  if (partnerIds.length === 0) return [];
-
-  const partnerIdStrings = partnerIds.map((id) => id.toString());
-
-  const wallets = await DeliveryWallet.find({ deliveryId: { $in: partnerIds } })
-    .select('deliveryId cashInHand')
-    .lean();
-
-  const cashInHandByPartner = new Map(
-    wallets.map((w) => [w.deliveryId?.toString(), Number(w.cashInHand) || 0])
-  );
-
-  let pendingReserveByPartner = new Map();
-  try {
-    const pendingAgg = await Order.aggregate([
-      {
-        $match: {
-          $expr: {
-            $and: [
-              {
-                $in: [
-                  { $toString: { $ifNull: ['$deliveryPartnerId', ''] } },
-                  partnerIdStrings
-                ]
-              },
-              {
-                $or: [
-                  {
-                    $in: [
-                      { $toLower: { $ifNull: ['$payment.method', ''] } },
-                      COD_METHODS
-                    ]
-                  },
-                  {
-                    $in: [
-                      { $toLower: { $ifNull: ['$paymentMethod', ''] } },
-                      COD_METHODS
-                    ]
-                  }
-                ]
-              },
-              {
-                $not: {
-                  $in: [
-                    { $toLower: { $ifNull: ['$paymentStatus', ''] } },
-                    ['paid', 'completed', 'success', 'successful']
-                  ]
-                }
-              },
-              {
-                $not: {
-                  $in: [
-                    { $toLower: { $ifNull: ['$payment.status', ''] } },
-                    ['paid', 'completed', 'success', 'successful']
-                  ]
-                }
-              },
-              {
-                $not: {
-                  $in: [
-                    { $toLower: { $ifNull: ['$status', ''] } },
-                    ['delivered', 'cancelled']
-                  ]
-                }
-              },
-              {
-                $ne: [
-                  { $toLower: { $ifNull: ['$deliveryState.currentPhase', ''] } },
-                  'completed'
-                ]
-              },
-              {
-                $ne: [
-                  { $toLower: { $ifNull: ['$deliveryState.status', ''] } },
-                  'delivered'
-                ]
-              },
-              {
-                $eq: [
-                  { $toLower: { $ifNull: ['$status', ''] } },
-                  'out_for_delivery'
-                ]
-              }
-            ]
-          }
-        }
-      },
-      {
-        $group: {
-          _id: { $toString: '$deliveryPartnerId' },
-          total: {
-            $sum: {
-              $ifNull: ['$pricing.total', { $ifNull: ['$total', 0] }]
-            }
-          }
-        }
-      }
-    ]);
-
-    pendingReserveByPartner = new Map(
-      (pendingAgg || []).map((row) => [String(row._id), Number(row.total) || 0])
-    );
-  } catch (e) {
-    pendingReserveByPartner = new Map();
-  }
-
-  const orderCodAmount = Number(codAmount) || 0;
-  const eligiblePartners = partners.filter((partner) => {
-    const partnerId = partner?._id?.toString();
-    if (!partnerId) return false;
-    const cashInHand = cashInHandByPartner.get(partnerId) || 0;
-    const pendingReserve = pendingReserveByPartner.get(partnerId) || 0;
-    const projectedExposure = cashInHand + pendingReserve + orderCodAmount;
-
-    if (cashInHand >= cashLimit) return false;
-    if (projectedExposure > cashLimit) return false;
-    return true;
-  });
-
-  // Local/dev convenience: keep COD assignment testable even when wallet cash
-  // limit is exceeded. Production behavior remains strict.
-  const bypassCodLimit =
-    process.env.BYPASS_COD_CASH_LIMIT === 'true' ||
-    process.env.NODE_ENV !== 'production';
-
-  if (eligiblePartners.length === 0 && bypassCodLimit) {
-    return partners;
-  }
-
-  return eligiblePartners;
-}
 
 /**
  * Calculate distance between two coordinates using Haversine formula
- * @param {number} lat1 - Latitude of first point
- * @param {number} lng1 - Longitude of first point
- * @param {number} lat2 - Latitude of second point
- * @param {number} lng2 - Longitude of second point
- * @returns {number} Distance in kilometers
  */
-export function calculateDistance(lat1, lng1, lat2, lng2) {
+function calculateDistance(lat1, lng1, lat2, lng2) {
   const R = 6371; // Earth's radius in kilometers
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a =
-  Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in kilometers
 }
 
 /**
+ * Filter delivery partners who can accept a COD order of this amount
+ */
+async function filterCodEligiblePartners(partners, amount) {
+  if (!partners || partners.length === 0) return [];
+  
+  const results = [];
+  for (const partner of partners) {
+    try {
+      const WalletModel = (await import('../models/DeliveryWallet.js')).default;
+      const wallet = await WalletModel.findOne({ deliveryPartnerId: partner._id });
+      
+      const totalCashLimit = Number(wallet?.totalCashLimit ?? wallet?.cashLimit ?? 0);
+      const cashInHand = Number(wallet?.cashInHand || 0);
+      const availableCashLimit = Math.max(0, totalCashLimit - cashInHand);
+      
+      if (availableCashLimit >= amount) {
+        results.push(partner);
+      }
+    } catch (e) {
+      console.error('Error checking wallet for COD eligibility:', e);
+      // Default to true if wallet check fails to not block delivery
+      results.push(partner);
+    }
+  }
+  return results;
+}
+
+/**
  * Find all nearest available delivery boys within priority distance (for priority notification)
- * @param {number} restaurantLat - Restaurant latitude
- * @param {number} restaurantLng - Restaurant longitude
- * @param {string} restaurantId - Restaurant ID (optional)
- * @param {number} priorityDistance - Priority distance in km (default: 5km)
- * @returns {Promise<Array>} Array of delivery boys within priority distance
  */
 export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, restaurantId = null, priorityDistance = 5, limit = null, isCod = false, codAmount = 0) {
   try {
-
-
-    // Use the same logic as findNearestDeliveryBoy but return all within priority distance
     let deliveryQuery = {
       'availability.isOnline': true,
       status: { $in: ['approved', 'active'] },
-      isActive: { $ne: false }, // include partners where isActive is true OR undefined/null
+      isActive: { $ne: false },
       'availability.currentLocation.coordinates': { $exists: true }
     };
 
-    // Geo-near filter (priority distance)
     deliveryQuery['availability.currentLocation'] = {
       $near: {
         $geometry: {
@@ -210,14 +68,12 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
     };
 
     const deliveryPartners = await Delivery.find(deliveryQuery)
-      .select('_id name phone availability.currentLocation availability.lastLocationUpdate status isActive zoneId')
+      .select('_id name phone availability.currentLocation availability.isOnline status isActive zoneId')
       .lean();
 
+    console.log(`[findNearestDeliveryBoys] Found ${deliveryPartners.length} partners. IDs: ${deliveryPartners.map(p => p._id).join(', ')}. Names: ${deliveryPartners.map(p => p.name).join(', ')}`);
 
-
-    // Calculate distance and filter
-    const deliveryPartnersWithDistance = deliveryPartners.
-    map((partner) => {
+    const deliveryPartnersWithDistance = deliveryPartners.map((partner) => {
       const location = partner.availability?.currentLocation;
       if (!location || !location.coordinates || location.coordinates.length < 2) {
         return null;
@@ -231,53 +87,21 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
       const distance = calculateDistance(restaurantLat, restaurantLng, lat, lng);
       return {
         ...partner,
+        deliveryPartnerId: partner._id,
         distance,
         latitude: lat,
         longitude: lng,
         zoneId: partner.zoneId || null
       };
-    }).
-    filter((partner) => partner !== null && partner.distance <= priorityDistance);
+    }).filter((partner) => partner !== null && partner.distance <= priorityDistance);
 
-    if (!deliveryPartners || deliveryPartners.length === 0) {
-      // Debug: Check if ANY delivery partners exist
-      const totalPartners = await Delivery.countDocuments({});
-      const onlinePartners = await Delivery.countDocuments({ 'availability.isOnline': true });
-      const approvedPartners = await Delivery.countDocuments({ status: { $in: ['approved', 'active'] } });
-      console.warn(`⚠️ No delivery partners found at all. Debug info:`);
-      console.warn(`   Total partners in DB: ${totalPartners}`);
-      console.warn(`   Online partners: ${onlinePartners}`);
-      console.warn(`   Approved partners: ${approvedPartners}`);
-      return [];
-    }
-    let codEligiblePartners = deliveryPartnersWithDistance;
+    let filteredPartners = deliveryPartnersWithDistance;
     if (isCod) {
-      codEligiblePartners = await filterCodEligiblePartners(deliveryPartnersWithDistance, codAmount);
+      filteredPartners = await filterCodEligiblePartners(deliveryPartnersWithDistance, codAmount);
     }
 
-    if (codEligiblePartners.length === 0) {
-      return [];
-    }
-
-    // Sort by distance (nearest first)
-    let results = codEligiblePartners.sort((a, b) => a.distance - b.distance);
-
-    // Apply limit if provided
-    if (limit && typeof limit === 'number' && limit > 0) {
-      results = results.slice(0, limit);
-    }
-
-
-    return results.map((partner) => ({
-      deliveryPartnerId: partner._id.toString(),
-      name: partner.name,
-      phone: partner.phone,
-      distance: partner.distance,
-      location: {
-        latitude: partner.latitude,
-        longitude: partner.longitude
-      }
-    }));
+    filteredPartners.sort((a, b) => a.distance - b.distance);
+    return limit ? filteredPartners.slice(0, limit) : filteredPartners;
   } catch (error) {
     console.error('❌ Error finding nearest delivery boys:', error);
     return [];
@@ -285,38 +109,26 @@ export async function findNearestDeliveryBoys(restaurantLat, restaurantLng, rest
 }
 
 /**
- * Find the nearest available delivery boy to a restaurant location (distance-based)
- * @param {number} restaurantLat - Restaurant latitude
- * @param {number} restaurantLng - Restaurant longitude
- * @param {string} restaurantId - Restaurant ID (optional)
- * @param {number} maxDistance - Maximum distance in km (default: 50km)
- * @param {Array} excludeIds - Array of delivery partner IDs to exclude (already notified)
- * @returns {Promise<Object|null>} Nearest delivery boy or null
+ * Find the nearest available delivery boy to a restaurant location
  */
 export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, restaurantId = null, maxDistance = 50, excludeIds = [], isCod = false, codAmount = 0) {
   try {
-
-
-    // Step 1: Build base query for available partners
     let deliveryQuery = {
       'availability.isOnline': true,
       status: { $in: ['approved', 'active'] },
-      isActive: { $ne: false }, // include partners where isActive is true OR undefined/null
+      isActive: { $ne: false },
       'availability.currentLocation.coordinates': { $exists: true }
     };
 
-    // Exclude already notified delivery partners
     if (excludeIds && excludeIds.length > 0) {
-      const excludeObjectIds = excludeIds.
-      filter((id) => mongoose.Types.ObjectId.isValid(id)).
-      map((id) => new mongoose.Types.ObjectId(id));
+      const excludeObjectIds = excludeIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
       if (excludeObjectIds.length > 0) {
         deliveryQuery._id = { $nin: excludeObjectIds };
-
       }
     }
 
-    // Geo-near filter (max distance) - dynamic from settings if default 50 is used
     let finalMaxDistance = maxDistance;
     if (maxDistance === 50) {
       try {
@@ -338,16 +150,13 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
       }
     };
 
-    // Find all online delivery partners matching criteria
     const deliveryPartners = await Delivery.find(deliveryQuery)
-      .select('_id name phone availability.currentLocation availability.lastLocationUpdate status isActive zoneId')
+      .select('_id name phone availability.currentLocation availability.isOnline status isActive zoneId')
       .lean();
 
+    console.log(`[findNearestDeliveryBoy] Found ${deliveryPartners.length} partners. IDs: ${deliveryPartners.map(p => p._id).join(', ')}. Names: ${deliveryPartners.map(p => p.name).join(', ')}`);
 
-
-    // Calculate distance and filter by distance
-    const deliveryPartnersWithDistance = deliveryPartners.
-    map((partner) => {
+    const deliveryPartnersWithDistance = deliveryPartners.map((partner) => {
       const location = partner.availability?.currentLocation;
       if (!location || !location.coordinates || location.coordinates.length < 2) {
         return null;
@@ -361,154 +170,70 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
       const distance = calculateDistance(restaurantLat, restaurantLng, lat, lng);
       return {
         ...partner,
+        deliveryPartnerId: partner._id,
         distance,
         latitude: lat,
         longitude: lng,
         zoneId: partner.zoneId || null
       };
-    }).
-    filter((partner) => partner !== null && partner.distance <= maxDistance);
-
-    if (deliveryPartnersWithDistance.length === 0) {
-      return null;
-    }
+    }).filter((partner) => partner !== null && partner.distance <= finalMaxDistance);
 
     let codEligiblePartners = deliveryPartnersWithDistance;
     if (isCod) {
       codEligiblePartners = await filterCodEligiblePartners(deliveryPartnersWithDistance, codAmount);
     }
 
-    if (codEligiblePartners.length === 0) {
-
-      return null;
-    }
-
-    // Sort by distance (nearest first)
-    const sortedPartners = codEligiblePartners.sort((a, b) => a.distance - b.distance);
-    const nearestPartner = sortedPartners[0];
-
-
-
-
-
-    return {
-      deliveryPartnerId: nearestPartner._id.toString(),
-      name: nearestPartner.name,
-      phone: nearestPartner.phone,
-      distance: nearestPartner.distance,
-      location: {
-        latitude: nearestPartner.latitude,
-        longitude: nearestPartner.longitude
-      }
-    };
+    if (codEligiblePartners.length === 0) return null;
+    
+    codEligiblePartners.sort((a, b) => a.distance - b.distance);
+    return codEligiblePartners[0];
   } catch (error) {
     console.error('❌ Error finding nearest delivery boy:', error);
-    throw error;
+    return null;
   }
 }
 
 /**
- * Assign order to nearest delivery boy
- * @param {Object} order - Order document
- * @param {number} restaurantLat - Restaurant latitude
- * @param {number} restaurantLng - Restaurant longitude
- * @returns {Promise<Object|null>} Assignment result or null
+ * Assign an order to the nearest available delivery boy
  */
 export async function assignOrderToDeliveryBoy(order, restaurantLat, restaurantLng, restaurantId = null) {
   try {
-    // CRITICAL: Don't assign if order is cancelled
-    if (order.status === 'cancelled') {
-
-      return null;
-    }
-
-    // CRITICAL: Don't assign if order is already delivered/completed
-    if (order.status === 'delivered' ||
-    order.deliveryState?.currentPhase === 'completed' ||
-    order.deliveryState?.status === 'delivered') {
-
-      return null;
-    }
-
-    // Check if order already has a delivery partner assigned
-    if (order.deliveryPartnerId) {
-
-      return null;
-    }
-
-    // Get restaurantId from order if not provided
-    const orderRestaurantId = restaurantId || order.restaurantId;
-
-    // Check if order is COD
     const isCod = order.payment?.method === 'cash' || order.payment?.method === 'cod';
-    const paymentStatus = String(order.payment?.status || '').trim().toLowerCase();
-    const isPaymentCaptured = paymentStatus === 'completed' || paymentStatus === 'captured' || paymentStatus === 'paid';
+    const codAmount = Number(order.pricing?.total) || 0;
+    
+    const nearestBoy = await findNearestDeliveryBoy(
+      restaurantLat,
+      restaurantLng,
+      restaurantId,
+      50,
+      [],
+      isCod,
+      codAmount
+    );
 
-    // Safety guard: non-COD orders must be paid before rider assignment.
-    if (!isCod && !isPaymentCaptured) {
-      console.warn(
-        `⚠️ Skipping assignment for unpaid non-COD order ${order.orderId || order._id}. paymentStatus=${paymentStatus || 'unknown'}`
-      );
-      return null;
-    }
+    if (!nearestBoy) return null;
 
-    // Find nearest delivery boy (distance-based + cash limit)
-    const codAmount = Number(order?.pricing?.total) || 0;
-    const nearestDeliveryBoy = await findNearestDeliveryBoy(restaurantLat, restaurantLng, orderRestaurantId, 50, [], isCod, codAmount);
-
-    if (!nearestDeliveryBoy) {
-
-      return null;
-    }
-
-    // Update order with delivery partner assignment
-    // Note: Don't set outForDelivery yet - that should happen when delivery boy picks up the order
-    order.deliveryPartnerId = nearestDeliveryBoy.deliveryPartnerId;
-
-    // IMPORTANT: assignmentInfo.distance represents restaurant -> customer distance
-    // and is used for delivery fee/earnings. Do not overwrite it with rider -> restaurant distance.
-    const existingAssignmentInfo = order.assignmentInfo || {};
-    const canonicalOrderDistance =
-    typeof existingAssignmentInfo.distance === 'number' && Number.isFinite(existingAssignmentInfo.distance) ?
-    existingAssignmentInfo.distance :
-    null;
-
-    order.assignmentInfo = {
-      ...existingAssignmentInfo,
-      deliveryPartnerId: nearestDeliveryBoy.deliveryPartnerId,
-      distance: canonicalOrderDistance ?? nearestDeliveryBoy.distance,
-      assignedAt: new Date(),
-      assignedBy: 'nearest_available'
-    };
-    // Don't set outForDelivery status here - that should be set when delivery boy picks up the order
-    // order.tracking.outForDelivery = {
-    //   status: true,
-    //   timestamp: new Date()
-    // };
-
-    await order.save();
-
-    // Trigger ETA recalculation for rider assigned event
-    try {
-      const etaEventService = (await import('./etaEventService.js')).default;
-      await etaEventService.handleRiderAssigned(order._id.toString(), nearestDeliveryBoy.deliveryPartnerId);
-
-    } catch (etaError) {
-      console.error('Error updating ETA after rider assignment:', etaError);
-      // Continue even if ETA update fails
-    }
-
-
+    const updatedOrder = await Order.findByIdAndUpdate(
+      order._id,
+      {
+        $set: {
+          deliveryPartnerId: nearestBoy._id,
+          'assignmentInfo.assignedAt': new Date(),
+          'assignmentInfo.distance': nearestBoy.distance,
+          'assignmentInfo.assignedBy': 'auto-assignment'
+        }
+      },
+      { new: true }
+    );
 
     return {
       success: true,
-      deliveryPartnerId: nearestDeliveryBoy.deliveryPartnerId,
-      deliveryPartnerName: nearestDeliveryBoy.name,
-      distance: nearestDeliveryBoy.distance,
-      orderId: order.orderId
+      deliveryPartnerId: nearestBoy._id,
+      distance: nearestBoy.distance,
+      order: updatedOrder
     };
   } catch (error) {
     console.error('❌ Error assigning order to delivery boy:', error);
-    throw error;
+    return null;
   }
 }

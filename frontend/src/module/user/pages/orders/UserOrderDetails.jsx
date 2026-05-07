@@ -373,12 +373,15 @@ export default function UserOrderDetails() {
         styles: { fontSize: 9, overflow: 'linebreak', cellPadding: { top: 2, right: 2, bottom: 2, left: 2 } },
         bodyStyles: { valign: 'middle' },
         columnStyles: {
-          0: { cellWidth: 86 },
+          0: { cellWidth: 86, halign: 'left' },
           1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 34, halign: 'right' },
-          3: { cellWidth: 38, halign: 'right', fontStyle: 'bold' }
+          2: { cellWidth: 36, halign: 'right' },
+          3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' }
         },
         didParseCell: (data) => {
+          if (data.section === 'head' && (data.column.index === 2 || data.column.index === 3)) {
+            data.cell.styles.halign = 'right';
+          }
           if (data.section === 'body' && data.column.index === 0) {
             data.cell.styles.fontStyle = 'normal';
           }

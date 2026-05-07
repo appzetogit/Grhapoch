@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react";
+import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus, RefreshCw, Edit } from "lucide-react";
 import { adminAPI, restaurantAPI } from "../../../../lib/api";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportRestaurantsToPDF } from "../../components/restaurants/restaurantsExportUtils";
@@ -24,6 +24,14 @@ export default function RestaurantsList() {
   const [banning, setBanning] = useState(false);
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(null); // { restaurant }
   const [deleting, setDeleting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRestaurant, setEditingRestaurant] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    ownerName: "",
+    ownerPhone: ""
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Format Restaurant ID to REST format (e.g., REST422829)
   const formatRestaurantId = (id) => {
@@ -68,64 +76,63 @@ export default function RestaurantsList() {
 
   // Fetch restaurants from backend API
   useEffect(() => {
-    const fetchRestaurants = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        let response;
-        try {
-          // Try admin API first - fetch all restaurants with high limit
-          response = await adminAPI.getRestaurants({ limit: 10000, page: 1 });
-        } catch (adminErr) {
-          // Fallback to regular restaurant API if admin endpoint doesn't exist
-
-          response = await restaurantAPI.getRestaurants();
-        }
-        // Safe image URL filter to avoid via.placeholder.com requests from backend
-        const getSafeImage = (url) => {
-          if (!url || typeof url !== 'string' || url.includes('via.placeholder.com')) {
-            return null;
-          }
-          return url;
-        };
-
-        if (response.data && response.data.success && response.data.data) {
-          // Map backend data to frontend format
-          const restaurantsData = response.data.data.restaurants || response.data.data || [];
-
-          const mappedRestaurants = restaurantsData.map((restaurant, index) => ({
-            id: restaurant._id || restaurant.id || index + 1,
-            _id: restaurant._id, // Preserve original _id for API calls
-            name: restaurant.name || "N/A",
-            ownerName: restaurant.ownerName || "N/A",
-            ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
-            zone: restaurant.location?.area || restaurant.location?.city || restaurant.zone || "N/A",
-            cuisine: Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0 ?
-            restaurant.cuisines[0] :
-            restaurant.cuisine || "N/A",
-            status: restaurant.isActive !== false, // Default to true if not set
-            rating: restaurant.ratings?.average || restaurant.rating || 0,
-            logo: getSafeImage(restaurant.profileImage?.url) || getSafeImage(restaurant.logo) || null,
-            // Preserve original restaurant data for details modal
-            originalData: restaurant
-          }));
-
-          setRestaurants(mappedRestaurants);
-        } else {
-          setRestaurants([]);
-        }
-      } catch (err) {
-        console.error("Error fetching restaurants:", err);
-        setError(err.message || "Failed to fetch restaurants");
-        setRestaurants([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchRestaurants();
   }, []);
+
+  const fetchRestaurants = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let response;
+      try {
+        // Try admin API first - fetch all restaurants with high limit
+        response = await adminAPI.getRestaurants({ limit: 10000, page: 1 });
+      } catch (adminErr) {
+        // Fallback to regular restaurant API if admin endpoint doesn't exist
+        response = await restaurantAPI.getRestaurants();
+      }
+      // Safe image URL filter to avoid via.placeholder.com requests from backend
+      const getSafeImage = (url) => {
+        if (!url || typeof url !== 'string' || url.includes('via.placeholder.com')) {
+          return null;
+        }
+        return url;
+      };
+
+      if (response.data && response.data.success && response.data.data) {
+        // Map backend data to frontend format
+        const restaurantsData = response.data.data.restaurants || response.data.data || [];
+
+        const mappedRestaurants = restaurantsData.map((restaurant, index) => ({
+          id: restaurant._id || restaurant.id || index + 1,
+          _id: restaurant._id, // Preserve original _id for API calls
+          name: restaurant.name || "N/A",
+          ownerName: restaurant.ownerName || "N/A",
+          ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
+          zone: restaurant.location?.area || restaurant.location?.city || restaurant.zone || "N/A",
+          cuisine: Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0 ?
+          restaurant.cuisines[0] :
+          restaurant.cuisine || "N/A",
+          status: restaurant.isActive !== false, // Default to true if not set
+          rating: restaurant.ratings?.average || restaurant.rating || 0,
+          logo: getSafeImage(restaurant.profileImage?.url) || getSafeImage(restaurant.logo) || null,
+          // Preserve original restaurant data for details modal
+          originalData: restaurant
+        }));
+
+        setRestaurants(mappedRestaurants);
+      } else {
+        setRestaurants([]);
+      }
+    } catch (err) {
+      console.error("Error fetching restaurants:", err);
+      setError(err.message || "Failed to fetch restaurants");
+      setRestaurants([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [filters, setFilters] = useState({
     all: "All",
     businessModel: "",
@@ -219,6 +226,10 @@ export default function RestaurantsList() {
   // Show full phone number without masking
   const formatPhone = (phone) => {
     if (!phone) return "";
+    let cleaned = String(phone).replace(/\D/g, "");
+    if (cleaned.length === 12 && cleaned.startsWith("91")) {
+      return cleaned.slice(2);
+    }
     return phone;
   };
 
@@ -408,6 +419,53 @@ export default function RestaurantsList() {
     setDeleteConfirmDialog(null);
   };
 
+  // Handle Edit Restaurant
+  const handleEditRestaurant = (restaurant) => {
+    setEditingRestaurant(restaurant);
+    setEditFormData({
+      name: restaurant.name || "",
+      ownerName: restaurant.ownerName || "",
+      ownerPhone: formatPhone(restaurant.ownerPhone || restaurant.phone || "")
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateRestaurant = async () => {
+    try {
+      setIsUpdating(true);
+      const restaurantId = editingRestaurant._id || editingRestaurant.id;
+
+      const payload = {
+        name: editFormData.name,
+        ownerName: editFormData.ownerName,
+        ownerPhone: editFormData.ownerPhone,
+        phone: editFormData.ownerPhone // Also update phone field
+      };
+
+      const response = await adminAPI.updateRestaurant(restaurantId, payload);
+
+      if (response.data && response.data.success) {
+        toast.success("Restaurant updated successfully!");
+        // Update local state
+        setRestaurants((prev) =>
+          prev.map((r) =>
+            r.id === editingRestaurant.id || r._id === editingRestaurant._id
+              ? { ...r, ...payload }
+              : r
+          )
+        );
+        setIsEditModalOpen(false);
+      } else {
+        toast.error(response.data.message || "Failed to update restaurant");
+      }
+    } catch (err) {
+      console.error("Error updating restaurant:", err);
+      toast.error(err.response?.data?.message || "Failed to update restaurant");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Handle export functionality
   const handleExport = () => {
     const dataToExport = filteredRestaurants.length > 0 ? filteredRestaurants : restaurants;
@@ -476,6 +534,13 @@ export default function RestaurantsList() {
             <h2 className="text-xl font-bold text-slate-900">Restaurants List</h2>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={fetchRestaurants}
+                disabled={loading}
+                className="p-2.5 text-slate-600 hover:text-blue-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                title="Refresh Data">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => navigate("/admin/restaurants/add")}
                 className="px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-all">
@@ -624,7 +689,7 @@ export default function RestaurantsList() {
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-slate-900">{restaurant.ownerName}</span>
-                            <span className="text-xs text-slate-500">{formatPhone(restaurant.ownerPhone)}</span>
+                            <span className="text-xs text-slate-500">{formatPhone(restaurant.ownerPhone || restaurant.phone)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -648,11 +713,16 @@ export default function RestaurantsList() {
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                        onClick={() => handleViewDetails(restaurant)}
-                        className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="View Details">
-                        
+                              onClick={() => handleViewDetails(restaurant)}
+                              className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="View Details">
                               <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditRestaurant(restaurant)}
+                              className="p-1.5 rounded text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              title="Edit Details">
+                              <Edit className="w-4 h-4" />
                             </button>
                             <button
                         onClick={() => handleBanRestaurant(restaurant)}
@@ -764,7 +834,7 @@ export default function RestaurantsList() {
                           <div>
                             <p className="text-xs text-slate-500">Phone</p>
                             <p className="text-sm font-medium text-slate-900">
-                              {restaurantDetails?.ownerPhone || restaurantDetails?.phone || selectedRestaurant?.ownerPhone || selectedRestaurant?.originalData?.ownerPhone || selectedRestaurant?.originalData?.phone || "N/A"}
+                              {formatPhone(restaurantDetails?.ownerPhone || restaurantDetails?.phone || selectedRestaurant?.ownerPhone || selectedRestaurant?.originalData?.ownerPhone || selectedRestaurant?.originalData?.phone || "N/A")}
                             </p>
                           </div>
                         </div>
@@ -1450,6 +1520,63 @@ export default function RestaurantsList() {
           </div>
         </div>
       }
+      {/* Edit Restaurant Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900">Edit Restaurant</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Restaurant Name</label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Owner Name</label>
+                <input
+                  type="text"
+                  value={editFormData.ownerName}
+                  onChange={(e) => setEditFormData({ ...editFormData, ownerName: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Owner Phone</label>
+                <input
+                  type="text"
+                  value={editFormData.ownerPhone}
+                  onChange={(e) => setEditFormData({ ...editFormData, ownerPhone: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateRestaurant}
+                disabled={isUpdating}
+                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
+              >
+                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>);
 
 }

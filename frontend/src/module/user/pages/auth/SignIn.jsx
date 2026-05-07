@@ -523,12 +523,14 @@ export default function SignIn() {
             </button>
           </div>
 
-          <div className="text-center text-xs md:text-sm text-gray-500 dark:text-gray-400 pt-4 md:pt-6">
-            <p className="mb-1 md:mb-2">By continuing, you agree to our</p>
-            <div className="flex justify-center gap-2 flex-wrap text-black dark:text-white font-medium">
-              <Link to="/user/profile/terms" className="underline hover:text-gray-700 dark:hover:text-gray-300">Terms of Service</Link>
+          <div className="w-full max-w-md mx-auto text-center pt-4 md:pt-6">
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">By continuing, you agree to our</p>
+            <div className="flex justify-center gap-2 flex-wrap text-black dark:text-white mt-1 font-medium">
+              <Link to="/user/profile/terms" className="text-xs underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Terms of Service</Link>
               <span className="text-gray-500">•</span>
-              <Link to="/user/profile/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</Link>
+              <Link to="/user/profile/privacy" className="text-xs underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Privacy Policy</Link>
+              <span className="text-gray-500">•</span>
+              <Link to="/support" className="text-xs underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Support</Link>
             </div>
           </div>
         </div>

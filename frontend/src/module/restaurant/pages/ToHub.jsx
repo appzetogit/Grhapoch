@@ -2007,7 +2007,7 @@ export default function ToHub() {
 
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col pt-[64px]">
       {/* Pending approval overlay */}
       <AnimatePresence>
         {showPendingModal && (
@@ -2049,7 +2049,7 @@ export default function ToHub() {
 `}</style>
       <div className="">
         {/* Reuse Feedback-like navbar */}
-        <div className="sticky bg-white top-0 z-40 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div className="fixed bg-white top-0 left-0 right-0 z-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between h-[64px]">
           <button
             type="button"
             onClick={() => window.location.reload()}
@@ -2250,7 +2250,7 @@ export default function ToHub() {
       )}
 
       {/* Top tabs (matching Orders tab style) */}
-      <div className="sticky top-[50px] z-40 pb-1 bg-gray-100">
+      <div className="sticky top-[64px] z-40 pb-1 bg-gray-100">
         <div
           ref={topTabBarRef}
           className="flex gap-2 overflow-x-auto scrollbar-hide bg-transparent rounded-full px-3 py-1 mt-1"

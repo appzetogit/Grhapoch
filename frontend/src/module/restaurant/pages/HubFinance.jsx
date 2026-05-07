@@ -195,10 +195,19 @@ export default function HubFinance() {
         endDate: endDateISO
       });
       if (response.data?.success && response.data?.data?.pastCycles) {
-        setPastCyclesData(response.data.data.pastCycles);
-
-
-
+        const data = response.data.data.pastCycles;
+        
+        // If orders exist but aggregation stats are missing or zero, calculate them manually
+        if (data.orders && data.orders.length > 0) {
+          if (!data.estimatedPayout || data.estimatedPayout === 0) {
+            data.estimatedPayout = data.orders.reduce((sum, order) => sum + (order.payout || 0), 0);
+          }
+          if (!data.totalOrders || data.totalOrders === 0) {
+            data.totalOrders = data.orders.length;
+          }
+        }
+        
+        setPastCyclesData(data);
       } else {
         setPastCyclesData(null);
       }
@@ -661,22 +670,22 @@ export default function HubFinance() {
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                       <div>
                         <p className="text-[10px] text-gray-500 uppercase font-bold">
-                          {activeTab === "payouts" && pastCyclesData !== null ? "Earnings (Selected)" : "Earnings (This Week)"}
+                          {pastCyclesData !== null ? "Earnings (Selected)" : "Earnings (This Week)"}
                         </p>
                         <p className="text-sm font-bold text-emerald-600">
                           ₹{(
-                            (activeTab === "payouts" && pastCyclesData !== null 
-                              ? pastCyclesData.estimatedPayout 
-                              : financeData?.currentCycle?.estimatedPayout) || 0
-                          ).toLocaleString('en-IN')}
+                            (pastCyclesData !== null 
+                              ? (pastCyclesData.estimatedPayout || (pastCyclesData.orders?.reduce((sum, o) => sum + (o.payout || 0), 0) || 0)) 
+                              : (financeData?.currentCycle?.estimatedPayout || (financeData?.currentCycle?.orders?.reduce((sum, o) => sum + (o.payout || 0), 0) || 0))) || 0
+                          ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-gray-500 uppercase font-bold">Total Orders</p>
                         <p className="text-sm font-bold text-gray-900">
-                          {(activeTab === "payouts" && pastCyclesData !== null 
-                            ? pastCyclesData.totalOrders 
-                            : financeData?.currentCycle?.totalOrders) || 0}
+                          {(pastCyclesData !== null 
+                            ? (pastCyclesData.totalOrders || (pastCyclesData.orders?.length || 0)) 
+                            : (financeData?.currentCycle?.totalOrders || (financeData?.currentCycle?.orders?.length || 0))) || 0}
                         </p>
                       </div>
                     </div>

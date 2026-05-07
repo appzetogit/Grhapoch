@@ -260,7 +260,7 @@ export default function BottomNavOrders() {
         </>
       )}
 
-      <div className="sticky bottom-0 z-40 pb-3">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-md border-t border-white/5">
         <div className="flex items-center gap-2 w-full">
 
           {/* Left toggle (Hub → Orders) */}

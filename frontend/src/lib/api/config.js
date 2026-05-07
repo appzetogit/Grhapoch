@@ -333,6 +333,8 @@ export const API_ENDPOINTS = {
     SHIPPING_PUBLIC: '/shipping/public',
     CANCELLATION: '/admin/cancellation',
     CANCELLATION_PUBLIC: '/cancellation/public',
+    SUPPORT: '/admin/support',
+    SUPPORT_PUBLIC: '/support/public',
     FEEDBACK: '/admin/feedback',
     FEEDBACK_CREATE: '/feedback',
     REVIEWS: '/admin/reviews',

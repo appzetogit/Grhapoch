@@ -187,6 +187,10 @@ import {
   updateCancellation
 } from '../controllers/cancellationPolicyController.js';
 import {
+  getSupport,
+  updateSupport
+} from '../controllers/supportPageController.js';
+import {
   getAllFeedbacks,
   getFeedbackById,
   updateFeedbackStatus,
@@ -489,6 +493,10 @@ router.put('/shipping', updateShipping);
 router.get('/cancellation', getCancellation);
 router.put('/cancellation', updateCancellation);
 
+// Support Page Management
+router.get('/support', getSupport);
+router.put('/support', updateSupport);
+
 // Feedback Management
 router.get('/feedback', getAllFeedbacks);
 router.get('/feedback/:id', getFeedbackById);
@@ -571,4 +579,3 @@ router.post('/withdrawal/:id/approve', approveWithdrawalRequest);
 router.post('/withdrawal/:id/reject', rejectWithdrawalRequest);
 
 export default router;
-

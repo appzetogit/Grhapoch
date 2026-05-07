@@ -2145,6 +2145,7 @@ export default function OrdersMain() {
       </AnimatePresence>
 
       {/* Bottom Navigation - Sticky */}
+      
       <BottomNavOrders />
     </div>);
 

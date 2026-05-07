@@ -100,6 +100,7 @@ import AboutUs from "../pages/settings/AboutUs";
 import RefundPolicy from "../pages/settings/RefundPolicy";
 import ShippingPolicy from "../pages/settings/ShippingPolicy";
 import CancellationPolicy from "../pages/settings/CancellationPolicy";
+import SupportPage from "../pages/settings/SupportPage";
 import ReactRegistration from "../pages/settings/ReactRegistration";
 import DonationManagement from "../pages/settings/DonationManagement";
 import ServiceAreaSettings from "../pages/settings/ServiceAreaSettings";
@@ -293,6 +294,7 @@ export default function AdminRouter() {
         <Route path="pages-social-media/refund" element={<RefundPolicy />} />
         <Route path="pages-social-media/shipping" element={<ShippingPolicy />} />
         <Route path="pages-social-media/cancellation" element={<CancellationPolicy />} />
+        <Route path="pages-social-media/support" element={<SupportPage />} />
         <Route path="pages-social-media/react-registration" element={<ReactRegistration />} />
         <Route path="donation-management" element={<DonationManagement />} />
         <Route path="service-area" element={<ServiceAreaSettings />} />

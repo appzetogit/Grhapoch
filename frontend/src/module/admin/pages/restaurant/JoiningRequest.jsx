@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Search, Filter, Eye, Check, X, UtensilsCrossed, ArrowUpDown, Loader2,
-  FileText, Image as ImageIcon, ExternalLink, CreditCard, Calendar, Star, Building2, User, Phone, Mail, MapPin, Clock } from
+  FileText, Image as ImageIcon, ExternalLink, CreditCard, Calendar, Star, Building2, User, Phone, Mail, MapPin, Clock, RefreshCw, Edit } from
 "lucide-react";
 import { adminAPI, restaurantAPI } from "../../../../lib/api";
 
@@ -198,6 +198,10 @@ export default function JoiningRequest() {
 
   const formatPhone = (phone) => {
     if (!phone) return "N/A";
+    let cleaned = String(phone).replace(/\D/g, "");
+    if (cleaned.length === 12 && cleaned.startsWith("91")) {
+      return cleaned.slice(2);
+    }
     return phone;
   };
 
@@ -320,6 +324,13 @@ export default function JoiningRequest() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={fetchRequests}
+                disabled={loading}
+                className="p-2.5 text-slate-600 hover:text-blue-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                title="Refresh Data">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => setShowFilterDialog(true)}
                 className={`px-4 py-2.5 text-sm font-medium rounded-lg border transition-all flex items-center gap-2 ${

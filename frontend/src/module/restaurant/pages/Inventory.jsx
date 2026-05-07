@@ -436,7 +436,6 @@ function TimePickerWheel({
 
 }
 
-// Simple Calendar Component
 function SimpleCalendar({ selectedDate, onDateSelect, isOpen, onClose }) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     return selectedDate ? new Date(selectedDate) : new Date();
@@ -592,6 +591,7 @@ function SimpleCalendar({ selectedDate, onDateSelect, isOpen, onClose }) {
 export default function Inventory() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all-items");
+  const [isAddPopupOpen, setIsAddPopupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState(null);
@@ -1595,37 +1595,37 @@ export default function Inventory() {
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">{item.name}</p>
                                   {item.inStock ?
-                              <p className="text-xs text-green-600 font-medium">In stock</p> :
+                                  <p className="text-xs text-green-600 font-medium">In stock</p> :
 
-                              <p className="text-xs text-red-500 font-medium">No time set. Turn item in stock manually.</p>
-                              }
+                                  <p className="text-xs text-red-500 font-medium">No time set. Turn item in stock manually.</p>
+                                  }
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
                                 {/* Recommend Thumb Icon */}
                                 <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRecommendToggle(category.id, item.id);
-                              }}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                              item.isRecommended ?
-                              "bg-blue-100 text-blue-600" :
-                              "bg-gray-100 text-gray-400 hover:bg-gray-200"}`
-                              }
-                              title={item.isRecommended ? "Recommended" : "Click to recommend"}>
-                              
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRecommendToggle(category.id, item.id);
+                                  }}
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                  item.isRecommended ?
+                                  "bg-blue-100 text-blue-600" :
+                                  "bg-gray-100 text-gray-400 hover:bg-gray-200"}`
+                                  }
+                                  title={item.isRecommended ? "Recommended" : "Click to recommend"}>
+                                  
                                   <ThumbsUp className="w-4 h-4" />
                                 </button>
                                 {/* Item Toggle Switch */}
                                 <div onClick={(e) => e.stopPropagation()}>
                                   <Switch
-                                checked={item.inStock}
-                                onCheckedChange={(checked) =>
-                                handleToggleChange("item", category.id, item.id, checked)
-                                }
-                                className="data-[state=checked]:bg-green-600" />
-                              
+                                    checked={item.inStock}
+                                    onCheckedChange={(checked) =>
+                                    handleToggleChange("item", category.id, item.id, checked)
+                                    }
+                                    className="data-[state=checked]:bg-green-600" />
+                                
                                 </div>
                               </div>
                             </div>
@@ -1880,6 +1880,43 @@ export default function Inventory() {
         }
       </AnimatePresence>
 
+      {/* Add Item Popup */}
+      <AnimatePresence>
+        {isAddPopupOpen &&
+        <>
+            <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsAddPopupOpen(false)}
+            className="fixed inset-0 bg-black/50 z-50" />
+          
+            <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50"
+            onClick={(e) => e.stopPropagation()}>
+            
+              <div className="px-4 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900 text-center">Add item</h2>
+              </div>
+              <div className="px-4 py-4 space-y-2">
+                <button
+                onClick={() => {
+                  navigate(`/restaurant/hub-menu/item/new`);
+                }}
+                className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors">
+                
+                  <span className="text-sm font-medium text-gray-900">Add item</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        }
+      </AnimatePresence>
+
       {/* Calendar Popup */}
       <SimpleCalendar
         selectedDate={selectedDate}
@@ -1898,9 +1935,17 @@ export default function Inventory() {
         onConfirm={handleTimePickerConfirm} />
       
 
+      
       {/* Floating Menu Button & Popup (hidden on Add-ons tab) */}
       {activeTab !== "add-ons" &&
-      <div className="fixed right-4 bottom-24 z-30">
+      <div className="fixed right-4 bottom-24 z-30 flex flex-col items-end gap-2">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setIsAddPopupOpen(true)}
+            className="px-4 py-2 border bg-black text-white border-gray-800 rounded-lg text-sm font-bold">
+            + ADD
+          </motion.button>
+
           <motion.button
           type="button"
           whileTap={{ scale: 0.96 }}
@@ -1983,6 +2028,6 @@ export default function Inventory() {
 
       {/* Bottom Navigation */}
       <BottomNavOrders />
-    </div>);
-
+    </div>
+  );
 }

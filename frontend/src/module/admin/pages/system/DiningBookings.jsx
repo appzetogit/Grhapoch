@@ -38,9 +38,13 @@ export default function DiningBookings() {
         }
     }
 
-    useEffect(() => {
-        fetchAllBookings()
-    }, [])
+    const formatTime = (timeStr) => {
+        if (!timeStr) return "N/A";
+        const trimmed = String(timeStr).trim();
+        if (/[AP]M$/i.test(trimmed)) return trimmed;
+        if (/^\d{1,2}$/.test(trimmed)) return `${trimmed}:00 PM`; // Fallback for simple numbers
+        return trimmed;
+    };
 
     return (
         <div className="p-4 lg:p-6 bg-slate-50 min-h-screen font-sans">
@@ -77,7 +81,7 @@ export default function DiningBookings() {
                                     <th className="p-4 font-bold text-slate-700 capitalize">Restaurant</th>
                                     <th className="p-4 font-bold text-slate-700 capitalize">Customer</th>
                                     <th className="p-4 font-bold text-slate-700 capitalize">Date/Time</th>
-                                    <th className="p-4 font-bold text-slate-700 capitalize">Table</th>
+                                    <th className="p-4 font-bold text-slate-700 capitalize text-center">Table</th>
                                     <th className="p-4 font-bold text-slate-700 capitalize text-center">Status</th>
                                 </tr>
                             </thead>
@@ -113,11 +117,11 @@ export default function DiningBookings() {
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-900 font-bold text-sm">{booking.date}</span>
-                                                    <span className="text-slate-500 font-medium text-xs mt-0.5">{booking.time}</span>
+                                                    <span className="text-slate-900 font-bold text-sm whitespace-nowrap">{booking.date}</span>
+                                                    <span className="text-slate-500 font-medium text-xs mt-0.5">{formatTime(booking.time)}</span>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="p-4 text-center">
                                                 <div className="font-bold text-slate-800">#{booking.tableNumber}</div>
                                             </td>
                                             <td className="p-4 text-center">

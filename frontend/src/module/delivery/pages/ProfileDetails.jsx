@@ -366,8 +366,8 @@ export default function ProfileDetails() {
     }
     if (!bankDetails.accountNumber.trim()) {
       errors.accountNumber = "Account number is required"
-    } else if (bankDetails.accountNumber.length < 9 || bankDetails.accountNumber.length > 18) {
-      errors.accountNumber = "Account number must be between 9 and 18 digits"
+    } else if (bankDetails.accountNumber.length < 15 || bankDetails.accountNumber.length > 18) {
+      errors.accountNumber = "Wrong account number (15-18 digits)"
     }
     if (!bankDetails.ifscCode.trim()) {
       errors.ifscCode = "IFSC code is required"
@@ -388,7 +388,8 @@ export default function ProfileDetails() {
         ifscCode: true,
         bankName: true
       })
-      toast.error("Please fill all required fields correctly")
+      const firstError = Object.values(errors)[0]
+      toast.error(firstError || "Please fill all required fields correctly")
       return false
     }
 
@@ -928,11 +929,12 @@ export default function ProfileDetails() {
                   setBankDetails(prev => ({ ...prev, accountNumber: val }))
                 }}
                 onBlur={() => setBankTouched(p => ({ ...p, accountNumber: true }))}
+                maxLength={18}
                 placeholder="Enter account number"
-                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${bankTouched.accountNumber && bankDetails.accountNumber.length < 9 ? "border-red-500 focus:ring-red-500" : "border-gray-300"}`}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${bankTouched.accountNumber && (bankDetails.accountNumber.length < 15 || bankDetails.accountNumber.length > 18) ? "border-red-500 focus:ring-red-500" : "border-gray-300"}`}
               />
-              {bankTouched.accountNumber && bankDetails.accountNumber.length < 9 && (
-                <p className="text-red-500 text-sm mt-1 animate-in fade-in slide-in-from-top-1">Valid account number required (min 9 digits)</p>
+              {bankTouched.accountNumber && (bankDetails.accountNumber.length < 15 || bankDetails.accountNumber.length > 18) && (
+                <p className="text-red-500 text-sm mt-1 animate-in fade-in slide-in-from-top-1">Wrong account number (15-18 digits)</p>
               )}
             </div>
           </div>

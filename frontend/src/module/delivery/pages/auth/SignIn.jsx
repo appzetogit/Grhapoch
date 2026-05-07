@@ -148,12 +148,14 @@ export default function DeliverySignIn() {
       </div>
 
       <div className="px-6 pb-8 pt-4">
-        <div className="w-full max-w-md mx-auto">
-          <p className="text-xs text-center text-gray-600 leading-relaxed">By continuing, you agree to our</p>
-          <div className="text-xs text-center text-gray-600 mt-1 flex justify-center gap-2 flex-wrap font-medium text-black/80">
-            <Link to="/delivery/terms" className="underline hover:text-black">Terms of Service</Link>
-            <span className="text-gray-400">•</span>
-            <Link to="/delivery/privacy" className="underline hover:text-black">Privacy Policy</Link>
+        <div className="w-full max-w-md mx-auto text-center">
+          <p className="text-xs text-gray-500 leading-relaxed">By continuing, you agree to our</p>
+          <div className="flex justify-center gap-2 flex-wrap text-black/80 mt-1 font-medium">
+            <Link to="/delivery/terms" className="text-xs underline hover:text-gray-900 transition-colors">Terms of Service</Link>
+            <span className="text-gray-400 text-xs">•</span>
+            <Link to="/delivery/privacy" className="text-xs underline hover:text-gray-900 transition-colors">Privacy Policy</Link>
+            <span className="text-gray-400 text-xs">•</span>
+            <Link to="/support" className="text-xs underline hover:text-gray-900 transition-colors">Support</Link>
           </div>
         </div>
       </div>

@@ -14,6 +14,15 @@ import { restaurantAPI } from "@/lib/api"
 import OptimizedImage from "@/components/OptimizedImage"
 import { ImageIcon } from "lucide-react"
 
+const formatPhone = (phone) => {
+  if (!phone) return "N/A";
+  let cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return cleaned.slice(2);
+  }
+  return phone;
+};
+
 export default function ContactDetails() {
   const navigate = useNavigate()
   const [invitedUsers, setInvitedUsers] = useState([])
@@ -229,7 +238,7 @@ export default function ContactDetails() {
                 {loading ? "Loading..." : (ownerData.name || "N/A")}
               </p>
               <p className="text-sm text-gray-900 font-normal">
-                {loading ? "Loading..." : (ownerData.phone || "N/A")}
+                {loading ? "Loading..." : formatPhone(ownerData.phone || "N/A")}
               </p>
               <p className="text-sm text-gray-900 font-normal">
                 {loading ? "Loading..." : (ownerData.email || "N/A")}
@@ -298,7 +307,7 @@ export default function ContactDetails() {
                               {user.name || "N/A"}
                             </p>
                             <p className="text-sm text-gray-900 font-normal">
-                              {user.phone || user.email}
+                              {formatPhone(user.phone) || user.email}
                             </p>
                           </div>
                         </div>
@@ -363,7 +372,7 @@ export default function ContactDetails() {
                               {user.name || "N/A"}
                             </p>
                             <p className="text-sm text-gray-900 font-normal">
-                              {user.phone || user.email}
+                              {formatPhone(user.phone) || user.email}
                             </p>
                           </div>
                         </div>

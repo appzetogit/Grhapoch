@@ -483,23 +483,14 @@ export default function TransactionReport() {
                   <th className={thClass("")} style={{ width: '9%' }}>Customer</th>
                   <th className={thClass("")} style={{ width: '8%' }}>Item Amount</th>
                   <th className={thClass("")} style={{ width: '7%' }}>Coupon Disc.</th>
-                  <th className={thClass("")} style={{ width: '7%' }}>Disc. Amount</th>
-                  {/* Highlighted columns */}
-                  <th className={thClass("gst")} style={{ width: '7%' }}>
-                    GST{metricFilter === "gst" ? " ▲" : ""}
-                  </th>
-                  <th className={thClass("platform_fee")} style={{ width: '8%' }}>
-                    Platform Fee{metricFilter === "platform_fee" ? " ▲" : ""}
-                  </th>
-                  <th className={thClass("delivery_fee")} style={{ width: '8%' }}>
-                    Delivery Fee{metricFilter === "delivery_fee" ? " ▲" : ""}
-                  </th>
-                  <th className={thClass("gross")} style={{ width: '8%' }}>
-                    Order Amount{metricFilter === "gross" ? " ▲" : ""}
-                  </th>
-                  <th className={thClass("admin_earning")} style={{ width: '8%' }}>
-                    Admin Earning{metricFilter === "admin_earning" ? " ▲" : ""}
-                  </th>
+                  <th className={thClass("")} style={{ width: '7%' }}>Net Item Price</th>
+                  <th className={thClass("gst")} style={{ width: '5%' }}>GST</th>
+                  <th className={thClass("platform_fee")} style={{ width: '6%' }}>Platform Fee</th>
+                  <th className={thClass("delivery_fee")} style={{ width: '6%' }}>Delivery Fee</th>
+                  <th className={thClass("")} style={{ width: '5%' }}>Tip</th>
+                  <th className={thClass("")} style={{ width: '5%' }}>Donation</th>
+                  <th className={thClass("gross")} style={{ width: '8%' }}>Order Amount</th>
+                  <th className={thClass("admin_earning")} style={{ width: '8%' }}>Admin Earning</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -553,6 +544,14 @@ export default function TransactionReport() {
                       {/* Delivery Fee */}
                       <td className={tdClass("delivery_fee")}>
                         <span className={spanClass("delivery_fee")}>{formatFullCurrency(transaction.deliveryCharge)}</span>
+                      </td>
+                      {/* Tip */}
+                      <td className="px-1.5 py-1.5">
+                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.tip)}</span>
+                      </td>
+                      {/* Donation */}
+                      <td className="px-1.5 py-1.5">
+                        <span className="text-[10px] text-slate-700">{formatFullCurrency(transaction.donation)}</span>
                       </td>
                       {/* Order Amount */}
                       <td className={tdClass("gross")}>

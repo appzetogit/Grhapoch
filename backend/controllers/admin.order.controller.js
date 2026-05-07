@@ -1141,6 +1141,9 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
       const totalItemAmount = subtotal;
       // Order amount (final total)
       const orderAmount = order.pricing?.total || 0;
+      
+      const tip = order.pricing?.tip || 0;
+      const donation = order.pricing?.donation || 0;
 
       return {
         id: order._id.toString(),
@@ -1155,7 +1158,9 @@ export const getTransactionReport = asyncHandler(async (req, res) => {
         vatTax: vatTax,
         deliveryCharge: deliveryCharge,
         orderAmount: orderAmount,
-        platformFee: settlement?.adminEarning?.platformFee || 0,
+        tip: tip,
+        donation: donation,
+        platformFee: settlement?.adminEarning?.platformFee || order.pricing?.platformFee || 0,
         adminEarning: settlement?.adminEarning?.totalEarning || 0,
         restaurantEarning: settlement?.restaurantEarning?.netEarning || 0,
         deliverymanEarning: settlement?.deliveryPartnerEarning?.totalEarning || 0

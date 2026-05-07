@@ -351,13 +351,13 @@ export default function RestaurantLogin() {
 
       <div className="px-6 pb-8 pt-4">
         <div className="w-full max-w-md mx-auto text-center">
-          <p className="text-xs text-gray-600 leading-relaxed">By continuing, you agree to our</p>
+          <p className="text-xs text-gray-500 leading-relaxed">By continuing, you agree to our</p>
           <div className="flex justify-center gap-2 flex-wrap text-black/80 mt-1 font-medium">
             <Link to="/restaurant/terms" className="text-xs underline hover:text-gray-900 transition-colors">Terms of Service</Link>
             <span className="text-gray-400 text-xs">•</span>
             <Link to="/restaurant/privacy" className="text-xs underline hover:text-gray-900 transition-colors">Privacy Policy</Link>
             <span className="text-gray-400 text-xs">•</span>
-            <Link to="/restaurant/code-of-conduct" className="text-xs underline hover:text-gray-900 transition-colors">Code of Conduct</Link>
+            <Link to="/support" className="text-xs underline hover:text-gray-900 transition-colors">Support</Link>
           </div>
         </div>
       </div>

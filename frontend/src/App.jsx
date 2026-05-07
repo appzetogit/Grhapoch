@@ -113,6 +113,7 @@ import DeliverySignupStep1 from "@/module/delivery/pages/auth/SignupStep1"
 import DeliverySignupStep2 from "@/module/delivery/pages/auth/SignupStep2"
 import TermsAndConditions from "@/module/delivery/pages/TermsAndConditions"
 import PrivacyPolicy from "@/module/delivery/pages/PrivacyPolicy"
+import PublicSupportPage from "@/components/SupportPage"
 
 function UserPathRedirect() {
   const location = useLocation()
@@ -904,6 +905,7 @@ export default function App() {
           }
         />
 
+        <Route path="/support" element={<PublicSupportPage />} />
       </Routes>
     </>
   )

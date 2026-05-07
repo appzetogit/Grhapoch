@@ -25,6 +25,15 @@ import { clearModuleAuth } from "@/lib/utils/auth";
 import { firebaseAuth } from "@/lib/firebase";
 import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
 
+const formatPhone = (phone) => {
+  if (!phone) return "";
+  let cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return cleaned.slice(2);
+  }
+  return phone;
+};
+
 const STORAGE_KEY = "restaurant_owner_contact";
 
 export default function EditOwner() {
@@ -80,7 +89,7 @@ export default function EditOwner() {
         if (data) {
           const ownerDataFromBackend = {
             name: data.ownerName || data.name || "",
-            phone: data.ownerPhone || data.primaryContactNumber || data.phone || "",
+            phone: formatPhone(data.ownerPhone || data.primaryContactNumber || data.phone || ""),
             email: data.ownerEmail || data.email || "",
             photo: data.profileImage?.url || null
           };

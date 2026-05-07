@@ -21,7 +21,7 @@ export default function Customers() {
     joiningDate: "",
     status: "",
     sortBy: "",
-    chooseFirst: "",
+    minAmount: "",
   })
   const activeFiltersCount = Object.values(filters).filter(v => v !== "").length;
 
@@ -38,8 +38,7 @@ export default function Customers() {
       )
     }
 
-    // Filter by order date (if customer has order date field, otherwise skip)
-    // Note: customersDummy doesn't have orderDate, so this is a placeholder for future implementation
+    // Note: orderDate filtering is handled by the backend
 
     // Filter by joining date
     if (filters.joiningDate) {
@@ -73,9 +72,9 @@ export default function Customers() {
       }
     }
 
-    // Limit results if "Choose First" is set
-    if (filters.chooseFirst && parseInt(filters.chooseFirst) > 0) {
-      result = result.slice(0, parseInt(filters.chooseFirst))
+    // Filter by minimum amount
+    if (filters.minAmount && parseFloat(filters.minAmount) > 0) {
+      result = result.filter(customer => (customer.totalOrderAmount || 0) >= parseFloat(filters.minAmount))
     }
 
     return result
@@ -98,7 +97,7 @@ export default function Customers() {
           ...(filters.joiningDate && { joiningDate: filters.joiningDate }),
           ...(filters.orderDate && { orderDate: filters.orderDate }),
           ...(filters.sortBy && { sortBy: filters.sortBy }),
-          ...(filters.chooseFirst && { limit: parseInt(filters.chooseFirst) }),
+          ...(filters.minAmount && { minAmount: parseFloat(filters.minAmount) }),
         }
 
         const response = await adminAPI.getUsers(params)
@@ -276,12 +275,12 @@ export default function Customers() {
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Choose First
+                Filter by Amount
               </label>
               <input
                 type="number"
-                value={filters.chooseFirst}
-                onChange={(e) => handleFilterChange("chooseFirst", e.target.value)}
+                value={filters.minAmount}
+                onChange={(e) => handleFilterChange("minAmount", e.target.value)}
                 placeholder="Ex: 100"
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
@@ -297,7 +296,7 @@ export default function Customers() {
                     joiningDate: "",
                     status: "",
                     sortBy: "",
-                    chooseFirst: "",
+                    minAmount: "",
                   })
                 }}
                 className="px-6 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2 relative group"
@@ -375,7 +374,7 @@ export default function Customers() {
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Sl</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Contact Information</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total Order</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total Orders</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total Order Amount</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Joining Date</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Active/Inactive</th>
@@ -392,7 +391,23 @@ export default function Customers() {
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-8 text-center">
-                      <div className="text-sm text-slate-500">No customers found</div>
+                      <div className="text-sm text-slate-500">
+                        {filters.orderDate ? (
+                          <>
+                            No orders found for{" "}
+                            <span className="font-semibold">
+                              {filters.orderDate.split('-').reverse().join('-')}
+                            </span>
+                          </>
+                        ) : filters.minAmount ? (
+                          <>
+                            No customers found with amount ≥{" "}
+                            <span className="font-semibold">Rs. {filters.minAmount}</span>
+                          </>
+                        ) : (
+                          "No customers found"
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -419,7 +434,7 @@ export default function Customers() {
                         <span className="text-sm text-slate-700">{customer.totalOrder || 0}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-slate-900">₹ {(customer.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-sm font-medium text-slate-900">Rs. {(customer.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-slate-700">{customer.joiningDate}</span>
@@ -533,7 +548,7 @@ export default function Customers() {
                     <span className="text-xs font-semibold text-slate-700">Total Spent</span>
                   </div>
                   <p className="text-xl font-bold text-green-600">
-                    ₹ {(userDetails.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Rs. {(userDetails.totalOrderAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3">
@@ -584,14 +599,14 @@ export default function Customers() {
                     Recent Orders
                   </h4>
                   <div className="space-y-2">
-                    {userDetails.orders.slice(0, 5).map((order, index) => (
+                    {userDetails.orders.map((order, index) => (
                       <div key={index} className="bg-slate-50 rounded-lg p-3 border border-slate-200 flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{order.orderId}</p>
                           <p className="text-xs text-slate-600">{order.restaurantName}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-slate-900">₹ {(order.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-semibold text-slate-900">Rs. {(order.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           <p className="text-xs text-slate-600 capitalize">{order.status}</p>
                         </div>
                       </div>

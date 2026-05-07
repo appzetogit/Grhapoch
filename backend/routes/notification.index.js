@@ -1,7 +1,11 @@
 import express from 'express';
 import fcmTokenRoutes from './fcmTokenRoutes.js';
+import notificationPublicRoutes from './notificationPublicRoutes.js';
 
 const router = express.Router();
+
+// Public notifications for users
+router.use('/public', notificationPublicRoutes);
 
 // FCM push notification token management
 router.use('/fcm', fcmTokenRoutes);

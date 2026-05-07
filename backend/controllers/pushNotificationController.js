@@ -92,6 +92,53 @@ export const toggleNotificationStatus = async (req, res) => {
   }
 };
 
+// Update Push Notification
+export const updatePushNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, zoneId, sendTo, description } = req.body;
+    let banner = req.body.banner;
+
+    const notification = await PushNotification.findById(id);
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    // Handle image upload if present
+    if (req.file) {
+      const { uploadToCloudinary } = await import('../utils/cloudinaryService.js');
+      const result = await uploadToCloudinary(req.file.buffer, { folder: 'push-notifications' });
+      banner = result.secure_url;
+    }
+
+    let zoneName = 'All';
+    if (zoneId && zoneId !== 'All') {
+      const zone = await Zone.findById(zoneId);
+      if (zone) {
+        zoneName = zone.name;
+      }
+    }
+
+    notification.title = title || notification.title;
+    notification.description = description || notification.description;
+    notification.zoneId = zoneId === 'All' ? null : (zoneId || notification.zoneId);
+    notification.zoneName = zoneName;
+    notification.sendTo = sendTo || notification.sendTo;
+    if (banner) notification.banner = banner;
+
+    await notification.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Notification updated successfully',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error updating push notification:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // Delete Push Notification
 export const deletePushNotification = async (req, res) => {
   try {
@@ -108,6 +155,36 @@ export const deletePushNotification = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting push notification:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+// Get active Push Notifications for Users (Public)
+export const getPublicNotifications = async (req, res) => {
+  try {
+    const { zoneId, userType = 'Customer' } = req.query;
+    
+    const query = {
+      status: true,
+      sendTo: userType
+    };
+
+    if (zoneId && zoneId !== 'All') {
+      query.$or = [
+        { zoneId: null },
+        { zoneId: zoneId }
+      ];
+    } else {
+      query.zoneId = null; // Only global if no zone provided
+    }
+
+    const notifications = await PushNotification.find(query).sort({ createdAt: -1 }).limit(20);
+    
+    res.status(200).json({
+      success: true,
+      data: notifications
+    });
+  } catch (error) {
+    console.error('Error getting public notifications:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

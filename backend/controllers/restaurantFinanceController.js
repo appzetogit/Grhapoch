@@ -535,8 +535,59 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
     const currentCyclePayout = Math.round((currentCycleTotal - currentCycleCommission) * 100) / 100;
 
     const RestaurantWallet = (await import('../models/RestaurantWallet.js')).default;
-    const wallet = await RestaurantWallet.findOne({ restaurantId: restaurant._id });
-    const availablePayout = wallet ? wallet.totalBalance : 0;
+    let wallet = await RestaurantWallet.findOne({ restaurantId: restaurant._id });
+    let availablePayout = wallet ? wallet.totalBalance : 0;
+
+    // Fallback: If wallet balance is 0 or wallet missing, sync it from historical data
+    // This handles older test orders or orders that bypassed the wallet update logic
+    if (availablePayout === 0) {
+      try {
+        const allDeliveredOrders = await Order.find({ status: 'delivered', ...restaurantIdQuery }).lean();
+        if (allDeliveredOrders.length > 0) {
+          let totalLifetimePayout = 0;
+          for (const ord of allDeliveredOrders) {
+            const restaurantDiscount = ord.pricing?.restaurantDiscount !== undefined ? 
+                                     ord.pricing.restaurantDiscount : 
+                                     (ord.pricing?.discount || 0);
+            const foodP = (ord.pricing?.subtotal || 0) - restaurantDiscount;
+            const cData = calculateCommissionForOrder(ord, foodP);
+            totalLifetimePayout += (foodP - cData.commission);
+          }
+          
+          const WithdrawalRequest = (await import('../models/WithdrawalRequest.js')).default;
+          const withdrawals = await WithdrawalRequest.find({ 
+            restaurantId: restaurant._id, 
+            status: { $in: ['approved', 'completed'] } 
+          }).lean();
+          
+          const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+          
+          availablePayout = Math.max(0, totalLifetimePayout - totalWithdrawn);
+          
+          // Sync wallet if there's a discrepancy
+          if (availablePayout > 0) {
+            if (wallet) {
+              wallet.totalBalance = availablePayout;
+              await wallet.save();
+            } else {
+              wallet = await RestaurantWallet.create({
+                restaurantId: restaurant._id,
+                totalBalance: availablePayout,
+                transactions: [{
+                  amount: availablePayout,
+                  type: 'payment',
+                  status: 'Completed',
+                  description: 'Historical wallet sync from past delivered orders',
+                  createdAt: new Date()
+                }]
+              });
+            }
+          }
+        }
+      } catch (syncError) {
+        console.error('Error syncing historical wallet balance:', syncError);
+      }
+    }
 
 
 

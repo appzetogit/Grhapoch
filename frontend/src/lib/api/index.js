@@ -34,6 +34,14 @@ const normalizePhone = (phone) => {
 // Export the configured axios instance
 export default apiClient;
 
+// Export notification helper functions
+export const notificationAPI = {
+  // Get active public notifications for users
+  getActiveNotifications: (zoneId = 'All', userType = 'Customer') => {
+    return apiClient.get(`/notification/public/active?zoneId=${zoneId}&userType=${userType}`);
+  }
+};
+
 // Export API endpoints for convenience
 export { API_ENDPOINTS };
 
@@ -1438,6 +1446,19 @@ export const adminAPI = {
       }
     });
     return apiClient.post(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATIONS, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  updatePushNotification: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (key === 'image' && data[key]) {
+        formData.append('image', data[key]);
+      } else if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key]);
+      }
+    });
+    return apiClient.put(API_ENDPOINTS.ADMIN.PUSH_NOTIFICATION_BY_ID.replace(':id', id), formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },

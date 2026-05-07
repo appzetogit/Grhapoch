@@ -216,8 +216,8 @@ export default function DeliveryWithdrawal() {
   }
 
   const formatCurrency = (amount) => {
-    if (amount == null) return "₹0.00"
-    return `₹${Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    if (amount == null) return "Rs. 0.00"
+    return `Rs. ${Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const formatMethod = (method) => {

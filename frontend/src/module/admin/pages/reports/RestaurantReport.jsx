@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react"
-import { Search, Download, ChevronDown, Filter, Briefcase, RefreshCw, Settings, ArrowUpDown, FileText, FileSpreadsheet, Code, Loader2, Check, X, Eye, EyeOff } from "lucide-react"
+import { Search, Download, ChevronDown, Filter, Briefcase, RefreshCw, Settings, ArrowUpDown, FileText, FileSpreadsheet, Code, Loader2, Check, X, Eye, EyeOff, Star, StarHalf } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
@@ -113,10 +113,26 @@ export default function RestaurantReport() {
   const renderStars = (rating, reviews) => {
     const safeRating = Number(rating) || 0
     const safeReviews = Number(reviews) || 0
-    if (safeRating === 0) return "★0"
-    const fullStars = Math.floor(safeRating)
-    const hasHalfStar = safeRating % 1 !== 0
-    return "★".repeat(fullStars) + (hasHalfStar ? "½" : "") + "☆".repeat(5 - Math.ceil(safeRating)) + ` (${safeReviews})`
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex items-center text-amber-500">
+          {[...Array(5)].map((_, i) => {
+            const starValue = i + 1
+            if (starValue <= Math.floor(safeRating)) {
+              return <Star key={i} className="w-3 h-3 fill-current" />
+            } else if (starValue === Math.ceil(safeRating) && safeRating % 1 !== 0) {
+              return <StarHalf key={i} className="w-3 h-3 fill-current" />
+            } else {
+              return <Star key={i} className="w-3 h-3 text-slate-200" />
+            }
+          })}
+        </div>
+        <span className="text-xs font-bold text-slate-600">
+          {safeRating > 0 ? safeRating.toFixed(1) : "0.0"} ({safeReviews})
+        </span>
+      </div>
+    )
   }
 
   return (
@@ -320,9 +336,7 @@ export default function RestaurantReport() {
                         {visibleColumns.includes("totalVATTAX") && <td className="px-6 py-4 text-sm font-medium text-slate-600">{restaurant.totalVATTAX}</td>}
                         {visibleColumns.includes("averageRatings") && (
                           <td className="px-6 py-4">
-                            <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded-md text-xs font-bold ring-1 ring-amber-100">
-                              {renderStars(restaurant.averageRatings, restaurant.reviews)}
-                            </span>
+                            {renderStars(restaurant.averageRatings, restaurant.reviews)}
                           </td>
                         )}
                       </tr>

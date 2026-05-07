@@ -421,12 +421,17 @@ export default function DiningRestaurantDetail() {
     const restaurantId = restaurant?.id || restaurant?._id;
     setBookingLoading(true);
     try {
+      const activeSlots = selectedTimePeriod === "Lunch" ? (Array.isArray(restaurant?.diningSlots?.lunch) ? restaurant.diningSlots.lunch : []) : (Array.isArray(restaurant?.diningSlots?.dinner) ? restaurant.diningSlots.dinner : []);
+      const matchedSlot = activeSlots.find((slot) => slot?.time === selectedTimeSlot);
+      const appliedDiscount = matchedSlot?.discount || "";
+
       const bookingDetails = {
         tableId: selectedTable.id,
         tableNumber: selectedTable.tableNumber,
         guests: guestCount,
         date: selectedBookingDate,
         time: selectedTimeSlot,
+        appliedDiscount: appliedDiscount,
         customerDetails: {
           name: normalizedName,
           phone: normalizedPhone

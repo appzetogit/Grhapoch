@@ -260,6 +260,7 @@ import {
 } from '../controllers/couponController.js';
 import {
   sendPushNotification,
+  updatePushNotification,
   getAllPushNotifications,
   toggleNotificationStatus,
   deletePushNotification
@@ -447,6 +448,7 @@ router.delete('/coupons/:id', deleteCoupon);
 // Push Notification Management
 router.get('/push-notifications', getAllPushNotifications);
 router.post('/push-notifications', uploadMiddleware.single('image'), sendPushNotification);
+router.put('/push-notifications/:id', uploadMiddleware.single('image'), updatePushNotification);
 router.patch('/push-notifications/:id/status', toggleNotificationStatus);
 router.delete('/push-notifications/:id', deletePushNotification);
 

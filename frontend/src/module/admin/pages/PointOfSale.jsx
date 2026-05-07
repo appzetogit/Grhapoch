@@ -262,8 +262,11 @@ export default function PointOfSale() {
   };
 
   const formatCurrency = (amount) => {
-    return `₹ ${amount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`;
-  };
+    return `Rs. ${Number(amount || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  }
 
   const formatNumber = (num) => {
     return num?.toLocaleString('en-IN') || '0';

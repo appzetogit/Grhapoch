@@ -238,6 +238,8 @@ export default function Home() {
   const [realCategories, setRealCategories] = useState([]);
   const [loadingRealCategories, setLoadingRealCategories] = useState(true);
   const [showAllCategoriesModal, setShowAllCategoriesModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
   const isHandlingSwitchOff = useRef(false);
 
   // Swipe functionality for hero banner carousel
@@ -373,6 +375,18 @@ export default function Home() {
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
           );
           setExploreMoreHeading(data.settings?.exploreMoreHeading || "Explore More");
+        }
+
+        // Fetch Notifications
+        try {
+          const notifRes = await notificationAPI.getActiveNotifications();
+          if (notifRes.data.success) {
+            setNotifications(notifRes.data.data);
+          }
+        } catch (error) {
+          console.error("Error fetching notifications on home:", error);
+        } finally {
+          setLoadingNotifications(false);
         }
       } catch (error) {
         console.error('Error in initial data fetch:', error);
@@ -1449,6 +1463,36 @@ export default function Home() {
           }
         </div>
       </div>
+
+      {/* Admin Notification Section */}
+      {notifications.length > 0 && (
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 mt-6">
+          <Link to="/user/notifications">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative overflow-hidden bg-gradient-to-r from-red-600/90 to-red-500/90 dark:from-red-950/80 dark:to-red-900/80 rounded-2xl p-4 shadow-sm ring-1 ring-red-200/20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-white animate-bounce" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-white truncate">
+                    {notifications[0].title}
+                  </h4>
+                  <p className="text-xs text-white/90 truncate">
+                    {notifications[0].description}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-white/70" />
+              </div>
+              {/* Subtle background pulse */}
+              <div className="absolute inset-0 bg-white/5 animate-pulse pointer-events-none" />
+            </motion.div>
+          </Link>
+        </div>
+      )}
 
       {activeRestaurantAds.length > 0 &&
         <div className="w-full mt-4 sm:mt-4 px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 sm:max-w-7xl sm:mx-auto">

@@ -210,22 +210,25 @@ export default function NewAdvertisementPage() {
     }
   }
 
-  const handleBridgePick = async () => {
+  const handleBridgePick = () => {
     if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
-          fileNamePrefix: 'ad_banner' 
-        });
-        if (file) {
-          handleBannerChange({ target: { files: [file] } });
-          return;
+      (async () => {
+        try {
+          const file = await requestImageFileFromFlutter({ 
+            source: 'gallery', 
+            fileNamePrefix: 'ad_banner' 
+          });
+          if (file) {
+            handleBannerChange({ target: { files: [file] } });
+          }
+        } catch (err) {
+          console.warn("Flutter bridge failed for ad banner, falling back to web:", err);
+          document.getElementById('bannerFileInput')?.click();
         }
-      } catch (err) {
-        console.warn("Flutter bridge failed for ad banner, falling back to web:", err);
-      }
+      })();
+    } else {
+      document.getElementById('bannerFileInput')?.click();
     }
-    document.getElementById('bannerFileInput')?.click();
   };
 
   const handleSubmit = async () => {
@@ -327,11 +330,8 @@ export default function NewAdvertisementPage() {
                     <p className="text-xs text-gray-500 mb-2">
                       Required: JPG/PNG | Min 1200x300 | Wide banner recommended (example 1200x300) | Max size: 2MB
                     </p>
-                    <label 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleBridgePick();
-                      }}
+                    <div 
+                      onClick={handleBridgePick}
                       className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900"
                     >
                       <input 
@@ -353,7 +353,7 @@ export default function NewAdvertisementPage() {
                           </p>
                         </div>
                       )}
-                    </label>
+                    </div>
                     {bannerOptimizationMessage && (
                       <p className="text-xs text-emerald-700 mt-2">{bannerOptimizationMessage}</p>
                     )}

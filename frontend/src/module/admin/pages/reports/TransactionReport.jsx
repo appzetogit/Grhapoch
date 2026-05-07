@@ -205,13 +205,13 @@ export default function TransactionReport() {
 
   const formatCurrency = (amount) => {
     if (amount >= 1000) {
-      return `₹ ${(amount / 1000).toFixed(2)}K`
+      return `Rs. ${(amount / 1000).toFixed(2)}K`
     }
-    return `₹ ${(amount || 0).toFixed(2)}`
+    return `Rs. ${(amount || 0).toFixed(2)}`
   }
 
   const formatFullCurrency = (amount) => {
-    return `₹ ${(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `Rs. ${(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   // Column highlight config per metric

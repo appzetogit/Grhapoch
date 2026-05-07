@@ -119,22 +119,25 @@ export default function EditAdvertisementPage() {
     }
   };
 
-  const handleBridgePick = async () => {
+  const handleBridgePick = () => {
     if (hasFlutterCameraBridge()) {
-      try {
-        const file = await requestImageFileFromFlutter({ 
-          source: 'gallery', 
-          fileNamePrefix: 'ad_image' 
-        });
-        if (file) {
-          handleFileUpload({ target: { files: [file] } }, "file");
-          return;
+      (async () => {
+        try {
+          const file = await requestImageFileFromFlutter({ 
+            source: 'gallery', 
+            fileNamePrefix: 'ad_image' 
+          });
+          if (file) {
+            handleFileUpload({ target: { files: [file] } }, "file");
+          }
+        } catch (err) {
+          console.warn("Flutter bridge failed for ad image, falling back to web:", err);
+          document.getElementById('file-upload')?.click();
         }
-      } catch (err) {
-        console.warn("Flutter bridge failed for ad image, falling back to web:", err);
-      }
+      })();
+    } else {
+      document.getElementById('file-upload')?.click();
     }
-    document.getElementById('file-upload')?.click();
   };
 
   const handleInputChange = (field, value) => {
@@ -297,11 +300,8 @@ export default function EditAdvertisementPage() {
                   className="hidden"
                   accept="image/*" />
                 
-                <label
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleBridgePick();
-                  }}
+                <div
+                  onClick={handleBridgePick}
                   className="block cursor-pointer">
                   
                   {uploadedFile ?
@@ -323,7 +323,7 @@ export default function EditAdvertisementPage() {
                       <p className="text-sm text-gray-500">Click to upload file</p>
                     </div>
                   }
-                </label>
+                </div>
 
                 {/* File Description */}
                 <div className="mt-4">

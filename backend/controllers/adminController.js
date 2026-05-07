@@ -980,29 +980,48 @@ export const getUsers = asyncHandler(async (req, res) => {
       query.createdAt = { $gte: startDate, $lte: endDate };
     }
 
-    // Get users
+    // Order date filter - find users who ordered on this date
+    if (orderDate) {
+      const startD = new Date(orderDate);
+      startD.setHours(0, 0, 0, 0);
+      const endD = new Date(orderDate);
+      endD.setHours(23, 59, 59, 999);
+      
+      const userIdsWithOrders = await Order.distinct('userId', {
+        createdAt: { $gte: startD, $lte: endD }
+      });
+      
+      query._id = { $in: userIdsWithOrders };
+    }
+
+    // Get users - fetch all matched users first to allow correct sorting by aggregated stats
     const users = await User.find(query).
     select('-password -__v').
     sort({ createdAt: -1 }).
-    limit(parseInt(limit)).
-    skip(parseInt(offset)).
     lean();
 
     // Get user IDs
     const userIds = users.map((user) => user._id);
 
     // Get order statistics for each user
+    const orderMatch = { userId: { $in: userIds } };
+    if (orderDate) {
+      const startD = new Date(orderDate);
+      startD.setHours(0, 0, 0, 0);
+      const endD = new Date(orderDate);
+      endD.setHours(23, 59, 59, 999);
+      orderMatch.createdAt = { $gte: startD, $lte: endD };
+    }
+
     const orderStats = await Order.aggregate([
     {
-      $match: {
-        userId: { $in: userIds }
-      }
+      $match: orderMatch
     },
     {
       $group: {
         _id: '$userId',
         totalOrders: { $sum: 1 },
-        totalAmount: { $sum: '$pricing.total' }
+        totalAmount: { $sum: "$pricing.total" }
       }
     }]
     );
@@ -1017,7 +1036,7 @@ export const getUsers = asyncHandler(async (req, res) => {
     });
 
     // Format users with order statistics
-    const formattedUsers = users.map((user, index) => {
+    let formattedUsers = users.map((user, index) => {
       const stats = statsMap[user._id.toString()] || { totalOrder: 0, totalOrderAmount: 0 };
 
       // Format joining date
@@ -1029,7 +1048,7 @@ export const getUsers = asyncHandler(async (req, res) => {
       });
 
       return {
-        sl: parseInt(offset) + index + 1,
+        sl: index + 1,
         id: user._id.toString(),
         name: user.name || 'N/A',
         email: user.email || 'N/A',
@@ -1042,7 +1061,7 @@ export const getUsers = asyncHandler(async (req, res) => {
       };
     });
 
-    // Apply sorting
+    // Apply sorting BEFORE limiting
     if (sortBy) {
       if (sortBy === 'name-asc') {
         formattedUsers.sort((a, b) => a.name.localeCompare(b.name));
@@ -1055,12 +1074,28 @@ export const getUsers = asyncHandler(async (req, res) => {
       }
     }
 
-    // Order date filter (filter by order date after aggregation)
+    // Apply limit (Choose First) after sorting
     let filteredUsers = formattedUsers;
+    
+    // Filter by minimum amount if provided
+    const { minAmount, limit: queryLimit, offset: queryOffset } = req.query;
+    if (minAmount && parseFloat(minAmount) > 0) {
+      filteredUsers = filteredUsers.filter(user => (user.totalOrderAmount || 0) >= parseFloat(minAmount));
+    }
 
+    // Apply pagination/limit after amount filtering
+    const finalLimit = parseInt(queryLimit) || parseInt(limit);
+    const finalOffset = parseInt(queryOffset) || parseInt(offset);
 
+    if (finalLimit && finalLimit > 0) {
+      filteredUsers = filteredUsers.slice(finalOffset, finalOffset + finalLimit);
+    }
 
-
+    // Re-assign serial numbers after sorting and limiting
+    filteredUsers = filteredUsers.map((user, index) => ({
+      ...user,
+      sl: finalOffset + index + 1
+    }));
 
     const total = await User.countDocuments(query);
 
@@ -1102,7 +1137,7 @@ export const getUserById = asyncHandler(async (req, res) => {
       $group: {
         _id: null,
         totalOrders: { $sum: 1 },
-        totalAmount: { $sum: '$pricing.total' },
+        totalAmount: { $sum: "$pricing.total" },
         orders: {
           $push: {
             orderId: '$orderId',
@@ -1147,7 +1182,7 @@ export const getUserById = asyncHandler(async (req, res) => {
         createdAt: user.createdAt,
         totalOrders: stats.totalOrders,
         totalOrderAmount: stats.totalAmount,
-        orders: stats.orders.slice(0, 10) // Last 10 orders
+        orders: stats.orders // Last 10 orders
       }
     });
   } catch (error) {

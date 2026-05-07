@@ -660,15 +660,27 @@ export default function HubFinance() {
                     </p>
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                       <div>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold">Earnings (This Week)</p>
-                        <p className="text-sm font-bold text-emerald-600">₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN')}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold">
+                          {activeTab === "payouts" && pastCyclesData !== null ? "Earnings (Selected)" : "Earnings (This Week)"}
+                        </p>
+                        <p className="text-sm font-bold text-emerald-600">
+                          ₹{(
+                            (activeTab === "payouts" && pastCyclesData !== null 
+                              ? pastCyclesData.estimatedPayout 
+                              : financeData?.currentCycle?.estimatedPayout) || 0
+                          ).toLocaleString('en-IN')}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-gray-500 uppercase font-bold">Total Orders</p>
-                        <p className="text-sm font-bold text-gray-900">{financeData?.currentCycle?.totalOrders || 0}</p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {(activeTab === "payouts" && pastCyclesData !== null 
+                            ? pastCyclesData.totalOrders 
+                            : financeData?.currentCycle?.totalOrders) || 0}
+                        </p>
                       </div>
                     </div>
-                    {(financeData?.currentCycle?.estimatedPayout || 0) > 0 &&
+                    {(financeData?.currentCycle?.availablePayout || 0) > 0 &&
                       <div className="flex flex-col gap-2 mt-4">
                         <button
                           onClick={() => setShowWithdrawalModal(true)}
@@ -683,7 +695,7 @@ export default function HubFinance() {
                         </button>
                       </div>
                     }
-                    {(financeData?.currentCycle?.estimatedPayout || 0) <= 0 &&
+                    {(financeData?.currentCycle?.availablePayout || 0) <= 0 &&
                       <button
                         onClick={() => navigate("/restaurant/withdrawal-history")}
                         className="w-full bg-white text-gray-700 border border-gray-300 py-3 px-4 rounded-lg font-medium text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors mt-4">

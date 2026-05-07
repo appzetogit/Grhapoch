@@ -12,28 +12,34 @@ export default function PushNotification() {
     image: null
   });
   const [imagePreview, setImagePreview] = useState(null);
-  const [zones, setZones] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const exportDropdownRef = useRef(null);
 
   useEffect(() => {
     fetchInitialData();
+
+    // Close dropdown on click outside
+    const handleClickOutside = (event) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+        setIsExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchInitialData = async () => {
     try {
       setIsLoading(true);
-      const [zonesRes, notificationsRes] = await Promise.all([
-        adminAPI.getZones(),
+      const [notificationsRes] = await Promise.all([
         adminAPI.getPushNotifications()
       ]);
-      
-      if (zonesRes.data.success) {
-        setZones(zonesRes.data.data.zones || []);
-      }
       
       if (notificationsRes.data.success) {
         setNotifications(notificationsRes.data.data);
@@ -87,11 +93,20 @@ export default function PushNotification() {
 
     try {
       setIsSubmitting(true);
-      const response = await adminAPI.sendPushNotification(formData);
-      if (response.data.success) {
-        toast.success("Notification sent successfully!");
-        handleReset();
-        fetchInitialData(); // Refresh list
+      if (editingId) {
+        const response = await adminAPI.updatePushNotification(editingId, formData);
+        if (response.data.success) {
+          toast.success("Notification updated successfully!");
+          handleReset();
+          fetchInitialData();
+        }
+      } else {
+        const response = await adminAPI.sendPushNotification(formData);
+        if (response.data.success) {
+          toast.success("Notification sent successfully!");
+          handleReset();
+          fetchInitialData();
+        }
       }
     } catch (error) {
       console.error("Failed to send notification:", error);
@@ -110,7 +125,21 @@ export default function PushNotification() {
       image: null
     });
     setImagePreview(null);
+    setEditingId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleEdit = (notification) => {
+    setEditingId(notification._id);
+    setFormData({
+      title: notification.title || "",
+      zoneId: notification.zoneId || "All",
+      sendTo: notification.sendTo || "Customer",
+      description: notification.description || "",
+      image: null // Don't try to set File object from URL
+    });
+    setImagePreview(notification.banner || null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleToggleStatus = async (id) => {
@@ -141,6 +170,57 @@ export default function PushNotification() {
     }
   };
 
+  const handleExport = (type) => {
+    if (notifications.length === 0) {
+      toast.error("No notifications to export");
+      return;
+    }
+
+    const headers = ["SI", "Title", "Description", "Target", "Status", "Created At"];
+    const rows = filteredNotifications.map((n, i) => [
+      i + 1,
+      n.title,
+      n.description,
+      n.sendTo,
+      n.status ? "Active" : "Inactive",
+      new Date(n.createdAt).toLocaleDateString()
+    ]);
+
+    if (type === "csv") {
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+      ].join("\n");
+      downloadFile(csvContent, "text/csv", "notifications.csv");
+    } else if (type === "excel") {
+      // Simple HTML table for Excel
+      const htmlContent = `
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      `;
+      downloadFile(htmlContent, "application/vnd.ms-excel", "notifications.xls");
+    }
+    setIsExportDropdownOpen(false);
+  };
+
+  const downloadFile = (content, type, filename) => {
+    const blob = new Blob([content], { type: `${type};charset=utf-8;` });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filename.split(".")[0]}_${new Date().toISOString().split("T")[0]}.${filename.split(".")[1]}`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -156,7 +236,9 @@ export default function PushNotification() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <Bell className="w-5 h-5 text-blue-600" />
-            <h1 className="text-2xl font-bold text-slate-900">Notification</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {editingId ? "Edit Notification" : "Notification"}
+            </h1>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -185,23 +267,6 @@ export default function PushNotification() {
                   <option value="Customer">Customer</option>
                   <option value="Delivery Man">Delivery Man</option>
                   <option value="Restaurant">Restaurant</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Select Zone
-                </label>
-                <select
-                  value={formData.zoneId}
-                  onChange={(e) => handleInputChange("zoneId", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                  <option value="All">All Zones</option>
-                  {zones.map((zone) => (
-                    <option key={zone._id} value={zone._id}>
-                      {zone.name}
-                    </option>
-                  ))}
                 </select>
               </div>
             </div>
@@ -275,7 +340,7 @@ export default function PushNotification() {
                   disabled={isSubmitting}
                   className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md flex items-center gap-2 disabled:bg-blue-400">
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {isSubmitting ? "Sending..." : "Send Notification"}
+                  {isSubmitting ? "Saving..." : (editingId ? "Update Notification" : "Send Notification")}
                 </button>
               </div>
             </div>
@@ -303,11 +368,34 @@ export default function PushNotification() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               </div>
 
-              <button className="px-4 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-2 transition-all">
-                <Download className="w-4 h-4" />
-                <span>Export</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
+              <div className="relative" ref={exportDropdownRef}>
+                <button 
+                  onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                  className="px-4 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-2 transition-all">
+                  <Download className="w-4 h-4" />
+                  <span>Export</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isExportDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {isExportDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => handleExport("csv")}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      Export as CSV
+                    </button>
+                    <button
+                      onClick={() => handleExport("excel")}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      Export as Excel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -320,7 +408,6 @@ export default function PushNotification() {
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Title</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Description</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Image</th>
-                  <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Zone</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Target</th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-center text-[10px] font-bold text-slate-700 uppercase tracking-wider">Action</th>
@@ -355,9 +442,6 @@ export default function PushNotification() {
                       }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-slate-700">{notification.zoneName}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700">
                         {notification.sendTo}
                       </span>
@@ -377,6 +461,7 @@ export default function PushNotification() {
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
+                          onClick={() => handleEdit(notification)}
                           className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Edit">
                           <Edit className="w-4 h-4" />
@@ -393,7 +478,7 @@ export default function PushNotification() {
                 )}
                 {filteredNotifications.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 italic">
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 italic">
                       No notifications found
                     </td>
                   </tr>

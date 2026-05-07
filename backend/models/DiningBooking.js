@@ -79,6 +79,11 @@ const diningBookingSchema = new mongoose.Schema(
         statusUpdatedBy: {
             type: mongoose.Schema.Types.ObjectId,
             default: null
+        },
+        appliedDiscount: {
+            type: String,
+            default: "",
+            trim: true
         }
     },
     { timestamps: true }

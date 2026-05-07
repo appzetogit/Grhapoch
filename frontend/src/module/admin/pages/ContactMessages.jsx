@@ -136,7 +136,7 @@ export default function ContactMessages() {
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${colorClass} flex items-center gap-1`}>
         <Star className="w-3 h-3 fill-current" />
-        {(rating * 2) || 0} / 10
+        {rating || 0} / 5
       </span>
     )
   }
@@ -356,19 +356,13 @@ export default function ContactMessages() {
                       {getRatingBadge(feedback.rating)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="p-1.5 rounded text-slate-600 hover:bg-slate-100 transition-colors">
-                            <Settings className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewFeedback(feedback)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <button 
+                        onClick={() => handleViewFeedback(feedback)}
+                        className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -517,7 +511,7 @@ export default function ContactMessages() {
                       {renderStars(selectedFeedback.rating)}
                     </div>
                     <span className="text-lg font-bold text-slate-900 dark:text-white">
-                      {(selectedFeedback.rating * 2) || 0} / 10
+                      {selectedFeedback.rating || 0} / 5
                     </span>
                   </div>
                 </div>

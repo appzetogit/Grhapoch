@@ -1,6 +1,7 @@
 import RestaurantWallet from '../models/RestaurantWallet.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import asyncHandler from '../middleware/asyncHandler.js';
+import mongoose from 'mongoose';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -27,6 +28,60 @@ export const getWallet = asyncHandler(async (req, res) => {
 
     // Find or create wallet
     const wallet = await RestaurantWallet.findOrCreateByRestaurantId(restaurant._id);
+
+    // Global Sync Fallback: If wallet balance is 0, check for historical delivered orders
+    // This ensures all restaurants (new and old) have accurate balances globally
+    if (wallet.totalBalance === 0) {
+      try {
+        const Order = (await import('../models/Order.js')).default;
+        const RestaurantCommission = (await import('../models/RestaurantCommission.js')).default;
+        
+        // Build restaurantId variations for query
+        const restaurantId = restaurant._id.toString();
+        const restaurantIdQuery = {
+          $or: [
+            { restaurantId: restaurantId },
+            { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
+          ]
+        };
+
+        const allDeliveredOrders = await Order.find({ status: 'delivered', ...restaurantIdQuery }).lean();
+        
+        if (allDeliveredOrders.length > 0) {
+          // Helper to calculate commission (matching restaurantFinanceController logic)
+          const calculateCommission = async (order, orderAmount) => {
+            if (order.pricing?.commission?.amount !== undefined) return order.pricing.commission.amount;
+            // Simplified fallback for sync
+            return orderAmount * 0.10; // Default 10%
+          };
+
+          let totalLifetimeEarned = 0;
+          for (const ord of allDeliveredOrders) {
+            const restaurantDiscount = ord.pricing?.restaurantDiscount !== undefined ? ord.pricing.restaurantDiscount : (ord.pricing?.discount || 0);
+            const foodP = (ord.pricing?.subtotal || 0) - restaurantDiscount;
+            const comm = await calculateCommission(ord, foodP);
+            totalLifetimeEarned += (foodP - comm);
+          }
+
+          const WithdrawalRequest = (await import('../models/WithdrawalRequest.js')).default;
+          const withdrawals = await WithdrawalRequest.find({ 
+            restaurantId: restaurant._id, 
+            status: { $in: ['approved', 'completed'] } 
+          }).lean();
+          const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+
+          const syncedBalance = Math.max(0, totalLifetimeEarned - totalWithdrawn);
+          if (syncedBalance > 0) {
+            wallet.totalBalance = syncedBalance;
+            wallet.totalEarned = totalLifetimeEarned;
+            wallet.totalWithdrawn = totalWithdrawn;
+            await wallet.save();
+          }
+        }
+      } catch (syncError) {
+        console.error('❌ Error in global wallet sync:', syncError);
+      }
+    }
 
     // Get recent transactions (last 50)
     const recentTransactions = wallet.transactions

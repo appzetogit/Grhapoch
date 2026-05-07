@@ -544,12 +544,11 @@ export const getAvailableTables = async (req, res) => {
         });
     }
 };
-
 // Create a new booking
 export const createBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const { tableId, tableNumber, guests, date, time, customerDetails } = req.body;
+        const { tableId, tableNumber, guests, date, time, customerDetails, appliedDiscount } = req.body;
         const userId = req.user?._id || req.user?.id;
 
         if (!userId) {
@@ -620,6 +619,7 @@ export const createBooking = async (req, res) => {
             guests: tableResolution.guests,
             date,
             time,
+            appliedDiscount: appliedDiscount || "",
             guestName: customerDetails?.name || "Guest",
             guestPhone: customerDetails?.phone || "N/A",
             bookingStatus: BOOKING_STATUSES.PENDING

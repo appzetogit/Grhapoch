@@ -4,8 +4,10 @@ import { adminAPI } from "@/lib/api"
 import { toast } from "sonner"
 
 const formatCurrency = (amount) => {
-  if (amount == null) return "₹0.00"
-  return `₹${Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `Rs. ${Number(amount || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 export default function DeliveryBoyWallet() {

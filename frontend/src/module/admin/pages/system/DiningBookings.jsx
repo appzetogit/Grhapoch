@@ -113,19 +113,20 @@ export default function DiningBookings() {
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-700 font-medium">{booking.date}</span>
-                                                    <span className="text-xs text-slate-500">{booking.time}</span>
+                                                    <span className="text-slate-900 font-bold text-sm">{booking.date}</span>
+                                                    <span className="text-slate-500 font-medium text-xs mt-0.5">{booking.time}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4">
                                                 <div className="font-bold text-slate-800">#{booking.tableNumber}</div>
                                             </td>
                                             <td className="p-4 text-center">
-                                                <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${booking.bookingStatus === 'Confirmed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${booking.bookingStatus === 'Confirmed' || booking.bookingStatus === 'Completed' ? 'bg-green-100 text-green-700 border border-green-200' :
                                                         booking.bookingStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                                            'bg-orange-100 text-orange-700 border border-orange-200'
+                                                            booking.bookingStatus === 'Cancelled' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                                                                'bg-orange-100 text-orange-700 border border-orange-200'
                                                     }`}>
-                                                    {booking.bookingStatus}
+                                                    {booking.bookingStatus || 'Pending'}
                                                 </span>
                                             </td>
                                         </tr>

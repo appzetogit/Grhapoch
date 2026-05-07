@@ -151,7 +151,7 @@ export default function TableBookingsPage() {
                                             </div>
                                         </div>
                                         <div
-                                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${booking.bookingStatus === "Confirmed"
+                                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${booking.bookingStatus === "Confirmed" || booking.bookingStatus === "Completed"
                                                 ? "bg-green-100 text-green-700"
                                                 : booking.bookingStatus === "Rejected"
                                                     ? "bg-red-100 text-red-700"
@@ -164,7 +164,7 @@ export default function TableBookingsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-xl">
+                                    <div className="grid grid-cols-3 gap-3 bg-gray-50 p-3 rounded-xl">
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase">
                                                 <Calendar className="w-3 h-3" />
@@ -179,6 +179,15 @@ export default function TableBookingsPage() {
                                             </div>
                                             <p className="text-xs font-bold text-gray-700">Table {booking.tableNumber}</p>
                                         </div>
+                                        {booking.appliedDiscount && (
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-500 uppercase">
+                                                    <Hash className="w-3 h-3" />
+                                                    <span>Offer</span>
+                                                </div>
+                                                <p className="text-xs font-bold text-blue-600">{booking.appliedDiscount}</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {booking.cancellationReason && (

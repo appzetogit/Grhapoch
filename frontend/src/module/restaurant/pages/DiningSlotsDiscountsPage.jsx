@@ -56,7 +56,7 @@ export default function DiningSlotsDiscountsPage() {
     const addSlot = (type) => {
         setDiningSlots((prev) => ({
             ...prev,
-            [type]: [...prev[type], { time: "", discount: "", isAvailable: true }]
+            [type]: [...prev[type], { time: "12:00 PM", discount: "", isAvailable: true }]
         }))
     }
 
@@ -74,6 +74,38 @@ export default function DiningSlotsDiscountsPage() {
         }))
     }
 
+    const updateSlotTime = (type, index, part, value) => {
+        setDiningSlots((prev) => {
+            const newSlots = { ...prev }
+            const currentSlot = { ...newSlots[type][index] }
+            
+            // Default time structure if empty: "12:00 PM"
+            let [timeStr, period] = (currentSlot.time || "12:00 PM").split(" ")
+            let [hour, minute] = timeStr.split(":")
+
+            if (part === "hour") hour = value
+            if (part === "minute") minute = value
+            if (part === "period") period = value
+
+            currentSlot.time = `${hour}:${minute} ${period}`
+            newSlots[type][index] = currentSlot
+            return newSlots
+        })
+    }
+
+    const getTimeParts = (time) => {
+        const defaultParts = { hour: "12", minute: "00", period: "PM" }
+        if (!time || typeof time !== "string" || !time.includes(" ") || !time.includes(":")) return defaultParts
+        
+        try {
+            const [timeStr, period] = time.split(" ")
+            const [hour, minute] = timeStr.split(":")
+            return { hour, minute, period }
+        } catch (e) {
+            return defaultParts
+        }
+    }
+
     const handleSaveSlots = async () => {
         setSaving(true)
         try {
@@ -81,11 +113,18 @@ export default function DiningSlotsDiscountsPage() {
             const normalizeSlots = (slots = []) =>
                 slots
                     .filter((slot) => slot?.time && String(slot.time).trim() !== "")
-                    .map((slot) => ({
-                        time: String(slot.time).trim(),
-                        discount: slot?.discount ? String(slot.discount).trim() : "",
-                        isAvailable: slot?.isAvailable !== false
-                    }))
+                    .map((slot) => {
+                        let discount = slot?.discount ? String(slot.discount).trim() : ""
+                        // Auto-append % OFF if it's just a number
+                        if (discount && /^\d+$/.test(discount)) {
+                            discount = `${discount}% OFF`
+                        }
+                        return {
+                            time: String(slot.time).trim(),
+                            discount: discount,
+                            isAvailable: slot?.isAvailable !== false
+                        }
+                    })
 
             const res = await restaurantAPI.updateDiningSettings({
                 diningSlots: {
@@ -173,6 +212,7 @@ export default function DiningSlotsDiscountsPage() {
                         </div>
                     </div>
 
+                    {/* Lunch Slots */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                         <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-100">
                             <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -189,38 +229,73 @@ export default function DiningSlotsDiscountsPage() {
                             </Button>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {diningSlots.lunch.length === 0 ? (
-                                <p className="text-center py-4 text-xs text-gray-400 font-medium bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <p className="text-center py-6 text-xs text-gray-400 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                     No lunch slots added.
                                 </p>
                             ) : (
-                                diningSlots.lunch.map((slot, index) => (
-                                    <div key={index} className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                                        <Input
-                                            placeholder="Time (e.g. 12:00 PM)"
-                                            value={slot.time}
-                                            onChange={(e) => updateSlot("lunch", index, "time", e.target.value)}
-                                            className="h-10 rounded-xl text-sm border-gray-200"
-                                        />
-                                        <Input
-                                            placeholder="Disc (e.g. 10% OFF)"
-                                            value={slot.discount}
-                                            onChange={(e) => updateSlot("lunch", index, "discount", e.target.value)}
-                                            className="h-10 rounded-xl text-sm sm:w-40 border-gray-200"
-                                        />
-                                        <button
-                                            onClick={() => removeSlot("lunch", index)}
-                                            className="h-9 w-9 flex-shrink-0 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                ))
+                                diningSlots.lunch.map((slot, index) => {
+                                    const { hour, minute, period } = getTimeParts(slot.time)
+                                    return (
+                                        <div key={index} className="flex flex-col gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-100 relative group transition-all hover:border-orange-200">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block mb-1">Slot Time</label>
+                                                <div className="flex items-center gap-1.5">
+                                                    <select
+                                                        value={hour}
+                                                        onChange={(e) => updateSlotTime("lunch", index, "hour", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white focus:ring-1 focus:ring-orange-500 outline-none px-2"
+                                                    >
+                                                        {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
+                                                            <option key={h} value={h}>{h}</option>
+                                                        ))}
+                                                    </select>
+                                                    <span className="font-bold text-gray-400">:</span>
+                                                    <select
+                                                        value={minute}
+                                                        onChange={(e) => updateSlotTime("lunch", index, "minute", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white focus:ring-1 focus:ring-orange-500 outline-none px-2"
+                                                    >
+                                                        {["00", "15", "30", "45"].map(m => (
+                                                            <option key={m} value={m}>{m}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        value={period}
+                                                        onChange={(e) => updateSlotTime("lunch", index, "period", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white font-bold text-orange-600 focus:ring-1 focus:ring-orange-500 outline-none px-1"
+                                                    >
+                                                        <option value="AM">AM</option>
+                                                        <option value="PM">PM</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block mb-1">Disc (%)</label>
+                                                    <Input
+                                                        placeholder="e.g. 10"
+                                                        value={slot.discount}
+                                                        onChange={(e) => updateSlot("lunch", index, "discount", e.target.value)}
+                                                        className="h-9 rounded-lg text-sm border-gray-200 bg-white"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => removeSlot("lunch", index)}
+                                                    className="mt-5 h-9 w-9 flex-shrink-0 flex items-center justify-center text-red-500 hover:bg-red-100 rounded-lg transition-colors bg-white border border-gray-200 shadow-sm"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })
                             )}
                         </div>
                     </div>
 
+                    {/* Dinner Slots */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                         <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-100">
                             <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -237,34 +312,68 @@ export default function DiningSlotsDiscountsPage() {
                             </Button>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {diningSlots.dinner.length === 0 ? (
-                                <p className="text-center py-4 text-xs text-gray-400 font-medium bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <p className="text-center py-6 text-xs text-gray-400 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                     No dinner slots added.
                                 </p>
                             ) : (
-                                diningSlots.dinner.map((slot, index) => (
-                                    <div key={index} className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                                        <Input
-                                            placeholder="Time (e.g. 7:00 PM)"
-                                            value={slot.time}
-                                            onChange={(e) => updateSlot("dinner", index, "time", e.target.value)}
-                                            className="h-10 rounded-xl text-sm border-gray-200"
-                                        />
-                                        <Input
-                                            placeholder="Disc (e.g. 20% OFF)"
-                                            value={slot.discount}
-                                            onChange={(e) => updateSlot("dinner", index, "discount", e.target.value)}
-                                            className="h-10 rounded-xl text-sm sm:w-40 border-gray-200"
-                                        />
-                                        <button
-                                            onClick={() => removeSlot("dinner", index)}
-                                            className="h-9 w-9 flex-shrink-0 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                ))
+                                diningSlots.dinner.map((slot, index) => {
+                                    const { hour, minute, period } = getTimeParts(slot.time)
+                                    return (
+                                        <div key={index} className="flex flex-col gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-100 relative group transition-all hover:border-blue-200">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block mb-1">Slot Time</label>
+                                                <div className="flex items-center gap-1.5">
+                                                    <select
+                                                        value={hour}
+                                                        onChange={(e) => updateSlotTime("dinner", index, "hour", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white focus:ring-1 focus:ring-blue-500 outline-none px-2"
+                                                    >
+                                                        {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
+                                                            <option key={h} value={h}>{h}</option>
+                                                        ))}
+                                                    </select>
+                                                    <span className="font-bold text-gray-400">:</span>
+                                                    <select
+                                                        value={minute}
+                                                        onChange={(e) => updateSlotTime("dinner", index, "minute", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white focus:ring-1 focus:ring-blue-500 outline-none px-2"
+                                                    >
+                                                        {["00", "15", "30", "45"].map(m => (
+                                                            <option key={m} value={m}>{m}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        value={period}
+                                                        onChange={(e) => updateSlotTime("dinner", index, "period", e.target.value)}
+                                                        className="h-9 w-full rounded-lg text-sm border-gray-200 bg-white font-bold text-blue-600 focus:ring-1 focus:ring-blue-500 outline-none px-1"
+                                                    >
+                                                        <option value="AM">AM</option>
+                                                        <option value="PM">PM</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block mb-1">Disc (%)</label>
+                                                    <Input
+                                                        placeholder="e.g. 20"
+                                                        value={slot.discount}
+                                                        onChange={(e) => updateSlot("dinner", index, "discount", e.target.value)}
+                                                        className="h-9 rounded-lg text-sm border-gray-200 bg-white"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => removeSlot("dinner", index)}
+                                                    className="mt-5 h-9 w-9 flex-shrink-0 flex items-center justify-center text-red-500 hover:bg-red-100 rounded-lg transition-colors bg-white border border-gray-200 shadow-sm"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })
                             )}
                         </div>
                     </div>

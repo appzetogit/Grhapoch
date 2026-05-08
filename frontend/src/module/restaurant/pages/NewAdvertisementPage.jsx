@@ -232,7 +232,8 @@ export default function NewAdvertisementPage() {
           }
         } catch (err) {
           console.error("❌ [handleBridgePick] Flutter bridge error:", err);
-          toast.error("Mobile picker failed. Falling back to web picker.");
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          toast.error(`Mobile picker failed: ${errorMsg}. Falling back to web picker.`);
           document.getElementById('bannerFileInput')?.click();
         }
       })();

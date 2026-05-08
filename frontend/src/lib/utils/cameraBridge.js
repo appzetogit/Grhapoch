@@ -93,8 +93,8 @@ export const requestImageFileFromFlutter = async ({
 
   const handlersToTry =
     source === "gallery"
-      ? ["openGallery", "pickFromGallery", "openMediaPicker"]
-      : ["openCamera", "takePhoto", "captureImage"];
+      ? ["openGallery", "pickFromGallery", "openMediaPicker", "selectImage", "pickImage", "imagePicker", "mediaLibrary", "filePicker", "galleryPicker"]
+      : ["openCamera", "takePhoto", "captureImage", "cameraPicker", "clickPhoto", "snapPhoto", "launchCamera", "takePicture"];
 
   for (const handlerName of handlersToTry) {
     let result;

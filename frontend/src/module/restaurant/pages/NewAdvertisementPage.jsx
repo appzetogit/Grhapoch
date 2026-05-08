@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Upload, CalendarDays, IndianRupee } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import { campaignAPI, restaurantAPI } from "@/lib/api"
 import { optimizeBannerForUpload } from "@/lib/utils/bannerUpload"
 import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
@@ -37,12 +38,15 @@ const getDaysInclusive = (startDate, endDate) => {
 }
 
 const normalizeSubmitError = (message) => {
+  if (typeof message === 'object' && message !== null) {
+    message = message.message || JSON.stringify(message);
+  }
   const text = String(message || "").toLowerCase()
   if (text.includes("overlap")) {
-    return "Dates overlap. Choose different dates."
+    return "Selected dates overlap with existing bookings. Please choose different dates."
   }
   if (text.includes("2mb") || text.includes("file size")) {
-    return "Banner file size must be 2MB or less."
+    return "Banner file size must be 2MB or less. Try a different image."
   }
   if (text.includes("dimensions")) {
     return "Banner dimensions too small. Minimum 1200x300 required."
@@ -52,6 +56,9 @@ const normalizeSubmitError = (message) => {
   }
   if (text.includes("only image") || text.includes("image banner")) {
     return "Only JPG/PNG image banner is allowed."
+  }
+  if (text.includes("tomorrow")) {
+    return "Start date must be from tomorrow onwards."
   }
   return message || "Failed to submit advertisement"
 }
@@ -211,6 +218,7 @@ export default function NewAdvertisementPage() {
   }
 
   const handleBridgePick = () => {
+    console.log("📸 [handleBridgePick] Triggered. Bridge available:", hasFlutterCameraBridge())
     if (hasFlutterCameraBridge()) {
       (async () => {
         try {
@@ -218,11 +226,13 @@ export default function NewAdvertisementPage() {
             source: 'gallery', 
             fileNamePrefix: 'ad_banner' 
           });
+          console.log("📸 [handleBridgePick] Result from Flutter:", file ? `File received (${file.name}, ${file.size} bytes)` : "Cancelled")
           if (file) {
             handleBannerChange({ target: { files: [file] } });
           }
         } catch (err) {
-          console.warn("Flutter bridge failed for ad banner, falling back to web:", err);
+          console.error("❌ [handleBridgePick] Flutter bridge error:", err);
+          toast.error("Mobile picker failed. Falling back to web picker.");
           document.getElementById('bannerFileInput')?.click();
         }
       })();
@@ -276,6 +286,13 @@ export default function NewAdvertisementPage() {
       return
     }
 
+    console.log("🚀 [handleSubmit] Starting submission", {
+      startDate,
+      endDate,
+      dynamicTitle,
+      bannerFile: bannerFile ? { name: bannerFile.name, size: bannerFile.size, type: bannerFile.type } : null
+    })
+
     const payload = new FormData()
     payload.append("banner", bannerFile)
     payload.append("startDate", startDate)
@@ -286,10 +303,16 @@ export default function NewAdvertisementPage() {
     try {
       const response = await campaignAPI.createRestaurantBannerAdvertisement(payload)
       const createdAd = response?.data?.data?.advertisement
+      
+      toast.success("Advertisement submitted successfully!")
+      
       navigate(createdAd?.id ? `/restaurant/advertisements/${createdAd.id}` : "/restaurant/advertisements")
     } catch (error) {
-      const message = error?.response?.data?.message
-      setErrorMessage(normalizeSubmitError(message))
+      console.error("❌ [handleSubmit] Submission error:", error)
+      const message = error?.response?.data?.message || error?.message || "An unexpected error occurred"
+      const friendlyError = normalizeSubmitError(message)
+      setErrorMessage(friendlyError)
+      toast.error(friendlyError)
     } finally {
       setIsSubmitting(false)
     }

@@ -147,7 +147,7 @@ export const authenticate = async (req, res, next) => {
       isDiningTableRoute ||
       isDiningSettingsRoute ||
       isDiningActivationRoute ||
-      isNotificationRoute;
+      isNotificationRoute || requestPath.includes('/campaign');
 
     if (!restaurant.isActive && !isAllowed) {
       console.error('❌ Restaurant account is inactive - access denied for route:', requestPath);

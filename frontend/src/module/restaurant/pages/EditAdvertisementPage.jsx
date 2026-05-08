@@ -12,7 +12,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
 
 
 export default function EditAdvertisementPage() {
@@ -119,26 +118,6 @@ export default function EditAdvertisementPage() {
     }
   };
 
-  const handleBridgePick = () => {
-    if (hasFlutterCameraBridge()) {
-      (async () => {
-        try {
-          const file = await requestImageFileFromFlutter({ 
-            source: 'gallery', 
-            fileNamePrefix: 'ad_image' 
-          });
-          if (file) {
-            handleFileUpload({ target: { files: [file] } }, "file");
-          }
-        } catch (err) {
-          console.warn("Flutter bridge failed for ad image, falling back to web:", err);
-          document.getElementById('file-upload')?.click();
-        }
-      })();
-    } else {
-      document.getElementById('file-upload')?.click();
-    }
-  };
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -292,17 +271,15 @@ export default function EditAdvertisementPage() {
               </h2>
 
               {/* File Upload Area */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                <input
-                  type="file"
-                  id="file-upload"
-                  onChange={(e) => handleFileUpload(e, "file")}
-                  className="hidden"
-                  accept="image/*" />
-                
-                <div
-                  onClick={handleBridgePick}
-                  className="block cursor-pointer">
+                <label 
+                  className="block cursor-pointer"
+                >
+                  <input
+                    type="file"
+                    id="file-upload"
+                    onChange={(e) => handleFileUpload(e, "file")}
+                    className="hidden"
+                    accept="image/*" />
                   
                   {uploadedFile ?
                   <div className="text-center">
@@ -323,7 +300,7 @@ export default function EditAdvertisementPage() {
                       <p className="text-sm text-gray-500">Click to upload file</p>
                     </div>
                   }
-                </div>
+                </label>
 
                 {/* File Description */}
                 <div className="mt-4">

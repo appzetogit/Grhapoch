@@ -50,7 +50,7 @@ import { deliveryAPI, restaurantAPI, uploadAPI } from "@/lib/api";
 import { useDeliveryNotifications } from "../hooks/useDeliveryNotifications";
 import { getGoogleMapsApiKey } from "@/lib/utils/googleMapsApiKey";
 import { Loader } from "@googlemaps/js-api-loader";
-import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge";
+
 import {
   decodePolyline,
   extractPolylineFromDirections,
@@ -3432,23 +3432,10 @@ export default function DeliveryHome() {
    * If user cancels:
    * { success: false } or null
    */
-  const handleCameraCapture = async () => {
-    try {
-      // Use centralized Flutter bridge for camera capture
-      const file = await requestImageFileFromFlutter({
-        source: 'camera',
-        fileNamePrefix: 'delivery-bill'
-      });
-
-      if (file) {
-        await processBillImageFile(file);
-      }
-    } catch (error) {
-      console.error('❌ Error opening camera:', error);
-      // Fallback to standard file input for web browsers
-      if (cameraInputRef.current) {
-        cameraInputRef.current.click();
-      }
+  const handleCameraCapture = () => {
+    // Standard web file input handles camera capture natively on mobile devices
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
     }
   };
 
@@ -10489,7 +10476,7 @@ export default function DeliveryHome() {
                 ref={cameraInputRef}
                 type="file"
                 accept="image/*"
-                capture={hasFlutterCameraBridge() ? cameraFacingMode : undefined}
+                capture={cameraFacingMode}
                 onChange={handleBillImageSelect}
                 className="sr-only" />
 

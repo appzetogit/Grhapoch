@@ -9,7 +9,7 @@ import {
 "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { hasFlutterCameraBridge, requestImageFileFromFlutter } from "@/lib/utils/cameraBridge";
+import { toast } from "sonner";
 
 export default function EditProfile() {
   const navigate = useNavigate();
@@ -49,28 +49,12 @@ export default function EditProfile() {
   };
 
   const handleBridgePick = (source = 'gallery') => {
-    const triggerFallback = () => {
-      const input = document.getElementById('profile-image-input');
-      if (input) {
-        if (source === 'camera') input.setAttribute('capture', 'environment');
-        else input.removeAttribute('capture');
-        input.click();
-      }
-    };
-
-    if (!hasFlutterCameraBridge()) {
-      triggerFallback();
-      return;
+    const input = document.getElementById('profile-image-input');
+    if (input) {
+      if (source === 'camera') input.setAttribute('capture', 'environment');
+      else input.removeAttribute('capture');
+      input.click();
     }
-
-    requestImageFileFromFlutter({ source, fileNamePrefix: 'delivery_profile' })
-      .then(file => {
-        if (file) handlePhotoChange({ target: { files: [file] } });
-      })
-      .catch(err => {
-        console.warn(`Bridge ${source} failed, falling back:`, err);
-        triggerFallback();
-      });
   };
 
   const handlePhotoChange = (e) => {

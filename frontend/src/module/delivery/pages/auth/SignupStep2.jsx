@@ -4,7 +4,7 @@ import { ArrowLeft, Upload, X, Check, Camera, Image, RefreshCw } from "lucide-re
 import { deliveryAPI } from "@/lib/api"
 import apiClient from "@/lib/api/axios"
 import { toast } from "sonner"
-import { hasFlutterCameraBridge, requestImageFileFromFlutter } from "@/lib/utils/cameraBridge"
+
 
 const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploading, handleRemove, setActiveCamera, handleFileSelect, localPreviews }) => {
   const displayUrl = localPreviews[docType] || uploadedDocs[docType]?.url
@@ -56,23 +56,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
               <button
                 type="button"
                 onClick={() => {
-                  const triggerFallback = () => {
-                    setActiveCamera(docType);
-                  };
-
-                  if (!hasFlutterCameraBridge()) {
-                    triggerFallback();
-                    return;
-                  }
-
-                  requestImageFileFromFlutter({ source: "camera", fileNamePrefix: docType })
-                    .then(file => {
-                      if (file) handleFileSelect(docType, file);
-                    })
-                    .catch(e => {
-                      console.warn("Bridge camera failed, falling back to custom camera:", e);
-                      triggerFallback();
-                    });
+                  cameraInputRef.current?.click();
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >
@@ -87,23 +71,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
               <button
                 type="button"
                 onClick={() => {
-                  const triggerFallback = () => {
-                    galleryInputRef.current?.click();
-                  };
-
-                  if (!hasFlutterCameraBridge()) {
-                    triggerFallback();
-                    return;
-                  }
-
-                  requestImageFileFromFlutter({ source: "gallery", fileNamePrefix: docType })
-                    .then(file => {
-                      if (file) handleFileSelect(docType, file);
-                    })
-                    .catch(e => {
-                      console.warn("Bridge gallery failed, falling back to device picker:", e);
-                      triggerFallback();
-                    });
+                  galleryInputRef.current?.click();
                 }}
                 className="flex flex-col items-center justify-center gap-2 group"
               >

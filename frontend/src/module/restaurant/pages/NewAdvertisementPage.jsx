@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { campaignAPI, restaurantAPI } from "@/lib/api"
 import { optimizeBannerForUpload } from "@/lib/utils/bannerUpload"
-import { requestImageFileFromFlutter, hasFlutterCameraBridge } from "@/lib/utils/cameraBridge"
 
 const toInputDate = (date) => {
   const year = date.getFullYear()
@@ -217,31 +216,6 @@ export default function NewAdvertisementPage() {
     }
   }
 
-  const handleBridgePick = () => {
-    console.log("📸 [handleBridgePick] Triggered. Bridge available:", hasFlutterCameraBridge())
-    if (hasFlutterCameraBridge()) {
-      (async () => {
-        try {
-          const file = await requestImageFileFromFlutter({ 
-            source: 'gallery', 
-            fileNamePrefix: 'ad_banner' 
-          });
-          console.log("📸 [handleBridgePick] Result from Flutter:", file ? `File received (${file.name}, ${file.size} bytes)` : "Cancelled")
-          if (file) {
-            handleBannerChange({ target: { files: [file] } });
-          }
-        } catch (err) {
-          console.error("❌ [handleBridgePick] Flutter bridge error:", err);
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          toast.error(`Mobile picker failed: ${errorMsg}. Falling back to web picker.`);
-          document.getElementById('bannerFileInput')?.click();
-        }
-      })();
-    } else {
-      document.getElementById('bannerFileInput')?.click();
-    }
-  };
-
   const handleSubmit = async () => {
     setErrorMessage("")
 
@@ -354,9 +328,8 @@ export default function NewAdvertisementPage() {
                     <p className="text-xs text-gray-500 mb-2">
                       Required: JPG/PNG | Min 1200x300 | Wide banner recommended (example 1200x300) | Max size: 2MB
                     </p>
-                    <div 
-                      onClick={handleBridgePick}
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900"
+                    <label 
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 block cursor-pointer hover:border-gray-900 transition-colors"
                     >
                       <input 
                         id="bannerFileInput"
@@ -377,7 +350,7 @@ export default function NewAdvertisementPage() {
                           </p>
                         </div>
                       )}
-                    </div>
+                    </label>
                     {bannerOptimizationMessage && (
                       <p className="text-xs text-emerald-700 mt-2">{bannerOptimizationMessage}</p>
                     )}

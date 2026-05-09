@@ -258,6 +258,16 @@ export default function RestaurantDetails() {
               }
             }
 
+            // PRIORITY 1: Use formattedAddress if available (updated by Google Maps reverse geocoding)
+            if (locationObj.formattedAddress && locationObj.formattedAddress.trim() !== "" && locationObj.formattedAddress !== "Select location") {
+              const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(locationObj.formattedAddress.trim());
+              if (!isCoordinates) {
+                // Clean up plus codes if present
+                const cleanedAddr = locationObj.formattedAddress.trim().replace(/^[A-Z0-9]+\+[A-Z0-9]+,\s*/i, '');
+                return cleanedAddr;
+              }
+            }
+
             // PRIORITY 2: Build address from location object components (with zone and pin code)
             // This ensures we always show zone and pin code if available
             const addressParts = [];
@@ -293,31 +303,17 @@ export default function RestaurantDetails() {
               addressParts.push(pinCode.toString().trim());
             }
 
-            // If we have at least 3 parts (complete address), use it
-            if (addressParts.length >= 3) {
-              return addressParts.join(', ');
-            }
-
             // If we have at least 2 parts, use it
             if (addressParts.length >= 2) {
               return addressParts.join(', ');
             }
 
-            // PRIORITY 3: Fallback to formattedAddress (even if incomplete)
-            if (locationObj.formattedAddress && locationObj.formattedAddress.trim() !== "" && locationObj.formattedAddress !== "Select location") {
-              const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(locationObj.formattedAddress.trim());
-              if (!isCoordinates) {
-                const cleanedAddr = locationObj.formattedAddress.trim().replace(/^[A-Z0-9]+\+[A-Z0-9]+,\s*/i, '');
-                return cleanedAddr;
-              }
-            }
-
-            // PRIORITY 4: Fallback to address field
+            // PRIORITY 3: Fallback to address field
             if (locationObj.address && locationObj.address.trim() !== "") {
               return locationObj.address.trim();
             }
 
-            // PRIORITY 5: Last fallback - use area or city
+            // PRIORITY 4: Last fallback - use area or city
             return locationObj.area || locationObj.city || "Location";
           };
 

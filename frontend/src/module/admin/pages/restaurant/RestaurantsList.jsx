@@ -244,60 +244,27 @@ export default function RestaurantsList() {
     setRestaurantDetails(null);
 
     try {
-      // First, use original data if available (has all details)
-      if (restaurant.originalData) {
-
-        setRestaurantDetails(restaurant.originalData);
+      const restaurantId = restaurant._id || restaurant.id;
+      if (!restaurantId) {
+        setRestaurantDetails(restaurant.originalData || restaurant);
         setLoadingDetails(false);
         return;
       }
 
-      // Try to fetch full restaurant details from API
-      // Use _id if available, otherwise use id or restaurantId
-      const restaurantId = restaurant._id || restaurant.id || restaurant.restaurantId;
-      let response = null;
+      // Always fetch fresh data from the server to ensure we have the latest profile updates
+      const response = await adminAPI.getRestaurantById(restaurantId);
+      const freshData = response?.data?.data?.restaurant || response?.data?.restaurant;
 
-      if (restaurantId) {
-        try {
-          // Try admin API first if it exists
-          if (adminAPI.getRestaurantById) {
-            response = await adminAPI.getRestaurantById(restaurantId);
-          }
-        } catch (err) {
-
-        }
-
-        // Fallback to regular restaurant API
-        if (!response || !response?.data?.success) {
-          try {
-            response = await restaurantAPI.getRestaurantById(restaurantId);
-          } catch (err) {
-
-          }
-        }
-      }
-
-      // Check response structure
-      if (response?.data?.success) {
-        const data = response.data.data;
-        // Handle different response structures
-        if (data?.restaurant) {
-          setRestaurantDetails(data.restaurant);
-        } else if (data) {
-          setRestaurantDetails(data);
-        } else {
-          // Fallback to restaurant data from list
-          setRestaurantDetails(restaurant);
-        }
+      if (freshData) {
+        setRestaurantDetails(freshData);
       } else {
-        // Use the restaurant data we already have
-
-        setRestaurantDetails(restaurant);
+        // Fallback to original data if fetch fails
+        setRestaurantDetails(restaurant.originalData || restaurant);
       }
-    } catch (err) {
-      console.error("Error fetching restaurant details:", err);
-      // Use the restaurant data we already have
-      setRestaurantDetails(restaurant);
+    } catch (error) {
+      console.error("Error fetching restaurant details:", error);
+      // Fallback to what we have
+      setRestaurantDetails(restaurant.originalData || restaurant);
     } finally {
       setLoadingDetails(false);
     }
@@ -331,33 +298,17 @@ export default function RestaurantsList() {
       // Update restaurant status via API
       try {
         await adminAPI.updateRestaurantStatus(restaurantId, newStatus);
-
-        // Update local state on success
-        setRestaurants((prevRestaurants) =>
-        prevRestaurants.map((r) =>
-        r.id === restaurant.id || r._id === restaurant._id ?
-        { ...r, status: newStatus } :
-        r
-        )
-        );
-
+        
+        // Re-fetch fresh data from database
+        await fetchRestaurants();
+        
         // Close dialog
         setBanConfirmDialog(null);
-
-        // Show success message
-
+        toast.success(`Restaurant ${isBanning ? 'banned' : 'unbanned'} successfully!`);
       } catch (apiErr) {
         console.error("API Error:", apiErr);
-        // If API fails, still update locally for better UX
-        setRestaurants((prevRestaurants) =>
-        prevRestaurants.map((r) =>
-        r.id === restaurant.id || r._id === restaurant._id ?
-        { ...r, status: newStatus } :
-        r
-        )
-        );
+        toast.error(`Failed to ${action} restaurant. ${apiErr.response?.data?.message || ""}`);
         setBanConfirmDialog(null);
-        alert(`Restaurant ${isBanning ? 'banned' : 'unbanned'} locally. Please check backend connection.`);
       }
 
     } catch (err) {
@@ -446,14 +397,8 @@ export default function RestaurantsList() {
 
       if (response.data && response.data.success) {
         toast.success("Restaurant updated successfully!");
-        // Update local state
-        setRestaurants((prev) =>
-          prev.map((r) =>
-            r.id === editingRestaurant.id || r._id === editingRestaurant._id
-              ? { ...r, ...payload }
-              : r
-          )
-        );
+        // Re-fetch fresh data from database
+        await fetchRestaurants();
         setIsEditModalOpen(false);
       } else {
         toast.error(response.data.message || "Failed to update restaurant");
@@ -551,7 +496,7 @@ export default function RestaurantsList() {
               <div className="relative flex-1 sm:flex-initial min-w-[250px]">
                 <input
                   type="text"
-                  placeholder="Ex: search by Restaurant n"
+                  placeholder="Search by name, owner, phone or dish name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
@@ -860,11 +805,18 @@ export default function RestaurantsList() {
                             <div>
                               <p className="text-xs text-slate-500">Address</p>
                               <p className="text-sm font-medium text-slate-900">
-                                {restaurantDetails.location.addressLine1 || ""}
-                                {restaurantDetails.location.addressLine2 && `, ${restaurantDetails.location.addressLine2}`}
-                                {restaurantDetails.location.area && `, ${restaurantDetails.location.area}`}
-                                {restaurantDetails.location.city && `, ${restaurantDetails.location.city}`}
-                                {!restaurantDetails.location.addressLine1 && !restaurantDetails.location.area && !restaurantDetails.location.city && selectedRestaurant.zone}
+                                {restaurantDetails.location.formattedAddress ? 
+                                  restaurantDetails.location.formattedAddress.replace(/^[A-Z0-9]+\+[A-Z0-9]+,\s*/i, '') : 
+                                  (
+                                    <>
+                                      {restaurantDetails.location.addressLine1 || ""}
+                                      {restaurantDetails.location.addressLine2 && `, ${restaurantDetails.location.addressLine2}`}
+                                      {restaurantDetails.location.area && `, ${restaurantDetails.location.area}`}
+                                      {restaurantDetails.location.city && `, ${restaurantDetails.location.city}`}
+                                      {!restaurantDetails.location.addressLine1 && !restaurantDetails.location.area && !restaurantDetails.location.city && (selectedRestaurant.zone || "N/A")}
+                                    </>
+                                  )
+                                }
                               </p>
                             </div>
                           </div>

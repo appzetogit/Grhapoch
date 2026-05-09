@@ -118,6 +118,31 @@ export default function DiningRestaurantDetail() {
     window.location.href = `tel:${phone}`;
   };
 
+  const formatAddress = (loc) => {
+    if (!loc) return "";
+    if (typeof loc === 'string') return loc;
+    
+    // Priority 1: Use formattedAddress if available (updated by Google Maps)
+    if (loc.formattedAddress && loc.formattedAddress.trim() !== "" && loc.formattedAddress !== "Select location") {
+      // Clean up plus codes if present
+      return loc.formattedAddress.trim().replace(/^[A-Z0-9]+\+[A-Z0-9]+,\s*/i, '');
+    }
+
+    // Priority 2: Build from parts
+    const parts = [];
+    if (loc.addressLine1) parts.push(loc.addressLine1.trim());
+    if (loc.addressLine2) parts.push(loc.addressLine2.trim());
+    if (loc.area) parts.push(loc.area.trim());
+    if (loc.city) {
+      const city = loc.city.trim();
+      if (!loc.area || !loc.area.includes(city)) {
+        parts.push(city);
+      }
+    }
+    if (loc.landmark) parts.push(loc.landmark.trim());
+    return parts.join(", ") || loc.address || "";
+  };
+
   const handleOpenMap = () => {
     const coords = restaurant?.coordinates || restaurant?.location?.coordinates;
     const lat = coords?.latitude || (Array.isArray(coords) ? coords[1] : null) || restaurant?.location?.latitude;
@@ -129,9 +154,9 @@ export default function DiningRestaurantDetail() {
       return;
     }
 
-    const address = restaurant?.location || restaurant?.address || restaurant?.zone;
-    if (address) {
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+    const addressStr = formatAddress(restaurant?.location) || restaurant?.address || restaurant?.zone;
+    if (addressStr) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -289,22 +314,18 @@ export default function DiningRestaurantDetail() {
   const dinnerSlots = Array.isArray(restaurant?.diningSlots?.dinner) ? restaurant.diningSlots.dinner : [];
   const selectedBookingDate = dates.find((d) => d.id === selectedDate)?.date || selectedDate;
 
-  const allSlots = selectedTimePeriod === "Lunch" ? lunchSlots : dinnerSlots;
-  const activeSlots = allSlots.filter(slot => {
-    if (!slot?.time) return false;
-    if (slot.isAvailable === false) return false;
-    
-    // Check if it is a past slot
-    const parsedDateTime = parseBookingDateTime(selectedBookingDate, slot.time);
-    if (!parsedDateTime) return false;
-    return parsedDateTime.getTime() > Date.now();
-  });
-
   const isPastSlotForSelectedDate = (slotTime) => {
     const parsedDateTime = parseBookingDateTime(selectedBookingDate, slotTime);
     if (!parsedDateTime) return true;
     return parsedDateTime.getTime() <= Date.now();
   };
+
+  const allSlots = selectedTimePeriod === "Lunch" ? lunchSlots : dinnerSlots;
+  const activeSlots = allSlots.filter(slot => {
+    if (!slot?.time) return false;
+    if (slot.isAvailable === false) return false;
+    return !isPastSlotForSelectedDate(slot.time);
+  });
 
   const maxGuests = Math.max(1, Math.min(Number(restaurant?.diningGuests) || 6, 20));
   const guestOptions = Array.from({ length: maxGuests }, (_, idx) => idx + 1);
@@ -330,7 +351,7 @@ export default function DiningRestaurantDetail() {
     if (selectedBookingDate && selectedTimeSlot) {
       if (isPastSlotForSelectedDate(selectedTimeSlot)) {
         toast.error("Selected time has already passed. Please choose a future time.");
-        setSelectedTimeSlot("");
+        setSelectedTimeSlot(null);
         return;
       }
       fetchAvailableTables();
@@ -417,6 +438,17 @@ export default function DiningRestaurantDetail() {
   };
 
   const handleNextFromTime = () => {
+    if (!selectedTimeSlot) {
+      toast.error("Please select a time slot");
+      return;
+    }
+
+    if (isPastSlotForSelectedDate(selectedTimeSlot)) {
+      toast.error("The selected time has already passed. Please choose a future time.");
+      setSelectedTimeSlot(null);
+      return;
+    }
+
     fetchAvailableTables();
     setBookingStep(4);
   };
@@ -431,6 +463,13 @@ export default function DiningRestaurantDetail() {
     }
     if (normalizedPhone.length !== 10) {
       toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
+
+    if (isPastSlotForSelectedDate(selectedTimeSlot)) {
+      toast.error("The selected time has already passed. Please choose a future time.");
+      setSelectedTimeSlot(null);
+      setBookingStep(3); // Go back to time selection
       return;
     }
     const restaurantId = restaurant?.id || restaurant?._id;
@@ -483,7 +522,6 @@ export default function DiningRestaurantDetail() {
         toast.success("Your table booking request has been sent to the restaurant");
       }
     } catch (error) {
-
       toast.error(error.response?.data?.message || "Failed to confirm booking.");
     } finally {
       setBookingLoading(false);
@@ -529,7 +567,6 @@ export default function DiningRestaurantDetail() {
                     <p className="mt-4 text-gray-500 font-medium">Loading restaurant details...</p>
                 </div>
             </AnimatedPage>);
-
   }
 
   if (!restaurant) {
@@ -541,7 +578,6 @@ export default function DiningRestaurantDetail() {
                     Go Back
                 </Button>
             </AnimatedPage>);
-
   }
 
   const bgImage = restaurant.image || restaurant.profileImage?.url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop";
@@ -628,7 +664,6 @@ export default function DiningRestaurantDetail() {
                   </DialogContent>
                 </Dialog>
             </AnimatedPage>);
-
   }
 
   return (
@@ -642,7 +677,6 @@ export default function DiningRestaurantDetail() {
             className="w-full h-full"
             objectFit="cover"
             priority={true} />
-          
                 </div>
                 {/* Dark overlay for text readability */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30"></div>
@@ -654,7 +688,6 @@ export default function DiningRestaurantDetail() {
             size="icon"
             onClick={() => navigate(-1)}
             className="h-10 w-10 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50">
-            
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div className="flex gap-2">
@@ -663,7 +696,6 @@ export default function DiningRestaurantDetail() {
               size="icon"
               onClick={handleToggleFavorite}
               className="h-10 w-10 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50">
-              
                             <Bookmark className={`h-5 w-5 ${isSaved ? "fill-white text-white" : ""}`} />
                         </Button>
                         <Button
@@ -671,7 +703,6 @@ export default function DiningRestaurantDetail() {
               size="icon"
               onClick={handleShareRestaurant}
               className="h-10 w-10 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50">
-              
                             <Share2 className="h-5 w-5" />
                         </Button>
                     </div>
@@ -683,7 +714,7 @@ export default function DiningRestaurantDetail() {
                         {restaurant.name}
                     </h1>
                     <p className="text-white/90 text-sm sm:text-base font-medium mb-1 drop-shadow-md">
-                        {restaurant.location && restaurant.location !== "Location" ? restaurant.location : "Location not available"}
+                        {formatAddress(restaurant.location) || "Location not available"}
                     </p>
                     <div className="flex items-center gap-2 text-white/90 text-sm mb-3 font-medium">
                         {restaurant.distance && <span>{restaurant.distance} away</span>}
@@ -702,7 +733,6 @@ export default function DiningRestaurantDetail() {
                                 <Clock className="w-3.5 h-3.5" />
                                 <span>OPEN {restaurant.deliveryTimings.openingTime} - {restaurant.deliveryTimings.closingTime}</span>
                             </div> :
-
             <div className="flex items-center gap-2 text-orange-400 text-xs sm:text-sm font-bold bg-orange-500/10 px-2 py-1 rounded backdrop-blur-sm">
                                 <Clock className="w-3.5 h-3.5" />
                                 <span>OPEN NOW</span>
@@ -722,13 +752,11 @@ export default function DiningRestaurantDetail() {
 
             {/* Main Content Area */}
             <div className="bg-white dark:bg-[#111111] rounded-t-3xl -mt-4 relative z-20 pt-6 px-4">
-
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 mb-8">
                     <Button
             onClick={openBookingModal}
             className="flex-1 bg-white dark:bg-[#171717] border border-orange-200 dark:border-orange-900/60 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-[#1f1f1f] font-bold py-6 rounded-xl shadow-sm text-sm">
-            
                         Book a table
                     </Button>
                     <Button
@@ -736,7 +764,6 @@ export default function DiningRestaurantDetail() {
           size="icon"
           onClick={handleOpenMap}
           className="h-[52px] w-[52px] rounded-xl border-gray-200 dark:border-gray-700 text-orange-500 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-[#1f1f1f] flex-shrink-0 shadow-sm">
-          
                         <Navigation className="h-5 w-5" />
                     </Button>
                     <Button
@@ -744,7 +771,6 @@ export default function DiningRestaurantDetail() {
           size="icon"
           onClick={handleCallRestaurant}
           className="h-[52px] w-[52px] rounded-xl border-gray-200 dark:border-gray-700 text-orange-500 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-[#1f1f1f] flex-shrink-0 shadow-sm">
-          
                         <Phone className="h-5 w-5" />
                     </Button>
                 </div>
@@ -758,7 +784,6 @@ export default function DiningRestaurantDetail() {
                         </div>
           }
                 </div>
-
             </div>
 
             {/* Fixed Bottom Action Bar */}
@@ -766,14 +791,12 @@ export default function DiningRestaurantDetail() {
                 <Button
           onClick={openBookingModal}
           className="flex-1 bg-white dark:bg-[#171717] border-2 border-orange-500 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-[#1f1f1f] hover:text-orange-700 dark:hover:text-orange-300 font-bold py-6 rounded-xl text-sm transition-all">
-          
                     Book a table
                 </Button>
                 {myBookings.length > 0 &&
         <Button
           onClick={() => setShowMyBookings(true)}
           className="flex-1 bg-white dark:bg-[#171717] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-bold py-6 rounded-xl text-sm shadow-sm">
-          
                         My Bookings
                     </Button>
         }
@@ -793,7 +816,6 @@ export default function DiningRestaurantDetail() {
               <button
                 onClick={() => setBookingStep(bookingStep - 1)}
                 className="absolute left-0 p-1.5 -ml-1.5 rounded-full hover:bg-gray-100 transition-colors">
-                
                                         <ChevronLeft className="h-6 w-6 text-gray-700" />
                                     </button> :
               <div></div>}
@@ -848,7 +870,6 @@ export default function DiningRestaurantDetail() {
                     "bg-[#ef4f5f] border-[#ef4f5f] text-white shadow-md shadow-red-200" :
                     "bg-white border-gray-200 text-gray-600 hover:border-[#ef4f5f]"}`
                     }>
-                    
                                                 {num}
                                             </button>
                   )}
@@ -867,23 +888,39 @@ export default function DiningRestaurantDetail() {
                                     </div>
 
                                     <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 -mx-5 px-5" style={{ scrollbarWidth: 'none' }}>
-                                        {dates.map((date) =>
-                  <button
-                    key={date.id}
-                    onClick={() => setSelectedDate(date.id)}
-                    className={`flex-shrink-0 flex flex-col items-center justify-center w-[85px] h-[75px] rounded-xl border-2 transition-all ${selectedDate === date.id ?
-                    "bg-[#fff2f2] border-[#ef4f5f] shadow-[0_4px_12px_rgba(239,79,95,0.15)]" :
-                    "bg-white border-gray-100/80 hover:border-gray-200"}`
-                    }>
-                    
-                                                <span className={`text-[11px] font-extrabold tracking-wider ${selectedDate === date.id ? "text-[#ef4f5f]" : "text-gray-400"}`}>
+                                        {dates.map((date) => {
+                  const isToday = date.label === "Today";
+                  let dateDisabled = false;
+                  
+                  if (isToday) {
+                    const hasFutureLunch = lunchSlots.some(s => s.isAvailable !== false && !isPastSlotForSelectedDate(s.time));
+                    const hasFutureDinner = dinnerSlots.some(s => s.isAvailable !== false && !isPastSlotForSelectedDate(s.time));
+                    if (!hasFutureLunch && !hasFutureDinner) {
+                      dateDisabled = true;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={date.id}
+                      disabled={dateDisabled}
+                      onClick={() => setSelectedDate(date.id)}
+                      className={`flex-shrink-0 flex flex-col items-center justify-center w-[85px] h-[75px] rounded-xl border-2 transition-all ${dateDisabled ?
+                      "bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed" :
+                      selectedDate === date.id ?
+                      "bg-[#fff2f2] border-[#ef4f5f] shadow-[0_4px_12px_rgba(239,79,95,0.15)]" :
+                      "bg-white border-gray-100/80 hover:border-gray-200"}`
+                      }>
+                                                <span className={`text-[11px] font-extrabold tracking-wider ${dateDisabled ? "text-gray-300" : selectedDate === date.id ? "text-[#ef4f5f]" : "text-gray-400"}`}>
                                                     {date.label}
                                                 </span>
-                                                <span className={`text-[15px] font-bold mt-1 ${selectedDate === date.id ? "text-[#1c1c1c]" : "text-gray-700"}`}>
+                                                <span className={`text-[15px] font-bold mt-1 ${dateDisabled ? "text-gray-300" : selectedDate === date.id ? "text-[#1c1c1c]" : "text-gray-700"}`}>
                                                     {date.date}
                                                 </span>
+                                                {dateDisabled && isToday && <span className="text-[8px] font-bold text-red-400 absolute bottom-1">Closed</span>}
                                             </button>
-                  )}
+                  );
+                })}
                                     </div>
                                 </div>
                             </div>
@@ -903,19 +940,17 @@ export default function DiningRestaurantDetail() {
                                         <button
                     onClick={() => setSelectedTimePeriod("Lunch")}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedTimePeriod === "Lunch" ?
-                    "bg-white text-[#1c1c1c] shadow-[0_2px_8px_rgba(0,0,0,0.08)]" :
+                    "bg-white text-[#1c1c1c] shadow-[0_2px_8_rgba(0,0,0,0.08)]" :
                     "text-gray-500 hover:text-gray-800"}`
                     }>
-                    
                                             Lunch
                                         </button>
                                         <button
                     onClick={() => setSelectedTimePeriod("Dinner")}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedTimePeriod === "Dinner" ?
-                    "bg-white text-[#1c1c1c] shadow-[0_2px_8px_rgba(0,0,0,0.08)]" :
+                    "bg-white text-[#1c1c1c] shadow-[0_2px_8_rgba(0,0,0,0.08)]" :
                     "text-gray-500 hover:text-gray-800"}`
                     }>
-                    
                                             Dinner
                                         </button>
                                     </div>
@@ -926,7 +961,6 @@ export default function DiningRestaurantDetail() {
                   <div className="py-8 text-center text-sm text-gray-500 font-medium">
                                                 No {selectedTimePeriod.toLowerCase()} slots available for this restaurant.
                                             </div> :
-
                   <div className="grid grid-cols-3 gap-3 pb-4">
                                                 {activeSlots.map((slot, idx) => {
                       const slotTime = slot?.time;
@@ -943,7 +977,6 @@ export default function DiningRestaurantDetail() {
                           "bg-[#ef4f5f] text-white border-[#ef4f5f] shadow-md shadow-red-200" :
                           "bg-white hover:border-gray-300 text-[#1c1c1c]"}`
                           }>
-                          
                                                             <span className="text-sm font-bold">{slotTime}</span>
                                                             {!isDisabled && slot?.discount &&
                           <span className={`text-[9px] font-bold mt-0.5 ${selectedTimeSlot === slotTime ? "text-white/90" : "text-blue-500"}`}>
@@ -951,7 +984,6 @@ export default function DiningRestaurantDetail() {
                                                                 </span>
                           }
                                                         </button>);
-
                     })}
                                             </div>
                   }
@@ -982,7 +1014,6 @@ export default function DiningRestaurantDetail() {
                     selectedTable?.id === table.id ?
                     'bg-[#fff2f2] border-[#ef4f5f]' :
                     'bg-white border-gray-100 hover:border-[#ef4f5f]'}`}>
-                    
                                                 <div className="flex flex-col items-center text-center">
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${selectedTable?.id === table.id ? 'bg-[#ef4f5f] text-white' : 'bg-gray-100 text-gray-500'}`}>
                                                         <Star className={`w-5 h-5 ${!table.isAvailable ? 'text-gray-400' : 'fill-current'}`} />
@@ -1033,7 +1064,6 @@ export default function DiningRestaurantDetail() {
                     onChange={(e) => setCustomerDetails({ ...customerDetails, name: e.target.value })}
                     autoComplete="name"
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
-                  
                                         <input
                     type="tel"
                     placeholder="Enter 10-digit phone number"
@@ -1043,7 +1073,6 @@ export default function DiningRestaurantDetail() {
                     inputMode="numeric"
                     maxLength={10}
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#ef4f5f] focus:ring-1 focus:ring-[#ef4f5f]" />
-                  
                                     </div>
                                 </div>
                             </div>
@@ -1088,7 +1117,6 @@ export default function DiningRestaurantDetail() {
               "bg-gray-200 text-gray-400 cursor-not-allowed" :
               "bg-[#ef4f5f] hover:bg-[#e03f4f] text-white shadow-[0_4px_14px_rgba(239,79,95,0.3)]"}`
               }>
-              
                                     Next
                                 </Button> :
             bookingStep === 4 ?
@@ -1099,7 +1127,6 @@ export default function DiningRestaurantDetail() {
               "bg-gray-200 text-gray-400 cursor-not-allowed" :
               `bg-[#ef4f5f] hover:bg-[#e03f4f] text-white shadow-[0_4px_14px_rgba(239,79,95,0.3)]`}`
               }>
-              
                                     Continue with {selectedTable?.tableNumber || ""}
                                 </Button> :
             bookingStep === 5 ?
@@ -1108,22 +1135,18 @@ export default function DiningRestaurantDetail() {
                 onClick={() => setBookingStep(4)}
                 variant="outline"
                 className="flex-1 bg-white font-bold h-12 rounded-2xl text-[#1c1c1c] text-[15px]">
-                
                                         Cancel
                                     </Button>
                                     <Button
                 onClick={handleConfirmBooking}
                 disabled={bookingLoading}
                 className="flex-[2] bg-[#ef4f5f] hover:bg-[#e03f4f] text-white font-bold h-12 rounded-2xl text-[15px] shadow-[0_4px_14px_rgba(239,79,95,0.3)]">
-                
                                         {bookingLoading ? "Processing..." : "Book a Table"}
                                     </Button>
                                 </div> :
-
             <Button
               onClick={() => setBookingStep(bookingStep + 1)}
               className="w-full bg-[#ef4f5f] hover:bg-[#e03f4f] text-white font-bold h-12 rounded-2xl text-[15px] shadow-[0_4px_14px_rgba(239,79,95,0.3)] transition-all active:scale-[0.98]">
-              
                                     Next
                                 </Button>
             }
@@ -1148,5 +1171,4 @@ export default function DiningRestaurantDetail() {
                 shareData={shareData}
             />
         </AnimatedPage>);
-
 }

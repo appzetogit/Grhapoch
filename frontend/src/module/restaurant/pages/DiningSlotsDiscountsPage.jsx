@@ -255,7 +255,7 @@ export default function DiningSlotsDiscountsPage() {
 
                     {/* Lunch Slots */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
                             <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-orange-500" />
                                 Lunch Slots
@@ -269,6 +269,7 @@ export default function DiningSlotsDiscountsPage() {
                                 <Plus className="w-3.5 h-3.5 mr-1" /> Add
                             </Button>
                         </div>
+                        <p className="text-[10px] font-bold text-orange-600 mb-5 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100 inline-block uppercase tracking-wider">Permitted: 11:00 AM - 05:00 PM</p>
 
                         <div className="space-y-4">
                             {diningSlots.lunch.length === 0 ? (
@@ -338,7 +339,7 @@ export default function DiningSlotsDiscountsPage() {
 
                     {/* Dinner Slots */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
                             <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-blue-500" />
                                 Dinner Slots
@@ -352,6 +353,7 @@ export default function DiningSlotsDiscountsPage() {
                                 <Plus className="w-3.5 h-3.5 mr-1" /> Add
                             </Button>
                         </div>
+                        <p className="text-[10px] font-bold text-blue-600 mb-5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 inline-block uppercase tracking-wider">Permitted: 06:00 PM - 11:45 PM</p>
 
                         <div className="space-y-4">
                             {diningSlots.dinner.length === 0 ? (

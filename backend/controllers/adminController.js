@@ -1277,13 +1277,38 @@ export const getRestaurants = asyncHandler(async (req, res) => {
 
     // Search filter
     if (search) {
-      query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { ownerName: { $regex: search, $options: 'i' } },
-      { ownerPhone: { $regex: search, $options: 'i' } },
-      { phone: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } }];
+      // First, find restaurants by their basic fields
+      const restaurantMatches = [
+        { name: { $regex: search, $options: 'i' } },
+        { ownerName: { $regex: search, $options: 'i' } },
+        { ownerPhone: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
 
+      // Second, check for matching food items in menus
+      try {
+        const Menu = (await import('../models/Menu.js')).default;
+        const matchingMenus = await Menu.find({
+          $or: [
+            { 'sections.items.name': { $regex: search, $options: 'i' } },
+            { 'sections.subsections.items.name': { $regex: search, $options: 'i' } }
+          ]
+        }).select('restaurant').lean();
+
+        if (matchingMenus && matchingMenus.length > 0) {
+          const restaurantIdsFromMenus = matchingMenus.map(m => m.restaurant);
+          query.$or = [
+            ...restaurantMatches,
+            { _id: { $in: restaurantIdsFromMenus } }
+          ];
+        } else {
+          query.$or = restaurantMatches;
+        }
+      } catch (menuError) {
+        // Fallback to basic search if menu search fails
+        query.$or = restaurantMatches;
+      }
     }
 
     // Cuisine filter
@@ -1325,6 +1350,28 @@ export const getRestaurants = asyncHandler(async (req, res) => {
   } catch (error) {
     logger.error(`Error fetching restaurants: ${error.message}`, { error: error.stack });
     return errorResponse(res, 500, 'Failed to fetch restaurants');
+  }
+});
+
+/**
+ * Get Restaurant by ID
+ * GET /api/admin/restaurants/:id
+ */
+export const getRestaurantById = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const restaurant = await Restaurant.findById(id).select('-password').lean();
+
+    if (!restaurant) {
+      return errorResponse(res, 404, 'Restaurant not found');
+    }
+
+    return successResponse(res, 200, 'Restaurant retrieved successfully', {
+      restaurant
+    });
+  } catch (error) {
+    logger.error(`Error fetching restaurant details: ${error.message}`, { error: error.stack });
+    return errorResponse(res, 500, 'Failed to fetch restaurant details');
   }
 });
 

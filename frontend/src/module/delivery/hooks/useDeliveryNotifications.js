@@ -129,12 +129,20 @@ export const useDeliveryNotifications = () => {
 
     let backendUrl = API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
     backendUrl = backendUrl.replace(/^(https?):\/+/gi, '$1://');
+    
+    // Auto-fix localhost to current hostname if accessed via IP (useful for mobile testing)
+    const currentHost = window.location.hostname;
+    if (currentHost !== 'localhost' && currentHost !== '127.0.0.1' && (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'))) {
+      const url = new URL(backendUrl);
+      url.hostname = currentHost;
+      backendUrl = url.origin;
+    }
+
     const socketUrl = `${backendUrl}/delivery`;
 
     socketRef.current = io(socketUrl, {
       path: '/socket.io/',
-      transports: ['polling'],
-      upgrade: false,
+      transports: ['polling', 'websocket'], // Allow upgrade to websocket
       reconnection: true,
       auth: {
         token: localStorage.getItem('delivery_accessToken') || localStorage.getItem('accessToken')

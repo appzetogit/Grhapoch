@@ -27,9 +27,10 @@ async function filterCodEligiblePartners(partners, amount) {
   for (const partner of partners) {
     try {
       const WalletModel = (await import('../models/DeliveryWallet.js')).default;
-      const wallet = await WalletModel.findOne({ deliveryPartnerId: partner._id });
+      const wallet = await WalletModel.findOne({ deliveryId: partner._id });
       
-      const totalCashLimit = Number(wallet?.totalCashLimit ?? wallet?.cashLimit ?? 0);
+      // Use a default limit if not found, as per business rules
+      const totalCashLimit = Number(wallet?.totalCashLimit ?? wallet?.cashLimit ?? 5000);
       const cashInHand = Number(wallet?.cashInHand || 0);
       const availableCashLimit = Math.max(0, totalCashLimit - cashInHand);
       

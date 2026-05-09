@@ -61,6 +61,12 @@ const deliveryWalletSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  // Cash limits
+  totalCashLimit: {
+    type: Number,
+    default: 5000,
+    min: 0
+  },
   // Balance fields
   totalBalance: {
     type: Number,

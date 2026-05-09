@@ -350,7 +350,7 @@ const orderSchema = new mongoose.Schema({
     distance: Number, // Distance in km
     assignedBy: {
       type: String,
-      enum: ['zone_match', 'nearest_distance', 'manual', 'nearest_available', 'delivery_accept']
+      enum: ['zone_match', 'nearest_distance', 'manual', 'nearest_available', 'delivery_accept', 'auto-assignment']
     },
     zoneId: String,
     zoneName: String,

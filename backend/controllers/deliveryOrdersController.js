@@ -1457,7 +1457,7 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     logger.error(`Error confirming reached pickup: ${error.message}`);
-    return errorResponse(res, 500, 'Failed to confirm reached pickup');
+    return errorResponse(res, 500, `Failed to confirm reached pickup: ${error.message}`);
   }
 });
 

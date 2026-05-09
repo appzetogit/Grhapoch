@@ -14,7 +14,8 @@ const logger = winston.createLogger({
 export const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      // Mongoose 8.x options
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
 
     logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
@@ -24,8 +25,12 @@ export const connectDB = async () => {
       logger.error(`MongoDB connection error: ${err}`);
     });
 
+    mongoose.connection.on('reconnected', () => {
+      logger.info('MongoDB reconnected');
+    });
+
     mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDB disconnected');
+      logger.warn('MongoDB disconnected. Attempting to reconnect...');
     });
 
     // Graceful shutdown

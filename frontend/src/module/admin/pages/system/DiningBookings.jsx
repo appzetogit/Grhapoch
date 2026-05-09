@@ -125,13 +125,44 @@ export default function DiningBookings() {
                                                 <div className="font-bold text-slate-800">#{booking.tableNumber}</div>
                                             </td>
                                             <td className="p-4 text-center">
-                                                <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${booking.bookingStatus === 'Confirmed' || booking.bookingStatus === 'Completed' ? 'bg-green-100 text-green-700 border border-green-200' :
-                                                        booking.bookingStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                                            booking.bookingStatus === 'Cancelled' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
-                                                                'bg-orange-100 text-orange-700 border border-orange-200'
-                                                    }`}>
-                                                    {booking.bookingStatus || 'Pending'}
-                                                </span>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${booking.bookingStatus === 'Confirmed' || booking.bookingStatus === 'Completed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                            booking.bookingStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                                                booking.bookingStatus === 'Cancelled' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                                                                    'bg-orange-100 text-orange-700 border border-orange-200'
+                                                        }`}>
+                                                        {booking.bookingStatus || 'Pending'}
+                                                    </span>
+                                                    {(() => {
+                                                        const isPast = (dateStr, timeStr) => {
+                                                            try {
+                                                                const now = new Date();
+                                                                const bookingDate = new Date(dateStr);
+                                                                if (isNaN(bookingDate.getTime())) {
+                                                                    const d = new Date();
+                                                                    if (dateStr.toLowerCase() === 'tomorrow') d.setDate(d.getDate() + 1);
+                                                                    else if (dateStr.toLowerCase() !== 'today') return false;
+
+                                                                    const match = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+                                                                    if (!match) return false;
+                                                                    let h = parseInt(match[1]);
+                                                                    const m = parseInt(match[2]);
+                                                                    if (match[3].toUpperCase() === 'PM' && h < 12) h += 12;
+                                                                    if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+                                                                    d.setHours(h, m, 0, 0);
+                                                                    return d < now;
+                                                                }
+                                                                return bookingDate < now;
+                                                            } catch (e) { return false; }
+                                                        };
+
+                                                        const status = booking.bookingStatus;
+                                                        if (status !== 'Completed' && status !== 'Cancelled' && status !== 'Rejected' && isPast(booking.date, booking.time)) {
+                                                            return <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase">PAST</span>
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

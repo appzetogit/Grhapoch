@@ -110,9 +110,17 @@ export default function OrdersTable({ orders, visibleColumns, onViewOrder, onPri
                 </th>
               )}
               {visibleColumns.foodItems && (
-                <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider min-w-[200px]">
+                <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider min-w-[150px]">
                   <div className="flex items-center gap-2">
                     <span>Food Items</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 cursor-pointer hover:text-slate-600" />
+                  </div>
+                </th>
+              )}
+              {visibleColumns.itemPrice && (
+                <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
+                    <span>Price</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 cursor-pointer hover:text-slate-600" />
                   </div>
                 </th>
@@ -200,25 +208,37 @@ export default function OrdersTable({ orders, visibleColumns, onViewOrder, onPri
                 )}
                 {visibleColumns.foodItems && (
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-2 min-w-[200px] max-w-md">
+                    <div className="flex flex-col gap-2 min-w-[150px]">
                       {order.items && Array.isArray(order.items) && order.items.length > 0 ? (
                         order.items.map((item, idx) => (
-                          <div key={idx || item.itemId || idx} className="flex items-center gap-2 text-sm">
+                          <div key={idx} className="flex items-center gap-2 text-sm">
                             <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded min-w-[2.5rem] text-center">
                               {item.quantity || 1}x
                             </span>
-                            <span className="text-slate-800 font-medium flex-1">
+                            <span className="text-slate-800 font-medium">
                               {item.name || 'Unknown Item'}
                             </span>
-                            {item.price && (
-                              <span className="text-xs text-slate-500">
-                                ₹{item.price}
-                              </span>
-                            )}
                           </div>
                         ))
                       ) : (
                         <span className="text-sm text-slate-400 italic">No items found</span>
+                      )}
+                    </div>
+                  </td>
+                )}
+                {visibleColumns.itemPrice && (
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      {order.items && Array.isArray(order.items) && order.items.length > 0 ? (
+                        order.items.map((item, idx) => (
+                          <div key={idx} className="flex items-center text-sm">
+                            <span className="text-xs text-slate-500 font-medium">
+                              ₹{item.price || 0}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm">&nbsp;</div>
                       )}
                     </div>
                   </td>

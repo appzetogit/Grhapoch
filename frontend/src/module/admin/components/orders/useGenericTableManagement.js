@@ -205,6 +205,20 @@ export function useGenericTableManagement(data, title, searchFields = []) {
           `Rs. ${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
         ])
         
+        const deliveryFee = rawData.deliveryCharge || rawData.deliveryFee || order.deliveryCharge || order.deliveryFee || 0
+        const tax = rawData.vatTax || rawData.tax || rawData.gstAmount || order.vatTax || order.tax || 0
+        const tip = rawData.tipAmount || rawData.tip || order.tipAmount || order.tip || 0
+        const discount = rawData.itemDiscount || rawData.discount || rawData.discountAmount || order.itemDiscount || order.discount || 0
+        const platformFee = rawData.platformFee || order.platformFee || 0
+        const donation = rawData.donationAmount || rawData.donation || order.donationAmount || order.donation || 0
+
+        if (deliveryFee > 0) tableData.push(["", "Delivery Fee", "", `Rs. ${deliveryFee.toFixed(2)}`]);
+        if (tax > 0) tableData.push(["", "GST / Taxes", "", `Rs. ${tax.toFixed(2)}`]);
+        if (tip > 0) tableData.push(["", "Tip Amount", "", `Rs. ${tip.toFixed(2)}`]);
+        if (platformFee > 0) tableData.push(["", "Platform Fee", "", `Rs. ${platformFee.toFixed(2)}`]);
+        if (donation > 0) tableData.push(["", "Donation", "", `Rs. ${donation.toFixed(2)}`]);
+        if (discount > 0) tableData.push(["", "Discount", "", `- Rs. ${discount.toFixed(2)}`]);
+
         autoTable(doc, {
           startY: startY,
           head: [['Qty', 'Item Name', 'Price', 'Total']],
@@ -253,8 +267,8 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         doc.setTextColor(30, 30, 30)
         doc.setFont(undefined, 'bold')
         const displayAmount = typeof totalAmt === 'number' ? totalAmt.toFixed(2) : totalAmt
-        doc.text(`Total Amount: Rs. ${displayAmount}`, 14, startY)
-        startY += 8
+        doc.text(`Total Amount: Rs. ${displayAmount}`, 140, startY, { align: 'right' })
+        startY += 12
       }
       
       // Payment Status

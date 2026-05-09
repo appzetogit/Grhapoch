@@ -28,6 +28,7 @@ export const getBankDepositDetails = asyncHandler(async (req, res) => {
     ifsc: settings?.ifsc || '',
     branch: settings?.branch || '',
     approvalTime: settings?.approvalTime || '',
+    upiId: settings?.upiId || '',
     latestDepositStatus: latest?.status || '',
     latestDepositReason: latest?.rejectionReason || ''
   });

@@ -104,13 +104,25 @@ const parseBookingDateTime = (dateValue, timeValue, referenceDate = new Date()) 
         parsedDate = new Date(base);
         parsedDate.setDate(parsedDate.getDate() + 1);
     } else {
-        const withYear = new Date(`${dateText} ${base.getFullYear()}`);
-        if (!Number.isNaN(withYear.getTime())) {
-            parsedDate = withYear;
-        } else {
+        // Try parsing common formats
+        // Format "Feb 27"
+        const monthDayMatch = dateText.match(/^([A-Za-z]{3,})\s+(\d{1,2})$/);
+        if (monthDayMatch) {
+            const withYear = new Date(`${dateText} ${base.getFullYear()}`);
+            if (!Number.isNaN(withYear.getTime())) {
+                parsedDate = withYear;
+            }
+        }
+
+        if (!parsedDate) {
             const fallback = new Date(dateText);
             if (!Number.isNaN(fallback.getTime())) {
                 parsedDate = fallback;
+                // If no year was provided, it might default to 1970 or current year. 
+                // We want current year if it's within a reasonable range.
+                if (parsedDate.getFullYear() < 2000) {
+                    parsedDate.setFullYear(base.getFullYear());
+                }
             }
         }
     }
@@ -120,7 +132,30 @@ const parseBookingDateTime = (dateValue, timeValue, referenceDate = new Date()) 
     const { hours, minutes } = parseBookingTime(timeValue);
     parsedDate.setHours(hours, minutes, 0, 0);
 
+    // If the date looks like it's from the past year (e.g. it's Jan and we parse "Jan 5" in Dec)
+    if (!/^today$|^tomorrow$/i.test(dateText) && parsedDate.getTime() < now.getTime() - (30 * 24 * 60 * 60 * 1000)) {
+        // Only bump year if it's reasonably likely it's meant for next year
+        const nextYear = new Date(parsedDate);
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        if (Math.abs(nextYear.getTime() - now.getTime()) < Math.abs(parsedDate.getTime() - now.getTime())) {
+            parsedDate = nextYear;
+        }
+    }
+
     return parsedDate;
+};
+
+const validateSlotTimePeriod = (timeValue, period = 'Lunch') => {
+    const { hours, minutes } = parseBookingTime(timeValue);
+    const totalMinutes = hours * 60 + minutes;
+
+    if (String(period).toLowerCase() === 'lunch') {
+        // 11:00 AM (660) to 5:00 PM (1020)
+        return totalMinutes >= 660 && totalMinutes <= 1020;
+    } else {
+        // 6:00 PM (1080) to 11:45 PM (1425)
+        return totalMinutes >= 1080 && totalMinutes <= 1425;
+    }
 };
 
 const isPastBookingSlot = (dateValue, timeValue) => {
@@ -608,6 +643,19 @@ export const createBooking = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Table already booked for this date and time'
+            });
+        }
+
+        // Determine if lunch or dinner for validation
+        let timePeriod = 'Dinner';
+        if (restaurant.diningSlots?.lunch?.some(s => s.time === time)) {
+            timePeriod = 'Lunch';
+        }
+
+        if (!validateSlotTimePeriod(time, timePeriod)) {
+            return res.status(400).json({
+                success: false,
+                message: `Selected time ${time} is invalid for ${timePeriod}`
             });
         }
 

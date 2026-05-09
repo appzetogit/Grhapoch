@@ -23,6 +23,7 @@ export function useOrdersManagement(orders, statusKey, title) {
     customer: true,
     restaurant: true,
     foodItems: true,
+    itemPrice: true,
     totalAmount: true,
     tip: true,
     paymentType: true,
@@ -251,6 +252,20 @@ export function useOrdersManagement(orders, statusKey, title) {
           `Rs. ${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
         ])
 
+        const deliveryFee = order.deliveryCharge || order.deliveryFee || 0
+        const tax = order.vatTax || order.tax || order.gstAmount || 0
+        const tip = order.tipAmount || order.tip || 0
+        const discount = order.itemDiscount || order.discount || order.discountAmount || 0
+        const platformFee = order.platformFee || 0
+        const donation = order.donationAmount || order.donation || 0
+
+        if (deliveryFee > 0) tableData.push(["", "Delivery Fee", "", `Rs. ${deliveryFee.toFixed(2)}`]);
+        if (tax > 0) tableData.push(["", "GST / Taxes", "", `Rs. ${tax.toFixed(2)}`]);
+        if (tip > 0) tableData.push(["", "Tip Amount", "", `Rs. ${tip.toFixed(2)}`]);
+        if (platformFee > 0) tableData.push(["", "Platform Fee", "", `Rs. ${platformFee.toFixed(2)}`]);
+        if (donation > 0) tableData.push(["", "Donation", "", `Rs. ${donation.toFixed(2)}`]);
+        if (discount > 0) tableData.push(["", "Discount", "", `- Rs. ${discount.toFixed(2)}`]);
+
         autoTable(doc, {
           startY: startY,
           head: [['Qty', 'Item Name', 'Price', 'Total']],
@@ -299,8 +314,8 @@ export function useOrdersManagement(orders, statusKey, title) {
         doc.setTextColor(30, 30, 30)
         doc.setFont(undefined, 'bold')
         const totalAmount = typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : order.totalAmount
-        doc.text(`Total Amount: Rs. ${totalAmount}`, 14, startY)
-        startY += 8
+        doc.text(`Total Amount: Rs. ${totalAmount}`, 140, startY, { align: 'right' })
+        startY += 12
       }
 
       // Payment Status
@@ -342,6 +357,7 @@ export function useOrdersManagement(orders, statusKey, title) {
       customer: true,
       restaurant: true,
       foodItems: true,
+      itemPrice: true,
       totalAmount: true,
       tip: true,
       paymentType: true,

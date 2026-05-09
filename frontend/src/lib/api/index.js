@@ -832,6 +832,9 @@ export const deliveryAPI = {
   verifyDepositPayment: (data) => {
     return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_VERIFY, data);
   },
+  generateDepositQr: (amount) => {
+    return apiClient.post(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_GENERATE_QR, { amount });
+  },
   getBankDepositDetails: () => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET_DEPOSIT_BANK_DETAILS);
   },

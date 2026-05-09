@@ -265,30 +265,40 @@ export default function DiningRestaurantDetail() {
 
   useEffect(() => {
     const generateDates = () => {
-      const days = [];
-      const today = new Date();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
+      const tempDates = [];
+      const now = new Date();
+      for (let i = 0; i < 14; i++) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + i);
+        const isToday = i === 0;
+        const isTomorrow = i === 1;
 
-        const label = i === 0 ? "TODAY" : i === 1 ? "TOMORROW" : date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-        // Format: "Feb 27" to match backend expectations and existing UI style
-        const month = date.toLocaleDateString('en-US', { month: 'short' });
-        const day = date.getDate();
-        const dateStr = `${month} ${day}`;
-        const id = i === 0 ? "Today" : i === 1 ? "Tomorrow" : dateStr;
-
-        days.push({ id, label, date: dateStr });
+        tempDates.push({
+          id: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          label: isToday ? "Today" : isTomorrow ? "Tomorrow" : date.toLocaleDateString('en-US', { weekday: 'short' }),
+          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          fullDate: date
+        });
       }
-      setDates(days);
+      setDates(tempDates);
     };
     generateDates();
   }, []);
 
   const lunchSlots = Array.isArray(restaurant?.diningSlots?.lunch) ? restaurant.diningSlots.lunch : [];
   const dinnerSlots = Array.isArray(restaurant?.diningSlots?.dinner) ? restaurant.diningSlots.dinner : [];
-  const activeSlots = selectedTimePeriod === "Lunch" ? lunchSlots : dinnerSlots;
   const selectedBookingDate = dates.find((d) => d.id === selectedDate)?.date || selectedDate;
+
+  const allSlots = selectedTimePeriod === "Lunch" ? lunchSlots : dinnerSlots;
+  const activeSlots = allSlots.filter(slot => {
+    if (!slot?.time) return false;
+    if (slot.isAvailable === false) return false;
+    
+    // Check if it is a past slot
+    const parsedDateTime = parseBookingDateTime(selectedBookingDate, slot.time);
+    if (!parsedDateTime) return false;
+    return parsedDateTime.getTime() > Date.now();
+  });
 
   const isPastSlotForSelectedDate = (slotTime) => {
     const parsedDateTime = parseBookingDateTime(selectedBookingDate, slotTime);
@@ -317,10 +327,15 @@ export default function DiningRestaurantDetail() {
       return;
     }
 
-    if (matchedSlot?.isAvailable === false || isPastSlotForSelectedDate(selectedTimeSlot)) {
-      setSelectedTimeSlot(null);
+    if (selectedBookingDate && selectedTimeSlot) {
+      if (isPastSlotForSelectedDate(selectedTimeSlot)) {
+        toast.error("Selected time has already passed. Please choose a future time.");
+        setSelectedTimeSlot("");
+        return;
+      }
+      fetchAvailableTables();
     }
-  }, [selectedTimePeriod, restaurant?.diningSlots, selectedDate, selectedTimeSlot, dates]);
+  }, [selectedBookingDate, selectedTimeSlot, guestCount, restaurant?.diningSlots, selectedTimePeriod, dates]);
 
   useEffect(() => {
     if (!userProfile) return;
@@ -421,7 +436,15 @@ export default function DiningRestaurantDetail() {
     const restaurantId = restaurant?.id || restaurant?._id;
     setBookingLoading(true);
     try {
-      const activeSlots = selectedTimePeriod === "Lunch" ? (Array.isArray(restaurant?.diningSlots?.lunch) ? restaurant.diningSlots.lunch : []) : (Array.isArray(restaurant?.diningSlots?.dinner) ? restaurant.diningSlots.dinner : []);
+      const allSlots = (selectedTimePeriod === "Lunch" ?
+        restaurant?.diningSlots?.lunch :
+        restaurant?.diningSlots?.dinner) || [];
+
+      const activeSlots = allSlots.filter(slot => {
+        if (!slot?.time) return false;
+        if (slot.isAvailable === false) return false;
+        return !isPastSlotForSelectedDate(slot.time);
+      });
       const matchedSlot = activeSlots.find((slot) => slot?.time === selectedTimeSlot);
       const appliedDiscount = matchedSlot?.discount || "";
 

@@ -38,20 +38,32 @@ export const getRestaurantFinance = asyncHandler(async (req, res) => {
     currentCycleEnd.setDate(currentCycleStart.getDate() + 6);
     currentCycleEnd.setHours(23, 59, 59, 999);
 
-    // Query for restaurant orders - handle multiple restaurantId formats
-    const restaurantIdVariations = [restaurantId];
-    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
-      const objectIdString = new mongoose.Types.ObjectId(restaurantId).toString();
-      if (!restaurantIdVariations.includes(objectIdString)) {
-        restaurantIdVariations.push(objectIdString);
-      }
+    // Query for restaurant orders - handle multiple restaurantId formats (ObjectId and custom restaurantId)
+    const restaurantIdVariations = [];
+    
+    // 1. Add MongoDB ObjectId variations
+    if (restaurant._id) {
+      const objectIdStr = restaurant._id.toString();
+      restaurantIdVariations.push(objectIdStr);
+      try {
+        if (mongoose.Types.ObjectId.isValid(restaurant._id)) {
+          restaurantIdVariations.push(new mongoose.Types.ObjectId(restaurant._id));
+        }
+      } catch (e) {}
+    }
+
+    // 2. Add custom restaurantId (e.g., REST000400)
+    if (restaurant.restaurantId && !restaurantIdVariations.includes(restaurant.restaurantId)) {
+      restaurantIdVariations.push(restaurant.restaurantId);
+    }
+
+    // 3. Add legacy id if present
+    if (restaurant.id && !restaurantIdVariations.includes(restaurant.id)) {
+      restaurantIdVariations.push(restaurant.id);
     }
 
     const restaurantIdQuery = {
-      $or: [
-      { restaurantId: { $in: restaurantIdVariations } },
-      { restaurantId: restaurantId }]
-
+      restaurantId: { $in: restaurantIdVariations }
     };
 
     // Get commission setup for restaurant

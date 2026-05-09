@@ -27,6 +27,18 @@ export default function Category() {
     status: true,
     categoryFor: "food",
   });
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen || isFilterOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen, isFilterOpen]);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);

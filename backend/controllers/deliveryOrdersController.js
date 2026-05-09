@@ -445,6 +445,7 @@ export const generateOrderQr = asyncHandler(async (req, res) => {
       qrCodeUrl: order.qrCodeUrl,
       qr_id: order.qrCodeId,
       qr_image_url: order.qrCodeUrl,
+      vpa: qr.qr_code || qr.vpa || '',
       paymentStatus: order.paymentStatus
     });
   } catch (error) {

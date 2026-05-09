@@ -36,13 +36,22 @@ export const getWallet = asyncHandler(async (req, res) => {
         const Order = (await import('../models/Order.js')).default;
         const RestaurantCommission = (await import('../models/RestaurantCommission.js')).default;
         
-        // Build restaurantId variations for query
-        const restaurantId = restaurant._id.toString();
+        // Build robust restaurantId variations for sync query
+        const restaurantIdVariations = [];
+        if (restaurant._id) {
+          restaurantIdVariations.push(restaurant._id.toString());
+          try {
+            if (mongoose.Types.ObjectId.isValid(restaurant._id)) {
+              restaurantIdVariations.push(new mongoose.Types.ObjectId(restaurant._id));
+            }
+          } catch (e) {}
+        }
+        if (restaurant.restaurantId) {
+          restaurantIdVariations.push(restaurant.restaurantId);
+        }
+
         const restaurantIdQuery = {
-          $or: [
-            { restaurantId: restaurantId },
-            { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
-          ]
+          restaurantId: { $in: restaurantIdVariations }
         };
 
         const allDeliveredOrders = await Order.find({ status: 'delivered', ...restaurantIdQuery }).lean();

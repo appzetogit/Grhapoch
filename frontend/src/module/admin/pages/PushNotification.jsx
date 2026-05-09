@@ -461,12 +461,6 @@ export default function PushNotification() {
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => handleEdit(notification)}
-                          className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Edit">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
                           onClick={() => handleDelete(notification._id)}
                           className="p-1.5 rounded text-red-600 hover:bg-red-50 transition-colors"
                           title="Delete">

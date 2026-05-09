@@ -107,15 +107,54 @@ export default function DiningSlotsDiscountsPage() {
     }
 
     const handleSaveSlots = async () => {
+        // Validation
+        const validateTimeRange = (time, type) => {
+            const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+            if (!match) return false;
+            let hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            const period = match[3].toUpperCase();
+
+            if (period === 'PM' && hours < 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+
+            const totalMinutes = hours * 60 + minutes;
+
+            if (type === 'lunch') {
+                // 11:00 AM (660) to 5:00 PM (1020)
+                return totalMinutes >= 660 && totalMinutes <= 1020;
+            } else {
+                // 6:00 PM (1080) to 11:45 PM (1425)
+                return totalMinutes >= 1080 && totalMinutes <= 1425;
+            }
+        };
+
+        const lunchErrors = diningSlots.lunch.filter(s => !validateTimeRange(s.time, 'lunch'));
+        if (lunchErrors.length > 0) {
+            toast.error("Some lunch slots are outside 11:00 AM - 5:00 PM range");
+            return;
+        }
+
+        const dinnerErrors = diningSlots.dinner.filter(s => !validateTimeRange(s.time, 'dinner'));
+        if (dinnerErrors.length > 0) {
+            toast.error("Some dinner slots are outside 6:00 PM - 11:45 PM range");
+            return;
+        }
+
         setSaving(true)
         try {
             const safeGuests = Math.max(1, Math.min(Number(diningGuests) || 1, 20))
-            const normalizeSlots = (slots = []) =>
-                slots
-                    .filter((slot) => slot?.time && String(slot.time).trim() !== "")
+            const normalizeSlots = (slots = []) => {
+                const uniqueTimes = new Set();
+                return slots
+                    .filter((slot) => {
+                        if (!slot?.time || String(slot.time).trim() === "") return false;
+                        if (uniqueTimes.has(slot.time)) return false;
+                        uniqueTimes.add(slot.time);
+                        return true;
+                    })
                     .map((slot) => {
                         let discount = slot?.discount ? String(slot.discount).trim() : ""
-                        // Auto-append % OFF if it's just a number
                         if (discount && /^\d+$/.test(discount)) {
                             discount = `${discount}% OFF`
                         }
@@ -124,7 +163,8 @@ export default function DiningSlotsDiscountsPage() {
                             discount: discount,
                             isAvailable: slot?.isAvailable !== false
                         }
-                    })
+                    });
+            }
 
             const res = await restaurantAPI.updateDiningSettings({
                 diningSlots: {
@@ -135,6 +175,7 @@ export default function DiningSlotsDiscountsPage() {
             }, getRestaurantAuthConfig())
             if (res.data?.success) {
                 toast.success("Dining settings updated successfully")
+                fetchSlots(); // Refresh to get normalized values
             }
         } catch (error) {
             console.error("Failed to save slots:", error)

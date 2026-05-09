@@ -797,7 +797,7 @@ export default function OrdersMain() {
         shownOrdersRef.current.add(orderId);
         setPopupOrder(newOrder);
         setShowNewOrderPopup(true);
-        
+
         // SYNC COUNTDOWN: Calculate remaining time from order.createdAt
         if (newOrder.createdAt) {
           const elapsedSecs = Math.floor((Date.now() - new Date(newOrder.createdAt).getTime()) / 1000);
@@ -1817,11 +1817,10 @@ export default function OrdersMain() {
                       <button
                         onClick={handleAcceptOrder}
                         disabled={isAcceptingOrder}
-                        className={`w-full text-white py-3.5 rounded-lg font-semibold text-sm transition-colors relative overflow-hidden ${
-                          isAcceptingOrder
+                        className={`w-full text-white py-3.5 rounded-lg font-semibold text-sm transition-colors relative overflow-hidden ${isAcceptingOrder
                             ? "bg-gray-500 cursor-not-allowed"
                             : "bg-black hover:bg-gray-800"
-                        }`}>
+                          }`}>
 
                         {/* Loading background */}
                         <motion.div
@@ -2145,7 +2144,7 @@ export default function OrdersMain() {
       </AnimatePresence>
 
       {/* Bottom Navigation - Sticky */}
-      
+
       <BottomNavOrders />
     </div>);
 

@@ -11,6 +11,9 @@ export default function DepositPopup({ onSuccess, cashInHand = 0 }) {
   const [method, setMethod] = useState("razorpay")
   const [bankDetails, setBankDetails] = useState(null)
   const [slipFiles, setSlipFiles] = useState([])
+  const [qrCode, setQrCode] = useState(null)
+  const [vpa, setVpa] = useState("")
+  const [qrLoading, setQrLoading] = useState(false)
   const submitRef = useRef(null)
 
   const cashInHandNum = Number(cashInHand) || 0
@@ -46,6 +49,29 @@ export default function DepositPopup({ onSuccess, cashInHand = 0 }) {
       setMethod("bank")
     }
   }, [mustUseBank, method])
+
+  useEffect(() => {
+    const fetchQr = async () => {
+      const amt = Number(amount)
+      if (method === "bank" && amt >= 1 && !mustUseBank) {
+        try {
+          setQrLoading(true)
+          const res = await deliveryAPI.generateDepositQr(amt)
+          if (res?.data?.success) {
+            setQrCode(res.data.data.qr_image_url)
+            setVpa(res.data.data.vpa || "")
+          }
+        } catch (err) {
+          console.error("Failed to fetch deposit QR:", err)
+        } finally {
+          setQrLoading(false)
+        }
+      } else {
+        setQrCode(null)
+      }
+    }
+    fetchQr()
+  }, [method, amount, mustUseBank])
 
   const handleAmountChange = () => {}
 
@@ -191,7 +217,7 @@ export default function DepositPopup({ onSuccess, cashInHand = 0 }) {
   }
 
   return (
-    <div className="flex flex-col p-4 pb-28 space-y-4">
+    <div className="flex flex-col space-y-6 pb-20">
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Deposit Method</label>
         <div className="flex gap-2">
@@ -235,6 +261,30 @@ export default function DepositPopup({ onSuccess, cashInHand = 0 }) {
               </span>
             </div>
           </div>
+          {(qrCode || qrLoading) && (
+            <div className="mt-3 flex flex-col items-center p-4 rounded-xl border border-emerald-100 bg-emerald-50/30">
+              <p className="text-xs uppercase tracking-widest font-bold text-emerald-800 mb-3">Scan & Pay via UPI</p>
+              <div className="bg-white p-3 rounded-2xl shadow-md mb-3 border border-emerald-100 min-h-[220px] flex items-center justify-center min-w-[220px]">
+                {qrLoading ? (
+                  <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                ) : (
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`}
+                    alt="Deposit QR"
+                    className="w-52 h-52 object-contain"
+                  />
+                )}
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-[11px] text-slate-600 font-medium">
+                  Scan with GPay, PhonePe, or Paytm
+                </p>
+                <p className="text-[11px] text-emerald-700 font-bold bg-emerald-100/50 px-2 py-0.5 rounded-full inline-block">
+                  Amount ₹{amount} is pre-filled
+                </p>
+              </div>
+            </div>
+          )}
           {mustUseBank && (
             <p className="text-xs text-amber-600 mt-1">
               Razorpay is disabled until bank deposit is approved.

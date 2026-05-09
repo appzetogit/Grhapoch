@@ -8,7 +8,7 @@ import { restaurantAPI } from "@/lib/api";
 export default function HubFinance() {
   const navigate = useNavigate();
   const [activeTab] = useState("payouts");
-  const [selectedDateRange, setSelectedDateRange] = useState("14 Nov - 14 Dec'25");
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const downloadMenuRef = useRef(null);
@@ -198,9 +198,9 @@ export default function HubFinance() {
         const data = response.data.data.pastCycles;
         
         // If orders exist but aggregation stats are missing or zero, calculate them manually
-        if (data.orders && data.orders.length > 0) {
+        if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
           if (!data.estimatedPayout || data.estimatedPayout === 0) {
-            data.estimatedPayout = data.orders.reduce((sum, order) => sum + (order.payout || 0), 0);
+            data.estimatedPayout = data.orders.reduce((sum, order) => sum + Number(order.payout || 0), 0);
           }
           if (!data.totalOrders || data.totalOrders === 0) {
             data.totalOrders = data.orders.length;
@@ -674,17 +674,17 @@ export default function HubFinance() {
                         </p>
                         <p className="text-sm font-bold text-emerald-600">
                           ₹{(
-                            (pastCyclesData !== null 
-                              ? (pastCyclesData.estimatedPayout || (pastCyclesData.orders?.reduce((sum, o) => sum + (o.payout || 0), 0) || 0)) 
-                              : (financeData?.currentCycle?.estimatedPayout || (financeData?.currentCycle?.orders?.reduce((sum, o) => sum + (o.payout || 0), 0) || 0))) || 0
+                            (pastCyclesData && pastCyclesData.orders && pastCyclesData.orders.length > 0
+                              ? (pastCyclesData.estimatedPayout || (pastCyclesData.orders.reduce((sum, o) => sum + Number(o.payout || 0), 0)))
+                              : (financeData?.currentCycle?.estimatedPayout || (financeData?.currentCycle?.orders?.reduce((sum, o) => sum + Number(o.payout || 0), 0) || 0))) || 0
                           ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-gray-500 uppercase font-bold">Total Orders</p>
                         <p className="text-sm font-bold text-gray-900">
-                          {(pastCyclesData !== null 
-                            ? (pastCyclesData.totalOrders || (pastCyclesData.orders?.length || 0)) 
+                          {(pastCyclesData && pastCyclesData.orders && pastCyclesData.orders.length > 0
+                            ? (pastCyclesData.totalOrders || pastCyclesData.orders.length)
                             : (financeData?.currentCycle?.totalOrders || (financeData?.currentCycle?.orders?.length || 0))) || 0}
                         </p>
                       </div>
@@ -943,8 +943,8 @@ export default function HubFinance() {
                         )}
                       </div>
                     }
-                    {/* Show current cycle orders if past cycles data is not available or has no orders */}
-                    {(!pastCyclesData || !pastCyclesData.orders || pastCyclesData.orders.length === 0) && !loadingPastCycles && financeData?.currentCycle?.orders && financeData.currentCycle.orders.length > 0 &&
+                    {/* Show current cycle orders only if NO past cycle range is selected */}
+                    {(!pastCyclesData) && !loadingPastCycles && financeData?.currentCycle?.orders && financeData.currentCycle.orders.length > 0 &&
                       <div className="bg-white rounded-lg p-4 space-y-3">
                         {financeData.currentCycle.orders.map((order, index) =>
                           <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
@@ -954,26 +954,40 @@ export default function HubFinance() {
                                   Order ID: {order.orderId || 'N/A'}
                                 </p>
                                 <p className="text-xs text-gray-600">
-                                  {order.foodNames || order.items && order.items.map((item) => item.name).join(', ') || 'N/A'}
+                                  {order.foodNames || (order.items && order.items.map((item) => item.name).join(', ')) || 'N/A'}
                                 </p>
                               </div>
                               <div className="text-right ml-4">
                                 <p className="text-sm font-bold text-gray-900">
-                                  ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  ₹{(Number(order.payout || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   <p className="text-[10px] text-green-600 font-semibold">Final Earning</p>
-                                  {order.discount > 0 && (
-                                    <p className="text-[9px] text-red-500 font-medium">-₹{order.discount.toFixed(2)} Off (Coupon)</p>
+                                  {(order.discount > 0 || order.pricing?.discount > 0) && (
+                                    <p className="text-[9px] text-red-500 font-medium">-₹{Number(order.discount || order.pricing?.discount || 0).toFixed(2)} Off (Coupon)</p>
                                   )}
-                                  {order.commission > 0 && (
-                                    <p className="text-[9px] text-gray-400">-₹{order.commission.toFixed(2)} Fee (Admin)</p>
+                                  {(order.commission > 0 || order.pricing?.commission?.amount > 0) && (
+                                    <p className="text-[9px] text-gray-400">-₹{Number(order.commission || order.pricing?.commission?.amount || 0).toFixed(2)} Fee (Admin)</p>
                                   )}
                                 </p>
                               </div>
                             </div>
                           </div>
                         )}
+                      </div>
+                    }
+
+                    {/* Show Empty State if range is selected but no orders found */}
+                    {pastCyclesData && (!pastCyclesData.orders || pastCyclesData.orders.length === 0) && !loadingPastCycles &&
+                      <div className="bg-white rounded-lg p-8 text-center">
+                        <p className="text-gray-500 text-sm italic">No orders found for the selected date range.</p>
+                      </div>
+                    }
+                    
+                    {/* Show Empty State if current week has no orders and no range is selected */}
+                    {!pastCyclesData && (!financeData?.currentCycle?.orders || financeData.currentCycle.orders.length === 0) && !loading && !loadingPastCycles &&
+                      <div className="bg-white rounded-lg p-8 text-center">
+                        <p className="text-gray-500 text-sm italic">No orders recorded for this week yet.</p>
                       </div>
                     }
                   </>

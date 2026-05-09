@@ -8,9 +8,10 @@ import DeliveryBankDeposit from '../models/DeliveryBankDeposit.js';
 import { validate } from '../middleware/validate.js';
 import Joi from 'joi';
 import winston from 'winston';
-import { createOrder as createRazorpayOrder } from '../services/razorpayService.js';
+import { createOrder as createRazorpayOrder, createQrCode as createRazorpayQr } from '../services/razorpayService.js';
 import { verifyPayment } from '../services/razorpayService.js';
 import { getRazorpayCredentials } from '../utils/envService.js';
+import mongoose from 'mongoose';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -1028,4 +1029,71 @@ export const verifyDepositPayment = asyncHandler(async (req, res) => {
     cashInHand: cashInHandNow,
     availableCashLimit
   });
+});
+
+/**
+ * Generate Razorpay QR for deposit
+ * POST /api/delivery/wallet/deposit/generate-qr
+ */
+export const generateDepositQr = asyncHandler(async (req, res) => {
+  const delivery = req.delivery;
+  if (!delivery?._id) {
+    return errorResponse(res, 401, 'Delivery authentication required');
+  }
+
+  const amount = Number(req.body.amount);
+  if (!amount || isNaN(amount) || amount < 1) {
+    return errorResponse(res, 400, 'Minimum deposit amount is ₹1');
+  }
+
+  const wallet = await DeliveryWallet.findOrCreateByDeliveryId(delivery._id);
+  const cashInHand = Number(wallet.cashInHand) || 0;
+  if (cashInHand < 1) {
+    return errorResponse(res, 400, 'No cash in hand to deposit');
+  }
+  if (Math.abs(cashInHand - amount) > 0.01) {
+    return errorResponse(res, 400, `Deposit must be full cash-in-hand amount (₹${cashInHand.toFixed(2)}).`);
+  }
+
+  const latestBank = await DeliveryBankDeposit.findOne({
+    deliveryId: delivery._id
+  }).sort({ createdAt: -1 }).lean();
+  if (latestBank && latestBank.status !== 'approved') {
+    return errorResponse(res, 400, 'Bank deposit is pending or rejected. Please complete bank deposit first.');
+  }
+
+  try {
+    const qrPayload = {
+      type: 'upi_qr',
+      usage: 'single_use',
+      fixed_amount: true,
+      payment_amount: Math.round(amount * 100),
+      name: `Deposit ${delivery.name || 'Partner'}`,
+      description: `Cash deposit from ${delivery.phone || delivery._id}`,
+      notes: {
+        deliveryId: delivery._id.toString(),
+        type: 'cash_limit_deposit',
+        amount: String(amount)
+      }
+    };
+
+    const qr = await createRazorpayQr(qrPayload);
+    logger.info('Razorpay QR object:', qr);
+    const qrCodeUrl = qr.image_url || qr.qr_image_url || qr.short_url || '';
+
+    if (!qrCodeUrl) {
+      return errorResponse(res, 500, 'Failed to generate QR image');
+    }
+
+    return successResponse(res, 200, 'QR code generated successfully', {
+      qrCodeId: qr.id,
+      qrCodeUrl: qrCodeUrl,
+      qr_id: qr.id,
+      qr_image_url: qrCodeUrl,
+      vpa: qr.qr_code || qr.vpa || ''
+    });
+  } catch (error) {
+    logger.error('Error generating deposit QR:', error);
+    return errorResponse(res, 500, error.message || 'Failed to generate QR code');
+  }
 });

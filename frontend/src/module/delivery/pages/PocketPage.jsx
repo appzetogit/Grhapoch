@@ -1156,7 +1156,7 @@ export default function PocketPage() {
         showCloseButton={true}
         closeOnBackdropClick={true}
         disableSwipeToClose={true}
-        maxHeight="90vh">
+        maxHeight="100vh">
 
         <DepositPopup
           cashInHand={balances.cashInHand ?? walletState?.cashInHand ?? 0}

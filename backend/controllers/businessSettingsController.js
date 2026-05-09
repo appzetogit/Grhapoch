@@ -129,6 +129,7 @@ export const updateBusinessSettings = asyncHandler(async (req, res) => {
     if (ifsc !== undefined) settings.ifsc = ifsc;
     if (branch !== undefined) settings.branch = branch;
     if (approvalTime !== undefined) settings.approvalTime = approvalTime;
+    if (req.body.upiId !== undefined) settings.upiId = req.body.upiId;
 
     // Handle logo upload
     if (req.files && req.files.logo && req.files.logo.length > 0) {

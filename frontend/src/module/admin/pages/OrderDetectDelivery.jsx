@@ -314,17 +314,17 @@ export default function OrderDetectDelivery() {
   // Statistics
   const stats = useMemo(() => {
     const total = orders.length
-    const ordered = filteredData.filter(o => o.status === "Ordered").length
-    const restaurantAccepted = filteredData.filter(o => o.status === "Restaurant Accepted" || o.status === "Accepted").length
-    const rejected = filteredData.filter(o => o.status === "Rejected").length
-    const deliveryBoyAssigned = filteredData.filter(o => o.status === "Delivery Boy Assigned").length
-    const reachedPickup = filteredData.filter(o => o.status === "Delivery Boy Reached Pickup" || o.status === "Reached Pickup").length
-    const orderIdAccepted = filteredData.filter(o => o.status === "Order ID Accepted").length
-    const reachedDrop = filteredData.filter(o => o.status === "Reached Drop").length
-    const delivered = filteredData.filter(o => o.status === "Ordered Delivered").length
+    const ordered = orders.filter(o => o.status === "Ordered").length
+    const restaurantAccepted = orders.filter(o => o.status === "Restaurant Accepted" || o.status === "Accepted").length
+    const rejected = orders.filter(o => o.status === "Rejected").length
+    const deliveryBoyAssigned = orders.filter(o => o.status === "Delivery Boy Assigned").length
+    const reachedPickup = orders.filter(o => o.status === "Delivery Boy Reached Pickup" || o.status === "Reached Pickup").length
+    const orderIdAccepted = orders.filter(o => o.status === "Order ID Accepted").length
+    const reachedDrop = orders.filter(o => o.status === "Reached Drop").length
+    const delivered = orders.filter(o => o.status === "Ordered Delivered").length
     
     return { total, ordered, restaurantAccepted, rejected, deliveryBoyAssigned, reachedPickup, orderIdAccepted, reachedDrop, delivered }
-  }, [filteredData, orders.length])
+  }, [orders])
 
   // Get unique restaurants for the filter panel
   const restaurants = useMemo(() => {

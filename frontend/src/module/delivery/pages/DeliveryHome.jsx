@@ -27,7 +27,6 @@ import {
   IndianRupee,
   Loader2,
   Camera,
-  SwitchCamera,
   AlertTriangle
 } from
   "lucide-react";
@@ -3933,6 +3932,7 @@ export default function DeliveryHome() {
         status: payload.paymentStatus || 'pending',
         qrCodeUrl: qrCodeUrl,
         qrCodeId: payload.qrCodeId || '',
+        vpa: payload.vpa || '',
         error: ''
       });
       setIsQrPolling(true);
@@ -10460,14 +10460,6 @@ export default function DeliveryHome() {
                       </>
                   }
                 </button>
-                <button
-                  onClick={() => setCameraFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
-                  disabled={isUploadingBill}
-                  className="flex items-center justify-center p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200"
-                  title="Flip Camera"
-                >
-                  <SwitchCamera className="w-5 h-5 text-gray-700" />
-                </button>
               </div>
 
               {/* Hidden file input for camera (sr-only keeps it in DOM for mobile camera) */}
@@ -10859,9 +10851,9 @@ export default function DeliveryHome() {
                       >
                         <div className="h-44 w-44 overflow-hidden rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm">
                           <img
-                            src={qrPaymentState.qrCodeUrl}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrPaymentState.qrCodeUrl)}`}
                             alt="UPI QR"
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         </div>
                         <p className="mt-2 text-xs text-gray-500 text-center">Tap to enlarge</p>
@@ -10893,11 +10885,11 @@ export default function DeliveryHome() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="mx-auto h-72 w-72 overflow-hidden rounded-2xl bg-white ring-1 ring-gray-200">
-                      <img
-                        src={qrPaymentState.qrCodeUrl}
-                        alt="UPI QR"
-                        className="h-full w-full object-cover"
-                      />
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrPaymentState.qrCodeUrl)}`}
+                            alt="UPI QR"
+                            className="h-full w-full object-contain"
+                          />
                     </div>
                     <button
                       type="button"

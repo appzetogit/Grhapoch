@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowLeft, CalendarDays, Clock, Users, Building2 } from "lucide-react"
+import { ArrowLeft, CalendarDays, Clock, Users, Building2, AlertCircle } from "lucide-react"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ export default function DiningBookings() {
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [cancellingId, setCancellingId] = useState(null)
+  const [bookingToCancel, setBookingToCancel] = useState(null)
 
   const syncBookings = useCallback(async () => {
     const cachedBookings = readDiningBookings()
@@ -96,16 +97,18 @@ export default function DiningBookings() {
     }
   }
 
-  const handleCancelBooking = async (booking) => {
+  const handleCancelBooking = (booking) => {
     if (!canCancelBooking(booking)) return
+    setBookingToCancel(booking)
+  }
 
-    const confirmCancel = window.confirm(
-      "Are you sure you want to cancel this dining booking?"
-    )
-    if (!confirmCancel) return
-
+  const confirmCancelAction = async () => {
+    if (!bookingToCancel) return
+    const booking = bookingToCancel
     const bookingId = booking?.id || booking?._id
     if (!bookingId) return
+
+    setBookingToCancel(null)
     setCancellingId(bookingId)
     try {
       const response = await diningAPI.cancelMyBooking(bookingId)
@@ -227,6 +230,35 @@ export default function DiningBookings() {
               <div className="flex items-center justify-between gap-3"><span className="text-gray-500">Phone</span><span className="font-semibold text-right break-all">{selectedBooking.guestPhone || "-"}</span></div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(bookingToCancel)} onOpenChange={(open) => { if (!open) setBookingToCancel(null) }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-2xl p-0 overflow-hidden border-0">
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white mb-2">Cancel Booking?</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-gray-400">
+              Are you sure you want to cancel your booking at <span className="font-bold text-gray-700 dark:text-gray-200">{bookingToCancel?.restaurantName}</span>? This action cannot be undone.
+            </DialogDescription>
+          </div>
+          <div className="flex gap-3 p-4 bg-gray-50 dark:bg-gray-900/50">
+            <Button
+              variant="ghost"
+              onClick={() => setBookingToCancel(null)}
+              className="flex-1 h-12 rounded-xl font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+            >
+              No, Keep it
+            </Button>
+            <Button
+              onClick={confirmCancelAction}
+              className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-200 dark:shadow-none"
+            >
+              Yes, Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </AnimatedPage>

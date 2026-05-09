@@ -150,17 +150,48 @@ export default function TableBookingsPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div
-                                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${booking.bookingStatus === "Confirmed" || booking.bookingStatus === "Completed"
-                                                ? "bg-green-100 text-green-700"
-                                                : booking.bookingStatus === "Rejected"
-                                                    ? "bg-red-100 text-red-700"
-                                                    : booking.bookingStatus === "Cancelled"
-                                                        ? "bg-gray-100 text-gray-700"
-                                                    : "bg-orange-100 text-orange-700"
-                                                }`}
-                                        >
-                                            {booking.bookingStatus}
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div
+                                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${booking.bookingStatus === "Confirmed" || booking.bookingStatus === "Completed"
+                                                    ? "bg-green-100 text-green-700"
+                                                    : booking.bookingStatus === "Rejected"
+                                                        ? "bg-red-100 text-red-700"
+                                                        : booking.bookingStatus === "Cancelled"
+                                                            ? "bg-gray-100 text-gray-700"
+                                                            : "bg-orange-100 text-orange-700"
+                                                    }`}
+                                            >
+                                                {booking.bookingStatus}
+                                            </div>
+                                            {(() => {
+                                                const isPast = (dateStr, timeStr) => {
+                                                    try {
+                                                        const now = new Date();
+                                                        const bookingDate = new Date(dateStr);
+                                                        if (isNaN(bookingDate.getTime())) {
+                                                            const d = new Date();
+                                                            if (dateStr.toLowerCase() === 'tomorrow') d.setDate(d.getDate() + 1);
+                                                            else if (dateStr.toLowerCase() !== 'today') return false;
+                                                            
+                                                            const match = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+                                                            if (!match) return false;
+                                                            let h = parseInt(match[1]);
+                                                            const m = parseInt(match[2]);
+                                                            if (match[3].toUpperCase() === 'PM' && h < 12) h += 12;
+                                                            if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+                                                            d.setHours(h, m, 0, 0);
+                                                            return d < now;
+                                                        }
+                                                        return bookingDate < now;
+                                                    } catch (e) { return false; }
+                                                };
+
+                                                const status = booking.bookingStatus;
+                                                if (status !== 'Completed' && status !== 'Cancelled' && status !== 'Rejected' && isPast(booking.date, booking.time)) {
+                                                    return <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">PAST</span>
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </div>
 

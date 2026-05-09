@@ -141,6 +141,11 @@ const businessSettingsSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    upiId: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',

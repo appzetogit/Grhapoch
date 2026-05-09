@@ -1348,7 +1348,7 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
 
     if (!order) {
       console.warn(`⚠️ Order not found - orderId: ${orderId}, deliveryId: ${deliveryId}`);
-      return errorResponse(res, 404, 'Order not found or not assigned to you');
+      return errorResponse(res, 404, `Order not found or not assigned to you. (Lookup: ${orderId}, Delivery: ${deliveryId})`);
     }
 
 
@@ -1509,7 +1509,10 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
             $or: idQuery
           },
           {
-            deliveryPartnerId: deliveryId.toString()
+            $or: [
+              { deliveryPartnerId: deliveryId },
+              { deliveryPartnerId: deliveryId.toString() }
+            ]
           }
         ]
       }).
@@ -1520,7 +1523,7 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
 
     if (!order) {
       console.error(`❌ Order ${orderId} not found or not assigned to delivery ${deliveryId}`);
-      return errorResponse(res, 404, 'Order not found or not assigned to you');
+      return errorResponse(res, 404, `Order not found or not assigned to you. (Lookup: ${orderId}, Delivery: ${deliveryId})`);
     }
 
     // Verify order ID matches
@@ -1894,37 +1897,23 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
 
     // Try finding order with different deliveryPartnerId comparison methods
     const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
-    const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
+    const idFilter = isObjectId ? { $or: [{ _id: orderId }, { orderId: orderId }] } : { orderId: orderId };
 
     let order = await Order.findOne({
       $and: [
+        idFilter,
         {
-          $or: idQuery
-        },
-        {
-          deliveryPartnerId: deliveryId // Try as ObjectId first (most common)
-        }]
-
+          $or: [
+            { deliveryPartnerId: deliveryId },
+            { deliveryPartnerId: deliveryId.toString() }
+          ]
+        }
+      ]
     });
-
-    // If not found, try with string comparison
-    if (!order) {
-
-      order = await Order.findOne({
-        $and: [
-          {
-            $or: idQuery
-          },
-          {
-            deliveryPartnerId: deliveryId.toString() // Try as string
-          }]
-
-      });
-    }
 
     if (!order) {
       console.error(`❌ Order ${orderId} not found or not assigned to delivery ${deliveryId}`);
-      return errorResponse(res, 404, 'Order not found or not assigned to you');
+      return errorResponse(res, 404, `Order not found or not assigned to you. (Lookup: ${orderId}, Delivery: ${deliveryId})`);
     }
 
 
@@ -2115,17 +2104,18 @@ export const completeDelivery = asyncHandler(async (req, res) => {
     // If still not found, try with string comparison for deliveryPartnerId
     if (!order) {
       const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
-      const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
+      const idFilter = isObjectId ? { $or: [{ _id: orderId }, { orderId: orderId }] } : { orderId: orderId };
 
       order = await Order.findOne({
         $and: [
+          idFilter,
           {
-            $or: idQuery
-          },
-          {
-            deliveryPartnerId: deliveryId.toString()
-          }]
-
+            $or: [
+              { deliveryPartnerId: deliveryId },
+              { deliveryPartnerId: deliveryId.toString() }
+            ]
+          }
+        ]
       }).
         populate('restaurantId', 'name location address phone ownerPhone').
         populate('userId', 'name phone').
@@ -2133,7 +2123,8 @@ export const completeDelivery = asyncHandler(async (req, res) => {
     }
 
     if (!order) {
-      return errorResponse(res, 404, 'Order not found or not assigned to you');
+      console.error(`❌ Order ${orderId} not found or not assigned to delivery ${deliveryId}`);
+      return errorResponse(res, 404, `Order not found or not assigned to you. (Lookup: ${orderId}, Delivery: ${deliveryId})`);
     }
 
     // Check if order is already delivered/completed (idempotent - allow if already completed)

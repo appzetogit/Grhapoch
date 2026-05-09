@@ -1300,13 +1300,16 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
     const { orderId } = req.params;
     const deliveryId = delivery._id;
 
+    console.log(`DEBUG: confirmReachedPickup - orderId: "${orderId}", deliveryId: "${deliveryId}"`);
+
 
 
     // Find order by _id or orderId field
     let order = null;
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
 
     // Method 1: Try as MongoDB ObjectId
-    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+    if (isObjectId) {
       order = await Order.findOne({
         $and: [
           { _id: orderId },
@@ -1327,13 +1330,11 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
 
     // Method 3: Try with string comparison for deliveryPartnerId
     if (!order) {
+      const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
       order = await Order.findOne({
         $and: [
           {
-            $or: [
-              { _id: orderId },
-              { orderId: orderId }
-            ]
+            $or: idQuery
           },
           {
             $or: [
@@ -1475,14 +1476,13 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
     // Find order by _id or orderId - try multiple methods for better compatibility
     let order = null;
     const deliveryId = delivery._id;
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
 
     // Method 1: Try as MongoDB ObjectId
-    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+    if (isObjectId) {
       order = await Order.findOne({
-        $and: [
-          { _id: orderId },
-          { deliveryPartnerId: deliveryId }]
-
+        _id: orderId,
+        deliveryPartnerId: deliveryId
       }).
         populate('userId', 'name phone').
         populate('restaurantId', 'name location address phone ownerPhone').
@@ -1492,10 +1492,8 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
     // Method 2: Try by orderId field
     if (!order) {
       order = await Order.findOne({
-        $and: [
-          { orderId: orderId },
-          { deliveryPartnerId: deliveryId }]
-
+        orderId: orderId,
+        deliveryPartnerId: deliveryId
       }).
         populate('userId', 'name phone').
         populate('restaurantId', 'name location address phone ownerPhone').
@@ -1504,18 +1502,16 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
 
     // Method 3: Try with string comparison for deliveryPartnerId
     if (!order) {
+      const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
       order = await Order.findOne({
         $and: [
           {
-            $or: [
-              { _id: orderId },
-              { orderId: orderId }]
-
+            $or: idQuery
           },
           {
             deliveryPartnerId: deliveryId.toString()
-          }]
-
+          }
+        ]
       }).
         populate('userId', 'name phone').
         populate('restaurantId', 'name location address phone ownerPhone').
@@ -1897,14 +1893,13 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
 
 
     // Try finding order with different deliveryPartnerId comparison methods
-    // First try without lean() to get Mongoose document (needed for proper ObjectId comparison)
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
+    const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
+
     let order = await Order.findOne({
       $and: [
         {
-          $or: [
-            { _id: orderId },
-            { orderId: orderId }]
-
+          $or: idQuery
         },
         {
           deliveryPartnerId: deliveryId // Try as ObjectId first (most common)
@@ -1918,10 +1913,7 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
       order = await Order.findOne({
         $and: [
           {
-            $or: [
-              { _id: orderId },
-              { orderId: orderId }]
-
+            $or: idQuery
           },
           {
             deliveryPartnerId: deliveryId.toString() // Try as string
@@ -2122,13 +2114,13 @@ export const completeDelivery = asyncHandler(async (req, res) => {
 
     // If still not found, try with string comparison for deliveryPartnerId
     if (!order) {
+      const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24;
+      const idQuery = isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }];
+
       order = await Order.findOne({
         $and: [
           {
-            $or: [
-              { _id: orderId },
-              { orderId: orderId }]
-
+            $or: idQuery
           },
           {
             deliveryPartnerId: deliveryId.toString()
@@ -2426,76 +2418,43 @@ export const completeDelivery = asyncHandler(async (req, res) => {
       }
     }
 
-    // Release escrow and distribute funds (this handles all wallet credits)
-    try {
-      const { releaseEscrow } = await import('../services/escrowWalletService.js');
-      await releaseEscrow(orderMongoId);
-
-    } catch (escrowError) {
-      console.error(`❌ Error releasing escrow for order ${orderIdForLog}:`, escrowError);
-      // Continue with legacy wallet update as fallback
-    }
-
-    // Calculate delivery earnings based on admin's commission rules
-    // Get delivery distance (in km) from order
+    // 1. Calculate delivery earnings based on latest data (ensure correct partner is in settlement)
     let deliveryDistance = 0;
     let settlement = null;
 
-    // Priority 1: Use canonical order-time assignment distance for payout consistency.
     if (order.assignmentInfo?.distance &&
       Number.isFinite(order.assignmentInfo.distance) &&
       order.assignmentInfo.distance >= 0 &&
       order.assignmentInfo.distance <= 50) {
       deliveryDistance = order.assignmentInfo.distance;
     }
-    // Priority 2: Use measured road route distance when canonical distance is missing.
     else if (order.deliveryState?.routeToDelivery?.distance &&
       Number.isFinite(order.deliveryState.routeToDelivery.distance) &&
       order.deliveryState.routeToDelivery.distance > 0 &&
       order.deliveryState.routeToDelivery.distance <= 50) {
       deliveryDistance = order.deliveryState.routeToDelivery.distance;
     }
-    // Priority 3: Calculate distance from restaurant to customer if coordinates available
-    else if (order.restaurantId?.location?.coordinates && order.address?.location?.coordinates) {
-      const [restaurantLng, restaurantLat] = order.restaurantId.location.coordinates;
-      const [customerLng, customerLat] = order.address.location.coordinates;
 
-      // Sanity check: If coordinates are [0,0], use distance 0 to avoid massive payouts
-      if (restaurantLng === 0 && restaurantLat === 0 || customerLng === 0 && customerLat === 0) {
-        console.warn(`⚠️ Invalid coordinates [0,0] detected for order ${orderIdForLog}. Using 0 distance fallback.`);
-        deliveryDistance = 0;
-      } else {
-        // Calculate distance using Haversine formula
-        const R = 6371; // Earth radius in km
-        const dLat = (customerLat - restaurantLat) * Math.PI / 180;
-        const dLng = (customerLng - restaurantLng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(restaurantLat * Math.PI / 180) * Math.cos(customerLat * Math.PI / 180) *
-          Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        deliveryDistance = R * c;
-      }
+    try {
+      const { calculateOrderSettlement } = await import('../services/orderSettlementService.js');
+      settlement = await calculateOrderSettlement(orderMongoId);
+    } catch (settlementError) {
+      console.error('⚠️ Error calculating settlement before escrow release:', settlementError.message);
     }
 
-    // Safety Cap: If distance is unreasonably high (e.g. > 50km), cap it or use fallback
-    // This prevents massive payouts if something goes wrong with GPS or route service
-    if (deliveryDistance > 50) {
-      console.warn(`⚠️ Extremely high distance detected: ${deliveryDistance.toFixed(2)} km. Capping to 0 for safety (requires manual review).`);
-      deliveryDistance = 0; // Better to pay base fee only then thousands by mistake
+    // 2. Release escrow and distribute funds (now uses updated settlement)
+    try {
+      const { releaseEscrow } = await import('../services/escrowWalletService.js');
+      await releaseEscrow(orderMongoId);
+    } catch (escrowError) {
+      console.error(`❌ Error releasing escrow for order ${orderIdForLog}:`, escrowError);
     }
 
-
-
-    // Calculate earnings using OrderSettlement (this is the single source of truth)
+    // 3. Background sync and other updates
     let totalEarning = 0;
     let commissionBreakdown = null;
 
     try {
-      // Re-calculate settlement to ensure delivery partner info and latest distance are factored in
-
-      const { calculateOrderSettlement } = await import('../services/orderSettlementService.js');
-      settlement = await calculateOrderSettlement(orderMongoId);
-
       if (settlement && settlement.deliveryPartnerEarning) {
         totalEarning = settlement.deliveryPartnerEarning.totalEarning || 0;
         if (typeof settlement.deliveryPartnerEarning.distance === 'number') {
@@ -2503,10 +2462,7 @@ export const completeDelivery = asyncHandler(async (req, res) => {
         }
 
         // Construct breakdown for UI from settlement data
-        // Note: settlement.deliveryPartnerEarning.totalEarning already includes tips
         const tipAmount = Number(order.pricing?.tip) || 0;
-        // Important: totalEarning from settlement includes tips.
-        // We subtract it here because the subsequent code adds tips as a separate transaction.
         totalEarning = (settlement.deliveryPartnerEarning.totalEarning || 0) - tipAmount;
 
         commissionBreakdown = {
@@ -2516,7 +2472,6 @@ export const completeDelivery = asyncHandler(async (req, res) => {
           distanceCommission: settlement.deliveryPartnerEarning.distanceCommission || 0,
           total: totalEarning
         };
-
 
       } else {
         throw new Error('Settlement calculation failed');

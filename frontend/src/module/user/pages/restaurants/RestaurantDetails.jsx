@@ -75,6 +75,7 @@ export default function RestaurantDetails() {
   const [showMenuSheet, setShowMenuSheet] = useState(false);
   const [showSearch, setShowSearch] = useState(!!searchParams.get('search'));
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "");
+  const [highlightedItemId, setHighlightedItemId] = useState(null);
   const [showMenuOptionsSheet, setShowMenuOptionsSheet] = useState(false);
   const [expandedAddButtons, setExpandedAddButtons] = useState(new Set());
   const [expandedSections, setExpandedSections] = useState(new Set([0])); // Default: Recommended section is expanded
@@ -765,6 +766,84 @@ export default function RestaurantDetails() {
     setQuantities(cartQuantities);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurant?.name, cart]);
+
+  // Handle auto-expansion, highlighting and smooth scrolling when navigating to a specific dish
+  useEffect(() => {
+    if (!restaurant?.menuSections || restaurant.menuSections.length === 0) return;
+
+    const dishQuery = searchParams.get('dish');
+    if (!dishQuery) return;
+
+    let matchedSectionIndex = -1;
+    let matchedSubsectionKey = null;
+    let matchedItemId = null;
+
+    const normalizedQuery = dishQuery.toLowerCase().trim();
+
+    for (let i = 0; i < restaurant.menuSections.length; i++) {
+      const section = restaurant.menuSections[i];
+      const items = section.items || [];
+
+      // Check direct items
+      let foundItem = items.find(item => item.name?.toLowerCase().includes(normalizedQuery));
+
+      // Check subsections if not found in direct items
+      if (!foundItem && section.subsections) {
+        for (let subIdx = 0; subIdx < section.subsections.length; subIdx++) {
+          const sub = section.subsections[subIdx];
+          foundItem = (sub.items || []).find(item => item.name?.toLowerCase().includes(normalizedQuery));
+          if (foundItem) {
+            matchedSubsectionKey = `${i}-${subIdx}`;
+            break;
+          }
+        }
+      }
+
+      if (foundItem) {
+        matchedSectionIndex = i;
+        matchedItemId = foundItem.id || foundItem._id;
+        break;
+      }
+    }
+
+    if (matchedSectionIndex !== -1) {
+      // Ensure the section and subsection are expanded
+      setExpandedSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(matchedSectionIndex);
+        if (matchedSubsectionKey) {
+          newSet.add(matchedSubsectionKey);
+        }
+        return newSet;
+      });
+
+      // Highlight the item
+      if (matchedItemId) {
+        setHighlightedItemId(matchedItemId);
+        setTimeout(() => {
+          setHighlightedItemId(null);
+        }, 3000);
+      }
+
+      // Scroll to the item (or section as fallback) after DOM updates
+      setTimeout(() => {
+        let scrollTarget = null;
+        if (matchedItemId) {
+          scrollTarget = document.getElementById(`dish-${matchedItemId}`);
+        }
+        if (!scrollTarget) {
+          scrollTarget = document.getElementById(`menu-section-${matchedSectionIndex}`);
+        }
+
+        if (scrollTarget) {
+          scrollTarget.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 600); // Give enough time for rendering and state updates
+    }
+  }, [restaurant?.menuSections, searchParams]);
 
   // Prevent body scroll when variant modal is open
   useEffect(() => {
@@ -1784,7 +1863,8 @@ export default function RestaurantDetails() {
                         return (
                           <div
                             key={item.id}
-                            className="flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer"
+                            id={`dish-${item.id || item._id}`}
+                            className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-500 ${highlightedItemId === (item.id || item._id) ? 'bg-green-50/50 dark:bg-green-900/10 ring-2 ring-green-500/50 rounded-2xl shadow-sm' : ''}`}
                             onClick={() => handleItemClick(item)}>
 
                             {/* Left Side - Details */}
@@ -1999,7 +2079,8 @@ export default function RestaurantDetails() {
                                   return (
                                     <div
                                       key={item.id}
-                                      className="flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer"
+                                      id={`dish-${item.id || item._id}`}
+                                      className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-500 ${highlightedItemId === (item.id || item._id) ? 'bg-green-50/50 dark:bg-green-900/10 ring-2 ring-green-500/50 rounded-2xl shadow-sm' : ''}`}
                                       onClick={() => handleItemClick(item)}>
 
                                       {/* Left Side - Details */}

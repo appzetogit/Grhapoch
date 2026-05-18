@@ -28,8 +28,7 @@ const parseIntEnv = (value, fallback) => {
 // Test phone numbers that should use default OTP
 const TEST_PHONE_NUMBERS = [
   '919691967116',
-  '9691967116'
-];
+  '9691967116'];
 
 /**
  * Check if a phone number is a test number

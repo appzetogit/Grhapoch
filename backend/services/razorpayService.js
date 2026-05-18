@@ -6,10 +6,17 @@ import { getRazorpayCredentials } from '../utils/envService.js';
 
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
   transports: [
     new winston.transports.Console({
       format: winston.format.simple()
+    }),
+    new winston.transports.File({
+      filename: 'razorpay-errors.log',
+      level: 'error'
     })
   ]
 });

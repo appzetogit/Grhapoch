@@ -798,7 +798,7 @@ export default function CategoryPage() {
                     return (
                       <Link
                         key={restaurant.id}
-                        to={`/user/restaurants/${restaurantSlug}${restaurant.categoryDishName ? `?search=${encodeURIComponent(restaurant.categoryDishName)}` : ''}`}
+                        to={`/user/restaurants/${restaurantSlug}${restaurant.categoryDishName ? `?dish=${encodeURIComponent(restaurant.categoryDishName)}` : ''}`}
                         className="h-full flex">
                         <Card className={`overflow-hidden cursor-pointer gap-0 border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] shadow-md hover:shadow-xl transition-all duration-300 py-0 rounded-md h-full flex flex-col w-full ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`
                         }>

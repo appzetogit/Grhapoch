@@ -102,31 +102,6 @@ export default function SystemAddons() {
     }
   }
 
-  const InputField = ({ label, fieldKey, type = "text", placeholder = "" }) => {
-    return (
-      <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-slate-700">{label}</label>
-        {type === "textarea" ? (
-          <textarea
-            value={envData[fieldKey] || ""}
-            onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-            placeholder={placeholder || `Enter ${label}`}
-            rows={4}
-            className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm resize-y"
-          />
-        ) : (
-          <input
-            type={type}
-            value={envData[fieldKey] || ""}
-            onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-            placeholder={placeholder || `Enter ${label}`}
-            className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
-          />
-        )}
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="p-4 lg:p-6 bg-slate-50 min-h-screen flex items-center justify-center">
@@ -181,8 +156,8 @@ export default function SystemAddons() {
               Razorpay Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="Razorpay API Key" fieldKey="RAZORPAY_API_KEY" />
-              <InputField label="Razorpay Secret Key" fieldKey="RAZORPAY_SECRET_KEY" type="password" />
+              <InputField label="Razorpay API Key" fieldKey="RAZORPAY_API_KEY" envData={envData} onChange={handleInputChange} />
+              <InputField label="Razorpay Secret Key" fieldKey="RAZORPAY_SECRET_KEY" type="password" envData={envData} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -195,9 +170,9 @@ export default function SystemAddons() {
               Cloudinary Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <InputField label="Cloudinary Cloud Name" fieldKey="CLOUDINARY_CLOUD_NAME" />
-              <InputField label="Cloudinary API Key" fieldKey="CLOUDINARY_API_KEY" />
-              <InputField label="Cloudinary API Secret" fieldKey="CLOUDINARY_API_SECRET" type="password" />
+              <InputField label="Cloudinary Cloud Name" fieldKey="CLOUDINARY_CLOUD_NAME" envData={envData} onChange={handleInputChange} />
+              <InputField label="Cloudinary API Key" fieldKey="CLOUDINARY_API_KEY" envData={envData} onChange={handleInputChange} />
+              <InputField label="Cloudinary API Secret" fieldKey="CLOUDINARY_API_SECRET" type="password" envData={envData} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -210,20 +185,22 @@ export default function SystemAddons() {
               Firebase Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="Firebase API Key" fieldKey="FIREBASE_API_KEY" />
-              <InputField label="Firebase Auth Domain" fieldKey="FIREBASE_AUTH_DOMAIN" />
-              <InputField label="Firebase Storage Bucket" fieldKey="FIREBASE_STORAGE_BUCKET" />
-              <InputField label="Firebase Messaging Sender ID" fieldKey="FIREBASE_MESSAGING_SENDER_ID" />
-              <InputField label="Firebase App ID" fieldKey="FIREBASE_APP_ID" />
-              <InputField label="Measurement ID" fieldKey="MEASUREMENT_ID" />
-              <InputField label="Firebase Project ID" fieldKey="FIREBASE_PROJECT_ID" />
-              <InputField label="Firebase Client Email" fieldKey="FIREBASE_CLIENT_EMAIL" type="email" />
+              <InputField label="Firebase API Key" fieldKey="FIREBASE_API_KEY" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase Auth Domain" fieldKey="FIREBASE_AUTH_DOMAIN" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase Storage Bucket" fieldKey="FIREBASE_STORAGE_BUCKET" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase Messaging Sender ID" fieldKey="FIREBASE_MESSAGING_SENDER_ID" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase App ID" fieldKey="FIREBASE_APP_ID" envData={envData} onChange={handleInputChange} />
+              <InputField label="Measurement ID" fieldKey="MEASUREMENT_ID" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase Project ID" fieldKey="FIREBASE_PROJECT_ID" envData={envData} onChange={handleInputChange} />
+              <InputField label="Firebase Client Email" fieldKey="FIREBASE_CLIENT_EMAIL" type="email" envData={envData} onChange={handleInputChange} />
               <div className="md:col-span-2">
                 <InputField 
                   label="Firebase Private Key" 
                   fieldKey="FIREBASE_PRIVATE_KEY" 
                   type="textarea"
                   placeholder="Enter Firebase Private Key (can be multiline)"
+                  envData={envData}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
@@ -238,10 +215,10 @@ export default function SystemAddons() {
               SMTP Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="SMTP Host" fieldKey="SMTP_HOST" placeholder="smtp.gmail.com" />
-              <InputField label="SMTP Port" fieldKey="SMTP_PORT" type="number" placeholder="587" />
-              <InputField label="SMTP User" fieldKey="SMTP_USER" type="email" />
-              <InputField label="SMTP Password" fieldKey="SMTP_PASS" type="password" />
+              <InputField label="SMTP Host" fieldKey="SMTP_HOST" placeholder="smtp.gmail.com" envData={envData} onChange={handleInputChange} />
+              <InputField label="SMTP Port" fieldKey="SMTP_PORT" type="number" placeholder="587" envData={envData} onChange={handleInputChange} />
+              <InputField label="SMTP User" fieldKey="SMTP_USER" type="email" envData={envData} onChange={handleInputChange} />
+              <InputField label="SMTP Password" fieldKey="SMTP_PASS" type="password" envData={envData} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -254,7 +231,7 @@ export default function SystemAddons() {
               Google Maps Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-              <InputField label="Google Maps API Key" fieldKey="VITE_GOOGLE_MAPS_API_KEY" />
+              <InputField label="Google Maps API Key" fieldKey="VITE_GOOGLE_MAPS_API_KEY" envData={envData} onChange={handleInputChange} />
             </div>
           </div>
 
@@ -267,10 +244,10 @@ export default function SystemAddons() {
               PRP SMS Configuration
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="PRP SMS API Key" fieldKey="PRPSMS_API_KEY" />
-              <InputField label="PRP SMS Sender ID" fieldKey="PRPSMS_SENDER_ID" />
+              <InputField label="PRP SMS API Key" fieldKey="PRPSMS_API_KEY" envData={envData} onChange={handleInputChange} />
+              <InputField label="PRP SMS Sender ID" fieldKey="PRPSMS_SENDER_ID" envData={envData} onChange={handleInputChange} />
               <div className="md:col-span-2">
-                <InputField label="PRP SMS OTP Template" fieldKey="PRPSMS_OTP_TEMPLATE" />
+                <InputField label="PRP SMS OTP Template" fieldKey="PRPSMS_OTP_TEMPLATE" envData={envData} onChange={handleInputChange} />
               </div>
             </div>
           </div>
@@ -279,3 +256,29 @@ export default function SystemAddons() {
     </div>
   )
 }
+
+// Standalone InputField component defined outside of the main component to prevent recreation on every state change (losing focus)
+const InputField = ({ label, fieldKey, envData, onChange, type = "text", placeholder = "" }) => {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-semibold text-slate-700">{label}</label>
+      {type === "textarea" ? (
+        <textarea
+          value={envData[fieldKey] || ""}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          placeholder={placeholder || `Enter ${label}`}
+          rows={4}
+          className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm resize-y"
+        />
+      ) : (
+        <input
+          type={type}
+          value={envData[fieldKey] || ""}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          placeholder={placeholder || `Enter ${label}`}
+          className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
+        />
+      )}
+    </div>
+  );
+};

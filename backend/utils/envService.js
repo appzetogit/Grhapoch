@@ -99,28 +99,12 @@ export function clearEnvCache() {
  * @returns {Promise<Object>} { keyId, keySecret }
  */
 export async function getRazorpayCredentials() {
-  const dbApiKey = normalize(await getEnvVar('RAZORPAY_API_KEY'));
-  const dbSecretKey = normalize(await getEnvVar('RAZORPAY_SECRET_KEY'));
   const envApiKey = normalize(process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY || '');
   const envSecretKey = normalize(process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY || '');
 
-  let keyId = '';
-  if (isLikelyRazorpayKeyId(dbApiKey)) {
-    keyId = dbApiKey;
-  } else if (isLikelyRazorpayKeyId(envApiKey)) {
-    if (dbApiKey) {
-      logger.warn('Ignoring invalid RAZORPAY_API_KEY from DB; falling back to process.env RAZORPAY_KEY_ID');
-    }
-    keyId = envApiKey;
-  } else {
-    keyId = dbApiKey || envApiKey || '';
-  }
-
-  const keySecret = dbSecretKey || envSecretKey || '';
-
   return {
-    keyId,
-    keySecret
+    keyId: envApiKey,
+    keySecret: envSecretKey
   };
 }
 

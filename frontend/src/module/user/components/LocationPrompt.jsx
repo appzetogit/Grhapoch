@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from "react"
-import { MapPin, X } from "lucide-react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { MapPin } from "lucide-react"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useLocation } from "../hooks/useLocation"
+import { useLocationSelector } from "./UserLayout"
 
 export default function LocationPrompt() {
   const { location, loading, permissionGranted, requestLocation } = useLocation()
+  const { openLocationSelector } = useLocationSelector()
   const [showPrompt, setShowPrompt] = useState(false)
   const cardRef = useRef(null)
 
@@ -79,6 +81,13 @@ export default function LocationPrompt() {
     localStorage.setItem("locationPromptDismissed", "true")
   }
 
+  const handleManualLocation = () => {
+    setShowPrompt(false)
+    document.body.style.overflow = ""
+    localStorage.setItem("locationPromptDismissed", "true")
+    openLocationSelector()
+  }
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -92,52 +101,35 @@ export default function LocationPrompt() {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
       <Card
         ref={cardRef}
-        className="w-full max-w-md border-2 border-gray-200 shadow-2xl mx-auto my-auto"
+        className="w-full max-w-sm border border-gray-200 shadow-2xl mx-auto my-auto rounded-[2.5rem]"
       >
-        <CardHeader className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2"
-            onClick={handleDismiss}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <MapPin className="h-6 w-6 text-primary-orange" />
-            </div>
-            <div>
-              <CardTitle>Enable Location Services</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Get faster delivery and better recommendations
-              </p>
+        <div className="px-6 pt-8 pb-7 text-center">
+          <div className="mx-auto h-16 w-16 rounded-full bg-[#f5ecec] flex items-center justify-center mb-5">
+            <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center">
+              <MapPin className="h-5 w-5 text-[#B23B3B]" />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            We use your location to show nearby restaurants and provide accurate
-            delivery times. Your location data is stored locally and never
-            shared.
+          <h2 className="text-xl font-bold text-gray-900">Location Access Required</h2>
+          <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+            We need your location to show you products available near you and enable delivery services. Location access is required to continue.
           </p>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleDismiss}
-              variant="outline"
-              className="flex-1"
-            >
-              Not Now
-            </Button>
+          <div className="mt-6 space-y-3">
             <Button
               onClick={handleAllow}
-              className="flex-1 bg-primary-orange hover:opacity-90 text-white"
+              className="w-full h-12 text-base font-semibold bg-[#B23B3B] hover:bg-[#9f3434] text-white rounded-2xl"
               disabled={loading}
             >
-              {loading ? "Getting location..." : "Allow Location"}
+              {loading ? "Getting location..." : "Allow Location Access"}
+            </Button>
+            <Button
+              onClick={handleManualLocation}
+              className="w-full h-12 text-base font-semibold bg-[#f2f4f7] hover:bg-[#e9edf2] text-gray-700 rounded-2xl"
+              variant="ghost"
+            >
+              Enter Location Manually
             </Button>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   )

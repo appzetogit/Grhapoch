@@ -121,18 +121,18 @@ class OTPService {
       const identifier = normalizedPhone || normalizedEmail;
       const identifierType = normalizedPhone ? 'phone' : 'email';
 
-      // Check rate limiting (max 3 OTPs per identifier per hour) - using MongoDB
+      // Check rate limiting (max 3 OTPs per identifier per 10 mins) - using MongoDB
       if (process.env.NODE_ENV === 'production') {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
         const rateLimitQuery = {
           [identifierType]: identifier,
           purpose,
-          createdAt: { $gte: oneHourAgo }
+          createdAt: { $gte: tenMinsAgo }
         };
 
         const recentOtpCount = await Otp.countDocuments(rateLimitQuery);
         if (recentOtpCount >= 3) {
-          throw new Error('Too many OTP requests. Please try again after some time.');
+          throw new Error('Too many OTP requests. Please try again after 10 minutes.');
         }
       }
 

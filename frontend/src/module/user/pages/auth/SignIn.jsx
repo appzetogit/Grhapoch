@@ -406,6 +406,10 @@ export default function SignIn() {
     setApiError("");
   };
 
+  const handleSkipForNow = () => {
+    navigate("/user");
+  };
+
   return (
     <AnimatedPage className="min-h-screen flex flex-col bg-white dark:bg-[#0a0a0a] !pb-0 md:flex-row">
       <div className="relative md:hidden w-full shrink-0 bg-[#cb202d]" style={{ height: "42vh", minHeight: "320px" }}>
@@ -419,11 +423,20 @@ export default function SignIn() {
 
       <div className="bg-white dark:bg-[#1a1a1a] -mt-10 rounded-t-[2.5rem] md:rounded-t-none relative z-10 p-5 sm:p-6 md:p-8 lg:p-10 md:w-1/2 md:flex md:items-center md:justify-center md:min-h-screen">
         <div className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-2 md:pt-0">
-          <div className="text-center space-y-2 md:space-y-3">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
-              India's #1 Food Delivery and Dining App
-            </h2>
-            <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400">Log in or sign up</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-center space-y-2 md:space-y-3 w-full">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
+                India's #1 Food Delivery and Dining App
+              </h2>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400">Log in or sign up</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSkipForNow}
+              className="px-4 py-2.5 text-sm sm:text-base font-semibold text-white bg-[#E23744] hover:bg-[#d32f3d] rounded-full shadow-sm whitespace-nowrap"
+            >
+              Skip for now
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
@@ -496,12 +509,17 @@ export default function SignIn() {
             </Button>
           </form>
 
+          {/* OR divider temporarily disabled. */}
+          {/*
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-300" /></div>
             <div className="relative flex justify-center"><span className="bg-white dark:bg-[#1a1a1a] px-2 text-sm text-gray-500 dark:text-gray-400">or</span></div>
           </div>
+          */}
 
           <div className="flex justify-center gap-4 md:gap-6">
+            {/* Google sign-in button temporarily disabled. */}
+            {/*
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -514,6 +532,9 @@ export default function SignIn() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
             </button>
+            */}
+            {/* Email/phone toggle button temporarily disabled. */}
+            {/*
             <button
               type="button"
               onClick={handleLoginMethodChange}
@@ -521,6 +542,7 @@ export default function SignIn() {
             >
               {authMethod === "phone" ? <Mail className="h-5 w-5 md:h-6 md:w-6 text-white" /> : <Phone className="h-5 w-5 md:h-6 md:w-6 text-white" />}
             </button>
+            */}
           </div>
 
           <div className="w-full max-w-md mx-auto text-center pt-4 md:pt-6">

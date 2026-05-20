@@ -1,5 +1,7 @@
 // src/context/cart-context.jsx
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { isModuleAuthenticated } from "@/lib/utils/auth"
 
 // Default cart context value to prevent errors during initial render
 const defaultCartContext = {
@@ -49,6 +51,7 @@ const loadCartFromStorage = (storageKey) => {
 };
 
 export function CartProvider({ children }) {
+  const navigate = useNavigate();
   const [cartStorageKey, setCartStorageKey] = useState(() => getCartStorageKey());
   // Safe init (works with SSR and bad JSON)
   const [cart, setCart] = useState(() => loadCartFromStorage(getCartStorageKey()))
@@ -89,6 +92,10 @@ export function CartProvider({ children }) {
   }, [cartStorageKey]);
 
   const addToCart = (item, sourcePosition = null, quantity = 1) => {
+    if (!isModuleAuthenticated("user")) {
+      navigate("/user/auth/sign-in");
+      return false;
+    }
     const newItemRestaurantId = String(item?.restaurantId || "");
     const newItemRestaurantName = item?.restaurant || "";
 

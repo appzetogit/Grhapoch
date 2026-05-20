@@ -1,8 +1,15 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { UtensilsCrossed, Tag, User, Truck } from "lucide-react"
+import { isModuleAuthenticated } from "@/lib/utils/auth"
 
 export default function BottomNavigation() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const handleProfileClick = (event) => {
+    if (isModuleAuthenticated("user")) return
+    event.preventDefault()
+    navigate("/user/auth/sign-in")
+  }
 
   // Check active routes - support both /user/* and /* paths
   const isDining = location.pathname === "/dining" || location.pathname === "/user/dining"
@@ -81,6 +88,7 @@ export default function BottomNavigation() {
         {/* Profile Tab */}
         <Link
           to="/user/profile"
+          onClick={handleProfileClick}
           className={`flex flex-col items-center gap-1.5 px-4 sm:px-5 py-2 transition-all duration-200 relative ${
             isProfile
               ? "text-green-600"

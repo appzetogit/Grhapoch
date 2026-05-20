@@ -51,14 +51,12 @@ const getMockOTPValue = () => {
 };
 
 const isGlobalMockOTPEnabled = () => {
-  // Safety: never allow global mock OTP in production
-  if (process.env.NODE_ENV === 'production') return false;
+  // Warning: Enabled in production as requested for review
   return parseBooleanEnv(process.env.ENABLE_MOCK_OTP, false);
 };
 
 const isMockOTPVerifyEnabled = () => {
-  // Safety: never allow mock OTP verify in production
-  if (process.env.NODE_ENV === 'production') return false;
+  // Warning: Enabled in production as requested for review
   return parseBooleanEnv(process.env.ALLOW_MOCK_OTP_VERIFY, false);
 };
 
@@ -138,7 +136,7 @@ class OTPService {
 
       const useMockOTP =
         isGlobalMockOTPEnabled() ||
-        (process.env.NODE_ENV !== 'production' && isTestPhoneNumber(phone));
+        isTestPhoneNumber(phone);
       let otp = generateOTP();
       if (useMockOTP) {
         otp = getMockOTPValue();
@@ -242,7 +240,6 @@ class OTPService {
       // Allow direct override for test numbers
       const testOtp = ['123456', '110211', getMockOTPValue()].filter(Boolean);
       if (
-        process.env.NODE_ENV !== 'production' &&
         phone &&
         (isTestPhoneNumber(phone) || phone.includes('9691967116')) &&
         testOtp.includes(otp)
@@ -253,10 +250,9 @@ class OTPService {
         };
       }
 
-      // Allow mock OTP validation for test numbers or when explicitly enabled (dev/test only)
+      // Allow mock OTP validation for test numbers or when explicitly enabled
       if (
-        process.env.NODE_ENV !== 'production' &&
-        (isMockOTPVerifyEnabled() || isTestPhoneNumber(phone)) &&
+        (isMockOTPVerifyEnabled() || isTestPhoneNumber(phone) || isGlobalMockOTPEnabled()) &&
         testOtp.includes(otp)
       ) {
         logger.info('Mock OTP verified', {

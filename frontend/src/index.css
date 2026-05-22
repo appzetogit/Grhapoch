@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -130,7 +130,8 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground m-0 min-h-screen;
+    @apply bg-background text-foreground m-0 min-h-screen font-sans;
+    font-family: sans-serif !important;
   }
 }
 

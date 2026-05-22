@@ -850,8 +850,8 @@ export default function Dining() {
                             </Button>
                           </motion.div>
 
-                          {/* Blue Section - Bottom 40% */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-transparent" style={{ height: '40%' }}>
+                          {/* Green Section - Bottom 40% */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-green-600 to-transparent" style={{ height: '40%' }}>
                             <div className="h-full flex flex-col justify-end">
                               <div className="pl-4 sm:pl-5 pb-4 sm:pb-5">
                                 <p className="text-white text-xs sm:text-sm font-medium uppercase tracking-wide mb-1">
@@ -1054,8 +1054,8 @@ export default function Dining() {
                             <Bookmark className={`h-5 w-5 ${favorite ? "fill-gray-800 dark:fill-gray-200 text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
                           </Button>
 
-                          {/* Blue Section - Bottom 40% */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-transparent" style={{ height: '40%' }}>
+                          {/* Green Section - Bottom 40% */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-green-600 to-transparent" style={{ height: '40%' }}>
                             <div className="h-full flex flex-col justify-end">
                               <div className="pl-4 sm:pl-5 pb-4 sm:pb-5">
                                 <p className="text-white text-xs sm:text-sm font-medium uppercase tracking-wide mb-1">

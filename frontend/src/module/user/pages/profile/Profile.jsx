@@ -325,7 +325,14 @@ export default function Profile() {
                   }
                   {userProfile?.phone &&
                     <p className={`text-sm ${hasValidEmail ? 'text-gray-600 dark:text-gray-400' : 'text-black dark:text-white'} mb-3`}>
-                      {userProfile.phone}
+                      {(() => {
+                        const phone = String(userProfile.phone).trim();
+                        if (phone.startsWith('+')) return phone;
+                        if (phone.startsWith('91') && phone.length >= 12) {
+                          return `+91 ${phone.substring(2).trim()}`;
+                        }
+                        return `+${phone}`;
+                      })()}
                     </p>
                   }
                   {!hasValidEmail && !userProfile?.phone &&
@@ -825,30 +832,6 @@ export default function Profile() {
               </motion.div>
             </Link>
 
-            {/* Delete Account */}
-            <motion.div
-              whileHover={{ x: 4, scale: 1.01 }}
-              transition={{ duration: 0.2, type: "spring", stiffness: 300 }}>
-              <Card
-                className="bg-white dark:bg-[#1a1a1a] py-0 rounded-xl shadow-sm border border-red-100 dark:border-red-900/40 cursor-pointer"
-                onClick={() => setDeleteAccountOpen(true)}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <motion.div
-                      className="bg-red-50 dark:bg-red-900/30 rounded-full p-2"
-                      whileHover={{ rotate: 15, scale: 1.1 }}
-                      transition={{ duration: 0.3 }}>
-                      <Power className="h-5 w-5 text-red-500" />
-                    </motion.div>
-                    <span className="text-base font-medium text-red-500">Delete Account</span>
-                  </div>
-                  <motion.div whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
-                    <ChevronRight className="h-5 w-5 text-red-300" />
-                  </motion.div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
             {/* Log Out */}
             <motion.div
               whileHover={{ x: 4, scale: 1.01 }}
@@ -870,6 +853,30 @@ export default function Profile() {
                   </div>
                   <motion.div whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
                     <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Delete Account */}
+            <motion.div
+              whileHover={{ x: 4, scale: 1.01 }}
+              transition={{ duration: 0.2, type: "spring", stiffness: 300 }}>
+              <Card
+                className="bg-white dark:bg-[#1a1a1a] py-0 rounded-xl shadow-sm border border-red-100 dark:border-red-900/40 cursor-pointer"
+                onClick={() => setDeleteAccountOpen(true)}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      className="bg-red-50 dark:bg-red-900/30 rounded-full p-2"
+                      whileHover={{ rotate: 15, scale: 1.1 }}
+                      transition={{ duration: 0.3 }}>
+                      <Power className="h-5 w-5 text-red-500" />
+                    </motion.div>
+                    <span className="text-base font-medium text-red-500">Delete Account</span>
+                  </div>
+                  <motion.div whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
+                    <ChevronRight className="h-5 w-5 text-red-300" />
                   </motion.div>
                 </CardContent>
               </Card>

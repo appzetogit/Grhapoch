@@ -45,6 +45,8 @@ export default function PageNavbar({
 
   // Auto-trigger location fetch if we have placeholder values (only once on mount)
   useEffect(() => {
+    // Location fetch commented out to prevent automatic popup
+    /*
     if (location &&
       !loading &&
       requestLocation &&
@@ -68,6 +70,7 @@ export default function PageNavbar({
 
       return () => clearTimeout(timeoutId)
     }
+    */
   }, []) // Only run once on mount
 
   // Load business settings logo

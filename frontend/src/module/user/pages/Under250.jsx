@@ -428,7 +428,7 @@ export default function Under250() {
 
       {/* Banner Section */}
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 mt-3 sm:mt-5 pt-16 sm:pt-20">
-        <div className="relative w-full overflow-hidden min-h-[30vh] lg:min-h-[40vh] rounded-2xl sm:rounded-3xl shadow-sm ring-1 ring-black/5">
+        <div className="relative w-full overflow-hidden h-40 sm:h-48 md:h-64 lg:h-72 xl:h-80 rounded-2xl sm:rounded-3xl shadow-sm ring-1 ring-black/5">
           {/* Banner Image */}
           {bannerImage &&
             <div className="absolute inset-0 z-0">

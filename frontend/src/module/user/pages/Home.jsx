@@ -2026,7 +2026,7 @@ export default function Home() {
                       style={{ perspective: 1000 }}>
 
                       <motion.div
-                        className="h-full"
+                        className="h-full rounded-[28px]"
                         whileHover="hover"
                         initial="rest"
                         variants={{
@@ -2053,10 +2053,10 @@ export default function Home() {
                         }}>
 
                         <Link to={`/user/restaurants/${restaurantSlug}`} className="h-full flex">
-                          <Card className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-md flex flex-col h-full w-full relative ${isOutOfService ? 'grayscale opacity-75' : ''}`
+                          <Card className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-[28px] shadow-sm flex flex-col h-full w-full relative ${isOutOfService ? 'grayscale opacity-75' : ''}`
                           }>
                             {/* Image Section with Carousel */}
-                            <div className="relative">
+                            <div className="relative rounded-t-[28px] overflow-hidden">
                               <RestaurantImageCarousel
                                 images={restaurant.images || [restaurant.image]}
                                 restaurantName={restaurant.name}
@@ -2073,9 +2073,8 @@ export default function Home() {
                                 }}
                                 transition={{ duration: 0.3 }}>
 
-                                <div className="bg-gray-800/90 backdrop-blur-sm text-white px-2 py-1 md:px-4 md:py-1.5 rounded-md text-xs font-medium flex items-center gap-2 shadow-lg">
-                                  <FoodTypeIcon isVeg={restaurant.isVeg} size="sm" />
-                                  <span>{restaurant.featuredDish} · ₹{restaurant.featuredPrice}</span>
+                                <div className="bg-black/70 backdrop-blur-md text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs font-medium flex items-center shadow-lg">
+                                  <span>{restaurant.featuredDish} • ₹{restaurant.featuredPrice}</span>
                                 </div>
                               </motion.div>
 
@@ -2092,13 +2091,13 @@ export default function Home() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={handleToggleFavorite}
-                                  className={`h-9 w-9 md:h-11 md:w-11 rounded-full border flex items-center justify-center transition-all duration-300 ${favorite ?
-                                    "border-red-500 bg-red-50 text-red-500" :
-                                    "border-white bg-white/90 text-gray-600 hover:bg-white"}`
+                                  className={`h-9 w-9 md:h-11 md:w-11 rounded-full flex items-center justify-center transition-all duration-300 ${favorite ?
+                                    "bg-red-50 text-red-500 border border-red-500" :
+                                    "bg-white/90 text-gray-600 hover:bg-white"}`
                                   }>
 
-                                  <Heart
-                                    className={`h-5 w-5 lg:h-6 lg:w-6 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
+                                  <Bookmark
+                                    className={`h-4 w-4 lg:h-5 lg:w-5 transition-all duration-300 ${favorite ? "fill-red-500 text-red-500" : ""}`
                                     } />
                                 </Button>
                               </motion.div>
@@ -2113,12 +2112,12 @@ export default function Home() {
                               }}
                               transition={{ duration: 0.4, ease: "easeOut" }}>
 
-                              <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
+                              <CardContent className="p-4 sm:p-5 lg:p-6 flex flex-col flex-grow">
                                 {/* Restaurant Name & Rating */}
                                 <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
                                   <div className="flex-1 min-w-0">
                                     <motion.h3
-                                      className="text-md sm:text-md lg:text-xl font-bold text-gray-900 dark:text-white line-clamp-1 lg:line-clamp-2"
+                                      className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white line-clamp-1 lg:line-clamp-2"
                                       variants={{
                                         rest: {},
                                         hover: { color: "rgb(34, 197, 94)" }
@@ -2129,7 +2128,7 @@ export default function Home() {
                                     </motion.h3>
                                   </div>
                                   <motion.div
-                                    className="flex-shrink-0 bg-green-600 text-white px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg flex items-center gap-1"
+                                    className="flex-shrink-0 bg-green-600 text-white px-3 py-1.5 lg:px-4 lg:py-2 rounded-full flex items-center gap-1.5"
                                     variants={{
                                       rest: { scale: 1, rotate: 0 },
                                       hover: { scale: 1.1, rotate: 5 }
@@ -2137,45 +2136,54 @@ export default function Home() {
                                     transition={{ duration: 0.3, type: "spring", stiffness: 400 }}>
 
                                     <span className="text-sm lg:text-base font-bold">{restaurant.rating}</span>
-                                    <Star className="h-3 w-3 lg:h-4 lg:w-4 fill-white text-white" />
+                                    <Star className="h-3.5 w-3.5 lg:h-4 lg:w-4 fill-white text-white" />
                                   </motion.div>
                                 </div>
 
-                                {/* Delivery Time & Distance */}
-                                <motion.div
-                                  className="flex items-center gap-1 text-sm lg:text-base text-gray-500 dark:text-gray-400 mb-2 lg:mb-3"
-                                  variants={{
-                                    rest: { opacity: 0.7 },
-                                    hover: { opacity: 1 }
-                                  }}
-                                  transition={{ duration: 0.3 }}>
+                                {/* Status Pills */}
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="bg-green-600 text-white text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                                    OPEN NOW
+                                  </div>
+                                </div>
 
-                                  <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
-                                  <span className="font-medium text-gray-700 dark:text-gray-200">{restaurant.deliveryTime}</span>
-                                  <span className="mx-1 text-gray-400">|</span>
-                                  <span className="font-medium text-gray-700 dark:text-gray-200">{restaurant.distance}</span>
-                                </motion.div>
-
-                                {/* Offer Badge */}
-                                {restaurant.offer &&
+                                {/* Delivery Info & Offers - Single Line */}
+                                <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 mt-auto">
                                   <motion.div
-                                    className="flex items-center gap-2 text-sm lg:text-base mt-auto"
+                                    className="flex items-center gap-1.5 text-sm lg:text-base text-gray-500 dark:text-gray-400"
                                     variants={{
-                                      rest: { x: 0 },
-                                      hover: { x: 4 }
+                                      rest: { opacity: 0.8 },
+                                      hover: { opacity: 1 }
                                     }}
                                     transition={{ duration: 0.3 }}>
 
-                                    <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black dark:text-green-500" strokeWidth={2} />
-                                    <span className="text-gray-700 dark:text-gray-200 font-medium">{restaurant.offer}</span>
+                                    <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-gray-400" strokeWidth={1.5} />
+                                    <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">{restaurant.deliveryTime}</span>
+                                    <span className="mx-0.5 text-gray-300">|</span>
+                                    <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">{restaurant.distance}</span>
                                   </motion.div>
-                                }
+
+                                  {/* Offer Badge */}
+                                  {restaurant.offer &&
+                                    <motion.div
+                                      className="flex items-center gap-1.5 text-sm lg:text-base"
+                                      variants={{
+                                        rest: { x: 0 },
+                                        hover: { x: 4 }
+                                      }}
+                                      transition={{ duration: 0.3 }}>
+
+                                      <BadgePercent className="h-4 w-4 lg:h-5 lg:w-5 text-black dark:text-green-500" strokeWidth={2} />
+                                      <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">{restaurant.offer}</span>
+                                    </motion.div>
+                                  }
+                                </div>
                               </CardContent>
                             </motion.div>
 
                             {/* Border Glow Effect */}
                             <motion.div
-                              className="absolute inset-0 rounded-md pointer-events-none z-0"
+                              className="absolute inset-0 rounded-[28px] pointer-events-none z-0"
                               variants={{
                                 rest: {
                                   boxShadow: "inset 0 0 0 0px rgba(34, 197, 94, 0)",

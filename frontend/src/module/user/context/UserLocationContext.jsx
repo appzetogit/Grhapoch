@@ -304,10 +304,20 @@ export const UserLocationProvider = ({ children }) => {
         }
       }
 
-      // 2. Fallback to GPS
+      // 2. Fallback to Default Location (Indore)
       try {
-        // Commented out to prevent automatic location popup
-        // await requestLocation(false);
+        setLocation({
+          latitude: 22.7196,
+          longitude: 75.8577,
+          city: "Indore",
+          state: "Madhya Pradesh",
+          country: "India",
+          area: "Indore",
+          address: "Indore, Madhya Pradesh",
+          formattedAddress: "Indore, Madhya Pradesh, India",
+          label: "Default Location"
+        });
+        setLoading(false);
       } catch (err) {
         setLoading(false);
       }

@@ -424,6 +424,7 @@ export default function SignIn() {
 
   return (
     <AnimatedPage className="min-h-screen flex flex-col bg-white dark:bg-[#0a0a0a] !pb-0 md:flex-row">
+      {/* TODO: Revert to height: "42vh", minHeight: "320px" after iOS app is approved */}
       <div className="relative md:hidden w-full shrink-0 bg-[#cb202d]" style={{ height: "30vh", minHeight: "220px" }}>
         <img src={loginBanner} alt="Food Banner" className="w-full h-full object-cover object-center" />
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Upload, X, Check, Camera, Image, RefreshCw } from "lucide-react"
+import { ArrowLeft, Upload, X, Check, Camera, Image as ImageIcon, RefreshCw } from "lucide-react"
 import { deliveryAPI } from "@/lib/api"
 import apiClient from "@/lib/api/axios"
 import { toast } from "sonner"
@@ -76,7 +76,7 @@ const DocumentUpload = ({ docType, label, required = true, uploadedDocs, uploadi
                 className="flex flex-col items-center justify-center gap-2 group"
               >
                 <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:border-green-500 group-hover:bg-green-50 transition-all group-active:scale-95">
-                  <Image className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
+                  <ImageIcon className="w-8 h-8 text-gray-600 group-hover:text-green-600" />
                 </div>
                 <span className="text-xs font-semibold text-gray-600 group-hover:text-green-600 uppercase tracking-wider">Gallery</span>
               </button>

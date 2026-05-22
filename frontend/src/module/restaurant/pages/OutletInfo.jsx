@@ -1135,7 +1135,7 @@ export default function OutletInfo() {
               className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all border border-gray-100 group"
             >
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-600 transition-colors">
-                <Image className="h-6 w-6 text-green-600 group-hover:text-white transition-colors" />
+                <ImageIcon className="h-6 w-6 text-green-600 group-hover:text-white transition-colors" />
               </div>
               <div className="text-left">
                 <div className="text-base font-semibold text-gray-900">Files & Gallery</div>

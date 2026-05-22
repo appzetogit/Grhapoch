@@ -306,7 +306,8 @@ export const UserLocationProvider = ({ children }) => {
 
       // 2. Fallback to GPS
       try {
-        await requestLocation(false);
+        // Commented out to prevent automatic location popup
+        // await requestLocation(false);
       } catch (err) {
         setLoading(false);
       }

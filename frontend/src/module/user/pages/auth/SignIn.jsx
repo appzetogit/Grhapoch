@@ -422,21 +422,12 @@ export default function SignIn() {
       </div>
 
       <div className="bg-white dark:bg-[#1a1a1a] -mt-10 rounded-t-[2.5rem] md:rounded-t-none relative z-10 p-5 sm:p-6 md:p-8 lg:p-10 md:w-1/2 md:flex md:items-center md:justify-center md:min-h-screen">
-        <div className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-2 md:pt-0">
-          <div className="flex items-start justify-between gap-4">
-            <div className="text-center space-y-2 md:space-y-3 w-full">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
-                India's #1 Food Delivery and Dining App
-              </h2>
-              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400">Log in or sign up</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleSkipForNow}
-              className="px-4 py-2.5 text-sm sm:text-base font-semibold text-white bg-[#E23744] hover:bg-[#d32f3d] rounded-full shadow-sm whitespace-nowrap"
-            >
-              Skip for now
-            </button>
+        <div className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-6 md:pt-0">
+          <div className="text-center space-y-2 md:space-y-3 w-full">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
+              India's #1 Food Delivery and Dining App
+            </h2>
+            <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400">Log in or sign up</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
@@ -500,13 +491,25 @@ export default function SignIn() {
               <label htmlFor="rememberMe" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">Remember my login for faster sign-in</label>
             </div>
 
-            <Button
-              type="submit"
-              className={`w-full h-12 md:h-14 font-bold text-base md:text-lg rounded-lg ${canContinue && !isLoading ? "bg-[#E23744] hover:bg-[#d32f3d] text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
-              disabled={!canContinue || isLoading}
-            >
-              {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isSignUp ? "Creating Account..." : "Signing In..."}</> : "Continue"}
-            </Button>
+            <div className="space-y-4 pt-2">
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleSkipForNow}
+                  className="px-6 py-2 text-sm font-semibold rounded-full bg-[#E23744] text-white hover:bg-[#d32f3d] transition-colors shadow-sm"
+                >
+                  Skip for now
+                </button>
+              </div>
+
+              <Button
+                type="submit"
+                className={`w-full h-12 md:h-14 font-bold text-base md:text-lg rounded-lg ${canContinue && !isLoading ? "bg-[#E23744] hover:bg-[#d32f3d] text-white" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+                disabled={!canContinue || isLoading}
+              >
+                {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isSignUp ? "Creating Account..." : "Signing In..."}</> : "Continue"}
+              </Button>
+            </div>
           </form>
 
           {/* OR divider temporarily disabled. */}

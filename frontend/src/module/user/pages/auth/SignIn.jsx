@@ -39,6 +39,18 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const redirectHandledRef = useRef(false);
+  const formContainerRef = useRef(null);
+
+  const handleInputFocus = () => {
+    // Scroll the form up when input is focused (mostly for mobile keyboards)
+    setTimeout(() => {
+      if (formContainerRef.current) {
+        formContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        window.scrollTo({ top: window.innerHeight / 2, behavior: "smooth" });
+      }
+    }, 300);
+  };
 
   const markGoogleAuthPending = () => {
     googleAuthPendingFallback = true;
@@ -422,7 +434,7 @@ export default function SignIn() {
       </div>
 
       <div className="bg-white dark:bg-[#1a1a1a] -mt-10 rounded-t-[2.5rem] md:rounded-t-none relative z-10 p-5 sm:p-6 md:p-8 lg:p-10 md:w-1/2 md:flex md:items-center md:justify-center md:min-h-screen">
-        <div className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-6 md:pt-0">
+        <div ref={formContainerRef} className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-6 md:pt-0">
           <div className="text-center space-y-2 md:space-y-3 w-full">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
               India's #1 Food Delivery and Dining App
@@ -439,6 +451,7 @@ export default function SignIn() {
                   placeholder="Enter your full name"
                   value={formData.name}
                   onChange={handleChange}
+                  onFocus={handleInputFocus}
                   className={`text-base md:text-lg h-12 md:h-14 bg-white dark:bg-[#1a1a1a] text-black dark:text-white ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-700"}`}
                 />
                 {errors.name && <div className="flex items-center gap-1 text-xs text-red-600"><AlertCircle className="h-3 w-3" /><span>{errors.name}</span></div>}
@@ -458,6 +471,7 @@ export default function SignIn() {
                     placeholder="Enter Phone Number"
                     value={formData.phone}
                     onChange={handleChange}
+                    onFocus={handleInputFocus}
                     className={`flex-1 h-12 md:h-14 text-base md:text-lg bg-white dark:bg-[#1a1a1a] text-black dark:text-white border-gray-300 dark:border-gray-700 rounded-lg ${errors.phone ? "border-red-500" : ""}`}
                   />
                 </div>
@@ -473,6 +487,7 @@ export default function SignIn() {
                   placeholder="Enter your email address"
                   value={formData.email}
                   onChange={handleChange}
+                  onFocus={handleInputFocus}
                   className={`w-full h-12 md:h-14 text-base md:text-lg bg-white dark:bg-[#1a1a1a] text-black dark:text-white border-gray-300 dark:border-gray-700 rounded-lg ${errors.email ? "border-red-500" : ""}`}
                 />
                 {errors.email && <div className="flex items-center gap-1 text-xs text-red-600"><AlertCircle className="h-3 w-3" /><span>{errors.email}</span></div>}

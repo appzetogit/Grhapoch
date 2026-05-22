@@ -424,7 +424,7 @@ export default function SignIn() {
 
   return (
     <AnimatedPage className="min-h-screen flex flex-col bg-white dark:bg-[#0a0a0a] !pb-0 md:flex-row">
-      <div className="relative md:hidden w-full shrink-0 bg-[#cb202d]" style={{ height: "42vh", minHeight: "320px" }}>
+      <div className="relative md:hidden w-full shrink-0 bg-[#cb202d]" style={{ height: "30vh", minHeight: "220px" }}>
         <img src={loginBanner} alt="Food Banner" className="w-full h-full object-cover object-center" />
       </div>
 
@@ -433,8 +433,8 @@ export default function SignIn() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-transparent" />
       </div>
 
-      <div className="bg-white dark:bg-[#1a1a1a] -mt-10 rounded-t-[2.5rem] md:rounded-t-none relative z-10 p-5 sm:p-6 md:p-8 lg:p-10 md:w-1/2 md:flex md:items-center md:justify-center md:min-h-screen">
-        <div ref={formContainerRef} className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-6 md:pt-0">
+      <div className="bg-white dark:bg-[#1a1a1a] -mt-10 rounded-t-[2.5rem] md:rounded-t-none relative z-10 p-5 sm:p-6 md:p-8 lg:p-10 md:w-1/2 md:flex md:items-center md:justify-center flex-1">
+        <div ref={formContainerRef} className="max-w-md lg:max-w-lg xl:max-w-xl mx-auto space-y-6 md:space-y-8 lg:space-y-10 w-full pt-6 md:pt-0 pb-12">
           <div className="text-center space-y-2 md:space-y-3 w-full">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white leading-tight">
               India's #1 Food Delivery and Dining App

@@ -19,7 +19,6 @@ import {
   Info,
   PenSquare,
   AlertTriangle,
-  Settings as SettingsIcon,
   Power,
   ShoppingCart,
   Heart,
@@ -804,6 +803,7 @@ export default function Profile() {
               </motion.div>
             </Link>
 
+            {/*
             <Link to="/user/profile/settings" className="block">
               <motion.div
                 whileHover={{ x: 4, scale: 1.01 }}
@@ -831,6 +831,7 @@ export default function Profile() {
                 </Card>
               </motion.div>
             </Link>
+            */}
 
             {/* Log Out */}
             <motion.div

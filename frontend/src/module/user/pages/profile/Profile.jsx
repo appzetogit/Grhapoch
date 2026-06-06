@@ -499,7 +499,7 @@ export default function Profile() {
             </motion.div>
           </Link>
 
-          <Link to="/user/profile/advertisements" className="block">
+          {/* <Link to="/user/profile/advertisements" className="block">
             <motion.div
               whileHover={{ x: 4, scale: 1.01 }}
               transition={{ duration: 0.2, type: "spring", stiffness: 300 }}>
@@ -525,7 +525,7 @@ export default function Profile() {
                 </CardContent>
               </Card>
             </motion.div>
-          </Link>
+          </Link> */}
 
           <motion.div
             whileHover={{ x: 4, scale: 1.01 }}

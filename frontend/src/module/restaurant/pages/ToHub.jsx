@@ -2092,7 +2092,7 @@ export default function ToHub() {
       </div>
 
       {/* Subscription Banner based on Business Model */}
-      {restaurantData?.subscription?.status !== 'active' ?
+      {false && (restaurantData?.subscription?.status !== 'active' ?
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -2222,7 +2222,7 @@ export default function ToHub() {
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </motion.div>
-      }
+      )}
 
       {pendingDiningRequests > 0 && (
         <motion.button
